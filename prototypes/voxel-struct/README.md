@@ -2,9 +2,9 @@
 
 A self-contained, single-file browser prototype of the build-and-analyse loop: players place structural items on a 3D voxel grid, run a structural analysis, and see stability and design results. It is independent of the TypeScript scaffold in `apps/web` and the solver contract in `packages/solver-contract`; nothing there depends on it.
 
-The workspace groups editing tools and items into libraries. Newly selectable beams are steel, with cables in a separate group. The section sizes and properties are inherited prototype choices, not an agreed final catalog. Springs are shown as planned but cannot be placed. The planned six independently configurable connection restraints are not implemented; the prototype still uses its pinned and moment connection behavior. The named experimental, adversarial, forensic, and design game modes are also not implemented here: the challenge selector still operates the original prototype levels.
+The start screen presents the four intended modes. Experimental opens the inherited free-build sandbox; adversarial, forensic, and design are not yet playable. The workspace offers one beam/column and one cable type without section sizing or prices. The inherited solver still assigns fixed, provisional numerical properties to those types, so analysis results depend on those assumptions. Springs are shown as planned but cannot be placed. The planned six independently configurable connection restraints are not implemented; the prototype still uses its pinned and moment connection behavior.
 
-Legacy glulam is no longer offered for new placement, swapping, or auto-design, but its data remains supported for saved structures and the inherited examples, which can contain glulam. The original level inventories and example designs have not yet been rebalanced for an all-steel palette.
+Legacy section data remains supported for saved structures and inherited examples, which can contain glulam. The original challenge levels, inventories and examples remain in the source but are not exposed by the mode screen.
 
 ## Run
 
@@ -28,7 +28,7 @@ Then open `http://localhost:8765`. Three.js 0.160.0 is loaded from the jsDelivr 
 ## Gameplay
 
 - Grid: 2 m voxels. Members connect voxel corners; beams span at most 3 cells per axis, cables at most 8.
-- Selectable items (limited supply per level): SHS 100×6 steel tube, IPE 300, HEB 300, Ø24 cable (tension only, 25 kN pretension), moment connection (makes all member ends at a node rigid and raises joint capacity), foundation (fixed support on solid ground, not water). Legacy saved models and examples can also contain glulam.
+- Selectable items: beam/column, cable, moment connection, foundation, and point load. The inherited solver models the beam and cable using fixed numerical properties, including cable pretension; these do not establish final game properties.
 - Levels: Tower I (12 m), Tower II (24 m), Bridge I (16 m span), Bridge II (28 m span), Sandbox (unlimited supply, placeable 50 kN point loads). Stars depend on cost against a level budget.
 - Editing members:
   - **Remove** tool (or Delete/Backspace on a member selected with Inspect, or the panel's *Remove member* button) deletes it and returns the item to the supply. On nodes it removes attachments (load, then moment connection, then foundation); abutment bearings are locked.

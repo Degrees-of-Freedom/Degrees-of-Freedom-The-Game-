@@ -4,6 +4,7 @@ last_validated: 2026-11-14
 validated_against:
   - README.md
   - Project owner mode decisions, 2026-11-14
+  - prototypes/voxel-struct/index.html
 owner: unknown
 status: partial
 ---
@@ -25,7 +26,7 @@ The owner has named four intended modes:
 - **Forensic:** Start with an unstable structure and add or remove pieces until it works.
 - **Design:** Start with a set of loads and build a structure to respond to them.
 
-These are concepts, not implemented behavior. The README's goal-based and failure-based modes are earlier starting concepts; their relationship to these four modes remains open.
+The standalone prototype now has a mode selection screen. Experimental opens its existing free-build sandbox; this is a starting approximation, not a full implementation of the intended mode. The other three choices are unavailable. The README's goal-based and failure-based modes are earlier starting concepts; their relationship to these four modes remains open.
 
 The owner wants NPCs in the game. Their roles, behavior, and relationship to turns and structures remain to be designed.
 

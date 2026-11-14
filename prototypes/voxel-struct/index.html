@@ -116,13 +116,39 @@ h3{font-size:11px;letter-spacing:.13em;color:#b9c9bd;margin:18px 0 9px}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #f1e5a8;outline-offset:2px}
 @media(max-width:900px){header{overflow-x:auto}.brand{margin-right:4px}#left{width:260px}#right{width:260px}#planebar{left:284px}}
 @media(max-width:650px){html,body{overflow:auto}header{position:relative}#view{position:relative;height:50vh;min-height:300px}aside{position:relative;inset:auto!important;width:auto!important;margin:10px}#planebar{position:relative;left:auto;bottom:auto;margin:10px;flex-wrap:wrap}#help .box{max-height:90vh;overflow:auto}}
+/* A brighter, toy-like workspace; the solver remains the inherited prototype. */
+:root{--panel:rgba(255,252,242,.95);--line:#d6ddd1;--text:#344b4a;--muted:#5a7570;--accent:#dc956c;--ok:#397c61;--bad:#a43d45;--warn:#896029;--blue:#35799b}
+html,body{background:linear-gradient(#c5e8e5,#8acbc9);color:var(--text)}
+header{background:rgba(255,252,242,.94);border:0;box-shadow:0 5px 24px #48777820}
+select,.btn{background:#fffdf5;border-color:#d9e1d5;color:#344b4a;border-radius:12px}.btn:hover{background:#f5e9d9}.btn.primary{background:#d8805c;border-color:#d8805c;color:white}
+aside{border:0;border-radius:18px;box-shadow:0 12px 40px #457a7833}
+h3,.panel-intro,.keys,.desc{color:#587771}.tool{background:#f6f8ef;border-color:#e5eadf;border-radius:12px}.tool:hover{background:#edf4e8}.tool.on{background:#f9e2cf;border-color:#d8805c}.tool .k{background:#e7eee2;color:#526f68}.tool .nm small{color:#5a7971}.tool .cnt{color:#48665c}
+.card,.goal{background:#eff4eb}.keys kbd{background:#e4eee4;color:#405e56}.swapbar{background:#edf3e9;border-color:#cbdcca}.chip{background:#fffdf5}.chip.on{background:#f9e2cf;border-color:#d8805c}#planebar{border:0;border-radius:14px}
+#levelSel,#exampleBtn,#sizeBtn{display:none}
+#start{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:24px;overflow:auto;background:linear-gradient(180deg,#bfe6e3 0%,#d8eddf 53%,#8cc9c4 53%,#6fb6b4 100%)}
+#start[hidden]{display:none}.start-card{width:min(960px,100%);display:grid;grid-template-columns:1fr 1.12fr;background:#fffaf0;border-radius:28px;overflow:hidden;box-shadow:0 28px 70px #427e7b55}
+.start-intro{position:relative;padding:48px 42px 215px;background:linear-gradient(160deg,#f8e2c8,#f7d0bc);overflow:hidden}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#8a6359}.start-intro h1{font-family:Georgia,serif;font-size:clamp(40px,5vw,64px);line-height:.98;letter-spacing:-.055em;margin:20px 0;color:#39565a}.start-intro p{max-width:290px;font-size:15px;color:#58706d}
+.island{position:absolute;bottom:35px;left:13%;width:70%;height:65px;border-radius:50%;background:#83b7a5;box-shadow:0 15px 0 #76a79a,0 25px 0 #a7d4ca}.tower{position:absolute;bottom:70px;left:33%;width:85px;height:110px;background:#f5bd91;border-radius:5px 5px 2px 2px;box-shadow:inset -18px 0 #e4a67e}.tower:before{content:'';position:absolute;top:-35px;left:-8px;border-left:50px solid transparent;border-right:50px solid transparent;border-bottom:38px solid #d68065}.tower:after{content:'';position:absolute;left:20px;top:25px;width:14px;height:22px;background:#7eafab;border-radius:8px 8px 0 0;box-shadow:32px 0 #7eafab}.little-house{position:absolute;bottom:66px;left:59%;width:62px;height:66px;background:#f6de9c;box-shadow:inset -12px 0 #dec182}.little-house:before{content:'';position:absolute;top:-24px;left:-5px;border-left:36px solid transparent;border-right:36px solid transparent;border-bottom:26px solid #e49173}
+.mode-panel{padding:40px}.mode-panel h2{font-family:Georgia,serif;font-size:28px;margin:5px 0}.mode-panel>p{color:#69817a;margin:0 0 20px}.mode{width:100%;text-align:left;border:1px solid #e1e8db;background:#f8faf3;border-radius:14px;padding:14px 16px;margin:0 0 9px;color:#385551;display:flex;justify-content:space-between;gap:15px;align-items:center;cursor:pointer}.mode strong,.mode small{display:block}.mode strong{font-size:15px}.mode small{font-size:12px;color:#68817a;margin-top:3px;line-height:1.4}.mode .tag{font-size:11px;color:#607d73;white-space:nowrap}.mode:not(:disabled):hover{background:#fcebdc;border-color:#dc956c}.mode:disabled{cursor:not-allowed;opacity:.7}
+@media(max-width:650px){.start-card{grid-template-columns:1fr}.start-intro{padding:28px 28px 125px}.start-intro h1{font-size:40px;margin:10px 0}.island{bottom:20px;left:55%;width:36%;height:35px}.tower{bottom:38px;left:63%;transform:scale(.6);transform-origin:bottom}.little-house{bottom:35px;left:78%;transform:scale(.6);transform-origin:bottom}.mode-panel{padding:26px}#start{align-items:start}}
 </style>
 </head>
 <body>
 <div id="view"></div>
 
+<section id="start" aria-label="Choose a game mode">
+  <div class="start-card"><div class="start-intro"><div class="eyebrow">A little structural playground</div><h1>Degrees<br>of Freedom</h1><p>Build something wonderful. See how it stands.</p><div class="island" aria-hidden="true"></div><div class="tower" aria-hidden="true"></div><div class="little-house" aria-hidden="true"></div></div>
+  <div class="mode-panel"><div class="eyebrow">Choose your adventure</div><h2>How will you play?</h2><p>Pick a way to explore.</p>
+    <button class="mode" id="playExperimental"><span><strong>Experimental</strong><small>Build freely and explore your structure.</small></span><span class="tag">Play →</span></button>
+    <button class="mode" disabled><span><strong>Adversarial</strong><small>Build and battle with a friend.</small></span><span class="tag">In the works</span></button>
+    <button class="mode" disabled><span><strong>Forensic</strong><small>Find a way to stabilize a structure.</small></span><span class="tag">In the works</span></button>
+    <button class="mode" disabled><span><strong>Design</strong><small>Build a structure for a set of loads.</small></span><span class="tag">In the works</span></button>
+    <p>Experimental opens the current sandbox prototype.</p></div></div>
+</section>
+
 <header>
   <div class="brand">DEGREES <b>OF</b> FREEDOM</div>
+  <button class="btn" id="menuBtn">Modes</button>
   <select id="levelSel" title="Choose challenge"></select>
   <button class="btn" id="exampleBtn" title="Load a reference solution for this level">Example</button>
   <div class="spacer"></div>
@@ -136,7 +162,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid 
 <aside id="left">
   <h3>Build workspace <span class="muted"> / prototype</span></h3>
   <h2 class="panel-heading">Your library</h2>
-  <p class="panel-intro">Choose a tool or an element, then build on the grid. Steel sections are provisional prototype choices.</p>
+  <p class="panel-intro">Choose an element and build on the grid.</p>
   <div id="palette"></div>
   <details><summary>Challenge &amp; controls</summary>
   <h3>Challenge</h3><div id="levelInfo"></div>
@@ -169,7 +195,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid 
     <h2>Voxel Struct — build, analyse, design</h2>
     <p class="desc">Space is a 3D voxel grid with 2 m cells. Members connect voxel corners. Every challenge has a limited supply of parts.</p>
     <ul class="desc">
-      <li><b>Beams</b> (steel tube, IPE, HEB) carry axial force, shear and bending. Max 3 cells per axis. Older examples and saved models may contain legacy glulam.</li>
+      <li><b>Beams / columns</b> carry axial force, shear and bending. The inherited solver uses provisional properties. Max 3 cells per axis.</li>
       <li><b>Cables</b> are tension-only and go slack under compression. Max 8 cells per axis.</li>
       <li><b>Joints are pinned</b> by default. A <b>Moment connection</b> makes every member end at that node rigid and raises joint capacity.</li>
       <li><b>Foundations</b> fix a node to solid ground (not water).</li>
@@ -177,7 +203,6 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid 
         mechanisms, global buckling (α<sub>cr</sub>), member strength, shear, flexural buckling, slenderness, deflection, connections and foundations.</li>
       <li><b>Remove</b> deletes members or node attachments and returns them to your supply. <b>Swap</b> replaces a member with another type
         (beam ↔ beam or beam ↔ cable) in place, keeping its ends; Shift+click swaps every member of that type. Both can be undone.</li>
-      <li><b>Auto-design</b> resizes beams to the lightest adequate section still in your supply.</li>
     </ul>
     <p class="desc">Tip: pin-jointed frames need triangles (bracing) in <i>all three</i> directions — or moment connections.</p>
     <button class="btn primary" id="helpClose">Start building</button>
@@ -265,7 +290,7 @@ let model = { members:[], attrs:{}, nextId:1 };
 let history = [];
 let results = null;
 let tool = 'shs';
-let swapTarget = 'ipe';   // member type the Swap tool converts to
+let swapTarget = 'cable';   // member type the Swap tool converts to
 let chainStart = null;
 let workK = 0;
 let shiftDown = false;
@@ -336,7 +361,7 @@ function memberIssue(a,b,type){
   const d=[b[0]-a[0],b[1]-a[1],b[2]-a[2]];
   if(Math.max(...d.map(Math.abs))>it.maxCells) return `Too long — max ${it.maxCells} cells per axis`;
   if(findMember(key(...a),key(...b))) return 'These points are already connected';
-  if(remaining(type)<=0) return `No ${it.label} left in supply`;
+  if(remaining(type)<=0) return `No ${displayName(type)} left in supply`;
   for(let t=0.05;t<0.96;t+=0.05){
     const p=a.map((v,n)=>v+d[n]*t);
     if(p[2] < groundAtPoint(p[0],p[1])-1e-6) return 'Member would pass through the ground';
@@ -379,16 +404,16 @@ function removeMember(id){
   pushHistory();
   model.members = model.members.filter(x=>x.id!==id);
   cleanupAttrs(); if(selected?.id===id) selected=null; commit();
-  toast(`Removed ${ITEMS[m.type].label} #${id} — returned to supply`);
+  toast(`Removed ${displayName(m.type)} #${id}`);
 }
 /** Why member m cannot become type t, or null when the swap is allowed (supply and length limit). */
 function swapIssue(m,t){
   const it=ITEMS[t];
   if(!it || (it.kind!=='beam'&&it.kind!=='cable')) return 'Choose a beam or cable type';
-  if(m.type===t) return `Already ${it.label}`;
-  if(remaining(t)<=0) return `No ${it.label} left in supply`;
+  if(m.type===t) return `Already ${displayName(t)}`;
+  if(remaining(t)<=0) return `No ${displayName(t)} left in supply`;
   const a=parse(m.a), b=parse(m.b);
-  if(Math.max(...a.map((v,i)=>Math.abs(v-b[i])))>it.maxCells) return `Too long for ${it.label} (max ${it.maxCells} cells per axis)`;
+  if(Math.max(...a.map((v,i)=>Math.abs(v-b[i])))>it.maxCells) return `Too long for ${displayName(t)} (max ${it.maxCells} cells per axis)`;
   return null;
 }
 /** Replaces the type of one member, keeping its id and end nodes; the old item is refunded. */
@@ -396,7 +421,7 @@ function swapMember(id,t){
   const m=model.members.find(x=>x.id===id); if(!m) return false;
   const issue=swapIssue(m,t); if(issue){ toast(issue); return false; }
   const from=m.type; pushHistory(); m.type=t; commit();
-  toast(`Swapped #${id}: ${ITEMS[from].label} → ${ITEMS[t].label}`);
+  toast(`Swapped #${id}: ${displayName(from)} → ${displayName(t)}`);
   return true;
 }
 /** Swaps every member of type `from` to `to`, as far as supply and length limits allow (one undo step). */
@@ -407,7 +432,7 @@ function swapAllOfType(from,to){
   for(const m of list){ if(swapIssue(m,to)) { skipped++; continue; } m.type=to; n++; }
   if(!n){ history.pop(); toast(`Cannot swap: ${swapIssue(list[0],to)}`); return; }
   commit();
-  toast(`Swapped ${n} × ${ITEMS[from].label} → ${ITEMS[to].label}`+(skipped?` · ${skipped} skipped (supply/length)`:''));
+  toast(`Swapped ${n} × ${displayName(from)} → ${displayName(to)}`+(skipped?` · ${skipped} skipped (supply/length)`:''));
 }
 function cleanupAttrs(){
   for(const k in model.attrs){ const a=model.attrs[k];
@@ -1194,7 +1219,7 @@ function updateHover(){
   } else if(isMemberTool()){
     const nk=nearestNode(mx,my,14,chainStart);
     const ijk=nk?parse(nk):pickGrid();
-    if(ijk){ const issue=chainStart?memberIssue(parse(chainStart),ijk,tool):(!nodeValid(...ijk)?'Invalid point':remaining(tool)<=0?`No ${ITEMS[tool].label} left`:null);
+    if(ijk){ const issue=chainStart?memberIssue(parse(chainStart),ijk,tool):(!nodeValid(...ijk)?'Invalid point':remaining(tool)<=0?`No ${displayName(tool)} left`:null);
       hover={kind:'point',ijk,issue}; }
   } else {
     const nk=nearestNode(mx,my,14); const ijk=nk?parse(nk):pickGrid();
@@ -1216,9 +1241,9 @@ function updateHover(){
     tip.innerHTML=txt;
   } else if(hover?.kind==='member'){
     const m=model.members.find(x=>x.id===hover.id), r=results&&!results.error?results.members[hover.id]:null;
-    tip.innerHTML=`<b>${ITEMS[m.type].label}</b> #${m.id}`+(r&&!results.mechanism?` · ${(r.util*100).toFixed(0)}% <span class="hint">${CHECK_NAMES[r.gov]||''}</span>`:'')+(tool==='delete'?'<br><span class="err">Click to remove</span>':'');
+    tip.innerHTML=`<b>${displayName(m.type)}</b> #${m.id}`+(r&&!results.mechanism?` · ${(r.util*100).toFixed(0)}% <span class="hint">${CHECK_NAMES[r.gov]||''}</span>`:'')+(tool==='delete'?'<br><span class="err">Click to remove</span>':'');
     if(tool==='swap'){ const iss=swapIssue(m,swapTarget);
-      tip.innerHTML+=`<br>${ITEMS[m.type].label} → <b>${ITEMS[swapTarget].label}</b>`+(iss?`<br><span class="err">${iss}</span>`:`<br><span class="hint">Click to swap · Shift+click swaps all ${ITEMS[m.type].label}</span>`); }
+      tip.innerHTML+=`<br>${displayName(m.type)} → <b>${displayName(swapTarget)}</b>`+(iss?`<br><span class="err">${iss}</span>`:`<br><span class="hint">Click to swap · Shift+click swaps all of this prototype section</span>`); }
   } else if(hover?.kind==='node'){
     const a=model.attrs[hover.key]||{}; const [i,j,k]=parse(hover.key);
     tip.innerHTML=`Node <b>${i*S}, ${j*S}, ${k*S}</b> m`+(a.found?' · foundation':'')+(a.joint?' · moment connection':'')+(tool==='delete'&&(a.found||a.joint||a.load)?'<br><span class="err">Click to remove attachment</span>':'');
@@ -1281,7 +1306,11 @@ addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.upd
 
 function setWorkK(k){ workK=Math.max(0,Math.min(LV.nz,k)); $('#planeVal').textContent=workK*S+' m'; updateHover(); }
 function setTool(t){ tool=t; chainStart=null; renderPalette(); updateHover(); }
-function toolList(){ return ['inspect','delete','swap','shs','ipe','heb','cable','joint','found',...(LV.type==='sandbox'?['load']:[])]; }
+function toolList(){ return ['inspect','delete','swap','shs','cable','joint','found',...(LV.type==='sandbox'?['load']:[])]; }
+
+// The player chooses a type; the inherited solver still uses provisional properties.
+function displayName(t){ return ITEMS[t]?.kind==='beam'?'Beam / column':t==='cable'?'Cable':TOOLS[t]?.label||t; }
+function displayDescription(t){ return t==='shs'?'Steel frame member':t==='cable'?'Tension-only member':TOOLS[t].sub; }
 
 let toastT=0;
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600); }
@@ -1292,10 +1321,10 @@ function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('sh
 function renderPalette(){
   const list=toolList();
   // Group the existing prototype items without changing their solver identities or shortcuts.
-  const groups=[['Edit',['inspect','delete','swap']],['Steel members',['shs','ipe','heb']],['Cables',['cable']],['Connections & supports',['joint','found']],['Loads',['load']]];
+  const groups=[['Edit',['inspect','delete','swap']],['Members',['shs','cable']],['Connections & supports',['joint','found']],['Loads',['load']]];
   $('#palette').innerHTML=groups.map(([name, ids])=>{
     const visible=ids.filter(t=>list.includes(t)); if(!visible.length) return '';
-    return `<section class="library-group"><h3>${name}<span>${name==='Steel members'?'Prototype sections':''}</span></h3>${visible.map(t=>{
+    return `<section class="library-group"><h3>${name}</h3>${visible.map(t=>{
     const n=list.indexOf(t);
     const it=TOOLS[t], item=ITEMS[t];
     let cnt='';
@@ -1303,10 +1332,10 @@ function renderPalette(){
     const empty=item&&item.kind!=='load'&&remaining(t)<=0;
     const btn=`<button class="tool ${tool===t?'on':''} ${empty?'empty':''}" data-tool="${t}" aria-pressed="${tool===t}">
       <span class="k">${n<10?(n+1)%10:''}</span><span class="sw" style="background:${it.color}"></span>
-      <span class="nm">${it.label}<small>${it.sub}${item?.cost?` · $${item.cost}`:''}</small></span><span class="cnt">${cnt}</span></button>`;
+      <span class="nm">${displayName(t)}<small>${displayDescription(t)}</small></span></button>`;
     // Swap tool: pick the member type to convert to
     const picker = t==='swap'&&tool==='swap' ? `<div class="swapbar">Swap to
-      ${MEMBER_TYPES.map(s=>`<button class="chip ${s===swapTarget?'on':''}" data-swap="${s}" title="${ITEMS[s].label}"><span class="sw" style="background:${ITEMS[s].color}"></span>${ITEMS[s].label.split(' ')[0]} <small>${total(s)===Infinity?'∞':remaining(s)}</small></button>`).join('')}
+      ${['shs','cable'].map(s=>`<button class="chip ${s===swapTarget?'on':''}" data-swap="${s}"><span class="sw" style="background:${ITEMS[s].color}"></span>${displayName(s)}</button>`).join('')}
       <div class="muted">Click a member to swap it · Shift+click swaps all of that type</div></div>` : '';
     return btn+picker;
   }).join('')}</section>`;
@@ -1332,8 +1361,7 @@ function renderResults(){
   let h='';
   if(!results){
     h+=`<div class="card"><div class="status idle">Not analysed</div><div class="muted" style="margin-top:4px">Build, then press <b>▶ Run analysis</b> (R) to check stability and design.</div></div>`;
-    h+=`<div class="card"><div class="stat"><span>Cost</span><span>$${costOf().toLocaleString()}${LV.budget!==Infinity?' / '+LV.budget.toLocaleString():''}</span>
-      <span>Members</span><span>${model.members.length}</span><span>Steel+timber mass</span><span>${massOf().toFixed(2)} t</span></div></div>`;
+    h+=`<div class="card"><div class="stat"><span>Members</span><span>${model.members.length}</span></div></div><div class="card muted">Analysis uses provisional prototype properties for each element type.</div>`;
     h+=selectionHTML();
     el.innerHTML=h; bindResultEvents(); return;
   }
@@ -1346,8 +1374,7 @@ function renderResults(){
   for(const o of R.objectives) h+=`<div class="obj ${o.ok?(o.warn?'warn':'ok'):'bad'}"><span class="i">${o.ok?(o.warn?'!':'✓'):'✗'}</span><span>${o.label}${o.detail?`<br><small>${o.detail}</small>`:''}</span></div>`;
   h+=`</div>`;
   h+=`<div class="card"><div class="stat">
-    <span>Cost</span><span>$${R.cost.toLocaleString()}${LV.budget!==Infinity?' / '+LV.budget.toLocaleString():''}</span>
-    <span>Mass</span><span>${R.mass.toFixed(2)} t</span>
+    <span>Analysis model</span><span>Provisional properties</span>
     <span>Max utilisation</span><span>${R.mechanism?'—':pct(R.maxU)}</span>
     <span>Avg beam utilisation (efficiency)</span><span>${R.mechanism?'—':pct(R.avgU)}</span>
     <span>α<sub>cr</sub> (wind X / Y)</span><span>${R.alpha.length?R.alpha.map(a=>a===null?'n/a':a===Infinity?'∞':a>=128?'>128':a.toFixed(2)).join(' / '):'—'}</span>
@@ -1363,7 +1390,7 @@ function renderResults(){
   h+=selectionHTML();
   if(!R.mechanism){
     const top=Object.entries(R.members).sort((a,b)=>b[1].util-a[1].util).slice(0,8);
-    h+=`<div class="card"><h3>Most utilised members</h3><div class="mlist">${top.map(([id,r])=>`<button data-mid="${id}"><span>#${id} ${ITEMS[r.e.m.type].label} <span class="muted">${CHECK_NAMES[r.gov]||''}</span></span><b style="color:#${utilColor(r.util).getHexString()}">${pct(r.util)}</b></button>`).join('')}</div></div>`;
+    h+=`<div class="card"><h3>Most utilised members</h3><div class="mlist">${top.map(([id,r])=>`<button data-mid="${id}"><span>#${id} ${displayName(r.e.m.type)} <span class="muted">${CHECK_NAMES[r.gov]||''}</span></span><b style="color:#${utilColor(r.util).getHexString()}">${pct(r.util)}</b></button>`).join('')}</div></div>`;
   }
   el.innerHTML=h; bindResultEvents();
 }
@@ -1372,7 +1399,7 @@ function selectionHTML(){
   if(selected.type==='member'){
     const m=model.members.find(x=>x.id===selected.id); if(!m) return '';
     const it=ITEMS[m.type], a=parse(m.a), b=parse(m.b), L=Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2])*S;
-    let h=`<div class="card"><h3>Member #${m.id}</h3><div class="stat"><span>Section</span><span>${it.label}</span><span>Length</span><span>${L.toFixed(2)} m</span>
+    let h=`<div class="card"><h3>Member #${m.id}</h3><div class="stat"><span>Type</span><span>${displayName(m.type)}</span><span>Length</span><span>${L.toFixed(2)} m</span>
       <span>Ends</span><span>${it.kind==='cable'?'pinned (cable)':(model.attrs[m.a]?.joint?'rigid':'pinned')+' / '+(model.attrs[m.b]?.joint?'rigid':'pinned')}</span>`;
     const r=results&&!results.error?results.members[m.id]:null;
     if(r&&!results.mechanism){
@@ -1384,15 +1411,11 @@ function selectionHTML(){
       h+=`</div><h3>Design checks</h3>`;
       if(r.slack) h+=`<div class="muted">Cable is slack in at least one load case (carries no load there).</div>`;
       for(const c in r.checks){ const u=r.checks[c]; h+=`<div class="chk"><span>${CHECK_NAMES[c]}</span>${barHTML(u)}<b>${pct(u)}</b></div>`; }
-      if(it.kind==='beam'){
-        const alts=BEAM_TYPES.filter(t=>t!==m.type).map(t=>({t,u:govern(checkMember(ITEMS[t],d,r.e.L,r.e.rigidA,r.e.rigidB)).util}));
-        h+=`<h3>Alternative sections (same forces)</h3>`+alts.map(x=>`<div class="chk"><span>${ITEMS[x.t].label}</span>${barHTML(x.u)}<b>${pct(x.u)}</b></div>`).join('');
-      }
     } else h+='</div>';
     // swap / remove controls (all member types; options blocked by supply or length are disabled)
-    const swapOptions=MEMBER_TYPES.includes(m.type)?MEMBER_TYPES:[m.type,...MEMBER_TYPES];
+    const swapOptions=['shs','cable'];
     h+=`<div class="row"><label>Swap to</label><select id="secSel">${swapOptions.map(t=>{ const iss=t===m.type?null:swapIssue(m,t);
-      return `<option value="${t}" ${t===m.type?'selected':''} ${iss?'disabled':''}>${ITEMS[t].label} (${total(t)===Infinity?'∞':remaining(t)} left)${iss&&!iss.startsWith('No ')?' – too long':''}</option>`; }).join('')}</select></div>
+      return `<option value="${t}" ${(ITEMS[m.type].kind===ITEMS[t].kind)?'selected':''} ${iss?'disabled':''}>${displayName(t)}${iss?' – unavailable':''}</option>`; }).join('')}</select></div>
       <div class="btnrow"><button class="btn danger" id="rmBtn" title="Delete / Backspace">Remove member</button></div>`;
     return h+'</div>';
   }
@@ -1455,9 +1478,11 @@ $('#helpClose').onclick=()=>{ $('#help').style.display='none'; try{ localStorage
 $('#planeUp').onclick=()=>setWorkK(workK+1);
 $('#planeDown').onclick=()=>setWorkK(workK-1);
 
-let startLevel='tower1'; try{ const s=localStorage.getItem('voxstruct:level'); if(s&&LEVELS[s]) startLevel=s; if(!localStorage.getItem('voxstruct:help')) $('#help').style.display='grid'; }catch(e){ $('#help').style.display='grid'; }
+let startLevel='sandbox';
 $('#levelSel').value=startLevel;
 loadLevel(startLevel);
+$('#playExperimental').onclick=()=>{ if(levelId!=='sandbox') loadLevel('sandbox'); $('#start').hidden=true; };
+$('#menuBtn').onclick=()=>{ $('#start').hidden=false; };
 
 let pulse=0;
 renderer.setAnimationLoop(()=>{
