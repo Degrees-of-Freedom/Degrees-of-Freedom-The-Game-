@@ -15,7 +15,7 @@ status: partial
 
 ## Purpose and status
 
-This is the canonical entry point for durable project knowledge. The game remains at the concept stage with an initial web scaffold and one solver backend. The scaffold includes an orbitable viewer, a small game store, a solver contract, and solver adapters; it does not implement gameplay. An OpenSees analysis service exists in `services/opensees` but the web UI does not call it yet. Distinguish documented intent and proposed experiments from implemented behavior and decisions.
+This is the canonical entry point for durable project knowledge. The game remains at the concept stage with an initial web scaffold and one solver backend. The scaffold includes an orbitable viewer, a small game store, a solver contract, solver adapters, and three example structures; it does not implement gameplay or building tools. An OpenSees analysis service in `services/opensees` analyses the current model when the user presses Run analysis. Distinguish documented intent and proposed experiments from implemented behavior and decisions.
 
 ## Pages
 

@@ -8,7 +8,7 @@ Install Node.js and npm, then run `npm install` and `npm run dev`. Run `npm run 
 
 The repository contains the web app in `apps/web`, the shared solver contract in `packages/solver-contract`, and an OpenSees analysis service in `services/opensees`. See [the knowledge base](docs/kb/README.md) for architecture and project status.
 
-The current app is a foundation with an orbitable 3D grid. Building tools and gameplay are not implemented, and the app does not call the analysis service yet.
+The current app is a foundation with an orbitable 3D grid. Building tools and gameplay are not implemented. With the analysis service running, the workspace can load an example structure and analyse it.
 
 ## Run the analysis service
 

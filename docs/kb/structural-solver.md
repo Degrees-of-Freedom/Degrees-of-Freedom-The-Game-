@@ -8,6 +8,7 @@ validated_against:
   - apps/web/src/solver/unavailable.ts
   - apps/web/src/solver/opensees.ts
   - apps/web/src/solver/opensees.test.ts
+  - apps/web/src/solver/index.ts
   - services/opensees/README.md
   - services/opensees/src/dof_opensees
   - services/opensees/tests
@@ -17,7 +18,7 @@ status: partial
 
 # Structural Solver
 
-The game intends to communicate load paths, instability, member or connection failure, and structural complexity. One solver backend exists: an OpenSees service in `services/opensees` with a client adapter in the web app. The web app does not call it yet; the workspace UI still has no analysis action, and the `unavailable` placeholder adapter remains.
+The game intends to communicate load paths, instability, member or connection failure, and structural complexity. One solver backend exists: an OpenSees service in `services/opensees` with a client adapter in the web app. The workspace Run analysis button sends the current model to it and shows the result. A development build calls the service on `http://localhost:8000`; `VITE_OPENSEES_URL` overrides that address; a production build without it falls back to the `unavailable` placeholder adapter, because no deployed service exists.
 
 ## Model and interface today
 
@@ -40,7 +41,7 @@ The contract does not define element properties, load cases, or failure criteria
 - A model is reported `unstable` when it has a translational mechanism or a rotational mechanism that a load acts on. Unloaded rotational mechanisms, such as a straight rigid run spinning about its own axis, are reported in the stability report and held by very soft springs so the analysis can proceed.
 - Static indeterminacy is computed as internal force unknowns minus free DOFs plus mechanisms.
 
-The web adapter `createOpenSeesSolver` in `apps/web/src/solver/opensees.ts` posts a model to the service and returns the result. It converts network failures and unexpected responses to `error` results.
+The web adapter `createOpenSeesSolver` in `apps/web/src/solver/opensees.ts` posts a model to the service and returns the result. It converts network failures and unexpected responses to `error` results. `resolveSolver` in `apps/web/src/solver/index.ts` picks the adapter from build-time configuration. With no configured origins, the service accepts browser requests from any port on localhost.
 
 These modelling choices were made to produce a working backend. The default end fixity, the section properties, and the absence of self-weight have not been confirmed as game rules by the project owner.
 
@@ -62,6 +63,6 @@ The OpenSees service has automated tests, run with `npm run test:opensees`:
 4. Validation errors, unused nodes, a fully restrained model, and an empty model.
 5. The HTTP layer, including schema rejection and CORS.
 
-The web adapter has Vitest tests with a stubbed `fetch`, plus one opt-in test against a running service when `VITE_OPENSEES_URL` is set.
+The web adapter has Vitest tests with a stubbed `fetch`. When `VITE_OPENSEES_URL` is set, two further tests call a running service: a cantilever, and the three example structures, which must come back stable and determinate, unstable with four mechanisms, and stable.
 
 Not yet covered: comparison with an independently trusted benchmark beyond hand formulas, a second adapter run on the same cases, and the Docker image. See [development and testing](development-and-testing.md) for commands.

@@ -18,7 +18,9 @@ status: partial
 
 From the repository root, install dependencies with `npm install`, start the web app with `npm run dev`, build with `npm run build`, check TypeScript with `npm run typecheck`, and run tests with `npm test`. The dev command builds the shared contract before starting Vite; rebuild it after editing its source. The root build builds the contract before the web app.
 
-Vitest checks that reset produces an empty node list, that the placeholder solver reports analysis as unsupported, and that the OpenSees adapter posts models and maps responses and failures correctly against a stubbed `fetch`. One further adapter test runs only when `VITE_OPENSEES_URL` points at a running service. These tests do not validate complete reset behavior, gameplay, or the viewer.
+Vitest checks the store (reset, the idle to running to done analysis flow, discarding results when the model changes, superseded runs, solver exceptions), solver selection, the well-formedness of the example structures, and that the OpenSees adapter posts models and maps responses and failures correctly against a stubbed `fetch`. Two further tests run only when `VITE_OPENSEES_URL` points at a running service. These tests do not cover gameplay, the panels, or the viewer; the analysis button and viewer feedback were checked by hand in a browser.
+
+To use analysis in the app, run `npm run dev:opensees` and `npm run dev` in two terminals, load an example, and press Run analysis.
 
 The OpenSees service in `services/opensees` is a Python project that needs [uv](https://docs.astral.sh/uv/); uv installs the pinned Python 3.12 and dependencies on first use. Start it with `npm run dev:opensees` (port 8000) and test it with `npm run test:opensees`. Its pytest suite validates numerical results against closed-form cases and covers mechanisms, validation, and the HTTP layer; see [structural solver](structural-solver.md#testing). `npm test` does not run the Python tests. The service Dockerfile has not been built or tested.
 

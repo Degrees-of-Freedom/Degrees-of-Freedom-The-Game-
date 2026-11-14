@@ -16,7 +16,7 @@ status: partial
 
 Degrees of Freedom is conceived as a turn-based structural engineering game on a 3D grid. Players are intended to build and test structures to explore force paths and stability. Goal-based and failure-based modes are concepts, not implemented rules.
 
-An early TypeScript web scaffold now exists, with React, a Zustand store, React Router, and a Three.js viewer. Gameplay and building tools remain to be implemented in that scaffold. An OpenSees-backed analysis service and a client adapter for it exist, but the scaffold's UI does not use them yet. See [architecture](architecture.md), [structural solver](structural-solver.md), and [development and testing](development-and-testing.md).
+An early TypeScript web scaffold now exists, with React, a Zustand store, React Router, and a Three.js viewer. Gameplay and building tools remain to be implemented in that scaffold. An OpenSees-backed analysis service exists, and the workspace can analyse three built-in example structures with it and show stability, degree-of-freedom counts, and member forces. See [architecture](architecture.md), [structural solver](structural-solver.md), and [development and testing](development-and-testing.md).
 
 Ownership, distribution, precise game rules, and several solver modelling choices remain open.
 
