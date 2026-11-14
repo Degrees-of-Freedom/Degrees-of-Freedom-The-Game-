@@ -10,8 +10,8 @@ export type LoadResult =
   | { status: 'error'; message: string };
 
 /** Per-level saves; invalid or future-version data is never overwritten. */
-export function createStateService(storage: StateStorage) {
-  const key = (id: LevelId) => 'voxstruct:' + id;
+export function createStateService(storage: StateStorage, prefix = 'voxstruct:') {
+  const key = (id: LevelId) => prefix + id;
   return {
     load(id: LevelId): LoadResult {
       try {
@@ -38,9 +38,13 @@ export function createStateService(storage: StateStorage) {
 }
 
 // Existing game API: storage remains optional. Explicit service callers can report errors.
-export function save(id: LevelId, model: GameModel) {
-  try { return createStateService(localStorage).save(id, model); }
+export function save(id: LevelId, model: GameModel, mode = 'challenge') {
+  try { return createStateService(localStorage, mode === 'challenge' ? 'voxstruct:' : `dof-mode:${mode}:`).save(id, model); }
   catch (error) { return { ok: false as const, message: String(error) }; }
+}
+export function loadMode(id: LevelId, mode: string): LoadResult {
+  try { return createStateService(localStorage, `dof-mode:${mode}:`).load(id); }
+  catch (error) { return { status: 'error', message: String(error) }; }
 }
 export function savedLevel(): LevelId {
   try {

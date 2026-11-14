@@ -12,7 +12,10 @@ import {
 import { LEVELS } from './levels';
 import { initialModel } from './layout';
 import { memberIssue, nodeItemIssue, swapIssue } from './placementRules';
-import { save, savedLevel, loadWithStatus, saveLevel } from './persistence';
+import { save, savedLevel, loadWithStatus, saveLevel, loadMode } from './persistence';
+import { createGameSave, readGameSave, type GameSave } from './structuralState';
+import { modeSetup, type GameMode, type PresentationStyle } from './modes';
+import { bayEdges, bayIssue } from './bay';
 export type Selection =
   | { type: 'member'; id: number }
   | { type: 'node'; key: string }
@@ -22,6 +25,15 @@ interface GameState {
   model: GameModel;
   persistenceError: string | null;
   history: GameModel[];
+  future: GameModel[];
+  mode: GameMode;
+  style: PresentationStyle;
+  setMode: (mode: GameMode) => void;
+  setStyle: (style: PresentationStyle) => void;
+  addBay: (origin: GridPoint, size: GridPoint, type: MemberType) => string | null;
+  exportModel: () => GameSave;
+  importModel: (value: unknown) => string | null;
+  redo: () => void;
   tool: Tool;
   workK: number;
   chainStart: string | null;
@@ -65,8 +77,8 @@ function cleanup(model: GameModel) {
 export const useGameStore = create<GameState>((set, get) => {
   const commit = (model: GameModel) =>
     set((s) => {
-      const persisted = save(s.levelId, model);
-      return { model, persistenceError: persisted.ok ? null : 'Changes could not be saved. Existing stored data was preserved.', history: [...s.history.slice(-199), clone(s.model)] };
+      const persisted = save(s.levelId, model, s.mode);
+      return { model, persistenceError: persisted.ok ? null : 'Changes could not be saved. Existing stored data was preserved.', history: [...s.history.slice(-199), clone(s.model)], future: [] };
     });
   const startLevel = savedLevel();
   const initial = loadWithStatus(startLevel);
@@ -77,6 +89,46 @@ export const useGameStore = create<GameState>((set, get) => {
     swapTarget: 'ipe',
     setSwapTarget: (swapTarget) => set({ swapTarget }),
     history: [],
+    future: [],
+    mode: 'challenge',
+    style: 'engineering',
+    setMode: (mode) => {
+      if (mode === get().mode) return;
+      if (mode === 'challenge') {
+        get().setLevel(savedLevel());
+        set({ mode });
+        return;
+      }
+      const setup = modeSetup(mode), loaded = loadMode(setup.levelId, mode);
+      set({ mode, levelId: setup.levelId, model: loaded.status === 'found' ? loaded.model : setup.model,
+        persistenceError: loaded.status === 'error' ? 'Saved state could not be read; existing data was preserved.' : null,
+        history: [], future: [], workK: LEVELS[setup.levelId].cliffH ?? 0, chainStart: null, selected: null });
+    },
+    setStyle: (style) => set({ style, chainStart: null, selected: null }),
+    exportModel: () => createGameSave(get().levelId, get().model),
+    importModel: (value) => {
+      try {
+        const model = readGameSave(value, get().levelId).save.model;
+        commit(model);
+        set({ chainStart: null, selected: null });
+        return null;
+      } catch (error) { return error instanceof Error ? error.message : String(error); }
+    },
+    addBay: (origin, size, type) => {
+      const s = get(), model = clone(s.model);
+      const issue = bayIssue(LEVELS[s.levelId], model, origin, size, type);
+      if (issue) return issue;
+      for (const [a, b] of bayEdges(origin, size))
+        model.members.push({ id: model.nextId++, a: nodeKey(...a), b: nodeKey(...b), type });
+      commit(model);
+      return null;
+    },
+    redo: () => set((s) => {
+      if (!s.future.length) return {};
+      const model = s.future[s.future.length - 1];
+      const persisted = save(s.levelId, model, s.mode);
+      return { model, history: [...s.history.slice(-199), clone(s.model)], future: s.future.slice(0, -1), persistenceError: persisted.ok ? null : 'Changes could not be saved. Existing stored data was preserved.', chainStart: null, selected: null };
+    }),
     tool: 'shs',
     workK: LEVELS[startLevel].cliffH ?? 0,
     chainStart: null,
@@ -89,6 +141,7 @@ export const useGameStore = create<GameState>((set, get) => {
         model: loaded.model,
         persistenceError: loaded.error,
         history: [],
+        future: [],
         workK: LEVELS[levelId].cliffH ?? 0,
         chainStart: null,
         selected: null,
@@ -137,11 +190,12 @@ export const useGameStore = create<GameState>((set, get) => {
       set((s) => {
         if (!s.history.length) return {};
         const model = s.history[s.history.length - 1];
-        const persisted = save(s.levelId, model);
+        const persisted = save(s.levelId, model, s.mode);
         return {
           model,
           persistenceError: persisted.ok ? null : 'Changes could not be saved. Existing stored data was preserved.',
           history: s.history.slice(0, -1),
+          future: [...s.future.slice(-199), clone(s.model)],
           chainStart: null,
           selected: null,
         };
