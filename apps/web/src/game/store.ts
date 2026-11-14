@@ -206,8 +206,9 @@ export const useGameStore = create<GameState>((set, get) => {
     const loaded = readSession(localStorage);
     if (loaded.status === "found") session = loaded.session;
     else if (loaded.status === "invalid")
-      sessionError =
-        "Session could not be read; existing stored data was preserved.";
+      sessionError = loaded.reason
+        ? `Saved match could not be restored. ${loaded.reason} Existing stored data was preserved.`
+        : "Session could not be read; existing stored data was preserved.";
   } catch {
     /* Storage is optional. */
   }
@@ -353,7 +354,7 @@ export const useGameStore = create<GameState>((set, get) => {
         ...(saved
           ? {}
           : {
-              persistenceError:
+              persistenceError: sessionError ??
                 "Session could not be saved; existing stored data was preserved.",
             }),
       });

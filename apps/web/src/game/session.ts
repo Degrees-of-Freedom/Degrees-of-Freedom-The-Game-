@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseTurnState, type TurnState } from "./turns";
+import { replayTurnState, type TurnState } from "./turns";
 import type { GameMode, PresentationStyle } from "./modes";
 
 const key = "dof-runtime:session";
@@ -30,7 +30,7 @@ export interface Session {
 }
 export type SessionRead =
   | { status: "missing" }
-  | { status: "invalid" }
+  | { status: "invalid"; reason?: string }
   | { status: "found"; session: Session };
 
 /** A replayed event log validates card ownership and transitions at the storage boundary. */
@@ -47,13 +47,10 @@ function decodeSession(raw: string | null): SessionRead {
     if (raw === null) return { status: "missing" };
     const parsed = envelope.safeParse(JSON.parse(raw));
     if (!parsed.success) return { status: "invalid" };
-    const turn =
-      parsed.data.turn === null ? null : parseTurnState(parsed.data.turn);
-    if (
-      (parsed.data.turn !== null && !turn) ||
-      (parsed.data.mode === "multiplayer" && !turn)
-    )
-      return { status: "invalid" };
+    const replay = parsed.data.turn === null ? null : replayTurnState(parsed.data.turn);
+    if (replay && !replay.ok) return { status: "invalid", reason: replay.reason };
+    const turn = replay?.state ?? null;
+    if (parsed.data.mode === "multiplayer" && !turn) return { status: "invalid" };
     return { status: "found", session: { ...parsed.data, turn } };
   } catch {
     return { status: "invalid" };

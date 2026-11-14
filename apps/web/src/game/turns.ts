@@ -5,6 +5,8 @@ import {
   type Member,
   type MemberType,
 } from "./model";
+import { conflictingJointAxes, CONNECTION_PROFILES } from "./jointFreedom";
+export { CONNECTION_PROFILES } from "./jointFreedom";
 
 export type TurnCard =
   | {
@@ -21,11 +23,6 @@ export type TurnCard =
       label: string;
       profile: "fixed" | "ball";
     };
-
-export const CONNECTION_PROFILES = {
-  fixed: ["locked", "locked", "locked", "locked", "locked", "locked"],
-  ball: ["locked", "locked", "locked", "free", "free", "free"],
-} as const;
 
 export const KIT_PLAYTEST = {
   version: 1,
@@ -331,6 +328,28 @@ export function stageLoad(
   );
 }
 
+/** First attachment owns the permission frame, independent of ground restraints. */
+function jointProfileConflict(connections: readonly Connection[]): string | null {
+  const established = new Map<string, Connection>();
+  for (const candidate of connections) {
+    const first = established.get(candidate.jointId);
+    if (!first) {
+      established.set(candidate.jointId, candidate);
+      continue;
+    }
+    const axes = conflictingJointAxes(
+      CONNECTION_PROFILES[first.profile],
+      CONNECTION_PROFILES[candidate.profile],
+    );
+    if (axes.length) return (
+      `Incompatible joint profiles at ${candidate.jointId}. Member ${first.memberId} end ${first.end.toUpperCase()} uses ${first.profile}. ` +
+      `Member ${candidate.memberId} end ${candidate.end.toUpperCase()} with ${candidate.profile} conflicts on ${axes.join(", ")}. ` +
+      "Choose a matching connector or another joint."
+    );
+  }
+  return null;
+}
+
 export function stageConnection(
   state: TurnState,
   cardId: string,
@@ -348,11 +367,8 @@ export function stageConnection(
   );
   if (!member || (end !== "a" && end !== "b"))
     return fail("Choose one end of an existing or staged member.");
-  if (
-    [...state.board.connections, ...state.draft.connections].some(
-      (item) => item.memberId === memberId && item.end === end,
-    )
-  ) {
+  const connections = [...state.board.connections, ...state.draft.connections];
+  if (connections.some((item) => item.memberId === memberId && item.end === end)) {
     return fail("This end already has an immutable connection.");
   }
   const target = jointId ?? member[end];
@@ -365,6 +381,8 @@ export function stageConnection(
     profile: card.profile,
     owner: activePlayer(state).id,
   };
+  const conflict = jointProfileConflict([...connections, connection]);
+  if (conflict) return fail(conflict);
   return stage(
     state,
     { ...state.draft, connections: [...state.draft.connections, connection] },
@@ -394,6 +412,9 @@ export function endTurn(
 ): Transition {
   if (state.finished || expectedTurn !== state.turn)
     return fail("This turn has already ended.");
+  const connections = [...state.board.connections, ...state.draft.connections];
+  const conflict = jointProfileConflict(connections);
+  if (conflict) return fail(conflict);
   const player = activePlayer(state),
     spent = draftIds(state);
   const report: TurnReport = {
@@ -423,7 +444,7 @@ export function endTurn(
     ),
     board: {
       members: [...state.board.members, ...state.draft.members],
-      connections: [...state.board.connections, ...state.draft.connections],
+      connections,
       loads: [...state.board.loads, ...state.draft.loads],
       joints: turnJoints(state),
     },
@@ -456,6 +477,12 @@ export function projectTurnModel(state: TurnState): GameModel {
 
 /** Replay validated user actions so persisted deck order, ownership and scores cannot drift. */
 export function parseTurnState(raw: unknown): TurnState | null {
+  const result = replayTurnState(raw);
+  return result.ok ? result.state : null;
+}
+
+/** Keep the failing event's public diagnosis available to the save-recovery UI. */
+export function replayTurnState(raw: unknown): Transition {
   if (
     !record(raw) ||
     raw.version !== KIT_PLAYTEST.version ||
@@ -466,14 +493,15 @@ export function parseTurnState(raw: unknown): TurnState | null {
     !Array.isArray(raw.events) ||
     raw.events.length > KIT_PLAYTEST.players * KIT_PLAYTEST.rounds * 5
   )
-    return null;
+    return fail("Unrecognized match format or invalid replay header.");
   let state = createTurnGame(raw.seed);
   for (const event of raw.events) {
     const result = replayEvent(state, event);
-    if (!result?.ok) return null;
+    if (!result) return fail("Unrecognized saved turn action.");
+    if (!result.ok) return result;
     state = result.state;
   }
-  return state;
+  return { ok: true, state };
 }
 
 function record(value: unknown): value is Record<string, unknown> {

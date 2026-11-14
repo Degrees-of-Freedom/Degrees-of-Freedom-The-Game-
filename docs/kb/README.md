@@ -82,7 +82,7 @@ The confirmed decisions are distinct from the proposed connection presets and un
 
 ## Joint freedoms and graphical representation
 
-[Joint DOF criteria](joint-dof-criteria.md) record the owner-confirmed Selected joint / All joints / Off display (Selected default), global axes with local detail, brief optional demonstrations and a distinct solver-instability layer. All ends intentionally attached at one shared joint must now use matching freedoms, replacing earlier differing end-release choices there; foundations are fully fixed by default. Turn and solver criteria reflect the revision. Overlay rendering, rule enforcement and legacy migration are future implementation work.
+[Joint DOF criteria](joint-dof-criteria.md) record the owner-confirmed Selected joint / All joints / Off display (Selected default), global axes with local detail, brief optional demonstrations and a distinct solver-instability layer. All ends intentionally attached at one shared joint must now use matching freedoms, replacing earlier differing end-release choices there; foundations are fully fixed by default. Turn and solver criteria reflect the revision. The playtest enforces the law for fixed and ball profiles. Recovery identifies incompatible legacy attachments and preserves their source bytes. See the [implementation ledger](criteria-ledger.md) for overlay and elastic solver status.
 
 ## Structural element representation
 

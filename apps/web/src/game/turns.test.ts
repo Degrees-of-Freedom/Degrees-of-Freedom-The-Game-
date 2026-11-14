@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { conflictingJointAxes, CONNECTION_PROFILES } from "./jointFreedom";
+import { readSession, writeSession } from "./session";
 import {
   activeTurnHand,
   cancelTurnDraft,
@@ -18,6 +20,69 @@ function apply(result: ReturnType<typeof endTurn>): TurnState {
 }
 
 describe("Kit turns", () => {
+  it("retains a ball card attempted at another player's established fixed joint", () => {
+    const placed = apply(stageElement(createTurnGame(0), "element-19", "5,3,1", "5,2,1"));
+    const before = structuredClone(placed);
+    const attempt = stageConnection(placed, "connection-13", 3, "a", "5,3,1");
+    expect(attempt).toMatchObject({
+      ok: false,
+      reason: expect.stringMatching(/5,3,1.*Member 2 end B.*Member 3 end A.*RX, RY, RZ/),
+    });
+    expect(placed).toEqual(before);
+    expect(activeTurnHand(placed).some(({ id }) => id === "connection-13")).toBe(true);
+    expect(stageConnection(placed, "connection-13", 3, "b").ok).toBe(true);
+  });
+
+  it("checks the first staged attachment at a new joint in either play order", () => {
+    const first = apply(stageElement(createTurnGame(5), "element-7", "2,2,2", "2,2,3"));
+    const second = apply(stageElement(apply(endTurn(first)), "element-18", "2,2,2", "3,2,2"));
+    for (const [origin, next] of [["connection-2", "connection-21"], ["connection-21", "connection-2"]]) {
+      const withOne = apply(stageConnection(second, origin, 3, "a"));
+      expect(stageConnection(withOne, next, 4, "a")).toMatchObject({
+        ok: false,
+        reason: expect.stringContaining("Incompatible joint profiles at 2,2,2"),
+      });
+      expect(parseTurnState(apply(endTurn(withOne)))).toEqual(apply(endTurn(withOne)));
+    }
+  });
+
+  it("compares axes in physical space while preserving individual elastic stiffness", () => {
+    const axialSpring = [{ kind: "elastic", stiffness: 20 }, "locked", "locked", "free", "free", "free"] as const;
+    const stiffer = [{ kind: "elastic", stiffness: 80 }, "locked", "locked", "free", "free", "free"] as const;
+    const turn90 = [[0, 1, 0], [-1, 0, 0], [0, 0, 1]] as const;
+    const reversed = [[-1, 0, 0], [0, -1, 0], [0, 0, 1]] as const;
+    expect(conflictingJointAxes(axialSpring, stiffer, undefined, reversed)).toEqual([]);
+    expect(conflictingJointAxes(axialSpring, stiffer, undefined, turn90)).toEqual(["UX", "UY"]);
+    expect(conflictingJointAxes(CONNECTION_PROFILES.ball, CONNECTION_PROFILES.ball, undefined, turn90)).toEqual([]);
+    expect(axialSpring[0].stiffness).toBe(20);
+    expect(stiffer[0].stiffness).toBe(80);
+  });
+
+  it("reports both ends in a legacy mixed-joint save and preserves its original bytes", () => {
+    const legacy = {
+      version: 1, mode: "multiplayer", style: "kit",
+      turn: { version: 1, seed: 0, events: [
+        { kind: "element", cardId: "element-19", a: "5,3,1", b: "5,2,1" },
+        { kind: "connection", cardId: "connection-13", memberId: 3, end: "a", jointId: "5,3,1" },
+      ] },
+    };
+    const original = JSON.stringify(legacy);
+    const values = new Map([["dof-runtime:session", original]]);
+    const storage: Storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+      clear: () => values.clear(),
+      key: (index: number) => [...values.keys()][index] ?? null,
+      get length() { return values.size; },
+    };
+    expect(readSession(storage)).toMatchObject({
+      status: "invalid", reason: expect.stringMatching(/5,3,1.*Member 2 end B.*Member 3 end A/),
+    });
+    expect(writeSession(storage, { mode: "multiplayer", style: "kit", turn: createTurnGame(0) })).toBe(false);
+    expect(values.get("dof-runtime:session")).toBe(original);
+  });
+
   it("draws two cards from each deck exactly once per turn and preserves passes in replay", () => {
     const first = createTurnGame(23);
     expect(first.players[0].hand).toHaveLength(4);
