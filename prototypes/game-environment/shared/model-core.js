@@ -402,10 +402,15 @@
     }
 
     /**
-     * Lattice points a new member could reach from p along the 26 lattice
-     * directions, between minSteps and maxSteps long (defaults 1 and 4).
-     * Each entry: { point, steps, length, direction, node } where `node` is the
-     * id of a node already on that point, or null.
+     * Lattice points a new member could reach from p, between minSteps and
+     * maxSteps long (defaults 1 and 4; a member's steps are its longest axis
+     * extent). By default only the 26 lattice directions (axis and 45-degree
+     * lines) are offered. Pass { directions: 'any' } to offer every lattice
+     * point in range; the model must then also allow them (its own
+     * `directions` option must be 'any').
+     * Each entry: { point, steps, length, direction, node } where `direction`
+     * is the smallest lattice step along the member and `node` is the id of a
+     * node already on that point, or null.
      */
     function reachableFrom(p, limits) {
       const min = (limits && limits.minSteps) || 1;
@@ -413,14 +418,31 @@
       const out = [];
       if (!inBounds(p)) return out;
       rebuildIndex();
+      const offer = (q, steps) => {
+        const check = checkMember(p, q);
+        if (!check.ok) return;
+        const points = latticePoints(p, q);
+        const direction = [points[1][0] - p[0], points[1][1] - p[1], points[1][2] - p[2]];
+        out.push({ point: q, steps, length: check.length, direction, node: index.get(keyOfPoint(q)) || null });
+      };
+      if (limits && limits.directions === 'any') {
+        for (let di = -max; di <= max; di++) {
+          for (let dj = -max; dj <= max; dj++) {
+            for (let dk = -max; dk <= max; dk++) {
+              const steps = Math.max(Math.abs(di), Math.abs(dj), Math.abs(dk));
+              if (steps < min) continue;
+              const q = [p[0] + di, p[1] + dj, p[2] + dk];
+              if (inBounds(q)) offer(q, steps);
+            }
+          }
+        }
+        return out;
+      }
       for (const d of DIRECTIONS_26) {
         for (let s = 1; s <= max; s++) {
           const q = [p[0] + d[0] * s, p[1] + d[1] * s, p[2] + d[2] * s];
           if (!inBounds(q)) break;
-          if (s < min) continue;
-          const check = checkMember(p, q);
-          if (!check.ok) continue;
-          out.push({ point: q, steps: s, length: check.length, direction: d.slice(), node: index.get(keyOfPoint(q)) || null });
+          if (s >= min) offer(q, s);
         }
       }
       return out;

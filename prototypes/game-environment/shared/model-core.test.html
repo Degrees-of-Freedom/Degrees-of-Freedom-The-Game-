@@ -428,6 +428,23 @@
     equal(m.reachableFrom([99, 0, 0]).length, 0);
   });
 
+  test('reachable points can cover every lattice point in range, not only 45-degree lines', () => {
+    const m = make({ directions: 'any' });
+    const all = m.reachableFrom([4, 4, 2], { maxSteps: 2, directions: 'any' });
+    equal(all.length, 124, 'a 5 by 5 by 5 block minus the start point');
+    const odd = all.find((r) => r.point.join() === '5,6,2');
+    equal(odd.steps, 2);
+    equal(odd.length, 2.2361);
+    equal(odd.direction, [1, 2, 0]);
+    assert(m.addMember([4, 4, 2], [5, 6, 2]).ok, 'the model accepts the off-angle member');
+    equal(m.reachableFrom([4, 4, 2], { maxSteps: 2, directions: 'any' }).length, 123, 'that member is no longer offered');
+    equal(m.reachableFrom([4, 4, 2], { maxSteps: 2 }).length, 52, 'the default still offers only the 26 directions');
+    const corner = m.reachableFrom([0, 0, 0], { maxSteps: 1, directions: 'any' });
+    equal(corner.length, 7, 'out-of-bounds points are left out');
+    const strict = make({ directions: '26' });
+    equal(strict.reachableFrom([4, 4, 2], { maxSteps: 2, directions: 'any' }).length, 52, 'a 26-direction model refuses the rest');
+  });
+
   test('view data stored with setMeta follows undo and stays out of the solver input', () => {
     const m = make();
     m.batch(() => {
