@@ -21,6 +21,7 @@ export function bindSceneInteraction(
   point: (key: string) => THREE.Vector3,
   getView: () => SceneView,
   rebuild: () => void,
+  getCameraActions: () => { fit(): void; orbit(step: number): void },
 ) {
   let shiftDown = false;
   // The build plane follows the current camera when a member is being chained.
@@ -57,7 +58,14 @@ export function bindSceneInteraction(
     down = null;
     const s = useGameStore.getState();
     if (button === 2) {
-      s.setChainStart(null);
+      if (s.chainStart || s.mode === 'multiplayer') s.setChainStart(null);
+      else {
+        const target = pick(e, 'delete');
+        if (target?.kind === 'member') s.removeMember(target.id);
+        else if (target?.kind === 'node' && (!s.model.attrs[target.key]?.locked || s.model.attrs[target.key]?.joint)) {
+          s.removeNodeAttrs(target.key);
+        }
+      }
       return;
     }
     if (button !== 0) return;
@@ -141,9 +149,15 @@ export function bindSceneInteraction(
       shiftDown = true;
       rebuild();
     }
-    if ((e.target as HTMLElement)?.matches('input, select, textarea')) return;
+    if ((e.target as HTMLElement)?.closest('input, select, textarea, button, [contenteditable]')) return;
     const s = useGameStore.getState();
-    if (e.key.toLowerCase() === 'l' && !e.ctrlKey && !e.metaKey)
+    const key = e.key.toLowerCase();
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && ['f', 'q', 'e', 'pageup', 'pagedown'].includes(key)) {
+      e.preventDefault();
+      if (key === 'f') getCameraActions().fit();
+      else if (key === 'q' || key === 'e') getCameraActions().orbit(key === 'q' ? -1 : 1);
+      else s.setWorkK(s.workK + (key === 'pageup' ? 1 : -1));
+    } else if (e.key.toLowerCase() === 'l' && !e.ctrlKey && !e.metaKey)
       getView().onToggleLoadPath?.();
     else if (e.key === 'Escape') s.setChainStart(null);
     else if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey) {

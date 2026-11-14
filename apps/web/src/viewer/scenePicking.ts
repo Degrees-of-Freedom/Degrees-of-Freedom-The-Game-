@@ -7,6 +7,7 @@ import {
   type GridPoint,
   type MemberType,
   type NodeItem,
+  type Tool,
 } from '../game/model';
 import { groundK } from '../game/terrain';
 import { sceneLevel } from './sceneLevel';
@@ -41,12 +42,12 @@ export function createPicker(
 ) {
   const ray = new THREE.Raycaster(),
     ndc = new THREE.Vector2();
-  return (e: PointerEvent) => {
+  return (e: PointerEvent, toolOverride?: Tool) => {
     const s = useGameStore.getState(),
       level = sceneLevel(s),
       camera = getCamera(),
       card = selectedTurnCard(s),
-      tool = card?.kind === 'element' ? card.type : card?.kind === 'load' ? 'load' : s.mode === 'multiplayer' ? 'inspect' : s.tool,
+      tool = toolOverride ?? (card?.kind === 'element' ? card.type : card?.kind === 'load' ? 'load' : s.mode === 'multiplayer' ? 'inspect' : s.tool),
       rect = canvas.getBoundingClientRect(),
       x = e.clientX - rect.left,
       y = e.clientY - rect.top;

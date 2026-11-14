@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { useGameStore } from '../game/store';
-import { CELL_SIZE } from '../game/model';
+import { allNodeKeys, CELL_SIZE } from '../game/model';
 import { buildGuides, buildTerrain, disposeGroup } from './sceneGeometry';
 import { addResultArrows, displayPoint } from './sceneResults';
 import { createFlowParticles } from './flowParticles';
@@ -54,7 +54,9 @@ export function Scene({
   useEffect(() => {
     refresh.current();
   }, [result, combo, deformed, scale, utilization, loads, loadPath]);
+  const workK = useGameStore((state) => state.workK);
   const host = useRef<HTMLDivElement>(null);
+  const cameraActions = useRef({ fit: () => {}, orbit: (_step: number) => {} });
   useEffect(() => {
     const element = host.current;
     if (!element) return;
@@ -109,6 +111,7 @@ export function Scene({
       point,
       () => view.current,
       rebuild,
+      () => cameraActions.current,
     );
     function rebuild() {
       const state = useGameStore.getState();
@@ -170,6 +173,37 @@ export function Scene({
         renderer.setSize(w, h);
       }
     };
+    cameraActions.current = {
+      fit() {
+        currentEnvironment = '';
+        rebuild();
+        const state = useGameStore.getState();
+        const points = allNodeKeys(state.model).map(point);
+        if (!points.length || state.mode === 'multiplayer') return;
+        const bounds = new THREE.Box3().setFromPoints(points);
+        const focus = bounds.getCenter(new THREE.Vector3());
+        const radius = Math.max(CELL_SIZE * 2.5, bounds.getSize(new THREE.Vector3()).length() * 0.65);
+        const offset = camera.position.clone().sub(controls.target).normalize();
+        controls.target.copy(focus);
+        if (camera instanceof THREE.PerspectiveCamera) {
+          const vertical = THREE.MathUtils.degToRad(camera.fov / 2);
+          const horizontal = Math.atan(Math.tan(vertical) * camera.aspect);
+          camera.position.copy(focus).addScaledVector(offset, radius / Math.sin(Math.min(vertical, horizontal)));
+        } else {
+          orthoSpan = radius / Math.min(1, element.clientWidth / Math.max(1, element.clientHeight));
+          camera.position.copy(focus).addScaledVector(offset, Math.max(10, radius * 2));
+          resize();
+        }
+        controls.update();
+      },
+      orbit(step) {
+        const offset = camera.position.clone().sub(controls.target);
+        offset.applyAxisAngle(camera.up, step * Math.PI / 2);
+        camera.position.copy(controls.target).add(offset);
+        controls.update();
+        rebuild();
+      },
+    };
     const observer = new ResizeObserver(resize);
     observer.observe(element);
     rebuild();
@@ -207,10 +241,19 @@ export function Scene({
     };
   }, []);
   return (
-    <div
-      className="scene"
-      ref={host}
-      aria-label="3D workspace. Drag to orbit, scroll to zoom, and click to build."
-    />
+    <div className="scene" style={{ position: 'relative' }}>
+      <div
+        ref={host}
+        style={{ position: 'absolute', inset: 0 }}
+        aria-label="3D workspace. Drag to orbit, scroll to zoom, and click to build."
+      />
+      <div role="group" aria-label="Camera controls" style={{ position: 'absolute', left: 12, bottom: 12, display: 'flex', gap: 5 }}>
+        <button type="button" title="Fit view (F)" onClick={() => cameraActions.current.fit()}>Fit</button>
+        <button type="button" title="Rotate left (Q)" aria-label="Rotate left" onClick={() => cameraActions.current.orbit(-1)}>↶</button>
+        <button type="button" title="Rotate right (E)" aria-label="Rotate right" onClick={() => cameraActions.current.orbit(1)}>↷</button>
+        <button type="button" title="Lower working plane (Page Down)" aria-label="Lower working plane" onClick={() => useGameStore.getState().setWorkK(workK - 1)}>−</button>
+        <button type="button" title="Raise working plane (Page Up)" aria-label="Raise working plane" onClick={() => useGameStore.getState().setWorkK(workK + 1)}>+</button>
+      </div>
+    </div>
   );
 }
