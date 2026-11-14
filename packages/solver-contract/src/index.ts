@@ -18,6 +18,17 @@ export interface StructuralNode { id: string; position: Vector3 }
  */
 export type MemberEndFixity = 'fixed' | 'pinned';
 
+/** SI properties of the optional geometrically nonlinear service formulation. */
+export type MemberLaw =
+  | { kind: 'frame'; elasticModulus: number; shearModulus: number; area: number; iy: number; iz: number; torsionConstant: number }
+  | { kind: 'cable'; elasticModulus: number; area: number; restLength: number };
+
+export interface CorotationalAnalysis {
+  type: 'corotational';
+  /** Elastic segments along each frame, 1 through 32. */
+  segmentsPerFrame?: number;
+}
+
 export interface StructuralMember {
   id: string;
   startNodeId: string;
@@ -26,13 +37,15 @@ export interface StructuralMember {
   startFixity?: MemberEndFixity;
   /** Connection at the end node. Defaults to `fixed` when omitted. */
   endFixity?: MemberEndFixity;
+  /** With corotational analysis, the cable force is EA max(0, length/restLength − 1). */
+  law?: MemberLaw;
 }
 
 /** Global translations X/Y/Z followed by rotations X/Y/Z. */
 export type DegreesOfFreedom = readonly [boolean, boolean, boolean, boolean, boolean, boolean];
 export interface StructuralSupport { nodeId: string; restrained: DegreesOfFreedom }
 export interface StructuralLoad { nodeId: string; force: Vector3; moment: Vector3 }
-export interface StructuralModel { units: 'SI'; nodes: StructuralNode[]; members: StructuralMember[]; supports: StructuralSupport[]; loads: StructuralLoad[] }
+export interface StructuralModel { units: 'SI'; nodes: StructuralNode[]; members: StructuralMember[]; supports: StructuralSupport[]; loads: StructuralLoad[]; analysis?: CorotationalAnalysis }
 
 /**
  * Internal forces of one member under nodal loading. Only `axial` is signed;
@@ -96,6 +109,7 @@ export type AnalysisResult =
       reactions?: Record<string, Vector6>;
       memberForces?: Record<string, MemberForces>;
       stability?: StabilityReport;
+      nonlinear?: { segmentsPerFrame: number; steps: number; forceResidual: number; momentResidual: number; nodalResidual: number; cableState: Record<string, 'taut' | 'slack'> };
     }
   | {
       /** The model is a mechanism, so no displacements exist. */
@@ -104,7 +118,7 @@ export type AnalysisResult =
       stability: StabilityReport;
       warnings: string[];
     }
-  | { status: 'unsupported' | 'error'; message: string };
+  | { status: 'unsupported' | 'unresolved' | 'error'; message: string };
 
 /** Adapters translate models to their solver and explicitly report unsupported input. */
 export interface SolverAdapter { readonly id: string; readonly name: string; analyze(model: StructuralModel, signal?: AbortSignal): Promise<AnalysisResult> }

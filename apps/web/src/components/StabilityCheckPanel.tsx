@@ -18,7 +18,7 @@ function Stat({ name, value }: { name: string; value: string }) {
  * geometry, connections and supports, and answers whether the structure can
  * move without deforming and how many redundant load paths it has.
  */
-export function StabilityCheckPanel({ check }: { check: StabilityCheck }) {
+export function StabilityCheckPanel({ check, onNonlinear }: { check: StabilityCheck; onNonlinear: () => void }) {
   if (check.phase === 'idle') return null;
   if (check.phase === 'running')
     return (
@@ -33,14 +33,15 @@ export function StabilityCheckPanel({ check }: { check: StabilityCheck }) {
     return (
       <div className="analysis stability-check">
         <h3>Degrees of freedom</h3>
-        <p>OpenSees check unavailable: {result.message}</p>
+        <p>{result.status === 'unresolved' ? 'Equilibrium unresolved' : 'OpenSees check unavailable'}. {result.message}</p>
+        <button className="btn" onClick={onNonlinear}>Run nonlinear check</button>
       </div>
     );
 
   const stability = result.stability;
   return (
     <div className="analysis stability-check">
-      <h3>Degrees of freedom</h3>
+      <h3>{result.status === 'success' && result.nonlinear ? 'Nonlinear response' : 'Degrees of freedom'}</h3>
       <p className={result.status === 'unstable' ? 'verdict bad' : 'verdict good'}>
         {result.status === 'unstable' ? `Unstable. ${result.message}` : 'Stable'}
       </p>
@@ -54,12 +55,16 @@ export function StabilityCheckPanel({ check }: { check: StabilityCheck }) {
           )}
         </>
       )}
+      {result.status === 'success' && result.nonlinear && (
+        <p>Normalized force residual {result.nonlinear.forceResidual.toExponential(2)} · moment residual {result.nonlinear.momentResidual.toExponential(2)}.</p>
+      )}
       {[...result.warnings, ...notes].map((text) => (
         <p className="warning" key={text}>
           {text}
         </p>
       ))}
-      <p>Geometry, connections and supports only. Computed by OpenSees.</p>
+      <p>Computed by OpenSees.</p>
+      <button className="btn" onClick={onNonlinear}>Run nonlinear check</button>
     </div>
   );
 }

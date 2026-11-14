@@ -52,6 +52,16 @@ describe('game model to solver contract', () => {
     ]);
   });
 
+  it('opts into corotational catalogue sections and a tension-only rest length', () => {
+    const model = toStructuralModel(frame, true).model;
+    expect(model.analysis?.type).toBe('corotational');
+    expect(model.members[0].law).toMatchObject({ kind: 'frame', elasticModulus: 210e9 });
+    const cable = model.members[2].law;
+    if (cable?.kind !== 'cable') throw new Error('Expected a cable law');
+    expect(cable.elasticModulus * cable.area * (4 / cable.restLength - 1)).toBeCloseTo(25_000, 5);
+    expect(toStructuralModel(frame).model.members[2].law).toBeUndefined();
+  });
+
   it('preserves partial restraint masks and directional loads in SI units', () => {
     const translated = toStructuralModel({ ...frame, attrs: {
       ...frame.attrs,

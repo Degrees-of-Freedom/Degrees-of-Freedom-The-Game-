@@ -528,7 +528,7 @@ export function Workspace() {
                       game.setSelected({ type: "node", key })
                     }
                   />
-                  {contractCompatible && <StabilityCheckPanel check={stability.check} />}
+                  {contractCompatible && <StabilityCheckPanel check={stability.check} onNonlinear={() => void stability.run(game.model, true)} />}
                 </>
               )}
               {drawer === "model" && (

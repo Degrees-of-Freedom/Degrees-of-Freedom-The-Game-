@@ -32,15 +32,18 @@ export function useStabilityCheck(
   useEffect(() => () => inFlight.current?.abort(), []);
 
   const run = useCallback(
-    async (target: GameModel) => {
+    async (target: GameModel, nonlinear = false) => {
       inFlight.current?.abort();
       const controller = new AbortController();
       inFlight.current = controller;
       setState({ model: target, check: { phase: 'running' } });
 
-      const { model: structural, notes } = toStructuralModel(target);
+      let notes: string[] = [];
       let result: AnalysisResult;
       try {
+        const translation = toStructuralModel(target, nonlinear);
+        notes = translation.notes;
+        const structural = translation.model;
         result = await solver.analyze(structural, controller.signal);
       } catch (error) {
         if (controller.signal.aborted) return;

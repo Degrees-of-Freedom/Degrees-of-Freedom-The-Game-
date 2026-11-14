@@ -17,6 +17,12 @@ function isStabilityReport(value: unknown): boolean {
   );
 }
 
+function isNonlinearReport(value: unknown): boolean {
+  return isRecord(value) &&
+    ['segmentsPerFrame', 'steps', 'forceResidual', 'momentResidual', 'nodalResidual'].every(key => Number.isFinite(value[key])) &&
+    isRecord(value.cableState) && Object.values(value.cableState).every(state => state === 'taut' || state === 'slack');
+}
+
 /**
  * Check the fields the app reads before trusting a response body. The service
  * is a separate process that may be a different version, so its output is
@@ -29,11 +35,13 @@ function isAnalysisResult(value: unknown): value is AnalysisResult {
       return (
         isRecord(value.displacements) &&
         isStringArray(value.warnings) &&
+        (value.nonlinear === undefined || isNonlinearReport(value.nonlinear)) &&
         (value.stability === undefined || isStabilityReport(value.stability))
       );
     case 'unstable':
       return typeof value.message === 'string' && isStringArray(value.warnings) && isStabilityReport(value.stability);
     case 'unsupported':
+    case 'unresolved':
     case 'error':
       return typeof value.message === 'string';
     default:

@@ -38,6 +38,8 @@ OpenSees holds one global model per process, so each process analyses one model 
 
 ## What is modelled
 
+With no analysis option, the following linear behavior applies. The editor's **Run nonlinear check** action sends `analysis: { type: "corotational", segmentsPerFrame: 8 }` and explicit section or rest-length cable laws to the same endpoint. The opt-in path subdivides continuous frames, advances dead nodal loads incrementally and checks final tangent stability and deformed-state equilibrium. It reports an unresolved outcome when verification fails. Its expanded mesh limit is 1,200 free equations. The returned forces use SI units. Strength checks and scoring belong to separate game paths. See [numerical evidence](../../docs/kb/criteria-ledger.md).
+
 - **Analysis:** linear elastic, small-displacement, static. One load case made of the nodal forces and moments in the request. No self-weight, member loads, load combinations, buckling, or member capacity checks.
 - **Units:** SI base units. Metres, newtons, newton-metres, radians.
 - **Members:** every member is the same steel section, defined in `src/dof_opensees/properties.py` (E = 210 GPa, G = 81 GPa, properties representative of a 200 x 200 x 10 mm square hollow section). The section is doubly symmetric, so results do not depend on member roll and the contract needs no local-axis convention.

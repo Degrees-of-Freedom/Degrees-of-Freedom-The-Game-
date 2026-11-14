@@ -30,6 +30,8 @@ status: partial
 
 # Structural Solver
 
+OpenSees now accepts a corotational request on the existing adapter. The editor results panel exposes it for contract-compatible models. Explicit section properties and cable rest lengths are passed through the game boundary. Segmented frames, a deformed-equilibrium check and a final tangent check support the analytical fixtures in `services/opensees/tests/test_nonlinear.py`. See the [before and after walkthrough](../evidence/nonlinear/check.mjs) and [implementation ledger](criteria-ledger.md) for numerical bounds and known scope.
+
 For a computed small-displacement frame component, the applied-load path now checks normalized six-axis equilibrium, member end laws, releases and displacement compatibility. A scoped `verified-linear` result records residuals and the formulation. The preliminary applicability screens limit member motion and compression. Cables and nonlinear/capacity behavior require separate verification. The score-specific load option excludes self-weight, while the existing preview retains its load set.
 
 The active voxel analysis now solves independent supported components separately. Each load combination identifies component node/member IDs, computed, unsupported, singular, excessive-displacement or unresolved scope. A stable neighbor retains its computed forces, reactions and displacements when a supported mechanism or oversized subsystem cannot be solved. The independent service has its own result contract. Experimental component response needs additional verification for scored play. See the [criteria ledger](criteria-ledger.md).

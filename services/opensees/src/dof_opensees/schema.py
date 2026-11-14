@@ -25,12 +25,35 @@ class Node(_Strict):
     position: Vector3
 
 
+class FrameLaw(_Strict):
+    kind: Literal["frame"]
+    elasticModulus: float = Field(gt=0)
+    shearModulus: float = Field(gt=0)
+    area: float = Field(gt=0)
+    iy: float = Field(gt=0)
+    iz: float = Field(gt=0)
+    torsionConstant: float = Field(gt=0)
+
+
+class CableLaw(_Strict):
+    kind: Literal["cable"]
+    elasticModulus: float = Field(gt=0)
+    area: float = Field(gt=0)
+    restLength: float = Field(gt=0)
+
+
+class CorotationalAnalysis(_Strict):
+    type: Literal["corotational"]
+    segmentsPerFrame: int = Field(default=8, ge=1, le=32)
+
+
 class Member(_Strict):
     id: str = Field(min_length=1)
     startNodeId: str
     endNodeId: str
     startFixity: EndFixity = "fixed"
     endFixity: EndFixity = "fixed"
+    law: FrameLaw | CableLaw | None = Field(default=None, discriminator="kind")
 
 
 class Support(_Strict):
@@ -50,3 +73,4 @@ class StructuralModel(_Strict):
     members: list[Member]
     supports: list[Support]
     loads: list[Load]
+    analysis: CorotationalAnalysis | None = None

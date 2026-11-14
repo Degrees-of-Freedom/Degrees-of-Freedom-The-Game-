@@ -31,7 +31,7 @@ import openseespy.opensees as ops
 
 from . import stability
 from .properties import STEEL_MEMBER, MemberProperties
-from .schema import StructuralModel
+from .schema import CableLaw, FrameLaw, StructuralModel
 
 #: Members shorter than this (m) are rejected as zero-length.
 MIN_MEMBER_LENGTH = 1e-9
@@ -97,10 +97,11 @@ class _Member:
     start_fixed: bool
     end_fixed: bool
     tag: int = 0
+    law: FrameLaw | CableLaw | None = None
 
     @property
     def is_truss(self) -> bool:
-        return not self.start_fixed and not self.end_fixed
+        return not isinstance(self.law, FrameLaw) and not self.start_fixed and not self.end_fixed
 
 
 def _prepare(model: StructuralModel, limits: Limits) -> tuple[list[_Node], list[_Member]]:
@@ -132,7 +133,11 @@ def _prepare(model: StructuralModel, limits: Limits) -> tuple[list[_Node], list[
         end = node_for(item.endNodeId, f"Member '{item.id}'")
         if start is end or math.dist(start.position, end.position) < MIN_MEMBER_LENGTH:
             raise ModelError(f"Member '{item.id}' has zero length.")
-        member = _Member(item.id, start, end, item.startFixity == "fixed", item.endFixity == "fixed")
+        if item.law and not model.analysis:
+            raise ModelError("An explicit member law requires the corotational analysis option.")
+        if isinstance(item.law, CableLaw) and (item.startFixity != "pinned" or item.endFixity != "pinned"):
+            raise ModelError(f"Cable '{item.id}' requires pinned ends.")
+        member = _Member(item.id, start, end, item.startFixity == "fixed", item.endFixity == "fixed", law=item.law)
         start.has_member = end.has_member = True
         start.has_fixed_end |= member.start_fixed
         end.has_fixed_end |= member.end_fixed
@@ -148,7 +153,7 @@ def _prepare(model: StructuralModel, limits: Limits) -> tuple[list[_Node], list[
     return list(nodes.values()), members
 
 
-def _build(active: list[_Node], members: list[_Member], properties: MemberProperties) -> tuple[int, int]:
+def _build(active: list[_Node], members: list[_Member], properties: MemberProperties, corotational=False) -> tuple[int, int]:
     """Create the OpenSees domain.
 
     Returns the highest node tag used and the number of free DOFs, counted
@@ -167,15 +172,31 @@ def _build(active: list[_Node], members: list[_Member], properties: MemberProper
     # The section is doubly symmetric, so the orientation of the local axes
     # does not affect results. Two transformations only avoid a reference
     # vector parallel to the member.
-    ops.geomTransf("Linear", 1, 0.0, 0.0, 1.0)
-    ops.geomTransf("Linear", 2, 1.0, 0.0, 0.0)
+    formulation = "Corotational" if corotational else "Linear"
+    ops.geomTransf(formulation, 1, 0.0, 0.0, 1.0)
+    ops.geomTransf(formulation, 2, 1.0, 0.0, 0.0)
 
     next_node = len(active)
     for tag, member in enumerate(members, start=1):
         member.tag = tag
         start, end = member.start, member.end
+        law = member.law
+        area = law.area if law else p.area
+        modulus = law.elasticModulus if law else p.elastic_modulus
         if member.is_truss:
-            ops.element("Truss", tag, start.tag, end.tag, p.area, 1)
+            material = 1
+            if isinstance(law, CableLaw):
+                # CorotTruss measures strain on the reference chord. Convert
+                # its slope and offset to yield exactly EA*(l/Lrest - 1).
+                ratio = math.dist(start.position, end.position) / law.restLength
+                elastic = 2 * tag + 1
+                material = elastic + 1
+                ops.uniaxialMaterial("Elastic", elastic, modulus * ratio, 0.0, 0.0)
+                ops.uniaxialMaterial("InitStrainMaterial", material, elastic, 1 - 1 / ratio)
+            elif law:
+                material = 2 * tag + 1
+                ops.uniaxialMaterial("Elastic", material, modulus)
+            ops.element("corotTruss" if corotational else "Truss", tag, start.tag, end.tag, area, material)
             continue
         end_tags = []
         for node, fixed in ((start, member.start_fixed), (end, member.end_fixed)):
@@ -192,12 +213,40 @@ def _build(active: list[_Node], members: list[_Member], properties: MemberProper
         transformation = 2 if math.hypot(dx, dy) < 1e-6 * abs(dz) else 1
         ops.element(
             "elasticBeamColumn", tag, *end_tags,
-            p.area, p.elastic_modulus, p.shear_modulus,
-            p.torsion_constant, p.second_moment, p.second_moment, transformation,
+            area, modulus, law.shearModulus if law else p.shear_modulus,
+            law.torsionConstant if law else p.torsion_constant,
+            law.iy if law else p.second_moment, law.iz if law else p.second_moment, transformation,
         )
     # Each duplicate node contributes its three free rotations.
     free_dofs = sum(6 - sum(node.fixity) + 3 * len(node.duplicates) for node in active)
     return next_node, free_dofs
+
+
+def _discretize(nodes: list[_Node], members: list[_Member], segments: int, limits: Limits):
+    """Keep member-end releases outside the continuous internal beam mesh."""
+    parents = {}
+    mesh_nodes = list(nodes)
+    mesh_members = []
+    for member in members:
+        count = 1 if member.is_truss else segments
+        if len(mesh_members) + count > limits.max_members or len(mesh_nodes) + count - 1 > limits.max_nodes:
+            raise ModelError("Requested nonlinear mesh exceeds the service node or member limit.")
+        stations = [member.start]
+        for station in range(1, count):
+            position = tuple(a + (b-a)*station/count for a, b in zip(member.start.position, member.end.position))
+            node = _Node(f"mesh:{member.id}:{station}", position, has_member=True, has_fixed_end=True)
+            mesh_nodes.append(node)
+            stations.append(node)
+        stations.append(member.end)
+        children = []
+        for i in range(count):
+            child = _Member(member.id, stations[i], stations[i+1],
+                            i > 0 or member.start_fixed, i+1 < count or member.end_fixed,
+                            law=member.law)
+            children.append(child)
+        mesh_members.extend(children)
+        parents[member.id] = children
+    return mesh_nodes, mesh_members, parents
 
 
 def _stiffness(active: list[_Node]) -> np.ndarray:
@@ -330,6 +379,141 @@ def _member_forces(member: _Member) -> dict[str, float]:
     }
 
 
+def _advance_nonlinear() -> int | None:
+    """Reach full dead load with bounded Newton iterations and cutbacks."""
+    ops.constraints("Transformation")
+    ops.numberer("RCM")
+    ops.system("BandGeneral")
+    ops.test("NormDispIncr", 1e-11, 30)
+    ops.algorithm("Newton")
+    step = 0.125
+    ops.integrator("LoadControl", step)
+    ops.analysis("Static")
+    for attempt in range(96):
+        step = min(step, 1 - ops.getTime())
+        ops.integrator("LoadControl", step)
+        if ops.analyze(1) == 0:
+            if ops.getTime() >= 1 - 1e-12:
+                return attempt + 1
+            step = min(0.25, 2 * step)
+        else:
+            step /= 2
+            if step < 1 / 4096:
+                break
+    return None
+
+
+def _nonlinear_response(model: StructuralModel, nodes: list[_Node], members: list[_Member],
+                        properties: MemberProperties, limits: Limits) -> dict:
+    """Extract an equilibrium of the deformed model with no stabilizing springs."""
+    segments = model.analysis.segmentsPerFrame
+    mesh_nodes, mesh_members, parents = _discretize(nodes, members, segments, limits)
+    active = [node for node in mesh_nodes if node.has_member or node.loaded]
+    _, free = _build(active, mesh_members, properties, corotational=True)
+    # Bound the dense final-tangent check before allocating its matrix.
+    if free > 1200:
+        return {"status": "unresolved", "message": "Expanded nonlinear mesh exceeds the 1200-equation tangent check limit."}
+    ops.timeSeries("Linear", 1)
+    ops.pattern("Plain", 1, 1)
+    for node in active:
+        if node.loaded:
+            ops.load(node.tag, *node.load)
+    if free:
+        steps = _advance_nonlinear()
+        if steps is None:
+            return {"status": "unresolved", "message": "Full nonlinear load could not be equilibrated within the increment budget."}
+    else:
+        # An all-restrained cable can still carry physical pretension.
+        ops.initialize()
+        ops.setTime(1.0)
+        steps = 0
+    ops.reactions()
+    displacements, reactions, fr, mr, nr = _nonlinear_nodal_response(nodes, active)
+    if not math.isfinite(fr + mr + nr) or max(fr, mr, nr) > 1e-5:
+        return {"status": "unresolved", "message": "Deformed-state nodal, force or moment balance did not meet 1e-5."}
+    forces, cable_state = {}, {}
+    for member in members:
+        children = parents[member.id]
+        first = _member_forces(children[0])
+        if len(children) > 1:
+            first["momentEnd"] = _member_forces(children[-1])["momentEnd"]
+        if not all(math.isfinite(value) for value in first.values()):
+            return {"status": "unresolved", "message": f"Nonfinite internal force on '{member.id}'."}
+        forces[member.id] = first
+        if isinstance(member.law, CableLaw):
+            start = np.array(member.start.position) + displacements[member.start.id][:3]
+            end = np.array(member.end.position) + displacements[member.end.id][:3]
+            strain = np.linalg.norm(end - start) / member.law.restLength - 1
+            target = member.law.elasticModulus * member.law.area * max(0., strain)
+            if not math.isclose(first["axial"], target, rel_tol=1e-6, abs_tol=1e-5):
+                return {"status": "unresolved", "message": f"Cable '{member.id}' failed its tension-only force law."}
+            cable_state[member.id] = "taut" if target > 0 else "slack"
+    if free and not _positive_final_tangent(active):
+        return {"status": "unresolved", "message": "Final nonlinear tangent is singular, marginal or indefinite."}
+    return {"status": "success", "displacements": displacements, "reactions": reactions,
+            "memberForces": forces, "warnings": ["Geometrically nonlinear elastic response under the supplied nodal loads."],
+            "nonlinear": {"segmentsPerFrame": segments, "steps": steps, "forceResidual": fr,
+                          "momentResidual": mr, "nodalResidual": nr, "cableState": cable_state}}
+
+
+def _nonlinear_nodal_response(nodes: list[_Node], active: list[_Node]):
+    """Check global equilibrium about the deformed nodes and each free nodal direction."""
+    displacements, reactions = {}, {}
+    residual_force = np.zeros(3)
+    residual_moment = np.zeros(3)
+    origin = np.array(active[0].position) if active else np.zeros(3)
+    length_scale = max([1., *(math.dist(node.position, origin) for node in active)])
+    force_scale = 1.
+    moment_scale = 1.
+    max_free_force = max_free_moment = 0.
+    nodal_forces = {}
+    for node in active:
+        nodal = np.array(ops.nodeReaction(node.tag))
+        for duplicate in node.duplicates:
+            duplicate_force = np.array(ops.nodeReaction(duplicate))
+            nodal[:3] += duplicate_force[:3]
+            max_free_moment = max(max_free_moment, np.linalg.norm(duplicate_force[3:]))
+        nodal_forces[node.tag] = nodal
+        free_residual = np.where(node.restrained, 0., nodal)
+        max_free_force = max(max_free_force, np.linalg.norm(free_residual[:3]))
+        max_free_moment = max(max_free_moment, np.linalg.norm(free_residual[3:]))
+    for node in nodes:
+        displacement = ops.nodeDisp(node.tag) if node.tag else [0.] * 6
+        displacements[node.id] = list(displacement)
+        reaction = np.zeros(6)
+        if any(node.restrained):
+            if node.tag:
+                reaction = nodal_forces[node.tag].copy()
+            reaction[~np.array(node.restrained)] = 0.
+            reactions[node.id] = reaction.tolist()
+        net = np.array(node.load) + reaction
+        residual_force += net[:3]
+        arm = np.array(node.position) + displacement[:3] - origin
+        residual_moment += net[3:] + np.cross(arm, net[:3])
+        force_scale += np.linalg.norm(node.load[:3]) + np.linalg.norm(reaction[:3])
+        moment_scale += np.linalg.norm(node.load[3:]) + np.linalg.norm(reaction[3:])
+    fr = float(np.linalg.norm(residual_force)) / force_scale
+    mr = float(np.linalg.norm(residual_moment)) / (moment_scale + force_scale * length_scale)
+    nr = max(max_free_force / force_scale, max_free_moment / (moment_scale + force_scale * length_scale))
+    return displacements, reactions, fr, mr, nr
+
+
+def _positive_final_tangent(active: list[_Node]) -> bool:
+    # A converged iterate can be an unstable equilibrium. Require a positive
+    # constrained tangent in work-conjugate, diagonally scaled coordinates.
+    tangent = _stiffness(active)
+    diagonal = np.diag(tangent)
+    if not np.all(np.isfinite(tangent)) or np.any(diagonal <= 0):
+        return False
+    scales = 1 / np.sqrt(diagonal)
+    scaled = scales[:, None] * ((tangent + tangent.T) / 2) * scales[None, :]
+    try:
+        np.linalg.cholesky(scaled - np.eye(len(scales))*1e-10)
+    except np.linalg.LinAlgError:
+        return False
+    return True
+
+
 def analyze(
     model: StructuralModel,
     properties: MemberProperties = STEEL_MEMBER,
@@ -340,6 +524,17 @@ def analyze(
         nodes, members = _prepare(model, limits)
     except ModelError as error:
         return {"status": "error", "message": str(error)}
+
+    if model.analysis:
+        with _LOCK:
+            try:
+                return _nonlinear_response(model, nodes, members, properties, limits)
+            except ModelError as error:
+                return {"status": "error", "message": str(error)}
+            except (ops.OpenSeesError, ArithmeticError, np.linalg.LinAlgError) as error:
+                return {"status": "unresolved", "message": f"Nonlinear response unavailable: {type(error).__name__}."}
+            finally:
+                ops.wipe()
 
     warnings: list[str] = []
     active = [node for node in nodes if node.has_member or node.loaded]

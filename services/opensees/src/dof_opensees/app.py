@@ -80,6 +80,7 @@ def create_app() -> FastAPI:
             "id": "opensees",
             "name": "OpenSees linear static",
             "analysis": "linear-elastic-static",
+            "optionalAnalysis": ["corotational"],
             "units": "SI",
             "memberEndFixities": ["fixed", "pinned"],
             "loads": ["nodal-force", "nodal-moment"],
