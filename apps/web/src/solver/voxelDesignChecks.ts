@@ -9,7 +9,7 @@ import type {
   VoxelAnalysis,
 } from './voxelResults';
 import type { Section } from './voxelSections';
-const JOINT_CAP = { pinF: 350, rigidF: 700, rigidM: 220 }; // kN, kNm
+import { CARD_STRENGTH } from './voxelCapacity';
 const FOUND_CAP = { Nc: 1500, Nt: 250, H: 350, M: 300 }; // kN, kNm
 function memberDemandULS(e: Element, r: ElementForce, amp: number) {
   const { f, ul } = r,
@@ -103,8 +103,8 @@ export function checkMember(
     Math.max(d.dEIy / (it.E * it.Iz), d.dEIz / (it.E * it.Iy)) / (L / 250);
   const conn = (F: number, M: number, rigid: boolean) =>
     rigid
-      ? Math.max(F / JOINT_CAP.rigidF, M / JOINT_CAP.rigidM)
-      : F / JOINT_CAP.pinF;
+      ? Math.max(F / CARD_STRENGTH.connections.fixed.force, M / CARD_STRENGTH.connections.fixed.moment)
+      : F / CARD_STRENGTH.connections.ball.force;
   c.connection = Math.max(
     conn(d.endF[0], d.endM[0], rA),
     conn(d.endF[1], d.endM[1], rB),

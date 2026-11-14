@@ -48,7 +48,8 @@ export function Workspace() {
     result: VoxelAnalysis;
   } | null>(null);
   const [drawer, setDrawer] = useState<Drawer>(() =>
-    new URLSearchParams(window.location.search).has("library") ? "library" : null,
+    new URLSearchParams(window.location.search).has("library") ? "library" :
+      game.mode === "multiplayer" && game.turn?.finalScore ? "turn" : null,
   );
   const [message, setMessage] = useState("");
   const [help, setHelp] = useState(() => getSettings().showHelpOnStart);
@@ -83,7 +84,7 @@ export function Workspace() {
     const error = current.endTurn();
     if (error) { setMessage(error); return; }
     setReadyBoard(null);
-    setDrawer(null);
+    setDrawer(useGameStore.getState().turn?.finalScore ? "turn" : null);
     setMessage("");
   }
   function pause() {

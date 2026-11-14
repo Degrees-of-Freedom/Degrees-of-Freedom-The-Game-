@@ -1,7 +1,8 @@
 import { parseNodeKey } from './model';
-import { turnJoints, type TurnState } from './turns';
-import { originalPorts } from './turnPorts';
+import type { TurnState } from './turns';
+import { originalPorts, turnJoints } from './turnPorts';
 import { analyzeVoxel } from '../solver/voxel';
+import { assessCardCapacity } from '../solver/voxelCapacity';
 import type { VoxelLevel, VoxelModel } from '../solver/voxelInput';
 
 const turnLevel: VoxelLevel = { type: 'sandbox', q0: 0, budget: Infinity, inv: null, loadCase: 'applied' };
@@ -57,7 +58,12 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
 
 /** Scoring uses card gravity alone. Ordinary experimental previews retain their original load case. */
 export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card-gravity' = 'with-self-weight') {
-  return analyzeVoxel(toTurnVoxelInput(turn), { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });
+  const input = toTurnVoxelInput(turn);
+  const response = analyzeVoxel(input, { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });
+  const capacity = loading === 'card-gravity'
+    ? assessCardCapacity(input, response, [...turn.board.connections, ...turn.draft.connections])
+    : undefined;
+  return { ...response, capacity };
 }
 
 export function assessTurn(turn: TurnState): 'stable' | 'unstable' | 'partial' | 'unresolved' {

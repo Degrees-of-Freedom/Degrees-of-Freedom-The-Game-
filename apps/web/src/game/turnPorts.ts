@@ -1,4 +1,5 @@
 import { nodeKey, parseNodeKey, type GridPoint, type Member } from "./model";
+import type { TurnState } from "./turns";
 
 export type Quarter = 1 | 2 | 3;
 export interface QuarterPort {
@@ -10,6 +11,18 @@ export interface QuarterPort {
 }
 
 const quarters = [1, 2, 3] as const;
+
+/** Collect committed and newly activated interfaces for rules and analysis. */
+export function turnJoints(state: TurnState): TurnState["board"]["joints"] {
+  const joints = new Map(state.board.joints.map((joint) => [joint.id, joint]));
+  const members = [...state.board.members, ...state.draft.members];
+  for (const { jointId } of state.draft.connections) {
+    if (joints.has(jointId)) continue;
+    const port = findPort(members, jointId);
+    joints.set(jointId, port ? { id: jointId, point: nodeKey(...port.point) } : { id: jointId });
+  }
+  return [...joints.values()];
+}
 
 /** A port always belongs to the dealt parent, never to one of its analytical pieces. */
 export function originalPorts(member: Member): QuarterPort[] {

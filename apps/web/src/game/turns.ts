@@ -6,7 +6,10 @@ import {
 } from "./model";
 import { LEGACY_CATALOGUE, SCORED_CATALOGUE, printedCards, type CardDefinition, type CatalogueId } from "./cardCatalogue";
 import { conflictingJointAxes, CONNECTION_PROFILES } from "./jointFreedom";
-import { findPort, targetCoordinate } from "./turnPorts";
+import { findPort, targetCoordinate, turnJoints } from "./turnPorts";
+import { analyzeTurn } from "./turnAnalysis";
+import { awardFinalScore, finalReceipt, recoverFinalScore, type FinalScore } from "./finalScore";
+export { turnJoints } from "./turnPorts";
 export { CONNECTION_PROFILES } from "./jointFreedom";
 
 export type TurnCard = CardDefinition & { id: string };
@@ -56,14 +59,14 @@ type Event =
       end: "a" | "b";
       jointId?: string;
     }
-  | { kind: "end"; turn: number; status?: TurnReport["status"] };
+  | { kind: "end"; turn: number; status?: TurnReport["status"]; final?: FinalScore };
 
 export type TurnReport = {
   turn: number;
   playerId: string;
   status: "stable" | "unstable" | "partial" | "unresolved";
   reason: string;
-  penalty: 0;
+  penalty: 0 | -1;
 };
 
 export interface TurnState {
@@ -80,6 +83,7 @@ export interface TurnState {
   reports: TurnReport[];
   events: Event[];
   finished: boolean;
+  finalScore?: FinalScore;
 }
 
 type Transition =
@@ -275,17 +279,6 @@ export function stageElement(
   );
 }
 
-export function turnJoints(state: TurnState): Joint[] {
-  const joints = new Map(state.board.joints.map((joint) => [joint.id, joint]));
-  const members = [...state.board.members, ...state.draft.members];
-  for (const { jointId } of state.draft.connections) {
-    if (joints.has(jointId)) continue;
-    const port = findPort(members, jointId);
-    joints.set(jointId, port ? { id: jointId, point: nodeKey(...port.point) } : { id: jointId });
-  }
-  return [...joints.values()];
-}
-
 export function stageLoad(
   state: TurnState,
   cardId: string,
@@ -397,6 +390,15 @@ export function endTurn(
   expectedTurn = state.turn,
   status: TurnReport["status"] = "unresolved",
 ): Transition {
+  return commitTurn(state, expectedTurn, status);
+}
+
+function commitTurn(
+  state: TurnState,
+  expectedTurn: number,
+  status: TurnReport["status"] = "unresolved",
+  replay?: { final: unknown },
+): Transition {
   if (state.finished || expectedTurn !== state.turn)
     return fail("This turn has already ended.");
   const connections = [...state.board.connections, ...state.draft.connections];
@@ -439,6 +441,27 @@ export function endTurn(
     reports: [...state.reports, report],
     events: [...state.events, { kind: "end", turn: state.turn, status }],
   };
+  if (finished && state.catalogue === SCORED_CATALOGUE) {
+    let finalScore: FinalScore | null;
+    if (replay) {
+      finalScore = recoverFinalScore(committed, replay.final);
+      if (!finalScore) return fail("The final score receipt does not match the saved match.");
+    } else {
+      let analysis: ReturnType<typeof analyzeTurn> | null = null;
+      try {
+        analysis = analyzeTurn(committed, "card-gravity");
+      } catch {
+        // A failed solve leaves the full gravity denominator and historical penalties intact.
+      }
+      finalScore = awardFinalScore(committed, finalReceipt(committed, analysis));
+    }
+    const scores = new Map(finalScore.awards.map(a => [a.playerId, a.finalScore]));
+    return { ok: true, state: { ...committed, finalScore,
+      players: committed.players.map(p => ({ ...p, score: scores.get(p.id)! })),
+      events: [...state.events, { kind: "end", turn: state.turn, status, final: finalScore }],
+    } };
+  }
+  if (replay?.final !== undefined) return fail("Unexpected final score before scored-match completion.");
   return { ok: true, state: finished ? committed : draw(committed) };
 }
 
@@ -509,7 +532,7 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
   if (event.kind === "end" && typeof event.turn === "number") {
     if (event.status !== undefined && event.status !== "stable" && event.status !== "unstable" &&
       event.status !== "partial" && event.status !== "unresolved") return null;
-    return endTurn(state, event.turn, event.status);
+    return commitTurn(state, event.turn, event.status, { final: event.final });
   }
   if (typeof event.cardId !== "string") return null;
   if (

@@ -1,6 +1,7 @@
 import { useGameStore } from "../game/store";
 import { activeTurnHand, KIT_PLAYTEST } from "../game/turns";
 import { TurnQuarterTargets } from "./TurnQuarterTargets";
+import { FinalScorePanel } from "./FinalScorePanel";
 import { CardDefinitionDetails } from "./CardDefinitionDetails";
 import { connectionLocations, findPort, portLabel } from "../game/turnPorts";
 
@@ -29,19 +30,22 @@ export function TurnPanel({
           ? "Table complete"
           : `Player ${turn.playerIndex + 1} · Round ${Math.ceil(turn.turn / 2)} of ${KIT_PLAYTEST.rounds}`}
       </h2>
-      <p>
+      {turn.finished && (turn.finalScore
+        ? <FinalScorePanel score={turn.finalScore} />
+        : <p>This legacy playtest ended before final scoring was available.</p>)}
+      {!turn.finished && <p>
         {KIT_PLAYTEST.description} Draw two cards from each deck. Play up to one
         member, one gravity load and two end connections, or pass. This is an
         experimental local playtest.
-      </p>
-      <p>
+      </p>}
+      {!turn.finished && <p>
         Staged this turn: {turn.draft.members.length}/1 member ·{" "}
         {turn.draft.loads.length}/1 load · {turn.draft.connections.length}/2
         connections.
-      </p>
+      </p>}
       {turn.finished && (
         <button
-          className="primary-action"
+          className="btn primary-action"
           onClick={() => {
             const issue = game.newMatch();
             onMessage(

@@ -21,6 +21,8 @@ The first multiplayer release is local hot-seat. The owner approved two players,
 
 ## 2. Final score calculation
 
+The new scored preset finalizes once after the last committed turn and stores a versioned receipt of reaction evidence and awards. The final drawer shows verified foundation share, historical penalties, adjusted scores, neutral share and unavailable gravity. A restored presetless legacy playtest retains its original unscored outcome. See the [runtime ledger](criteria-ledger.md).
+
 Use an explicit versioned scoring policy and final committed model/result. For a candidate base policy, Z is up and all scored applied loads are persistent downward gravity. Let W be their total positive downward force magnitude across the complete shared model. Let R_i be the sum of available signed upward foundation reactions belonging to player i from verified components in that same final load state. Keep a separate completeness mask; unavailable reactions are not numeric zero. Define:
 
 `loadSharePercent_i = 100 * R_i / W`
