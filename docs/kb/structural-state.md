@@ -100,3 +100,5 @@ Start with axial tension/compression, cantilever bending and torsion, a simply s
 ## Future element representation definitions
 
 [Element representation criteria](element-representation-criteria.md) require versioned section dimensions/roll, spring parameters, planar/trichord assembly topology, stable parent/part/interface IDs and cable geometry metadata as appropriate. Current browser member types and preliminary analytical definitions do not cover that complete catalogue. Extend validated schemas deliberately before persistence or numerical use; readable thickness, selection targets and LOD are presentation preferences and must not change authoritative physical data. Migration, assembly cards and solver mapping remain future work.
+
+Solver outputs are stored separately from model revisions; see [structural analysis results](analysis-results.md) for the run contract, validity and transactional limits.
