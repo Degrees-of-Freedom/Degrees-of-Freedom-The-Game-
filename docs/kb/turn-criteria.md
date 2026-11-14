@@ -25,9 +25,10 @@ The owner confirmed:
 - Play **up to one element, one load and two connections**. These are independent maximums; playing fewer cards, including passing, is allowed.
 - One connection card attaches **one member end to a shared joint**. A new member normally needs two cards to connect both ends.
 - At turn end, solve the structure and identify instability or other issues introduced into the shared structure.
-- Keep a move that introduces issues and apply one fixed point deduction per turn with a verified new or worsened issue, regardless of affected object count. Persistent unchanged issues and unresolved solver results do not trigger deductions. The numerical amount still needs confirmation.
+- Keep a move that introduces issues and deduct **1 point per turn** with a verified new or worsened issue, regardless of affected object count. Persistent unchanged issues and unresolved solver results do not trigger deductions.
 - Shared access permits new loads and end attachments on the shared structure, including opponents' members. Placed connections cannot be edited or replaced, including by their owner; new members may frame into an existing joint through their own new connection cards.
 - Each player has only their starting foundation. Foundations are not drawable or playable cards.
+- Base-game load cards are persistent downward gravity loads only; no lateral-force or moment cards.
 
 Remaining rules are proposals unless explicitly confirmed. Recommendations make the draft reviewable; they are not silently finalized rules. A playable match must configure its unresolved policies first.
 
@@ -44,12 +45,12 @@ Deck 1 covers all documented structural families. Names below identify the curre
 | Beam-column | SHS 100×6 steel, Glulam 200×400, IPE 300 steel and HEB 300 steel. Beam versus column follows orientation, not a different formulation. |
 | Axial brace | Required by solver criteria M03 but absent from the voxel catalog. Section, material and capacities need definition. |
 | Tension-only cable | Cable Ø24 is the current example. Each card defines rest length or initial strain and pretension; do not silently apply the prototype's 25 kN pretension to every cable. |
-| Load | Point load 50 kN is the current example. Proposed base deck uses persistent gravity point loads with printed magnitudes. Lateral/moment cards require explicit definitions. |
+| Load | Point load 50 kN is the current example. Confirmed base deck uses persistent downward gravity point loads with printed magnitudes. Lateral-force and moment cards are excluded from the base game. |
 | Foundation / support | Setup-only by owner decision. Not included in either deck; no turn play adds a foundation. |
 
 An element card places one member, not an entire multi-member assembly or a foundation. Each member definition specifies lengths, orientation/section roll, E, G, A, Iy, Iz, J where relevant, capacities and self-weight policy. Player choices must stay within printed options. One load card uses one load allowance even if its defined load has several vector components.
 
-A load targets an explicit joint or member-end interface, not mere coordinate coincidence. Proposed gravity loads persist until an explicit rule removes them. A load on an unsupported or unstable target is reportable physics, not automatically an illegal placement. Interior attachments and distributed loads remain deferred until subdivision/equivalent-load semantics are defined. Crossing members never connect automatically.
+A load targets an explicit joint or member-end interface, not mere coordinate coincidence. Gravity loads persist; removal requires an explicit separate rule. A load on an unsupported or unstable target is reportable physics, not automatically an illegal placement. Interior attachments and distributed loads remain deferred until subdivision/equivalent-load semantics are defined. Crossing members never connect automatically.
 
 ## 3. Deck 2: six-DOF connection design
 
@@ -130,7 +131,7 @@ Proposed game responsibility: attribute verified adverse changes between consecu
 
 ## 7. Penalty and unresolved results
 
-**Confirmed:** keep the move and apply one fixed point deduction per turn with at least one verified new or worsened issue, regardless of affected object count. Persistent unchanged issues do not repeat the deduction; unresolved solver results do not trigger a penalty. This avoids counting the same physical event many times through affected nodes/modes. **Pending:** numerical deduction amount, exact eligible categories, worsening thresholds and deferred verification. Instability and member/connection overload are the initial proposed eligible categories; do not invent additional penalties for ordinary cable slack or uplift.
+**Confirmed:** keep the move and deduct **1 point** once per turn with at least one verified new or worsened issue, regardless of affected object count. Persistent unchanged issues do not repeat the deduction; unresolved solver results do not trigger a penalty. This avoids counting the same physical event many times through affected nodes/modes. **Pending:** exact eligible categories beyond instability/overload, worsening thresholds and deferred verification. Instability and member/connection overload are the initial proposed eligible categories; do not invent additional penalties for ordinary cable slack or uplift.
 
 Do not infer a physical penalty from timeout, numerical error or `unresolved`. Proposed unresolved policy retains the legal move with unknown scope, schedules bounded reanalysis, withholds new authoritative reaction scoring for that scope, and applies no physical-issue penalty without verification. Whether later verification produces a deferred penalty attached to the originating turn remains open. Prior results must retain their historical version, never masquerade as current valid reactions.
 
@@ -140,7 +141,7 @@ Return signed six-component foundation reactions with validity. Load attraction,
 
 Player A draws two deck-1 cards and two deck-2 cards. From their accumulated hand they stage an IPE member, one gravity load, a fixed connection at the new member's first end, and a ball joint connection at its second end. The second end frames into a joint already used by Player B. Player B's existing connector remains unchanged; the new ball-joint law applies only to A's incoming end. The load may target that shared joint under shared-access rules.
 
-The draft may be unstable before the second connector is placed; that preview has no penalty. On end turn the complete shared model is analyzed. If a previously verified member on Player B's frame now exceeds capacity, the issue report identifies that existing member and the active turn, even though A's new member is not itself overloaded. The legal move remains and produces one deduction for A's turn, even if several members have new verified issues. If an old issue merely persists, it does not add a deduction. If the affected region is unresolved, it receives no invented utilization, reaction score or physical-issue penalty.
+The draft may be unstable before the second connector is placed; that preview has no penalty. On end turn the complete shared model is analyzed. If a previously verified member on Player B's frame now exceeds capacity, the issue report identifies that existing member and the active turn, even though A's new member is not itself overloaded. The legal move remains and produces a 1-point deduction for A's turn, even if several members have new verified issues. If an old issue merely persists, it does not add a deduction. If the affected region is unresolved, it receives no invented utilization, reaction score or physical-issue penalty.
 
 ## 8. Persistence and acceptance criteria
 
@@ -165,12 +166,12 @@ The following tests are required when implementing this design; they are not cur
 
 ## 9. Questions still to resolve
 
-1. Penalty numerical amount, eligible issue categories, worsening thresholds and deferred verification. Per-turn aggregation and no repeat/unknown penalties are confirmed.
+1. Penalty eligibility beyond instability/overload, worsening thresholds and deferred verification. The 1-point amount, per-turn aggregation and no repeat/unknown penalties are confirmed.
 2. Repair: proposed base play repairs by adding members/connections; removal or modification of placed cards is not authorized. Placed connections remain immutable.
 3. Foundations are confirmed setup-only; starting layout and column properties still need definition.
 4. Card economy: opening hand, retention/cap/discard/exchange, deck sizes, load-to-element ratio, connection frequencies and exhaustion.
-5. Loads: gravity-only or lateral/moment too, magnitudes, eligible targets, self-weight and removal.
-6. Placement: lengths, isolated elements, cross-player joints and interior attachment.
+5. Loads: magnitudes, eligible targets, self-weight and removal. Persistent downward gravity only is confirmed for the base deck.
+6. Placement: lengths, isolated elements and interior attachment. Shared access to existing joints is confirmed.
 7. Match: setup/order, turn limit/end condition, reaction scoring, penalty interaction and victory/ties.
 
 Documentation review checked the named member families against `voxelInput.ts`/`voxelSections.ts` and the solver requirements; no turn implementation or numerical validation is claimed.
