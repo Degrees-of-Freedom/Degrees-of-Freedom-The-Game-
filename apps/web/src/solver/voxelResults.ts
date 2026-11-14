@@ -1,5 +1,6 @@
 import type { VoxelMember } from './voxelInput';
 import type { Section } from './voxelSections';
+import type { LinearVerification } from './voxelVerification';
 export type Element = {
   m: VoxelMember;
   it: Section;
@@ -38,6 +39,8 @@ export interface ComponentResponse {
    * must independently accept this scope before it is eligible for game scoring. */
   status: 'computed' | 'unsupported' | 'mechanism' | 'unresolved' | 'excessive-displacement';
   reason?: string;
+  /** Absence means there is no verified response. This evidence only covers the declared linear formulation. */
+  verification?: LinearVerification;
 }
 export type Demand = {
   Nt: number;

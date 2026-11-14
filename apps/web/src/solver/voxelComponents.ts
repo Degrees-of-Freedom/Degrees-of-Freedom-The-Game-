@@ -3,6 +3,7 @@ import { solveCombo } from './frameSolve';
 import { alphaCr } from './frameStability';
 import type { Combo, ComponentResponse, Context, Element, ElementForce, FrameSystem, LoadCombo } from './voxelResults';
 import type { VoxelMember } from './voxelInput';
+import { verifyLinearResponse } from './voxelVerification';
 
 interface Component {
   nodes: string[];
@@ -92,9 +93,11 @@ export function solveComponents(
   const reac: Record<number, Float64Array> = {};
   const displacements = new Map<number, Float64Array>();
   const componentAlpha = new Map<number, number>();
+  const verificationInputs: { scope: ComponentResponse; system: ComponentSystem; factor: number | null }[] = [];
   let maxD = 0;
   let alpha = Infinity;
-  for (const { component, frame, active, elements } of systems) {
+  for (const system of systems) {
+    const { component, frame, active, elements } = system;
     const scope: ComponentResponse = { nodes: component.nodes, memberIds: component.memberIds, status: 'computed' };
     scopes.push(scope);
     if (frame.nf > 2400) {
@@ -120,9 +123,13 @@ export function solveComponents(
       continue;
     }
     maxD = Math.max(maxD, componentMax);
-    if (combo.type === 'ULS') {
-      const critical = alphaCr(frame, solved);
-      if (critical !== null) {
+    // Applied sandbox response can feed a scored frame result. Design
+    // combinations retain their existing checks and numerical work budget.
+    const checkApplied = combo.type === 'SLS' && combo.dir.every(value => value === 0);
+    if (combo.type === 'ULS' || checkApplied) {
+      const critical = checkApplied && elements.some(element => element.cable) ? null : alphaCr(frame, solved);
+      if (checkApplied) verificationInputs.push({ scope, system, factor: critical });
+      if (combo.type === 'ULS' && critical !== null) {
         alpha = Math.min(alpha, critical);
         for (const id of component.memberIds) componentAlpha.set(id, critical);
       }
@@ -155,6 +162,9 @@ export function solveComponents(
       result.u = new Float64Array(6 * ctx.NA);
       for (const [a, values] of displacements) result.u.set(values, 6 * a);
     } else result.partialDisplacements = displacements;
+    for (const { scope, system, factor } of verificationInputs) {
+      scope.verification = verifyLinearResponse(ctx, result, system.active, system.elements, factor);
+    }
   } else result.fail = true;
   return { result, alpha: displacements.size === ctx.NA ? alpha : null, componentAlpha };
 }
