@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LEVELS } from './model';
+import { LEVELS } from './levels';
 import { exampleModel } from './examples';
 import { analyzeGame, autoDesignGame, toVoxelInput } from './analysis';
 
@@ -16,20 +16,31 @@ describe('game analysis boundary', () => {
 });
 
 it('passes the pick-up reference and checks all target weights', () => {
-  const model=exampleModel('pickup1')!;
-  const result=analyzeGame(model,LEVELS.pickup1);
+  const model = exampleModel('pickup1')!;
+  const result = analyzeGame(model, LEVELS.pickup1);
   expect(result.error).toBeUndefined();
   expect(result.success).toBe(true);
-  expect(result.objectives.find(o=>o.label.startsWith('Pick up all weights'))?.label).toBe('Pick up all weights (3/3)');
-  expect(result.objectives.find(o=>o.label.startsWith('Weights move'))?.ok).toBe(true);
+  expect(
+    result.objectives.find((o) => o.label.startsWith('Pick up all weights'))
+      ?.label,
+  ).toBe('Pick up all weights (3/3)');
+  expect(
+    result.objectives.find((o) => o.label.startsWith('Weights move'))?.ok,
+  ).toBe(true);
 });
 
 it('reports a disconnected target separately from floating structure', () => {
-  const model=exampleModel('pickup1')!;
-  model.attrs['10,10,3']={load:40,locked:true,target:true};
-  const result=analyzeGame(model,LEVELS.pickup1);
-  const target=result.objectives.find(o=>o.label.startsWith('Pick up all weights'))!;
+  const model = exampleModel('pickup1')!;
+  model.attrs['10,10,3'] = { load: 40, locked: true, target: true };
+  const result = analyzeGame(model, LEVELS.pickup1);
+  const target = result.objectives.find((o) =>
+    o.label.startsWith('Pick up all weights'),
+  )!;
   expect(target.ok).toBe(false);
   expect(target.label).toBe('Pick up all weights (3/4)');
-  expect(result.objectives.find(o=>o.label==='All parts connected to a foundation')?.ok).toBe(true);
+  expect(
+    result.objectives.find(
+      (o) => o.label === 'All parts connected to a foundation',
+    )?.ok,
+  ).toBe(true);
 });
