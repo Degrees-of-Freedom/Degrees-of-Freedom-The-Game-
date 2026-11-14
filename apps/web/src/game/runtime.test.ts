@@ -52,6 +52,8 @@ describe('shared editor runtime', () => {
     const before = analyzeVoxel(model, LEVELS[levelId]);
     expect(modeProgress('forensics', before)).toBe('incomplete');
     const repaired = { ...model, members: [...model.members, { id: model.nextId, a: '2,4,3', b: '4,4,3', type: 'shs' as const }], nextId: model.nextId + 1 };
-    expect(modeProgress('forensics', analyzeVoxel(repaired, LEVELS[levelId]))).toBe('complete');
+    const after = analyzeVoxel(repaired, LEVELS[levelId]);
+    expect({ mechanism: after.mechanism, floating: after.floating, error: after.error }).toEqual({ mechanism: false, floating: [], error: undefined });
+    expect(modeProgress('forensics', after)).toBe('complete');
   });
 });
