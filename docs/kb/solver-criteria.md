@@ -2,6 +2,7 @@
 title: "Solver Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/element-representation-criteria.md
   - docs/kb/turn-criteria.md
   - docs/kb/joint-dof-criteria.md
   - "Project owner supplied Solver Criteria, 2026-11-14"
@@ -115,3 +116,7 @@ Before implementation, read AGENTS.md and docs/kb/README.md, inspect current cod
 ## 9. Gameplay decisions to confirm
 
 Confirmed defaults include fully fixed foundations, shared access, persistent gravity loads and matching freedoms for all ends at one shared joint; see the later turn and joint decisions above. Full reanalysis, retaining unstable geometry on the grid and no automatic collapse remain proposed policies. Confirm interior attachment rules, self-weight and uplift scoring, remaining issue/penalty thresholds, permanent failure/repair, and whether deformed geometry can become permanent. Keep these options outside the physics kernel; document unresolved choices rather than silently inventing final rules.
+
+## 10. Later element representation requirements
+
+The owner’s [element representation criteria](element-representation-criteria.md) extend the required visual catalogue with column sections, standalone axial helical springs, planar two-chord trusses, triangular three-chord trusses, wide flanges, HSS and round HSS, plus cable geometry. This does not assert that new numerical formulations or deck rules are implemented. Any solver integration must explicitly define spring laws and assembly connectivity/sections/load/result mapping, validate supported formulations and report unsupported analysis. Display enlargement/LOD must not alter physical properties or replace the acceptance gates above.

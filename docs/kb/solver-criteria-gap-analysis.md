@@ -2,6 +2,7 @@
 title: "Solver Criteria Gap Analysis and Milestones"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
   - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria.md
@@ -112,3 +113,7 @@ Detailed plasticity, general contact/collision, dynamic collapse, post-buckling 
 ## Later shared-joint freedoms and overlay decision
 
 The later [joint DOF criteria](joint-dof-criteria.md) supersede any earlier interpretation that permits differing end-release profiles at one shared joint. Attachments remain per end, while their freedoms must match in physical axes; foundations are fully fixed by default. Historical coverage tables above remain historical evidence. Current per-end fixed/ball records and the preliminary contract do not enforce the common-profile rule or define canonical joint-frame/elastic matching and legacy migration. Permission glyphs and separately scoped solver mode visualization remain implementation gaps. The decision revises M04/game semantics and does not complete a milestone.
+
+## Later element representation catalogue
+
+[Element representation criteria](element-representation-criteria.md) add a required visual catalogue and lightweight generation/LOD/true-scale requirements. The historical table remains a baseline review, not evidence of these capabilities. Current style-dependent capsule/box meshes do not provide full profile/assembly fidelity; the preliminary contract and service also lack standalone spring/assembly definitions and per-section properties. Numerical integration, identity mapping, card rules, geometry fixtures and performance evidence remain future work.

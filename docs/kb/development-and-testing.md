@@ -2,6 +2,7 @@
 title: "Development and Testing"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
   - docs/kb/avatar-criteria.md
   - prototypes/timburr-companion/README.md
@@ -61,3 +62,7 @@ The [Timburr avatar criteria](avatar-criteria.md) are design requirements, not c
 ## Joint DOF criteria validation scope
 
 The [joint DOF criteria](joint-dof-criteria.md) are documentation only. They revise shared-joint connection freedoms and foundation defaults and define permission and instability overlays. No new UI, solver behavior, migration or validation tests are implemented here. Future acceptance must cover physical-axis compatibility, mixed-profile legacy data, relative-versus-ground meaning, global coupling, mode provenance, toggles, accessibility and non-mutation.
+
+## Element geometry criteria validation scope
+
+[Element representation criteria](element-representation-criteria.md) are a documentation specification. Required future checks include section dimensions/openings, helix parameters, planar/trichord panel topology, local roll, true-scale versus readable display, assembly identity, valid deformation, LOD, picking and measured resource/performance budgets. No geometry generator, solver or runtime test was added by the criteria change; documentation links and consistency were checked.

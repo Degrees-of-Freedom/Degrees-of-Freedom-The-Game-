@@ -2,6 +2,7 @@
 title: "Structural State and Persistence"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/element-representation-criteria.md
   - packages/solver-contract/src/structural-state.ts
   - packages/solver-contract/src/structural-state-service.ts
   - packages/solver-contract/src/structural-state.test.ts
@@ -95,3 +96,7 @@ A solver adapter must validate capability and reject any input it cannot represe
 Use human-readable, version-controlled JSON as the proposed canonical source for benchmark cases, one per file. SQLite may later provide a generated index or results store, but is not needed for the current per-level browser saves. A fixture should include a schema version, stable ID, model and analysis options, required capabilities, expected status and result scope, reference and derivation, units, per-quantity relative and absolute tolerances, and characteristic force/moment scales. Unsupported cases are reported as unsupported, not passed. Store timing runs separately with solver revision, hardware, environment, warmup, sample count and latency percentiles.
 
 Start with axial tension/compression, cantilever bending and torsion, a simply supported beam, and unequal support stiffness. Add rigid/pin/partial/semi-rigid joints, unconnected coincident members, a stable component beside an unstable one, a triangulated 3D truss, and an unbraced mechanism. Later fixtures cover imperfect-column buckling and sway, cable slack/pretension, overload and optional redistribution, symmetry and coordinate transforms, preview/replay, and invalid inputs. Expected numerical values, source references and zero tolerances still need to be defined and reviewed; no such fixture suite is implemented by this change. Proposed accuracy gates and 10,000 seeded states are in the criteria, not demonstrated results.
+
+## Future element representation definitions
+
+[Element representation criteria](element-representation-criteria.md) require versioned section dimensions/roll, spring parameters, planar/trichord assembly topology, stable parent/part/interface IDs and cable geometry metadata as appropriate. Current browser member types and preliminary analytical definitions do not cover that complete catalogue. Extend validated schemas deliberately before persistence or numerical use; readable thickness, selection targets and LOD are presentation preferences and must not change authoritative physical data. Migration, assembly cards and solver mapping remain future work.
