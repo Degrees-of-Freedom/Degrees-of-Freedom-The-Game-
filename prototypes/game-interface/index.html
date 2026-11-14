@@ -154,6 +154,7 @@
   .level .face .tagline-row { grid-column: 1 / -1; margin-top: 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .levels { display: flex; flex-direction: column; gap: 10px; }
   .seg { display: inline-flex; gap: 8px; margin-bottom: 18px; }
+  .seg .choice input:checked + .face { background: var(--amber); color: #22313f; box-shadow: none; }
   .seg .choice .face { min-height: 52px; min-width: 76px; padding: 10px 20px; text-align: center; font-weight: 800; font-size: 20px; }
   .players-list { display: flex; flex-direction: column; gap: 10px; }
   .prow { display: flex; align-items: center; gap: 12px; animation: rise .3s backwards; }
@@ -419,8 +420,8 @@
   var ENV_NOTE = 'Mode label and pause menu are only in Grow Dusk so far.';
   var SVG_ARROW = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
   var PREVIEW = 'This menu opens the standalone environment prototype, where you can build freely. The mode’s rules, simulation and results run in the team’s main app.';
-  var COLORS = ['#e9806e', '#6a9bd8'];
-  var COLOR_NAMES = ['coral', 'blue'];
+  var COLORS = ['#e9806e', '#6a9bd8', '#d9a53a', '#8cc7b5'];
+  var COLOR_NAMES = ['coral', 'blue', 'gold', 'sage'];
 
   var MODES = {
     creative: { name: 'Creative', sub: 'A place to explore', goal: 'Build freely, connect joints and add gravity loads. Follow the forces through your structure.', players: '1 player', env: 'grow-dusk', art:
@@ -431,7 +432,7 @@
       '<svg viewBox="0 0 240 150" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M0 128 H240" stroke="#e9dcc3" stroke-width="30"/><g stroke="#e9806e" stroke-width="8"><path d="M70 118 V64"/><path d="M130 118 L146 66"/></g><path d="M70 64 L146 66" stroke="#6a9bd8" stroke-width="8"/><g fill="#f3ead8" stroke="#22313f" stroke-width="2.5"><circle cx="70" cy="118" r="6"/><circle cx="130" cy="118" r="6"/><circle cx="70" cy="64" r="6"/><circle cx="146" cy="66" r="6"/></g><path d="M158 76 q14 16 6 36" stroke="#f2b134" stroke-width="4" stroke-dasharray="2 8"/><circle cx="178" cy="46" r="20" stroke="#f3ead8" stroke-width="5"/><path d="M192 62 l16 16" stroke="#f3ead8" stroke-width="7"/><path d="M170 46 h16 M178 38 v16" stroke="#f2b134" stroke-width="4"/></svg>' },
     'load-space': { name: 'Load in space', sub: 'Make a path to the ground', goal: 'Reach a suspended weight from the foundation. Build a structure that carries it.', players: '1 player', env: 'grow-dusk', art:
       '<svg viewBox="0 0 240 150" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M0 128 H240" stroke="#e9dcc3" stroke-width="30"/><rect x="50" y="108" width="140" height="12" rx="4" fill="#22313f" stroke="none" opacity=".7"/><g fill="#f2b134" stroke="#22313f" stroke-width="2.5"><rect x="62" y="22" width="26" height="20" rx="6"/><rect x="146" y="38" width="26" height="20" rx="6"/></g><g stroke="#f2b134" stroke-width="4"><path d="M75 44 V62"/><path d="M159 60 V78"/></g><g stroke="#f3ead8" stroke-width="3" stroke-dasharray="2 7"><path d="M75 68 L110 104"/><path d="M159 84 L122 104"/></g><g fill="#f3ead8" stroke="#22313f" stroke-width="2.5"><circle cx="75" cy="68" r="5"/><circle cx="159" cy="84" r="5"/><circle cx="116" cy="108" r="6"/></g></svg>' },
-    multiplayer: { name: 'Shared table', sub: 'Two players. One structure.', goal: 'A local playtest with two decks, persistent gravity loads and individual end connections.', players: '2 players', env: 'kit', art:
+    multiplayer: { name: 'Shared table', sub: 'Two to four players. One structure.', goal: 'A local playtest with two decks, persistent gravity loads and individual end connections.', players: '2 to 4 players', env: 'kit', art:
       '<svg viewBox="0 0 240 150" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M0 128 H240" stroke="#e9dcc3" stroke-width="30"/><g stroke-width="8"><path d="M70 118 V62" stroke="#e9806e"/><path d="M130 118 V62" stroke="#6a9bd8"/><path d="M70 62 H130" stroke="#d9a53a"/><path d="M130 62 L172 108" stroke="#8cc7b5"/></g><g fill="#f3ead8" stroke="#22313f" stroke-width="2.5"><circle cx="70" cy="118" r="6"/><circle cx="130" cy="118" r="6"/><circle cx="70" cy="62" r="6"/><circle cx="130" cy="62" r="6"/><circle cx="172" cy="108" r="6"/></g><rect x="90" y="22" width="30" height="22" rx="6" fill="#f2b134" stroke="#22313f" stroke-width="2.5"/><g stroke="#f3ead8" stroke-width="2"><rect x="186" y="20" width="26" height="36" rx="5" fill="#33506b" transform="rotate(10 199 38)"/><rect x="178" y="20" width="26" height="36" rx="5" fill="#46647f" transform="rotate(-8 191 38)"/></g></svg>' }
   };
   var ORDER = ['creative', 'challenge', 'forensics', 'load-space', 'multiplayer'];
@@ -505,14 +506,16 @@
         radio('start', 'example', cur.state.start === 'example', '<b>Start with example structure</b><span>Begin from a small frame to change.</span>') + '</div></div>';
     } else if (mode === 'multiplayer') {
       var names = Array.isArray(s.names) ? s.names : [];
-      cur.state = { players: 2, names: [0, 1].map(function (i) { return typeof names[i] === 'string' && names[i].trim() ? names[i] : 'Player ' + (i + 1); }) };
-      modePanel = '<div class="setup-grid"><div class="panel" style="--i:2"><span class="label">Players</span><p style="margin:0 0 14px;color:var(--cream-dim);font-size:15px">Exactly two players share one table.</p><div class="players-list" id="plist"></div></div>' +
+      cur.state = { players: [2, 3, 4].indexOf(+s.players) >= 0 ? +s.players : 2, names: [0, 1, 2, 3].map(function (i) { return typeof names[i] === 'string' && names[i].trim() ? names[i] : 'Player ' + (i + 1); }) };
+      modePanel = '<div class="setup-grid"><div class="panel" style="--i:2"><span class="label">Players</span><p style="margin:0 0 14px;color:var(--cream-dim);font-size:15px">Two to four players share one table and take turns.</p><div class="seg" role="radiogroup" aria-label="Number of players" style="margin-bottom:16px">' +
+        [2, 3, 4].map(function (n) { return radio('pcount', String(n), cur.state.players === n, n + '<span class="sr"> players</span>'); }).join('') +
+        '</div><div class="players-list" id="plist"></div></div>' +
         '<div class="panel" style="--i:2"><h2>Confirmed turn rules</h2><ul class="rules">' +
         '<li>Draw two cards from the element-and-load deck and two from the connection deck.</li>' +
         '<li>Play up to one member, one downward load and two end connections, or pass.</li>' +
         '<li>Unplayed cards stay in hand.</li>' +
         '<li>One connection card attaches one member end to a shared joint (fixed or ball) and cannot be changed afterwards.</li>' +
-        '<li>You may load and attach to the other player’s structure.</li>' +
+        '<li>You may load and attach to other players’ structures.</li>' +
         '<li>Each player starts with one fixed foundation and a connected column.</li>' +
         '<li>Eight rounds.</li></ul>' +
         '<p style="margin:12px 0 0;font-size:15px;color:var(--cream-dim)">At turn end the structure is simulated. The one-point penalty for a new or worsened issue is not applied yet.</p></div></div>';
@@ -535,6 +538,7 @@
       r.addEventListener('change', function () {
         if (r.name === 'start') cur.state.start = r.value;
         if (r.name === 'level') cur.state.level = r.value;
+        if (r.name === 'pcount') { cur.state.players = +r.value; renderPlayers(); }
         if (r.name === 'env') { cur.state.env = r.value; envNote(); }
         save();
       });
@@ -544,7 +548,7 @@
   function renderPlayers() {
     var box = $('#plist');
     box.innerHTML = '';
-    for (var i = 0; i < 2; i++) {
+    for (var i = 0; i < cur.state.players; i++) {
       var row = document.createElement('div');
       row.className = 'prow';
       row.innerHTML = '<span class="swatch" style="background:' + COLORS[i] + '" title="' + COLOR_NAMES[i] + '"></span><label class="sr" for="pn' + i + '">Player ' + (i + 1) + ' name (' + COLOR_NAMES[i] + ')</label><input id="pn' + i + '" type="text" maxlength="24" value="' + esc(cur.state.names[i]) + '" data-i="' + i + '">';
@@ -559,8 +563,8 @@
     var q = ['mode=' + cur.mode], st = cur.state;
     if (cur.mode === 'creative') q.push('start=' + st.start);
     if (cur.mode === 'multiplayer') {
-      var names = st.names.slice(0, 2).map(function (n, i) { n = n.replace(/,/g, ' ').trim(); return encodeURIComponent(n || 'Player ' + (i + 1)); });
-      q.push('players=2', 'names=' + names.join(','));
+      var names = st.names.slice(0, st.players).map(function (n, i) { n = n.replace(/,/g, ' ').trim(); return encodeURIComponent(n || 'Player ' + (i + 1)); });
+      q.push('players=' + st.players, 'names=' + names.join(','));
     }
     if (st.level) q.push('level=' + st.level);
     save();
