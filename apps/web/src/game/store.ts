@@ -137,7 +137,7 @@ function cleanup(model: GameModel) {
 function initialWorkK(style: PresentationStyle, levelId: LevelId, model: GameModel): number {
   const level = LEVELS[levelId];
   const ground = level.cliffH ?? 0;
-  return style === 'levels' && model.members.length ? Math.min(level.nz, ground + 2) : ground;
+  return (style === 'levels' || style === 'engineering') && model.members.length ? Math.min(level.nz, ground + 2) : ground;
 }
 /** Pure game state and validated, undoable edits; renderer and solver are independent. */
 export const useGameStore = create<GameState>((set, get) => {
@@ -342,7 +342,7 @@ export const useGameStore = create<GameState>((set, get) => {
         saved = saveSession({ mode: s.mode, style, turn: s.turn });
       set({
         style,
-        ...(style === 'levels' && s.style !== 'levels' ? { workK: initialWorkK(style, s.levelId, s.model) } : {}),
+        ...((style === 'levels' || style === 'engineering') && s.style !== 'levels' && s.style !== 'engineering' ? { workK: initialWorkK(style, s.levelId, s.model) } : {}),
         chainStart: null,
         selected: null,
         ...(saved
