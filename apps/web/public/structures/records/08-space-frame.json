@@ -1,0 +1,113 @@
+{
+  "format": "dof-structure-record",
+  "version": 1,
+  "id": "08-space-frame",
+  "name": "Single-storey space frame",
+  "family": "frame",
+  "purpose": "3D connections and overlapping node selection.",
+  "complexity": "small",
+  "nodeCount": 8,
+  "memberCount": 8,
+  "extentMetres": [
+    4,
+    4,
+    4
+  ],
+  "expectation": {
+    "stability": "stable",
+    "basis": "Qualitative design intent; not a verified numerical reference."
+  },
+  "preview": "previews/08-space-frame.png",
+  "save": {
+    "format": "dof-voxel-save",
+    "version": 1,
+    "levelId": "library",
+    "model": {
+      "members": [
+        {
+          "id": 1,
+          "a": "2,2,0",
+          "b": "2,2,2",
+          "type": "heb"
+        },
+        {
+          "id": 2,
+          "a": "2,2,2",
+          "b": "4,2,2",
+          "type": "ipe"
+        },
+        {
+          "id": 3,
+          "a": "2,2,2",
+          "b": "2,4,2",
+          "type": "ipe"
+        },
+        {
+          "id": 4,
+          "a": "2,4,0",
+          "b": "2,4,2",
+          "type": "heb"
+        },
+        {
+          "id": 5,
+          "a": "2,4,2",
+          "b": "4,4,2",
+          "type": "ipe"
+        },
+        {
+          "id": 6,
+          "a": "4,2,0",
+          "b": "4,2,2",
+          "type": "heb"
+        },
+        {
+          "id": 7,
+          "a": "4,2,2",
+          "b": "4,4,2",
+          "type": "ipe"
+        },
+        {
+          "id": 8,
+          "a": "4,4,0",
+          "b": "4,4,2",
+          "type": "heb"
+        }
+      ],
+      "attrs": {
+        "2,2,0": {
+          "found": true,
+          "joint": true
+        },
+        "2,2,2": {
+          "joint": true,
+          "load": 5
+        },
+        "4,2,2": {
+          "joint": true,
+          "load": 5
+        },
+        "2,4,2": {
+          "joint": true,
+          "load": 5
+        },
+        "2,4,0": {
+          "found": true,
+          "joint": true
+        },
+        "4,4,2": {
+          "joint": true,
+          "load": 5
+        },
+        "4,2,0": {
+          "found": true,
+          "joint": true
+        },
+        "4,4,0": {
+          "found": true,
+          "joint": true
+        }
+      },
+      "nextId": 9
+    }
+  }
+}

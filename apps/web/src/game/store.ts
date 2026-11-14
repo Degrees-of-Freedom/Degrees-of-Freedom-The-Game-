@@ -89,6 +89,8 @@ interface GameState {
   setLevel: (id: LevelId) => void;
   reset: () => void;
   loadExample: () => boolean;
+  loadLibraryModel: (model: GameModel) => void;
+  libraryLoadRevision: number;
   newLayout: () => boolean;
   applyAutoDesign: (model: GameModel, sourceModel: GameModel) => boolean;
   swapTarget: MemberType;
@@ -235,6 +237,7 @@ export const useGameStore = create<GameState>((set, get) => {
         ? "Saved state could not be read; existing data was preserved."
         : initial.error),
     swapTarget: "ipe",
+    libraryLoadRevision: 0,
     setSwapTarget: (swapTarget) => set({ swapTarget }),
     history: [],
     future: [],
@@ -354,6 +357,15 @@ export const useGameStore = create<GameState>((set, get) => {
                 "Session could not be saved; existing stored data was preserved.",
             }),
       });
+    },
+    loadLibraryModel: (source) => {
+      const model = createGameSave("library", source).model;
+      // Challenge persistence provides a dedicated library slot; retain the live
+      // turn state and all creative/repair saves when leaving those modes.
+      if (get().mode !== "challenge") get().setMode("challenge");
+      if (get().levelId !== "library") get().setLevel("library");
+      commit(model);
+      set(s => ({ chainStart: null, selected: null, workK: 0, libraryLoadRevision: s.libraryLoadRevision + 1 }));
     },
     exportModel: () => createGameSave(get().levelId, get().model),
     importModel: (value) => {

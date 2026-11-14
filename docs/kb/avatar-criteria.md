@@ -2,6 +2,7 @@
 title: "Timburr Avatar Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/game-completion-criteria.md
   - "Project owner avatar request, prominence choice and criteria-first correction, 2026-11-14"
   - docs/kb/animation-criteria.md
   - docs/kb/turn-criteria.md
@@ -163,3 +164,16 @@ Recommended order for a later implementation run:
 - Exact timing, cooldown, companion placement and chatter frequency after playtesting.
 - Master audio/settings integration, optional voice assets, language/localization and volume defaults.
 - Whether later board cameos or additional evolutions are wanted. They are outside the first confirmed compact-companion scope.
+
+## 11. Later core-game decisions
+
+The later [completion criteria](game-completion-criteria.md) define fixed rounds, final-only adjusted load-share scoring and retained structures repaired through additions. Timburr may acknowledge verified repair and a real final outcome, but should not bank provisional load shares, infer a winner from missing reactions or trigger destructive behavior. Quarter-port/assembly interactions remain tied to actual public game events and cannot reveal hidden cards. Historical prototype behavior does not override these newer criteria.
+
+## 12. Automatic repair explanation
+
+The owner confirmed game-owned automatic correction for both instability and overload while retaining the player move and historical penalty. Timburr explains the original issue, the specific recorded repair and its score/ownership effect; [repair criteria](failure-repair-criteria.md#6-automatic-correction-transaction) own the transaction and numerical verification. The avatar presents game events rather than modifying physics from an animation callback. Show “verified repaired”, “pending” or “could not verify” accurately, and expose the same explanation without sound/avatar motion. No repaired issue refunds its historical penalty.
+
+
+## 13. Permanent local neutral scaffolding explanation
+
+The owner confirmed permanent neutral system repairs with no player attraction award. Timburr identifies the local affected element/connection, shows the actual added prop/anchor, explains that it remains for the match and that its carried load earns nobody points, and preserves the historical penalty explanation. Do not promise that other foundation reactions are unchanged: a local physical repair can redistribute forces globally. The normal inspector must show neutral ownership, local contacts, verified reactions and remaining unavailable scope even when Timburr is hidden.

@@ -1,3 +1,4 @@
+// Not routed: the app currently offers only Grow Dusk. Kept for the other environments (see docs/kb/unified-runtime.md).
 import { Link, useNavigate } from "react-router-dom";
 import { useGameStore } from "../game/store";
 import type { PresentationStyle } from "../game/modes";
@@ -76,6 +77,9 @@ export function MainMenu() {
     <div className="launcher">
       <main>
         <header className="launcher-intro">
+          <p>
+            <Link to="/">← Back to the main menu</Link>
+          </p>
           <p className="launcher-eyebrow">Degrees of Freedom: The Game</p>
           <h1>Five ways to build a structure</h1>
           <p>

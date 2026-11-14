@@ -2,6 +2,7 @@
 title: "Development and Testing"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
   - docs/kb/avatar-criteria.md
@@ -66,3 +67,24 @@ The [joint DOF criteria](joint-dof-criteria.md) are documentation only. They rev
 ## Element geometry criteria validation scope
 
 [Element representation criteria](element-representation-criteria.md) are a documentation specification. Required future checks include section dimensions/openings, helix parameters, planar/trichord panel topology, local roll, true-scale versus readable display, assembly identity, valid deformation, LOD, picking and measured resource/performance budgets. No geometry generator, solver or runtime test was added by the criteria change; documentation links and consistency were checked.
+
+## Whole-game completion criteria scope
+
+[Core completion criteria](game-completion-criteria.md) cover all eight requested design areas. [Release acceptance](release-acceptance-criteria.md) defines the end-to-end setup/draw/build/quarter-attach/analyze/assess/commit/handoff/final-score/save-reload matrix, supported-scope declaration and failure-injection/privacy/accessibility evidence. These are future gates, not added runtime tests or demonstrated numerical support. This documentation change validates links, source consistency and separation of confirmed decisions from proposed parameters.
+
+## Correction follow-up decisions validation scope
+
+The follow-up criteria record retained historical penalties, unequal elastic stiffnesses with matching freedoms/axes, verified-component final awards and game-owned automatic correction for both instability and overload. Future evidence must cover physical repair definitions, original-versus-corrected attribution, component validity, idempotent persistence, explanatory UI and bounded failure behavior. No implementation or solver-capability validation is introduced by these documentation updates.
+
+
+## Permanent local neutral repair validation scope
+
+The owner confirmed neutral system scaffolding/ground anchors, no player attraction award, permanent in-match lifetime and local direct intervention. Criteria checks must distinguish local edits from indirect global redistribution and independently measure verified neutral share versus unverified/unawarded scope. Future tests must verify whole-structure equilibrium/capacities, persistent repair IDs after reinforcement/reload, unchanged player cards and one historical penalty event. Only documentation was changed; no automatic repair, physical locality guarantee or numerical validation is implemented here.
+
+## Core-game criteria merge review — 2026-11-14
+
+Reviewed the completion criteria against latest main baseline `d18e5e2`, preserving the separately contributed visualization specification and concurrent menu/placement implementation updates. Confirmed all eight completion pages are reachable from the KB index and decision hub, and the register has 17 unique confirmed decisions. Corrected older text that still treated assembly-card economy/scoring as undecided, described the local turn system as absent, or omitted the neutral-system exception to player setup-only foundations.
+
+Validated 226 relative documentation links/anchors across the root README and all 27 KB pages, plus whitespace checks. Cross-checked final-only adjusted scoring, unequal elastic stiffnesses, original-quarter attachments, assembly plays, retained historical penalties, permanent neutral local repairs, and separate verified-neutral versus unavailable reaction scope. Existing visualization art/overlay decisions were preserved and linked to the confirmed scoring/repair policy. Remaining numerical, balance, physical-catalogue and device parameters stay explicitly proposed/open.
+
+The merge changes documentation only; application, shared-contract, service and archived-prototype bytes are unchanged from the latest main baseline. Runtime/numerical/browser tests were not rerun for this documentation-only review, and no implementation, solver correctness or performance acceptance is claimed. Future release evidence must follow [whole-game acceptance](release-acceptance-criteria.md).

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Scene } from "../viewer/Scene";
 import { LEVELS } from "../game/levels";
 import { useGameStore } from "../game/store";
@@ -15,7 +15,6 @@ import { AnalysisPanel } from "../components/AnalysisPanel";
 import { ConnectivityPanel } from "../components/ConnectivityPanel";
 import { CoordinateEditor, ModelIO } from "../components/RuntimeControls";
 import { TurnPanel } from "../components/TurnPanel";
-import { STYLE_CATALOG } from "../components/runtimeCatalog";
 import {
   EnvironmentTools,
   EnvironmentTray,
@@ -29,8 +28,11 @@ import {
 } from "../components/environment/EnvironmentChrome";
 import { EngineeringOptions } from "../components/environment/EngineeringOptions";
 import { SceneBoundary } from "../components/environment/SceneBoundary";
+import { PauseMenu } from "../components/PauseMenu";
+import { getSettings } from "../menu/settings";
+import { StructureLibrary } from "../components/StructureLibrary";
 
-type Drawer = "analysis" | "model" | "build" | "turn" | null;
+type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 
 /** The environment variants compose the same store, scene and analysis boundary. */
 export function Workspace() {
@@ -42,9 +44,12 @@ export function Workspace() {
     model: typeof game.model;
     result: VoxelAnalysis;
   } | null>(null);
-  const [drawer, setDrawer] = useState<Drawer>(null);
+  const [drawer, setDrawer] = useState<Drawer>(() =>
+    new URLSearchParams(window.location.search).has("library") ? "library" : null,
+  );
   const [message, setMessage] = useState("");
-  const [help, setHelp] = useState(false);
+  const [help, setHelp] = useState(() => getSettings().showHelpOnStart);
+  const [paused, setPaused] = useState(false);
   const [combo, setCombo] = useState(0);
   const [deformed, setDeformed] = useState(false);
   const [scale, setScale] = useState(1);
@@ -52,6 +57,7 @@ export function Workspace() {
   const [loads, setLoads] = useState(true);
   const [loadPath, setLoadPath] = useState(false);
   const [exampleIndex, setExampleIndex] = useState(0);
+  const [libraryIndex, setLibraryIndex] = useState(0);
   const sound = useEditorSound(game.model);
   const result = analysis?.model === game.model ? analysis.result : null;
   const style = game.style === "engineering" ? "levels" : game.style;
@@ -99,6 +105,11 @@ export function Workspace() {
           : "No example is available for this mode",
       );
   }
+  // Grow Dusk is the only environment offered; override any persisted style on entry.
+  const setStyle = game.setStyle;
+  useLayoutEffect(() => {
+    if (useGameStore.getState().style !== "grow-dusk") setStyle("grow-dusk");
+  }, [setStyle]);
   useEffect(() => {
     if (!message) return;
     const timeout = window.setTimeout(() => setMessage(""), 5500);
@@ -131,6 +142,7 @@ export function Workspace() {
   });
   const historyActions = (
     <>
+      <button className="btn" onClick={() => setDrawer("library")}>Structure library</button>
       <button
         className="btn icon"
         aria-label="Undo"
@@ -199,6 +211,14 @@ export function Workspace() {
         onClick={() => setHelp(!help)}
       >
         ?
+      </button>
+      <button
+        className="btn"
+        title="Menu (P)"
+        aria-haspopup="dialog"
+        onClick={() => setPaused(true)}
+      >
+        Menu
       </button>
     </>
   );
@@ -309,22 +329,6 @@ export function Workspace() {
         )}
         <EnvironmentInspector onMessage={setMessage} />
         <div className="environment-switch">
-          <select
-            aria-label="Building style"
-            value={game.style}
-            onChange={(event) => {
-              const selected = STYLE_CATALOG.find(
-                (item) => item.id === event.target.value,
-              );
-              if (selected) game.setStyle(selected.id);
-            }}
-          >
-            {STYLE_CATALOG.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.title}
-              </option>
-            ))}
-          </select>
           <button className="btn" onClick={() => setDrawer("build")}>
             Build options
           </button>
@@ -334,6 +338,13 @@ export function Workspace() {
             </button>
           )}
         </div>
+        <PauseMenu
+          open={paused}
+          onOpen={() => setPaused(true)}
+          onClose={() => setPaused(false)}
+          escapeBusy={drawer !== null}
+          onMessage={setMessage}
+        />
         {message && (
           <div id="toast" className="chip show" role="status">
             {message}
@@ -367,6 +378,10 @@ export function Workspace() {
                   <td>orbit · zoom</td>
                 </tr>
                 <tr>
+                  <td>Wheel · [ ]</td>
+                  <td>step overlapping targets while growing</td>
+                </tr>
+                <tr>
                   <td>1 · 2 · 3</td>
                   <td>member · joint · load</td>
                 </tr>
@@ -381,6 +396,10 @@ export function Workspace() {
                 <tr>
                   <td>W · S</td>
                   <td>working level</td>
+                </tr>
+                <tr>
+                  <td>P</td>
+                  <td>pause menu</td>
                 </tr>
                 <tr>
                   <td>F</td>
@@ -406,7 +425,7 @@ export function Workspace() {
           >
             <div className="drawer-heading">
               <h2>
-                {drawer === "analysis"
+                {drawer === "library" ? "Structure library" : drawer === "analysis"
                   ? "Structural feedback"
                   : drawer === "model"
                     ? "Solver input"
@@ -423,6 +442,7 @@ export function Workspace() {
               </button>
             </div>
             <div className="drawer-content">
+              {drawer === "library" && <StructureLibrary index={libraryIndex} setIndex={setLibraryIndex} />}
               {drawer === "analysis" && (
                 <>
                   <p className="analysis-notice">

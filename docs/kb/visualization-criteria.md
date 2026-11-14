@@ -5,6 +5,8 @@ validated_against:
   - "Project owner load-path discussion, 2026-11-14"
   - docs/kb/solver-criteria.md
   - docs/kb/turn-criteria.md
+  - docs/kb/scoring-match-criteria.md
+  - docs/kb/failure-repair-criteria.md
   - docs/kb/3d-viewer.md
   - docs/kb/solver-criteria-gap-analysis.md
 owner: project owner
@@ -47,7 +49,7 @@ Proposed interaction requirements:
 - **Member inspection:** Select or hover a member to see its relevant force and moment components, units and sign conventions, with its connection and validity information. Visually distinguish tension and compression where the reported axial force is valid; provide a legend and a non-color cue.
 - **Branches:** Highlight participating members and joints and their relative actions for a selected quantity. Explain that displayed magnitudes are member actions, not automatically percentages of a particular load. Filters and thresholds must be visible and must not disguise small but significant paths.
 - **Color and thickness:** Distinguish tension from compression with color and non-color cues, and show a legend. Vary path thickness with the magnitude of the displayed, defined quantity; explain the scale and distinguish unavailable values from zero. Preserve arrow direction and do not imply ownership changes the physical response.
-- **Foundations:** Identify each foundation and owner, show valid signed reactions, and indicate unavailable results. Foundation ownership identifies the recipient for a future game policy; it does not change the physical calculation.
+- **Foundations:** Identify each foundation and owner, show valid signed reactions, and indicate unavailable results. Distinguish player foundations from permanent neutral repair supports. Ownership identifies score recipients under the confirmed final-scoring policy, not physical stiffness; neutral support reactions earn no player attraction.
 - **Selection:** Let players focus on a load, member or foundation while retaining enough context to understand branching. If individual-load attribution is unavailable, say so and offer the combined response rather than presenting a guessed trace.
 - **Change:** Compare compatible committed states or a clearly labeled preview to show changes in forces and foundation reactions. Explain differences in model or analysis policy and do not compare incompatible or invalid quantities as if verified.
 - **Accessibility:** Use readable units and labels, a legend, sufficient contrast and non-color distinctions; selection must not depend exclusively on hover.
@@ -58,7 +60,7 @@ Exact line-width scaling, arrow styling, animation and color palettes are presen
 
 Physical reactions and game scoring are separate outputs. A possible display for a fully verified gravity-only state is a foundation's signed vertical reaction divided by a clearly defined total applied downward load. State the denominator and whether self-weight is included. Uplift may produce a negative share, and individual shares can exceed 100%; do not clamp and renormalize them into a misleading total. Zero denominators and incomplete or incompatible scope require an unavailable or explicitly partial result.
 
-This is a proposed display metric, not a confirmed scoring rule. Self-weight, uplift, pretension, multiple components, partial validity, accumulated scoring and player ownership need a game policy. Nonlinear results do not establish a unique share of each individual load without a defined attribution method.
+Raw reaction display and game awards are separate. The later [scoring criteria](scoring-match-criteria.md) confirm fixed rounds and final-only load-share percentage minus historical penalties, with verified components scored against total applied gravity. Unknown contributions earn zero game attraction but remain unavailable physical reactions. Permanent neutral repair reactions earn no player attraction, count in equilibrium and do not reduce the scoring denominator; player awards need not sum to 100% even when all physical results are verified. Display neutral-carried share separately from unknown scope. Uplift/self-weight/pretension and zero-load parameters remain to resolve. Nonlinear results do not establish a unique share of each individual load without a defined attribution method.
 
 ## 5. Acceptance scenarios
 
@@ -79,6 +81,8 @@ These are proposed tests for future implementation, not claims of present covera
 | Shared structure / new connection | Reanalysis reflects redistribution across owners and foundations; preview is labeled and committed results remain unchanged until commit. |
 | Uplift / zero applied gravity / incomplete results | Signed reaction retained; denominator and unavailable or partial shares handled explicitly without fabricated 100% totals. |
 | Unstable or unresolved component alongside a stable component | Mark unknown scope, preserve independent verified results and avoid a fabricated complete route or score. |
+| Permanent neutral repair | Show its local contacts/ownership and verified reactions. Include them in equilibrium but not player attraction; display real global redistribution without claiming unrelated player definitions changed. |
+| Fully verified neutral share / unknown scope | Separate neutral-carried share from missing results; neither is redistributed as extra player attraction. |
 | Rotation, reordering and replay | Equivalent transformed physical results and consistent visualization under coordinate changes, stable IDs and the same model/policy version. |
 | Keyboard and non-color use | Selection and interpretation remain possible without hover or color alone; legend and units agree with displayed values. |
 
@@ -88,7 +92,7 @@ Use the numerical tolerances and validation approach in [solver criteria](solver
 
 1. Should the primary view show the combined response, individual load-card contributions, or both? What should happen when individual attribution is not physically well-defined?
 2. Which force components should be visible by default, and what validated method derives branch direction and magnitude for mixed actions without implying a unique physical decomposition?
-3. How should foundation shares and game scoring treat uplift, self-weight, pretension, incomplete components and a zero denominator?
+3. Uplift, self-weight, pretension and zero-denominator parameters remain open. Final-only adjusted scoring, verified-component fallback and neutral-support exclusion are now confirmed in [scoring criteria](scoring-match-criteria.md); do not reopen or contradict those decisions through display normalization.
 4. Which comparison views matter during play: previous turn, provisional move, or both? What level of numerical detail should be optional?
 5. What visual thresholds, thickness scaling and accessibility controls best serve playtesting? Should players see values for opponents' structures and foundations at all times?
 6. Which force and reaction overlays should accompany the selectable deflection and load-path overlays by default? How should deformation scaling and the undeformed reference be controlled?

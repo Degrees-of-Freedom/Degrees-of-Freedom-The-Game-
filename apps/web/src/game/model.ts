@@ -8,6 +8,7 @@ export type Tool =
   | "delete"
   | "swap";
 export type LevelId =
+  | "library"
   | "tower1"
   | "tower2"
   | "bridge1"

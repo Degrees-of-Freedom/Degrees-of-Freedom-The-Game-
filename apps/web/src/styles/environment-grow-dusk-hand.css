@@ -1,0 +1,151 @@
+/* Grow Dusk is the only environment offered. The Shared table card tray is shared
+   UI that the Kit stylesheet styles for Kit only; these rules give the same tray
+   the Dusk look when it is shown above the dock in Grow Dusk. Presentation only. */
+.environment[data-style="grow-dusk"] .shared-hand {
+  bottom: 150px;
+  z-index: 5;
+}
+.environment[data-style="grow-dusk"] .shared-hand .env-tray.panel {
+  background: linear-gradient(180deg, rgba(40, 57, 72, 0.94), rgba(26, 38, 50, 0.94));
+  border: 1px solid var(--warm-line);
+  box-shadow: 0 10px 30px rgba(10, 18, 26, 0.35);
+}
+.environment[data-style="grow-dusk"] .shared-hand .env-tray {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding: 7px;
+  border-radius: 18px;
+  background: linear-gradient(
+    180deg,
+    rgba(40, 57, 72, 0.94),
+    rgba(26, 38, 50, 0.94)
+  );
+}
+.environment[data-style="grow-dusk"] .shared-hand .well {
+  position: relative;
+  border-radius: 12px;
+  padding: 22px 6px 5px;
+  background: rgba(12, 20, 28, 0.42);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  transition: background 0.2s;
+}
+.environment[data-style="grow-dusk"] .shared-hand .well.active {
+  background: rgba(243, 234, 216, 0.09);
+}
+.environment[data-style="grow-dusk"] .shared-hand .well > h4 {
+  position: absolute;
+  top: 4px;
+  left: 10px;
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cream-dim);
+  font-weight: 700;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+}
+.environment[data-style="grow-dusk"] .shared-hand .well > h4 kbd {
+  font-size: 10px;
+  padding: 1px 4px;
+  min-width: 15px;
+}
+.environment[data-style="grow-dusk"] .shared-hand .token {
+  position: relative;
+  background: none;
+  border: 0;
+  padding: 4px 5px 2px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  height: 64px;
+  min-width: 44px;
+  transition:
+    transform 0.16s cubic-bezier(0.3, 1.5, 0.5, 1),
+    background 0.15s;
+}
+.environment[data-style="grow-dusk"] .shared-hand .token svg {
+  display: block;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.4));
+  overflow: visible;
+}
+.environment[data-style="grow-dusk"] .shared-hand .token small {
+  font-size: 11px;
+  color: var(--cream-dim);
+  line-height: 1;
+  white-space: nowrap;
+}
+.environment[data-style="grow-dusk"] .shared-hand .token .key {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  font-size: 9.5px;
+  padding: 1px 3px;
+  min-width: 14px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.environment[data-style="grow-dusk"] .shared-hand .well.active .token .key {
+  opacity: 0.9;
+}
+.environment[data-style="grow-dusk"] .shared-hand .token:hover:not(:disabled) {
+  transform: translateY(-3px);
+}
+.environment[data-style="grow-dusk"] .shared-hand .token.selected {
+  transform: translateY(-4px);
+  background: rgba(243, 234, 216, 0.13);
+  box-shadow: 0 0 0 1.5px var(--cream) inset;
+}
+.environment[data-style="grow-dusk"] .shared-hand .token.selected small {
+  color: var(--cream);
+  font-weight: 700;
+}
+.environment[data-style="grow-dusk"] .shared-hand .token.selected svg {
+  filter: drop-shadow(0 8px 4px rgba(0, 0, 0, 0.45));
+}
+.environment[data-style="grow-dusk"] .shared-hand .env-tray.spent .token:not(.always) {
+  opacity: 0.34;
+  cursor: not-allowed;
+}
+.environment[data-style="grow-dusk"] .shared-hand .env-tray {
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+}
+.environment[data-style="grow-dusk"] .shared-hand .env-tray .well {
+  flex: 0 0 auto;
+  min-width: 106px;
+  align-items: flex-start;
+}
+.environment[data-style="grow-dusk"] .shared-hand .env-tray .well h4 {
+  flex-basis: 100%;
+}
+.environment[data-style="grow-dusk"] .shared-hand .env-tray .token {
+  flex-shrink: 0;
+  min-width: 57px;
+}
+
+/* Turn banner: stack the player name over the turn number. */
+.environment[data-style="grow-dusk"] #turn #who {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.environment[data-style="grow-dusk"] #turn #who span {
+  font-size: 12px;
+  color: var(--cream-dim);
+}
+/* The bottom-right group now holds only buttons (no style picker): use the dusk panel. */
+.environment[data-style="grow-dusk"] .environment-switch {
+  background: var(--slate);
+  color: var(--cream);
+  border: 1px solid var(--warm-line);
+}

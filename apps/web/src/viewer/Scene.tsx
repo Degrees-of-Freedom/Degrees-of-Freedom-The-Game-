@@ -252,7 +252,11 @@ export function Scene({
       renderer.render(scene, camera);
     }
     refresh.current = rebuild;
-    const unsubscribe = useGameStore.subscribe(rebuild);
+    const unsubscribe = useGameStore.subscribe((state, previous) => {
+      rebuild();
+      if (state.libraryLoadRevision !== previous.libraryLoadRevision)
+        cameraActions.current.fit();
+    });
     const cameraChanged = () => {
       if (useGameStore.getState().chainStart) rebuild();
     };

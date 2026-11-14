@@ -1,0 +1,101 @@
+{
+  "format": "dof-structure-record",
+  "version": 1,
+  "id": "17-pyramid",
+  "name": "Pyramid canopy",
+  "family": "roof",
+  "purpose": "Spatial diagonals meeting at one loaded apex.",
+  "complexity": "small",
+  "nodeCount": 5,
+  "memberCount": 8,
+  "extentMetres": [
+    12,
+    12,
+    8
+  ],
+  "expectation": {
+    "stability": "stable",
+    "basis": "Qualitative design intent; not a verified numerical reference."
+  },
+  "preview": "previews/17-pyramid.png",
+  "save": {
+    "format": "dof-voxel-save",
+    "version": 1,
+    "levelId": "library",
+    "model": {
+      "members": [
+        {
+          "id": 1,
+          "a": "3,3,0",
+          "b": "6,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 2,
+          "a": "3,3,0",
+          "b": "9,3,0",
+          "type": "shs"
+        },
+        {
+          "id": 3,
+          "a": "9,3,0",
+          "b": "6,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 4,
+          "a": "9,3,0",
+          "b": "9,9,0",
+          "type": "shs"
+        },
+        {
+          "id": 5,
+          "a": "9,9,0",
+          "b": "6,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 6,
+          "a": "9,9,0",
+          "b": "3,9,0",
+          "type": "shs"
+        },
+        {
+          "id": 7,
+          "a": "3,9,0",
+          "b": "6,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 8,
+          "a": "3,9,0",
+          "b": "3,3,0",
+          "type": "shs"
+        }
+      ],
+      "attrs": {
+        "3,3,0": {
+          "found": true,
+          "joint": true
+        },
+        "6,6,4": {
+          "joint": true,
+          "load": 40
+        },
+        "9,3,0": {
+          "joint": true,
+          "found": true
+        },
+        "9,9,0": {
+          "joint": true,
+          "found": true
+        },
+        "3,9,0": {
+          "joint": true,
+          "found": true
+        }
+      },
+      "nextId": 9
+    }
+  }
+}

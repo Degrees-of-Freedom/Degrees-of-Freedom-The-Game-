@@ -2,6 +2,7 @@
 title: "3D Viewer"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
   - docs/kb/avatar-criteria.md
@@ -14,6 +15,8 @@ status: partial
 ---
 
 # 3D Viewer
+
+The [structure library](structure-library.md) adds 20 selectable specimens with PNG previews and previous/next loading. Loading fits the camera to the specimen's bounds; these previews show undeformed geometry, while the interactive scene uses the usual analysis controls.
 
 The React workspace uses Three.js for a Z-up voxel scene with terrain, orbit and zoom, build planes, member and node picking, and placement. The viewer consumes the Zustand game model; edit validity is checked by game rules. It can show approximate experimental analysis results using deformed positions, member colours, load and reaction arrows, and a force-weighted load-path view. Load paths are illustrative routes derived from the results, not a separate physical analysis. These visualizations inherit the solver's limitations and are not engineering design evidence. The OpenSees stability check appears only as numbers in the analysis panel; the viewer does not yet draw its mechanism shapes or moving nodes.
 
@@ -36,3 +39,7 @@ See [animation and sound criteria](animation-criteria.md) for the owner-confirme
 ## Structural element geometry requirements
 
 [Element representation criteria](element-representation-criteria.md) specify recognizable column/section geometry, axial helical springs, planar two-chord and triangular three-chord trusses, wide flanges, square/rectangular HSS, round HSS and cables. Default sections are slightly enlarged for readability with true-scale inspection. The current renderer primarily uses capsules/boxes with style-dependent widths; it does not meet the full profile/assembly criteria. Procedural shared meshes, LOD, section roll, exposed hollow ends, assembly identity and truthful deformation are future requirements, not shipped behavior.
+
+## Controls, physical clashes and repair feedback
+
+[Controls/camera criteria](controls-camera-criteria.md) define input parity, target disambiguation, reference-grid/quarter selection, safe navigation and accessible inspection. [Placement](placement-criteria.md) distinguishes physical reference clash geometry from enlarged meshes and intentional port contacts. [Failure/repair](failure-repair-criteria.md) requires clear resolved/improved/persistent/unknown markers while retained structures continue in play. The viewer must not infer these rules or claim physical validity from mesh contact.

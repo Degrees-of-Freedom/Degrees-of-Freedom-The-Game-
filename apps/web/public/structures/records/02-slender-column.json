@@ -1,0 +1,128 @@
+{
+  "format": "dof-structure-record",
+  "version": 1,
+  "id": "02-slender-column",
+  "name": "Slender column",
+  "family": "column",
+  "purpose": "Height, slenderness and deformation overlays.",
+  "complexity": "small",
+  "nodeCount": 11,
+  "memberCount": 10,
+  "extentMetres": [
+    0,
+    0,
+    20
+  ],
+  "expectation": {
+    "stability": "stable",
+    "basis": "Qualitative design intent; not a verified numerical reference."
+  },
+  "preview": "previews/02-slender-column.png",
+  "save": {
+    "format": "dof-voxel-save",
+    "version": 1,
+    "levelId": "library",
+    "model": {
+      "members": [
+        {
+          "id": 1,
+          "a": "6,6,0",
+          "b": "6,6,1",
+          "type": "shs"
+        },
+        {
+          "id": 2,
+          "a": "6,6,1",
+          "b": "6,6,2",
+          "type": "shs"
+        },
+        {
+          "id": 3,
+          "a": "6,6,2",
+          "b": "6,6,3",
+          "type": "shs"
+        },
+        {
+          "id": 4,
+          "a": "6,6,3",
+          "b": "6,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 5,
+          "a": "6,6,4",
+          "b": "6,6,5",
+          "type": "shs"
+        },
+        {
+          "id": 6,
+          "a": "6,6,5",
+          "b": "6,6,6",
+          "type": "shs"
+        },
+        {
+          "id": 7,
+          "a": "6,6,6",
+          "b": "6,6,7",
+          "type": "shs"
+        },
+        {
+          "id": 8,
+          "a": "6,6,7",
+          "b": "6,6,8",
+          "type": "shs"
+        },
+        {
+          "id": 9,
+          "a": "6,6,8",
+          "b": "6,6,9",
+          "type": "shs"
+        },
+        {
+          "id": 10,
+          "a": "6,6,9",
+          "b": "6,6,10",
+          "type": "shs"
+        }
+      ],
+      "attrs": {
+        "6,6,0": {
+          "found": true,
+          "joint": true
+        },
+        "6,6,1": {
+          "joint": true
+        },
+        "6,6,2": {
+          "joint": true
+        },
+        "6,6,3": {
+          "joint": true
+        },
+        "6,6,4": {
+          "joint": true
+        },
+        "6,6,5": {
+          "joint": true
+        },
+        "6,6,6": {
+          "joint": true
+        },
+        "6,6,7": {
+          "joint": true
+        },
+        "6,6,8": {
+          "joint": true
+        },
+        "6,6,9": {
+          "joint": true
+        },
+        "6,6,10": {
+          "joint": true,
+          "load": 10
+        }
+      },
+      "nextId": 11
+    }
+  }
+}
