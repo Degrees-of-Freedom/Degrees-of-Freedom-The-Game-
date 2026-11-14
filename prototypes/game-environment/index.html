@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Degrees of Freedom - environment options</title>
+<style>
+  :root {
+    color-scheme: light;
+    --paper: #f4efe4;
+    --card: #fbf7ef;
+    --ink: #2f3640;
+    --quiet: #6b7280;
+    --line: #e2d8c5;
+    --shadow: 0 1px 2px rgba(60, 50, 30, .08), 0 10px 28px rgba(60, 50, 30, .10);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.55 ui-rounded, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  }
+  main { max-width: 1180px; margin: 0 auto; padding: 48px 24px 64px; }
+  header { max-width: 760px; margin-bottom: 36px; }
+  .eyebrow { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--quiet); margin: 0 0 8px; }
+  h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15; margin: 0 0 14px; font-weight: 700; }
+  header p { margin: 0 0 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 24px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .card a.shot { display: block; aspect-ratio: 16 / 10; background: var(--line); overflow: hidden; }
+  .card img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .35s ease; }
+  .card a.shot:hover img, .card a.shot:focus-visible img { transform: scale(1.03); }
+  .body { padding: 20px 22px 22px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .name { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .name h2 { font-size: 24px; margin: 0; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); display: inline-block; transform: translateY(-1px); }
+  .name span.tag { color: var(--quiet); font-size: 15px; }
+  .body p { margin: 0; }
+  dl { margin: 4px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 15px; }
+  dt { color: var(--quiet); white-space: nowrap; }
+  dd { margin: 0; }
+  .open {
+    margin-top: auto;
+    align-self: flex-start;
+    background: var(--ink);
+    color: var(--card);
+    text-decoration: none;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: 999px;
+    transition: transform .15s ease, background .15s ease;
+  }
+  .open:hover, .open:focus-visible { background: var(--accent-deep); transform: translateY(-1px); }
+  section.shared { margin-top: 44px; max-width: 760px; }
+  section.shared h2 { font-size: 20px; margin: 0 0 10px; }
+  section.shared ul { margin: 0 0 14px; padding-left: 20px; }
+  section.shared li { margin: 4px 0; }
+  a { color: #2d5f8b; }
+  code { background: #ebe3d2; padding: 1px 5px; border-radius: 4px; font-size: .92em; }
+  .note { color: var(--quiet); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">Degrees of Freedom: The Game</p>
+    <h1>Four ways to build a structure</h1>
+    <p>Each of these is a working prototype of the game environment. They share the same three player tools (connections, member geometry, loads) and produce the same solver input. What differs is how building feels.</p>
+    <p class="note">Prototypes for comparison. They need an internet connection the first time, to load three.js. Use a current Chrome or Edge.</p>
+  </header>
+
+  <div class="grid">
+    <article class="card" style="--accent:#d86f5c; --accent-deep:#b9503f;">
+      <a class="shot" href="grow/index.html"><img src="previews/grow.png" alt="Grow: a braced frame on a cream quay over pale water"></a>
+      <div class="body">
+        <div class="name"><span class="dot"></span><h2>Grow</h2><span class="tag">Pull members out of joints</span></div>
+        <p>Click a joint and the points it can reach bloom around it. Click one and a member pops in. Free 3D camera.</p>
+        <dl>
+          <dt>Asks</dt><dd>Can free joint-to-joint building in 3D be quick and unambiguous?</dd>
+          <dt>Gives</dt><dd>The most freedom: any of 26 directions, lengths of 1 to 4 steps.</dd>
+          <dt>Costs</dt><dd>Depth is judged by eye, and there are many targets on screen at once.</dd>
+        </dl>
+        <a class="open" href="grow/index.html">Open Grow</a>
+      </div>
+    </article>
+
+    <article class="card" style="--accent:#3f5d8a; --accent-deep:#2f4a72;">
+      <a class="shot" href="levels/index.html"><img src="previews/levels.png" alt="Levels: an isometric paper model with a highlighted working level"></a>
+      <div class="body">
+        <div class="name"><span class="dot"></span><h2>Levels</h2><span class="tag">Draw one level at a time</span></div>
+        <p>An isometric board with one glowing working level. Step through levels like floors and draw on the active one.</p>
+        <dl>
+          <dt>Asks</dt><dd>Does a working level make 3D building precise and calm enough for turns?</dd>
+          <dt>Gives</dt><dd>Exact picking, any plan angle, a view that reads like a board.</dd>
+          <dt>Costs</dt><dd>More steps for anything vertical. No free camera.</dd>
+        </dl>
+        <a class="open" href="levels/index.html">Open Levels</a>
+      </div>
+    </article>
+
+    <article class="card" style="--accent:#e8735a; --accent-deep:#c9573f;">
+      <a class="shot" href="blocks/index.html"><img src="previews/blocks.png" alt="Blocks: stacked frame bays in evening light over teal water"></a>
+      <div class="body">
+        <div class="name"><span class="dot"></span><h2>Blocks</h2><span class="tag">Stack bays, the frame appears</span></div>
+        <p>Click to stack bays. Columns and beams appear along their edges. Then brace panels, pin joints and drop loads.</p>
+        <dl>
+          <dt>Asks</dt><dd>Is "massing first, engineering second" a better loop for this game?</dd>
+          <dt>Gives</dt><dd>A structure in seconds. The closest to the one-click building that inspired the look.</dd>
+          <dt>Costs</dt><dd>Member length is fixed by the 2 m bay.</dd>
+        </dl>
+        <a class="open" href="blocks/index.html">Open Blocks</a>
+      </div>
+    </article>
+
+    <article class="card" style="--accent:#6a9bd8; --accent-deep:#4b7dbb;">
+      <a class="shot" href="kit/index.html"><img src="previews/kit.png" alt="Kit: a two-colour structure on a turntable at dusk with a tray of pieces"></a>
+      <div class="body">
+        <div class="name"><span class="dot"></span><h2>Kit</h2><span class="tag">Take turns playing pieces from a tray</span></div>
+        <p>A board game. Each turn a player takes sticks, joints and weights from a tray and plays them onto a shared structure.</p>
+        <dl>
+          <dt>Asks</dt><dd>What does turn-based play look like on screen? Is length better chosen as a piece?</dd>
+          <dt>Gives</dt><dd>The only option that shows turns, players and a hand of pieces.</dd>
+          <dt>Costs</dt><dd>Slower building. Its turn rules are placeholders, not decisions.</dd>
+        </dl>
+        <a class="open" href="kit/index.html">Open Kit</a>
+      </div>
+    </article>
+  </div>
+
+  <section class="shared">
+    <h2>What all four share</h2>
+    <ul>
+      <li>One model, in <code>shared/model-core.js</code>. Every option edits it and shows its draft solver input in a drawer ("Solver input").</li>
+      <li>No solver is connected. The "feedback preview" in each option uses placeholder numbers and says so on screen.</li>
+      <li>Pieces with no path to a support are always shown differently. That is a plain connectivity check, not a stability result.</li>
+    </ul>
+    <p><a href="shared/model-core.test.html">Run the model checks</a> &nbsp;·&nbsp; See <code>README.md</code> in this folder for the draft solver-input format and the assumptions behind it.</p>
+  </section>
+</main>
+</body>
+</html>

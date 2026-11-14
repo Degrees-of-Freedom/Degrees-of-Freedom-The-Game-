@@ -1,0 +1,2978 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Degrees of Freedom - Levels prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<!--
+  Degrees of Freedom: The Game - game-environment prototype "Levels".
+
+  An isometric board with one glowing working level. All input lands on the
+  active level's plane, so picking is exact. The camera turns only in quarter
+  turns. Exploratory: nothing here is an agreed design, and nothing on screen
+  is a structural analysis (the feedback preview is labelled demo data).
+
+  One self-contained file. The model lives in ../shared/model-core.js and is
+  the single source of truth; this file only draws it and edits it.
+-->
+<style>
+:root {
+  --paper: #efeae0; --paper-deep: #e2ddd2;
+  --card: #ffffff; --card-soft: #fbf9f4; --rule: #d9d2c3; --rule-soft: #ebe6da;
+  --ink: #2f3640; --ink-deep: #2f3b52; --ink-mute: #6b675e; --ink-faint: #9a9488;
+  --blue: #5b84b1; --blue-soft: #9ec3e6; --blue-wash: #edf4fb;
+  --column: #3f5d8a; --beam: #6f8fb8; --brace: #c98a5a;
+  --sage: #7d9b84; --terracotta: #c8553d; --terracotta-wash: #fbeee9; --float: #c9c4bb;
+  --font: ui-rounded, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", monospace;
+  --shadow: 0 1px 0 rgba(47,54,64,.04), 0 10px 26px -14px rgba(47,54,64,.30);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body {
+  font: 13px/1.35 var(--font); color: var(--ink); background: var(--paper);
+  -webkit-font-smoothing: antialiased; user-select: none; -webkit-user-select: none;
+}
+button { font: inherit; color: inherit; }
+#app {
+  position: fixed; inset: 0; overflow: hidden; overflow: clip; /* clip: the page can never be scrolled, even by focus */
+  background: radial-gradient(ellipse 78% 74% at 46% 50%, #f3eee5 0%, var(--paper) 44%, var(--paper-deep) 100%);
+}
+#scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; touch-action: none; cursor: default; }
+#app.panning #scene { cursor: grabbing; }
+#app.space #scene { cursor: grab; }
+
+/* ---------- shared pieces ---------- */
+.card { background: var(--card); border: 1px solid var(--rule); border-radius: 7px; box-shadow: var(--shadow); }
+.cap { font-size: 12px; color: var(--ink-mute); line-height: 1.25; }
+kbd {
+  display: inline-grid; place-items: center; min-width: 19px; height: 19px; padding: 0 4px;
+  border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; background: var(--card-soft);
+  font: 600 12px/1 var(--mono); color: var(--ink-mute);
+}
+.btn {
+  height: 34px; padding: 0 11px; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  background: var(--card); border: 1px solid var(--rule); border-radius: 7px; font-weight: 600; cursor: pointer;
+  white-space: nowrap; transition: background .12s, border-color .12s, transform .08s, color .12s;
+}
+.btn:hover { background: #f5f2ea; border-color: #c8c0ad; }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .4; cursor: default; background: var(--card); border-color: var(--rule); transform: none; }
+.btn:focus-visible, .tool:focus-visible, .st-row:focus-visible, .dof:focus-visible, .seg button:focus-visible, .pad button:focus-visible, .chips button:focus-visible {
+  outline: 2px solid var(--blue); outline-offset: 2px;
+}
+.btn.icon { width: 34px; padding: 0; }
+.btn.small { height: 28px; padding: 0 9px; font-size: 12px; }
+.btn svg { width: 18px; height: 18px; flex: none; }
+.btn.shadowed { box-shadow: var(--shadow); }
+
+/* ---------- brand ---------- */
+#brand { position: absolute; left: 16px; top: 16px; height: 46px; padding: 0 14px 0 10px; display: flex; align-items: center; gap: 10px; }
+#brand svg { width: 28px; height: 28px; flex: none; }
+.brand-name { font-weight: 700; font-size: 14px; line-height: 1.15; color: var(--ink-deep); }
+.brand-sub { font-size: 12px; line-height: 1.25; color: var(--ink-mute); }
+
+/* ---------- tools ---------- */
+#tools { position: absolute; left: 16px; top: 74px; width: 78px; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.tool {
+  position: relative; height: 60px; padding: 6px 0 0; border: 0; border-radius: 6px; background: none; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-size: 12px; font-weight: 600; color: var(--ink); transition: background .12s, color .12s;
+}
+.tool svg { width: 24px; height: 24px; }
+.tool kbd { position: absolute; top: 4px; right: 4px; }
+.tool:hover { background: #f3f0e8; }
+.tool.active { background: var(--ink-deep); color: #fff; }
+.tool.active kbd, .tool.erase.on kbd { background: rgba(255,255,255,.16); border-color: transparent; color: #fff; }
+.tool-rule { height: 1px; margin: 2px 4px; background: var(--rule-soft); }
+.tool.erase.on { background: var(--terracotta); color: #fff; }
+
+/* ---------- load brush panel (shown with the load tool) ---------- */
+#loadpanel { position: absolute; left: 102px; top: 74px; width: 178px; padding: 9px 12px 11px; }
+.panel-title { font-weight: 700; font-size: 13px; color: var(--ink-deep); }
+.panel-sub { font-size: 12px; color: var(--ink-mute); margin-bottom: 4px; }
+.pad { position: relative; width: 152px; height: 132px; margin: 2px auto 6px; }
+.pad::before { content: ''; position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px; border-radius: 3px; background: #fff; border: 2px solid var(--ink-deep); }
+.pad button {
+  position: absolute; left: 50%; top: 50%; width: 46px; height: 30px; margin: -15px 0 0 -23px; padding: 0;
+  border: 1px solid var(--rule); border-radius: 6px; background: #fff; cursor: pointer; font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 2px; transition: background .12s, border-color .12s;
+}
+.pad button svg { width: 12px; height: 12px; flex: none; }
+.pad button:hover { background: var(--terracotta-wash); border-color: #e0a99b; }
+.pad button.on { background: var(--terracotta); border-color: var(--terracotta); color: #fff; }
+.pad button:disabled { opacity: .35; cursor: default; }
+.chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.chips button {
+  height: 30px; padding: 0; border: 1px solid var(--rule); border-radius: 6px; background: #fff; cursor: pointer;
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; transition: background .12s, border-color .12s;
+}
+.chips button:hover { background: var(--terracotta-wash); border-color: #e0a99b; }
+.chips button.on { background: var(--terracotta); border-color: var(--terracotta); color: #fff; }
+.chips-unit { margin-top: 5px; font-size: 12px; color: var(--ink-mute); }
+
+/* ---------- actions (top right) ---------- */
+#actions { position: absolute; right: 16px; top: 16px; display: flex; align-items: center; gap: 6px; }
+.btn-group { display: flex; box-shadow: var(--shadow); border-radius: 7px; }
+.btn-group .btn { border-radius: 0; }
+.btn-group .btn:first-child { border-radius: 7px 0 0 7px; }
+.btn-group .btn:last-child { border-radius: 0 7px 7px 0; margin-left: -1px; }
+#actions > .btn { box-shadow: var(--shadow); }
+.switch { width: 26px; height: 14px; flex: none; border-radius: 8px; background: #d3ccbc; position: relative; transition: background .15s; }
+.switch::after { content: ''; position: absolute; left: 2px; top: 2px; width: 10px; height: 10px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.btn[aria-pressed="true"] .switch { background: var(--terracotta); }
+.btn[aria-pressed="true"] .switch::after { transform: translateX(12px); }
+#btn-sound.muted .wave { display: none; }
+#btn-sound:not(.muted) .cross { display: none; }
+
+/* ---------- hint line and demo banner ---------- */
+#hint {
+  position: absolute; left: calc(50% - 60px); top: 68px; transform: translateX(-50%);
+  max-width: min(620px, calc(100vw - 700px)); padding: 6px 14px; border: 1px solid var(--rule); border-radius: 16px;
+  background: rgba(255,255,255,.93); box-shadow: var(--shadow); text-align: center; pointer-events: none;
+  transition: border-color .15s, color .15s, background .15s;
+}
+#hint.bad { border-color: #dba595; background: #fff7f4; color: #963822; }
+#demo { position: absolute; left: calc(50% - 60px); top: 108px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.demo-flag {
+  padding: 7px 18px; border-radius: 6px; font-weight: 700; font-size: 15px; color: #fff; white-space: nowrap;
+  background: repeating-linear-gradient(-45deg, #c8553d 0 12px, #b84a33 12px 24px);
+  box-shadow: 0 8px 20px -8px rgba(200,85,61,.7); border: 1px solid #a8402b;
+}
+.demo-legend { display: flex; align-items: center; gap: 8px; padding: 5px 10px; font-size: 12px; white-space: nowrap; }
+.demo-legend .ramp { position: relative; width: 150px; height: 10px; border-radius: 3px; border: 1px solid rgba(47,54,64,.18); }
+.demo-legend .ramp i { position: absolute; top: -3px; bottom: -3px; left: 66.66%; width: 2px; background: var(--ink-deep); }
+.demo-legend b { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* ---------- level stepper (right edge) ---------- */
+#stepper { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 204px; }
+.st-head { display: flex; align-items: center; justify-content: space-between; padding: 9px 10px 8px 12px; border-bottom: 1px solid var(--rule-soft); }
+.st-level { display: flex; align-items: flex-end; gap: 8px; }
+.st-num { font-size: 30px; font-weight: 700; line-height: .95; color: var(--ink-deep); font-variant-numeric: tabular-nums; min-width: 20px; }
+.st-level .cap b { display: block; font-size: 13px; color: var(--ink); font-weight: 700; }
+.st-keys { display: flex; flex-direction: column; gap: 4px; }
+.st-keys .btn { height: 26px; width: 58px; padding: 0 6px 0 4px; gap: 4px; justify-content: space-between; }
+.st-keys .btn svg { width: 14px; height: 14px; }
+.st-rows { position: relative; padding: 8px 8px; }
+.st-rows svg { position: absolute; left: 40px; top: 8px; pointer-events: none; overflow: visible; }
+.st-row {
+  position: relative; display: flex; align-items: center; width: 100%; height: 26px; padding: 0 0 0 2px;
+  border: 0; border-radius: 5px; background: none; cursor: pointer; color: var(--ink-mute);
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; transition: background .12s, color .12s;
+}
+.st-row .n { width: 24px; height: 20px; display: grid; place-items: center; border-radius: 5px; transition: background .2s, color .2s; }
+.st-row:hover { background: var(--blue-wash); color: var(--ink-deep); }
+.st-row.active .n { background: var(--blue); color: #fff; }
+#elev-band { transition: transform .32s cubic-bezier(.2,.8,.2,1); }
+.st-view { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px 8px; border-top: 1px solid var(--rule-soft); }
+.st-view .btn { height: 30px; padding: 0 7px; gap: 5px; }
+.st-view .btn svg { width: 16px; height: 16px; }
+#gizmo { width: 64px; height: 60px; overflow: visible; }
+#gizmo text { font: 700 12px var(--font); fill: var(--ink-deep); text-anchor: middle; dominant-baseline: central; }
+
+/* ---------- title block (bottom right) ---------- */
+#titleblock { position: absolute; right: 16px; bottom: 16px; display: flex; align-items: stretch; overflow: hidden; }
+#titleblock .cell { padding: 7px 13px 8px; border-left: 1px solid var(--rule-soft); display: flex; flex-direction: column; justify-content: center; min-width: 66px; }
+#titleblock .cell:first-child { border-left: 0; }
+#titleblock .val { font-size: 15px; font-weight: 700; line-height: 1.25; color: var(--ink-deep); font-variant-numeric: tabular-nums; white-space: nowrap; }
+#titleblock .val small { font-size: 12px; font-weight: 600; color: var(--ink-mute); }
+#titleblock .cell.cursor { min-width: 92px; }
+#titleblock .cell.cursor .val { font-family: var(--mono); font-size: 14px; }
+#titleblock .cap em { font-style: normal; margin-left: 4px; padding: 0 5px; border: 1px dashed #c9bfa8; border-radius: 8px; color: var(--ink-mute); }
+#titleblock .cell.end { padding: 0 10px; background: var(--card-soft); }
+#notice {
+  position: absolute; right: 16px; bottom: 76px; padding: 5px 11px 5px 9px; display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.93); border: 1px dashed #b9b2a4; border-radius: 6px; font-size: 12px; color: var(--ink); pointer-events: none;
+}
+#notice i { width: 22px; height: 0; border-top: 3px dashed var(--float); }
+
+/* ---------- controls help (bottom left) ---------- */
+#help { position: absolute; left: 16px; bottom: 16px; width: 200px; padding: 6px 10px 8px; }
+.help-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+.help-head b { font-size: 13px; color: var(--ink-deep); }
+.help-head .btn { height: 22px; padding: 0 2px 0 7px; font-size: 12px; gap: 5px; border-color: transparent; margin-right: -4px; }
+.help-head .btn kbd { min-width: 17px; height: 17px; }
+.help-grid { display: grid; grid-template-columns: max-content 1fr; gap: 0 9px; align-items: center; font-size: 12px; white-space: nowrap; }
+.help-grid > div { height: 19px; display: flex; align-items: center; }
+.help-grid .k { gap: 3px; }
+.help-grid .k span { font-weight: 700; color: var(--ink-deep); }
+.help-grid .k span + span::before { content: '/ '; font-weight: 400; color: var(--ink-mute); }
+.help-grid .k kbd { min-width: 17px; height: 17px; }
+.help-key { display: flex; flex-wrap: wrap; gap: 2px 9px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--rule-soft); font-size: 12px; white-space: nowrap; }
+.help-key span { display: inline-flex; align-items: center; gap: 5px; }
+.help-key i { width: 16px; height: 6px; border-radius: 2px; }
+.help-key i.dash { height: 0; border-top: 3px dashed var(--float); border-radius: 0; }
+
+/* ---------- labels that live in the scene ---------- */
+#labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; overflow: clip; }
+#leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+#leaders path { fill: none; stroke: var(--ink-deep); stroke-width: 1.25; stroke-dasharray: 3 3; opacity: .7; }
+.tag { position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform; }
+.level-tag { padding: 2px 8px 3px; border-radius: 4px; background: var(--blue); color: #fff; font-weight: 700; font-size: 12px; box-shadow: 0 0 0 3px rgba(158,195,230,.35); }
+.level-tag small { font-size: 12px; font-weight: 600; opacity: .85; margin-left: 5px; }
+.load-tag {
+  padding: 1px 7px 2px; border-radius: 10px; background: #fff; border: 1px solid #e2b3a6; color: var(--ink);
+  font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; box-shadow: 0 1px 3px rgba(47,54,64,.14);
+  transition: opacity .2s, box-shadow .12s, border-color .12s, background .12s;
+}
+.load-tag.faded { opacity: .38; }
+.load-tag.pickable { pointer-events: auto; cursor: pointer; }
+.load-tag.pickable:hover, .load-tag.hot { border-color: var(--terracotta); background: var(--terracotta-wash); box-shadow: 0 0 0 3px rgba(200,85,61,.18); }
+.load-tag.selected { background: var(--terracotta); border-color: var(--terracotta); color: #fff; }
+.note-tag { padding: 3px 9px 4px; border-radius: 5px; background: var(--ink-deep); color: #fff; font-size: 12px; font-weight: 600; box-shadow: 0 4px 12px -4px rgba(47,59,82,.5); }
+.note-tag b { font-variant-numeric: tabular-nums; }
+.note-tag.bad { background: var(--terracotta); }
+.note-tag.soft { background: rgba(255,255,255,.94); color: var(--ink); border: 1px solid var(--rule); box-shadow: var(--shadow); }
+
+/* ---------- DOF card and load card ---------- */
+.pop { position: absolute; left: 0; top: 0; z-index: 30; transform-origin: 0 40%; }
+.pop.show { animation: pop-in .2s cubic-bezier(.2,1.3,.4,1); }
+@keyframes pop-in { from { opacity: 0; scale: .9; } to { opacity: 1; scale: 1; } }
+#dofcard { width: 258px; }
+.dc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 9px 8px 8px 12px; border-bottom: 1px solid var(--rule-soft); }
+.dc-title { font-weight: 700; font-size: 14px; color: var(--ink-deep); }
+.dc-title span { font: 600 12px var(--mono); color: var(--ink-mute); margin-left: 6px; }
+.dc-sub { font-size: 12px; color: var(--ink-mute); }
+.dc-close { width: 26px; height: 26px; border: 0; border-radius: 5px; background: none; cursor: pointer; font-size: 18px; line-height: 1; color: var(--ink-mute); }
+.dc-close:hover { background: #f1eee6; color: var(--ink); }
+.dc-label { padding: 8px 12px 0; font-size: 12px; color: var(--ink-mute); display: flex; justify-content: space-between; }
+.dc-dofs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 6px 12px 10px; }
+.dof {
+  position: relative; height: 70px; padding: 2px 0 4px; border: 1.5px solid #a9c3de; border-radius: 7px; background: #fff; color: var(--blue);
+  cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: transform .1s, box-shadow .12s, background .15s, color .15s, border-color .15s;
+}
+.dof svg { width: 36px; height: 36px; }
+.dof .nm { font: 700 12px/1.1 var(--mono); color: var(--ink-deep); }
+.dof .state { font-size: 12px; line-height: 1.15; font-weight: 600; }
+.dof.locked { background: var(--ink-deep); border-color: var(--ink-deep); color: #fff; }
+.dof.locked .nm { color: #fff; }
+.dof:hover { transform: translateY(-1px); box-shadow: 0 5px 10px -5px rgba(47,59,82,.55); border-color: var(--blue); }
+.dof .lock { position: absolute; right: 4px; top: 4px; width: 12px; height: 12px; opacity: 0; }
+.dof.locked .lock { opacity: .9; }
+.dc-row { display: flex; align-items: center; gap: 8px; padding: 5px 12px; }
+.dc-row .lab { width: 50px; flex: none; font-size: 12px; color: var(--ink-mute); }
+.seg { display: flex; flex: 1; }
+.seg button {
+  flex: 1; height: 30px; padding: 0 2px; border: 1px solid var(--rule); background: #fff; margin-left: -1px; cursor: pointer;
+  font-size: 12px; font-weight: 600; position: relative; transition: background .12s, color .12s;
+}
+.seg button:first-child { margin-left: 0; border-radius: 6px 0 0 6px; }
+.seg button:last-child { border-radius: 0 6px 6px 0; }
+.seg button:hover { background: #f5f2ea; }
+.seg button.on { background: var(--ink-deep); border-color: var(--ink-deep); color: #fff; z-index: 1; }
+.dc-note { padding: 3px 12px 10px; font-size: 12px; color: var(--ink-mute); line-height: 1.35; }
+.dc-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 12px 10px; }
+#loadcard { width: 200px; padding-bottom: 10px; }
+#loadcard .pad { margin-top: 6px; }
+#loadcard .chips { padding: 0 12px; }
+#loadcard .dc-foot { padding: 8px 12px 0; }
+
+/* ---------- solver input drawer ---------- */
+#drawer {
+  position: absolute; right: 0; top: 0; bottom: 0; width: min(470px, 94vw); z-index: 60; display: flex; flex-direction: column;
+  background: #fff; border-left: 1px solid var(--rule); box-shadow: -24px 0 48px -30px rgba(47,54,64,.45);
+  transform: translateX(104%); transition: transform .28s cubic-bezier(.2,.8,.2,1); visibility: hidden;
+}
+#drawer.open { transform: none; visibility: visible; }
+.dr-head { display: flex; align-items: center; gap: 6px; padding: 12px 12px 8px 16px; }
+.dr-head b { font-size: 15px; color: var(--ink-deep); margin-right: auto; }
+.dr-note { padding: 0 16px 10px; font-size: 12px; color: var(--ink-mute); border-bottom: 1px solid var(--rule-soft); }
+#drawer pre { flex: 1; margin: 0; padding: 12px 16px 24px; overflow: auto; background: var(--card-soft); font: 12px/1.5 var(--mono); color: var(--ink); user-select: text; -webkit-user-select: text; tab-size: 2; }
+
+/* ---------- loading and failure veil ---------- */
+#veil { position: absolute; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--paper); transition: opacity .35s; }
+#veil.done { opacity: 0; pointer-events: none; }
+.veil-box { max-width: 440px; padding: 18px 22px; text-align: center; }
+.veil-title { font-size: 16px; font-weight: 700; color: var(--ink-deep); margin-bottom: 4px; }
+.veil-msg { font-size: 13px; color: var(--ink-mute); line-height: 1.45; }
+#veil.failed .veil-box { background: #fff; border: 1px solid var(--rule); border-radius: 8px; box-shadow: var(--shadow); }
+
+@media (max-height: 700px) { #help { display: none; } }
+</style>
+<script src="../shared/model-core.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="scene" tabindex="-1" aria-label="Game board"></canvas>
+  <svg id="leaders" aria-hidden="true"><path id="leader"/></svg>
+  <div id="labels" aria-hidden="true"></div>
+
+  <header id="brand" class="card">
+    <svg viewBox="0 0 28 28" aria-hidden="true">
+      <path d="M14 15.5 25 21l-11 5.5L3 21z" fill="#f4f0e6" stroke="#2f3b52" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M14 9 25 14.5 14 20 3 14.5z" fill="#f4f0e6" stroke="#2f3b52" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M14 2.5 25 8 14 13.5 3 8z" fill="#9ec3e6" stroke="#5b84b1" stroke-width="1.4" stroke-linejoin="round"/>
+    </svg>
+    <div>
+      <div class="brand-name">Degrees of Freedom</div>
+      <div class="brand-sub">Levels &middot; environment prototype</div>
+    </div>
+  </header>
+
+  <nav id="tools" class="card" aria-label="Tools">
+    <button class="tool active" data-tool="member" title="Member tool (1)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 17.5 17.5 6.5" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><rect x="2.5" y="14.5" width="7" height="7" rx="1.8" fill="currentColor"/><rect x="14.5" y="2.5" width="7" height="7" rx="1.8" fill="currentColor"/></svg>
+      <span>Member</span><kbd>1</kbd>
+    </button>
+    <button class="tool" data-tool="connection" title="Connection tool (2)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="6" height="6" rx="1.4" fill="currentColor" stroke="none"/><path d="M4.6 12a7.4 7.4 0 0 1 12.6-5.2"/><path d="M17.6 3.4v3.8h-3.8"/><path d="M19.4 12a7.4 7.4 0 0 1-12.6 5.2"/><path d="M6.4 20.6v-3.8h3.8"/></svg>
+      <span>Connection</span><kbd>2</kbd>
+    </button>
+    <button class="tool" data-tool="load" title="Load tool (3)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.6 3h4.8v9.2h4.4L12 21.5 5.2 12.2h4.4z" fill="currentColor"/></svg>
+      <span>Load</span><kbd>3</kbd>
+    </button>
+    <div class="tool-rule"></div>
+    <button class="tool erase" id="btn-erase" aria-pressed="false" title="Erase with a left click (X). Right-click always removes.">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.6 4.2 20 9.6l-8.6 8.6H7.2L3.6 14.6z"/><path d="m9.2 9.6 5.4 5.4"/><path d="M4 21h16"/></svg>
+      <span>Erase</span><kbd>X</kbd>
+    </button>
+  </nav>
+
+  <section id="loadpanel" class="card" hidden aria-label="Load to place">
+    <div class="panel-title">Load to place</div>
+    <div class="panel-sub" id="brush-summary">10 kN down</div>
+    <div class="pad" id="brush-pad"></div>
+    <div class="chips" id="brush-chips"></div>
+    <div class="chips-unit">Amount in kN</div>
+  </section>
+
+  <div id="actions">
+    <div class="btn-group">
+      <button class="btn icon" id="btn-undo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5.5 3.5 10 8 14.5"/><path d="M3.5 10H14a5.5 5.5 0 0 1 0 11H9.5"/></svg>
+      </button>
+      <button class="btn icon" id="btn-redo" title="Redo (Ctrl+Y)" aria-label="Redo" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5.5 20.5 10 16 14.5"/><path d="M20.5 10H10a5.5 5.5 0 0 0 0 11h4.5"/></svg>
+      </button>
+    </div>
+    <button class="btn" id="btn-clear" title="Remove everything (can be undone)">Clear</button>
+    <button class="btn" id="btn-example" title="Load the example tower. Shift+click loads the portal frame.">Load example</button>
+    <button class="btn" id="btn-feedback" aria-pressed="false" title="Tint members with placeholder numbers (F). No solver is connected."><span class="switch"></span>Feedback preview</button>
+    <button class="btn" id="btn-solver" aria-expanded="false" title="Show the document this model would hand to the solver">Solver input</button>
+    <button class="btn icon" id="btn-sound" title="Sound on or off (M)" aria-label="Sound">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.4l4.6 4v-13l-4.6 4z" fill="currentColor"/><path class="wave" d="M15.5 9.2a4.2 4.2 0 0 1 0 5.6M18.2 6.6a8 8 0 0 1 0 10.8"/><path class="cross" d="m16 9.5 5 5m0-5-5 5"/></svg>
+    </button>
+    <button class="btn icon" id="btn-help" title="Show or hide the controls (? or H)" aria-label="Controls" aria-pressed="true"><b>?</b></button>
+  </div>
+
+  <div id="hint" role="status"></div>
+
+  <div id="demo" hidden>
+    <div class="demo-flag">Demo data - no solver connected</div>
+    <div class="demo-legend card">
+      <span>Utilization, placeholder</span><b>0</b><span class="ramp" id="ramp"><i></i></span><b>1.5</b>
+    </div>
+  </div>
+
+  <aside id="stepper" class="card" aria-label="Working level">
+    <div class="st-head">
+      <div class="st-level">
+        <div class="st-num" id="st-num">0</div>
+        <div class="cap"><b>Level</b><span id="st-height">0.0 m</span></div>
+      </div>
+      <div class="st-keys">
+        <button class="btn" id="btn-up" title="Level up (W or Page Up)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14.5 6-6 6 6"/></svg><kbd>W</kbd></button>
+        <button class="btn" id="btn-down" title="Level down (S or Page Down)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9.5 6 6 6-6"/></svg><kbd>S</kbd></button>
+      </div>
+    </div>
+    <div class="st-rows" id="st-rows">
+      <svg id="elev" width="150" height="182" viewBox="0 0 150 182" aria-hidden="true"></svg>
+    </div>
+    <div class="st-view">
+      <button class="btn" id="btn-turn-left" title="Turn the board a quarter turn (Q)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M3.6 3.8v4.6h4.6"/></svg><kbd>Q</kbd></button>
+      <svg id="gizmo" viewBox="-32 -34 64 60" aria-label="Axis directions"></svg>
+      <button class="btn" id="btn-turn-right" title="Turn the board a quarter turn the other way (E)"><kbd>E</kbd><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20.4 3.8v4.6h-4.6"/></svg></button>
+    </div>
+  </aside>
+
+  <div id="notice" hidden><i></i><span id="notice-text"></span></div>
+
+  <footer id="titleblock" class="card">
+    <div class="cell"><span class="cap">Members</span><span class="val" id="st-members">0</span></div>
+    <div class="cell"><span class="cap">Length</span><span class="val"><span id="st-length">0.0</span> <small>m</small></span></div>
+    <div class="cell"><span class="cap">Load</span><span class="val"><span id="st-load">0</span> <small>kN</small></span></div>
+    <div class="cell cursor"><span class="cap">Cursor [i, j, k]</span><span class="val" id="st-cursor">-</span></div>
+    <div class="cell"><span class="cap">Turn<em title="Turn rules are not decided yet">provisional</em></span><span class="val"><span id="st-turn">1</span> <small>&middot; Player</small> <span id="st-player">1</span></span></div>
+    <div class="cell end"><button class="btn small" id="btn-endturn" title="Pass the turn to the next player (provisional)">End turn</button></div>
+  </footer>
+
+  <section id="help" class="card" aria-label="Controls">
+    <div class="help-head"><b>Controls</b><button class="btn" id="btn-help-hide" title="Hide (? or H)">Hide <kbd>?</kbd></button></div>
+    <div class="help-grid">
+      <div class="k"><span>Click</span></div><div>place on the level</div>
+      <div class="k"><span>Right-click</span></div><div>remove</div>
+      <div class="k"><kbd>W</kbd><kbd>S</kbd></div><div>change level</div>
+      <div class="k"><kbd>Q</kbd><kbd>E</kbd></div><div>turn the board</div>
+      <div class="k"><span>Shift+click</span></div><div>column down</div>
+      <div class="k"><kbd>X</kbd></div><div>erase mode</div>
+      <div class="k"><span>Wheel</span></div><div>zoom</div>
+      <div class="k"><span>Space+drag</span></div><div>pan</div>
+      <div class="k"><span>Ctrl+Z</span><span>Y</span></div><div>undo, redo</div>
+      <div class="k"><kbd>Esc</kbd></div><div>cancel</div>
+    </div>
+    <div class="help-key">
+      <span><i style="background:var(--column)"></i>Column</span>
+      <span><i style="background:var(--beam)"></i>Beam</span>
+      <span><i style="background:var(--brace)"></i>Brace</span>
+      <span><i class="dash"></i>Not connected to a support</span>
+    </div>
+  </section>
+
+  <section id="dofcard" class="card pop" hidden aria-label="Connection"></section>
+  <section id="loadcard" class="card pop" hidden aria-label="Load"></section>
+
+  <aside id="drawer" aria-label="Solver input" aria-hidden="true">
+    <div class="dr-head">
+      <b>Solver input</b>
+      <button class="btn small" id="btn-copy">Copy</button>
+      <button class="btn small" id="btn-download">Download</button>
+      <button class="btn small icon" id="btn-drawer-close" aria-label="Close" title="Close (Esc)">&times;</button>
+    </div>
+    <div class="dr-note">Draft format, proposed by the environment prototypes and not agreed with the solver work. It updates as you build.</div>
+    <pre id="drawer-json"></pre>
+  </aside>
+
+  <div id="veil"><div class="veil-box"><div class="veil-title">Degrees of Freedom</div><div class="veil-msg">Setting up the board&hellip;</div></div></div>
+</div>
+
+<script>
+// Classic script: shows a readable message if the module below cannot start
+// (three.js is loaded from a CDN, so the first visit needs a connection).
+(function () {
+  var veil = document.getElementById('veil');
+  window.__dofFail = function (message) {
+    veil.classList.remove('done');
+    veil.classList.add('failed');
+    veil.querySelector('.veil-msg').textContent = message;
+  };
+  window.__dofBootTimer = setTimeout(function () {
+    if (!window.__dof) window.__dofFail('Still waiting for three.js from cdn.jsdelivr.net. This page needs an internet connection; check it and reload.');
+  }, 15000);
+})();
+</script>
+
+<script type="module" onerror="window.__dofFail('three.js could not be loaded from cdn.jsdelivr.net. This page needs an internet connection; check it and reload.')">
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+THREE.Object3D.DEFAULT_UP.set(0, 0, 1); // Z is up, as in the model
+
+// ====================================================================
+// 1. Model, constants, view state
+// ====================================================================
+
+const DOFCore = window.DOFCore;
+if (!DOFCore) {
+  window.__dofFail('The shared model core (../shared/model-core.js) could not be loaded. Open this page from inside the prototypes folder.');
+  throw new Error('DOFCore is missing');
+}
+
+/** The model. Single source of truth: every view below is redrawn from it. */
+const core = DOFCore.createModel({ directions: 'any', maxSteps: 6 });
+const S = core.options.spacing;
+const BND = core.options.bounds;
+const GROUND = BND.k[0];
+const TOP = BND.k[1];
+const START_EMPTY = new URLSearchParams(location.search).get('empty') === '1';
+
+/** Palette from the option brief ("paper maquette"). */
+const C = {
+  boardTop: '#faf7f0', boardSide: '#e6dfd0', grid: '#d9d2c3',
+  column: '#3f5d8a', beam: '#6f8fb8', brace: '#c98a5a',
+  hub: '#ffffff', ink: '#2f3b52', support: '#7d9b84', supportDark: '#5d7a66',
+  load: '#c8553d', sheet: '#9ec3e6', dot: '#5b84b1', float: '#c9c4bb', bad: '#c8553d'
+};
+
+/** Sizes in metres. */
+const SIZE = { member: 0.2, memberRadius: 0.045, hub: 0.34, outline: 0.022, fadeMember: 0.17, fadeNode: 0.2 };
+
+/** View-only state. Nothing here is part of the model or of undo. */
+const view = {
+  tool: 'member',
+  erase: false,
+  level: START_EMPTY ? GROUND : Math.min(TOP, GROUND + 2),
+  cutZ: 0,              // animated height of the sheet (world units)
+  quarter: 0,           // which corner the camera looks from, 0 to 3
+  feedback: false,
+  muted: false,
+  pointer: { x: 0, y: 0, inside: false },
+  cursor: null,         // snapped lattice point on the active level, or null
+  chain: null,          // member tool: the start point that is held
+  selectedNode: null,
+  selectedLoad: null,
+  brush: { direction: '-Z', magnitude: 10 },
+  hotPiece: null        // piece that an erase click would remove
+};
+view.cutZ = START_EMPTY ? view.level * S : GROUND * S;
+
+const $ = (selector, root) => (root || document).querySelector(selector);
+const $$ = (selector, root) => Array.from((root || document).querySelectorAll(selector));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const now = () => performance.now();
+const keyOf = (p) => p[0] + ',' + p[1] + ',' + p[2];
+const samePoint = (p, q) => !!p && !!q && p[0] === q[0] && p[1] === q[1] && p[2] === q[2];
+const worldOf = (p, out) => {
+  const w = core.position(p);
+  return (out || new THREE.Vector3()).set(w[0], w[1], w[2]);
+};
+const fmt = (value, digits) => Number(value).toFixed(digits === undefined ? 1 : digits);
+
+// ====================================================================
+// 2. Animation: tweens, easing, frame scheduling
+// ====================================================================
+
+const ease = {
+  outCubic: (t) => 1 - Math.pow(1 - t, 3),
+  inCubic: (t) => t * t * t,
+  inOutCubic: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+  outBack: (t) => 1 + 2.70158 * Math.pow(t - 1, 3) + 1.70158 * Math.pow(t - 1, 2),
+  inBack: (t) => 2.70158 * t * t * t - 1.70158 * t * t,
+  /** A soft spring that overshoots once and settles on 1. */
+  spring: (t) => (t >= 1 ? 1 : 1 - Math.exp(-6.2 * t) * Math.cos(8.4 * t))
+};
+
+const tweens = new Set();
+let lastWake = 0;
+let shadowDirty = true;
+
+/** Keep rendering for a moment. Call after anything that changes the picture. */
+function wake() { lastWake = now(); }
+
+/** Time-based tween. `update(eased, raw)` runs every frame until raw reaches 1. */
+function tween(options) {
+  const tw = {
+    start: now() + (options.delay || 0), dur: Math.max(1, options.dur), ease: options.ease || ease.outCubic,
+    update: options.update, done: options.done, dead: false
+  };
+  tweens.add(tw);
+  wake();
+  return tw;
+}
+function stopTween(tw) { if (tw) { tw.dead = true; tweens.delete(tw); } }
+function runTweens(t) {
+  for (const tw of Array.from(tweens)) {
+    if (tw.dead) continue;
+    const raw = (t - tw.start) / tw.dur;
+    if (raw < 0) continue;
+    const p = raw >= 1 ? 1 : raw;
+    tw.update(tw.ease(p), p);
+    if (p === 1) { tweens.delete(tw); if (tw.done) tw.done(); }
+  }
+}
+
+// ====================================================================
+// 3. Renderer, lights, camera rig
+// ====================================================================
+
+const appEl = $('#app');
+const canvas = $('#scene');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+} catch (error) {
+  window.__dofFail('This browser could not start WebGL, which the 3D board needs.');
+  throw error;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setClearColor(0x000000, 0); // the paper backdrop is the page behind the canvas
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false; // redrawn only when something moved (see shadowDirty)
+
+const scene = new THREE.Scene();
+
+/** Centre of the lattice on the board, and the point the camera frames by default. */
+const MID = new THREE.Vector3(((BND.i[0] + BND.i[1]) / 2) * S, ((BND.j[0] + BND.j[1]) / 2) * S, 0);
+const HOME = new THREE.Vector3(MID.x, MID.y, 2.25 * S);
+
+// Light sums to about 1.0 on lit top faces so flat colours stay true; shadowed
+// areas fall back to the cool sky term, which gives the grey-blue shadows.
+const hemi = new THREE.HemisphereLight('#edf4ff', '#d6cfc2', 2.05);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight('#fff2e0', 2.05);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0005;
+sun.shadow.normalBias = 0.03;
+Object.assign(sun.shadow.camera, { left: -10.5, right: 10.5, top: 10.5, bottom: -10.5, near: 1, far: 90 });
+sun.shadow.camera.updateProjectionMatrix();
+scene.add(sun, sun.target);
+const SUN_ELEV = THREE.MathUtils.degToRad(41);   // low-ish, so shadows run long and heights read
+const SUN_SIDE = THREE.MathUtils.degToRad(68);   // the sun sits to the viewer's left in every quarter view
+
+/**
+ * Fixed-elevation orthographic camera that only turns in quarter turns.
+ * `az` is the direction from the board toward the camera, in the XY plane.
+ */
+const ELEV = Math.atan(Math.SQRT1_2); // true isometric, 35.26 degrees
+const quarterAz = (q) => Math.PI * (1.25 + 0.5 * q);
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 400);
+const rig = {
+  az: quarterAz(0), azGoal: quarterAz(0), turn: null,
+  zoom: 1, zoomGoal: 1, anchorX: 0, anchorY: 0,
+  panX: 0, panY: 0, viewH: 14.3, aspect: 1.6, pxPerUnit: 60, insetX: 0, insetY: 0,
+  keys: { left: false, right: false, up: false, down: false }
+};
+const UI_INSET = { left: 104, right: 232 };
+const camRight = new THREE.Vector3();
+const camUp = new THREE.Vector3();
+const camBack = new THREE.Vector3();
+const camTarget = new THREE.Vector3();
+
+function applyCamera() {
+  const ce = Math.cos(ELEV);
+  camBack.set(ce * Math.cos(rig.az), ce * Math.sin(rig.az), Math.sin(ELEV));
+  camRight.set(-Math.sin(rig.az), Math.cos(rig.az), 0);
+  camUp.crossVectors(camBack, camRight); // = right x forward, with forward = -back
+  camTarget.copy(HOME)
+    .addScaledVector(camRight, rig.panX + rig.insetX)
+    .addScaledVector(camUp, rig.panY + rig.insetY);
+  camera.position.copy(camTarget).addScaledVector(camBack, 120);
+  camera.up.set(0, 0, 1);
+  camera.lookAt(camTarget);
+  const halfH = rig.viewH / 2;
+  const halfW = halfH * rig.aspect;
+  camera.left = -halfW; camera.right = halfW; camera.top = halfH; camera.bottom = -halfH;
+  camera.zoom = rig.zoom;
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld();
+
+  // The light turns with the view, as if the board were turned on the table.
+  const sa = rig.az - SUN_SIDE;
+  const cs = Math.cos(SUN_ELEV);
+  sun.target.position.set(MID.x, MID.y, 1.5);
+  sun.position.set(MID.x + cs * Math.cos(sa) * 45, MID.y + cs * Math.sin(sa) * 45, 1.5 + Math.sin(SUN_ELEV) * 45);
+  sun.target.updateMatrixWorld();
+}
+
+function fitView() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  rig.aspect = w / h;
+  // Tall enough for the board plus all seven levels, wide enough for the board between the side panels.
+  const free = Math.max(360, w - UI_INSET.left - UI_INSET.right);
+  rig.viewH = Math.max(14.3, (14.2 * h) / free);
+  rig.pxPerUnit = h / rig.viewH;
+  rig.insetX = (UI_INSET.right - UI_INSET.left) / 2 / rig.pxPerUnit;
+  rig.insetY = 0;
+  wake();
+}
+
+function clampPan() {
+  rig.panX = clamp(rig.panX, -9, 9);
+  rig.panY = clamp(rig.panY, -7, 7);
+}
+
+/** Turn the board a quarter turn. dir = +1 moves the camera to its right. */
+function turnView(dir) {
+  view.quarter = (view.quarter + dir + 4) % 4;
+  rig.azGoal += dir * (Math.PI / 2);
+  const from = rig.az;
+  const to = rig.azGoal;
+  stopTween(rig.turn);
+  rig.turn = tween({
+    dur: 380, ease: ease.inOutCubic,
+    update: (p) => { rig.az = lerp(from, to, p); shadowDirty = true; },
+    done: () => { rig.turn = null; rig.az = to; onViewTurned(); }
+  });
+  sound('turn');
+  onViewTurned();
+}
+
+function zoomBy(factor, clientX, clientY) {
+  rig.zoomGoal = clamp(rig.zoomGoal * factor, 0.55, 3.4);
+  rig.anchorX = (clientX / window.innerWidth) * 2 - 1;
+  rig.anchorY = -((clientY / window.innerHeight) * 2 - 1);
+  wake();
+}
+
+function resetView() {
+  const from = { x: rig.panX, y: rig.panY, z: rig.zoom };
+  rig.zoomGoal = 1;
+  tween({ dur: 360, ease: ease.inOutCubic, update: (p) => { rig.panX = lerp(from.x, 0, p); rig.panY = lerp(from.y, 0, p); rig.zoom = lerp(from.z, 1, p); } });
+}
+
+/** Per-frame camera easing: zoom toward the cursor, and arrow-key panning. */
+function stepRig(dt) {
+  if (Math.abs(rig.zoomGoal - rig.zoom) > 1e-4) {
+    const z0 = rig.zoom;
+    let z1 = z0 + (rig.zoomGoal - z0) * (1 - Math.exp(-dt * 15));
+    if (Math.abs(rig.zoomGoal - z1) < 0.002) z1 = rig.zoomGoal;
+    const halfH = rig.viewH / 2;
+    rig.panX += rig.anchorX * halfH * rig.aspect * (1 / z0 - 1 / z1);
+    rig.panY += rig.anchorY * halfH * (1 / z0 - 1 / z1);
+    rig.zoom = z1;
+    clampPan();
+    wake();
+  }
+  const k = rig.keys;
+  const dx = (k.right ? 1 : 0) - (k.left ? 1 : 0);
+  const dy = (k.up ? 1 : 0) - (k.down ? 1 : 0);
+  if (dx || dy) {
+    const speed = (7 / rig.zoom) * dt;
+    rig.panX += dx * speed;
+    rig.panY += dy * speed;
+    clampPan();
+    wake();
+  }
+}
+
+/** Screen position (CSS pixels) of a world point, using the live camera. */
+const projected = new THREE.Vector3();
+function toScreen(world) {
+  projected.copy(world).project(camera);
+  return {
+    x: (projected.x * 0.5 + 0.5) * window.innerWidth,
+    y: (-projected.y * 0.5 + 0.5) * window.innerHeight,
+    z: projected.z
+  };
+}
+
+// ====================================================================
+// 4. The board and the table
+// ====================================================================
+
+const BOARD_MARGIN = 0.85;
+const BOARD = {
+  x0: (BND.i[0] - BOARD_MARGIN) * S, x1: (BND.i[1] + BOARD_MARGIN) * S,
+  y0: (BND.j[0] - BOARD_MARGIN) * S, y1: (BND.j[1] + BOARD_MARGIN) * S, thick: 0.36
+};
+const boardCanvas = document.createElement('canvas');
+boardCanvas.width = boardCanvas.height = 2048;
+const boardTexture = new THREE.CanvasTexture(boardCanvas);
+boardTexture.colorSpace = THREE.SRGBColorSpace;
+boardTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+/** Draw the board top: paper, a drawn lattice, and edge numbers that face the viewer. */
+function paintBoard() {
+  const N = boardCanvas.width;
+  const g = boardCanvas.getContext('2d');
+  const spanX = BOARD.x1 - BOARD.x0;
+  const spanY = BOARD.y1 - BOARD.y0;
+  const X = (x) => ((x - BOARD.x0) / spanX) * N;
+  const Y = (y) => N - ((y - BOARD.y0) / spanY) * N;
+  const u = N / spanX; // pixels per metre
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = C.boardTop;
+  g.fillRect(0, 0, N, N);
+
+  const ix0 = BND.i[0] * S, ix1 = BND.i[1] * S, jy0 = BND.j[0] * S, jy1 = BND.j[1] * S;
+  g.strokeStyle = C.grid;
+  g.lineCap = 'round';
+  g.lineWidth = 0.022 * u;
+  g.beginPath();
+  for (let i = BND.i[0]; i <= BND.i[1]; i++) { g.moveTo(X(i * S), Y(jy0)); g.lineTo(X(i * S), Y(jy1)); }
+  for (let j = BND.j[0]; j <= BND.j[1]; j++) { g.moveTo(X(ix0), Y(j * S)); g.lineTo(X(ix1), Y(j * S)); }
+  g.stroke();
+  g.fillStyle = '#cdc5b3';
+  for (let i = BND.i[0]; i <= BND.i[1]; i++) {
+    for (let j = BND.j[0]; j <= BND.j[1]; j++) {
+      g.beginPath(); g.arc(X(i * S), Y(j * S), 0.045 * u, 0, Math.PI * 2); g.fill();
+    }
+  }
+  // Edge numbers on the two edges nearest the viewer, turned so they read left to right.
+  const az = quarterAz(view.quarter);
+  const right = [-Math.sin(az), Math.cos(az)];
+  const toward = [Math.cos(az), Math.sin(az)]; // from the board toward the camera
+  const label = (text, wx, wy, baseline, size, color) => {
+    g.save();
+    g.translate(X(wx), Y(wy));
+    g.rotate(Math.atan2(-baseline[1], baseline[0])); // canvas y runs opposite to world y
+    g.font = '700 ' + size * u + 'px "Segoe UI", system-ui, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = color;
+    g.fillText(text, 0, 0);
+    g.restore();
+  };
+  const off = 0.46 * S;
+  const nearY = toward[1] < 0 ? jy0 - off : jy1 + off;   // the near edge that runs along X
+  const nearX = toward[0] < 0 ? ix0 - off : ix1 + off;   // the near edge that runs along Y
+  const baseX = right[0] > 0 ? [1, 0] : [-1, 0];
+  const baseY = right[1] > 0 ? [0, 1] : [0, -1];
+  for (let i = BND.i[0]; i <= BND.i[1]; i++) label(String(i), i * S, nearY, baseX, 0.24, '#a79f8c');
+  for (let j = BND.j[0]; j <= BND.j[1]; j++) label(String(j), nearX, j * S, baseY, 0.24, '#a79f8c');
+  boardTexture.needsUpdate = true;
+}
+
+const boardSideMat = new THREE.MeshLambertMaterial({ color: C.boardSide });
+const boardTopMat = new THREE.MeshLambertMaterial({ color: '#ffffff', map: boardTexture });
+const board = new THREE.Mesh(
+  new THREE.BoxGeometry(BOARD.x1 - BOARD.x0, BOARD.y1 - BOARD.y0, BOARD.thick),
+  [boardSideMat, boardSideMat, boardSideMat, boardSideMat, boardTopMat, boardSideMat]
+);
+board.position.set((BOARD.x0 + BOARD.x1) / 2, (BOARD.y0 + BOARD.y1) / 2, GROUND * S - BOARD.thick / 2);
+board.castShadow = true;
+board.receiveShadow = true;
+scene.add(board);
+
+// The table only shows shadows; its colour is the page background behind the canvas.
+const table = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), new THREE.ShadowMaterial({ color: '#66728c', opacity: 0.34 }));
+table.position.set(MID.x, MID.y, GROUND * S - BOARD.thick);
+table.receiveShadow = true;
+table.renderOrder = -10;
+scene.add(table);
+
+// ====================================================================
+// 5. Shared geometry and materials
+// ====================================================================
+
+/**
+ * A unit-length stick with a rounded-square section, running along +Y from
+ * y = 0 to y = 1. Members scale it along Y, so the section never distorts and
+ * a cut end is always a clean flat face.
+ */
+function makeStickGeometry(width, radius, segments) {
+  const ring = [];
+  const h = width / 2 - radius;
+  [[h, h, 0], [-h, h, 0.5], [-h, -h, 1], [h, -h, 1.5]].forEach(([cx, cz, q]) => {
+    for (let s = 0; s <= segments; s++) {
+      const a = (q + (s / segments) * 0.5) * Math.PI;
+      ring.push([cx + radius * Math.cos(a), cz + radius * Math.sin(a), Math.cos(a), Math.sin(a)]);
+    }
+  });
+  const n = ring.length;
+  const P = [], N = [], I = [];
+  ring.forEach(([x, z, nx, nz]) => { P.push(x, 0, z, x, 1, z); N.push(nx, 0, nz, nx, 0, nz); });
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    I.push(2 * i, 2 * j + 1, 2 * j, 2 * i, 2 * i + 1, 2 * j + 1);
+  }
+  const c0 = P.length / 3;
+  P.push(0, 0, 0); N.push(0, -1, 0);
+  ring.forEach(([x, z]) => { P.push(x, 0, z); N.push(0, -1, 0); });
+  for (let i = 0; i < n; i++) I.push(c0, c0 + 1 + i, c0 + 1 + ((i + 1) % n));
+  const c1 = P.length / 3;
+  P.push(0, 1, 0); N.push(0, 1, 0);
+  ring.forEach(([x, z]) => { P.push(x, 1, z); N.push(0, 1, 0); });
+  for (let i = 0; i < n; i++) I.push(c1, c1 + 1 + ((i + 1) % n), c1 + 1 + i);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+  geometry.setIndex(I);
+  geometry.computeBoundingSphere();
+  geometry.computeBoundingBox();
+  return geometry;
+}
+
+/** A square frustum standing on z = 0 (the chunky version of the support triangle). */
+function frustumGeometry(bottom, top, height) {
+  const g = new THREE.CylinderGeometry(top / Math.SQRT2, bottom / Math.SQRT2, height, 4, 1).toNonIndexed();
+  g.rotateY(Math.PI / 4);
+  g.rotateX(Math.PI / 2);
+  g.translate(0, 0, height / 2);
+  g.computeVertexNormals();
+  return g;
+}
+function zCylinder(radius, height, segments) {
+  const g = new THREE.CylinderGeometry(radius, radius, height, segments || 28);
+  g.rotateX(Math.PI / 2);
+  g.translate(0, 0, height / 2);
+  return g;
+}
+
+const GEO = {
+  stick: makeStickGeometry(SIZE.member, SIZE.memberRadius, 3),
+  hub: new RoundedBoxGeometry(SIZE.hub, SIZE.hub, SIZE.hub, 3, 0.05),
+  hubHull: new RoundedBoxGeometry(SIZE.hub + 2 * SIZE.outline, SIZE.hub + 2 * SIZE.outline, SIZE.hub + 2 * SIZE.outline, 3, 0.06),
+  pinBall: new THREE.SphereGeometry(0.125, 24, 16),
+  pinBallHull: new THREE.SphereGeometry(0.125 + SIZE.outline, 24, 16),
+  pinRing: new THREE.TorusGeometry(0.225, 0.052, 12, 36),
+  footFixed: (() => { const g = new RoundedBoxGeometry(0.76, 0.76, 0.2, 2, 0.035); g.translate(0, 0, 0.1); return g; })(),
+  footPinned: frustumGeometry(0.84, 0.42, 0.27),
+  footRoller: (() => { const g = frustumGeometry(0.68, 0.42, 0.17); g.translate(0, 0, 0.13); return g; })(),
+  rollerBall: new THREE.SphereGeometry(0.07, 16, 12),
+  footCustom: zCylinder(0.4, 0.2, 32),
+  customBand: (() => { const g = new THREE.TorusGeometry(0.4, 0.028, 8, 40); g.translate(0, 0, 0.2); return g; })()
+};
+const FOOT_HEIGHT = { fixed: 0.2, pinned: 0.27, roller: 0.3, custom: 0.2 };
+
+const lambert = (color, extra) => new THREE.MeshLambertMaterial(Object.assign({ color }, extra || {}));
+const faded = (color, opacity) => lambert(color, { transparent: true, opacity, depthWrite: false });
+const M = {
+  hub: lambert(C.hub),
+  hubFloat: lambert('#e9e5dc'),
+  hubFade: faded('#8fa0b8', SIZE.fadeNode),
+  outline: new THREE.MeshBasicMaterial({ color: C.ink, side: THREE.BackSide }),
+  outlineFloat: new THREE.MeshBasicMaterial({ color: '#aaa497', side: THREE.BackSide }),
+  ring: lambert(C.ink),
+  ringFloat: lambert('#aaa497'),
+  ringFade: faded(C.ink, SIZE.fadeNode),
+  foot: lambert(C.support),
+  footFade: faded(C.support, SIZE.fadeNode),
+  footTrim: lambert(C.supportDark),
+  load: lambert(C.load),
+  loadFade: faded(C.load, 0.2)
+};
+
+/** Orientation for a stick whose axis is `dir`: one section axis stays horizontal. */
+function stickQuaternion(dir) {
+  const x = new THREE.Vector3();
+  if (Math.abs(dir.x) < 1e-6 && Math.abs(dir.y) < 1e-6) x.set(1, 0, 0);
+  else x.set(-dir.y, dir.x, 0).normalize();
+  const z = new THREE.Vector3().crossVectors(x, dir);
+  return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, dir, z));
+}
+
+// ====================================================================
+// 6. Sound (tiny synthesised pops; can never break the page)
+// ====================================================================
+
+let audio = null;
+let audioArmed = false; // set by the first real key or pointer press
+function blip(freq, dur, options) {
+  if (view.muted || !audioArmed) return;
+  try {
+    const o = options || {};
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === 'suspended') audio.resume();
+    const t = audio.currentTime + (o.delay || 0);
+    const osc = audio.createOscillator();
+    const gain = audio.createGain();
+    osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + dur);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(o.volume || 0.05, t + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(gain);
+    gain.connect(audio.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.03);
+  } catch (error) { /* sound is optional */ }
+}
+const LEVEL_NOTES = [262, 294, 330, 392, 440, 523, 587];
+function sound(name, arg) {
+  if (name === 'place') { blip(520, 0.07, { to: 780 }); blip(1040, 0.05, { delay: 0.045, volume: 0.025 }); }
+  else if (name === 'remove') blip(330, 0.11, { to: 170, volume: 0.045 });
+  else if (name === 'tick') blip(700, 0.035, { type: 'triangle', volume: 0.03 });
+  else if (name === 'set') blip(590, 0.06, { to: 700, type: 'triangle', volume: 0.04 });
+  else if (name === 'level') blip(LEVEL_NOTES[clamp(arg || 0, 0, 6)] * 2, 0.09, { volume: 0.035 });
+  else if (name === 'turn') blip(240, 0.14, { to: 360, volume: 0.03 });
+  else if (name === 'deny') blip(150, 0.09, { type: 'triangle', volume: 0.05 });
+}
+
+// ====================================================================
+// 7. The sheet: the glowing working level
+// ====================================================================
+
+const SHEET = { x0: (BND.i[0] - 0.5) * S, x1: (BND.i[1] + 0.5) * S, y0: (BND.j[0] - 0.5) * S, y1: (BND.j[1] + 0.5) * S };
+const sheet = new THREE.Group();
+scene.add(sheet);
+const sheetParts = {};
+(function buildSheet() {
+  const w = SHEET.x1 - SHEET.x0;
+  const h = SHEET.y1 - SHEET.y0;
+  const cx = (SHEET.x0 + SHEET.x1) / 2;
+  const cy = (SHEET.y0 + SHEET.y1) / 2;
+
+  // Soft halo around the edge: the "glow".
+  const glowCanvas = document.createElement('canvas');
+  glowCanvas.width = glowCanvas.height = 512;
+  const g = glowCanvas.getContext('2d');
+  const margin = 1.1 * S;
+  const inset = (margin / (w + 2 * margin)) * 512;
+  g.strokeStyle = 'rgba(120, 172, 228, 0.9)';
+  g.shadowColor = 'rgba(120, 172, 228, 1)';
+  for (const blur of [46, 26, 12]) {
+    g.shadowBlur = blur;
+    g.lineWidth = 5;
+    g.strokeRect(inset, inset, 512 - 2 * inset, 512 - 2 * inset);
+  }
+  const glowTexture = new THREE.CanvasTexture(glowCanvas);
+  glowTexture.colorSpace = THREE.SRGBColorSpace;
+  const glow = new THREE.Mesh(
+    new THREE.PlaneGeometry(w + 2 * margin, h + 2 * margin),
+    new THREE.MeshBasicMaterial({ map: glowTexture, transparent: true, opacity: 0.62, depthWrite: false, side: THREE.DoubleSide })
+  );
+  glow.position.set(cx, cy, 0);
+  glow.renderOrder = 9;
+
+  const fill = new THREE.Mesh(
+    new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ color: C.sheet, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide })
+  );
+  fill.position.set(cx, cy, 0);
+  fill.renderOrder = 10;
+
+  const linePoints = [];
+  for (let i = BND.i[0]; i <= BND.i[1]; i++) linePoints.push(i * S, BND.j[0] * S, 0, i * S, BND.j[1] * S, 0);
+  for (let j = BND.j[0]; j <= BND.j[1]; j++) linePoints.push(BND.i[0] * S, j * S, 0, BND.i[1] * S, j * S, 0);
+  const lineGeometry = new THREE.BufferGeometry();
+  lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(linePoints, 3));
+  const lines = new THREE.LineSegments(lineGeometry, new THREE.LineBasicMaterial({ color: C.dot, transparent: true, opacity: 0.3, depthWrite: false }));
+  lines.renderOrder = 11;
+
+  const edgeShape = new THREE.Shape();
+  edgeShape.moveTo(SHEET.x0, SHEET.y0); edgeShape.lineTo(SHEET.x1, SHEET.y0); edgeShape.lineTo(SHEET.x1, SHEET.y1); edgeShape.lineTo(SHEET.x0, SHEET.y1); edgeShape.closePath();
+  const t = 0.045;
+  const hole = new THREE.Path();
+  hole.moveTo(SHEET.x0 + t, SHEET.y0 + t); hole.lineTo(SHEET.x0 + t, SHEET.y1 - t); hole.lineTo(SHEET.x1 - t, SHEET.y1 - t); hole.lineTo(SHEET.x1 - t, SHEET.y0 + t); hole.closePath();
+  edgeShape.holes.push(hole);
+  const edge = new THREE.Mesh(new THREE.ShapeGeometry(edgeShape), new THREE.MeshBasicMaterial({ color: C.dot, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
+  edge.renderOrder = 12;
+
+  const count = (BND.i[1] - BND.i[0] + 1) * (BND.j[1] - BND.j[0] + 1);
+  const dots = new THREE.InstancedMesh(new THREE.CircleGeometry(0.062, 20), new THREE.MeshBasicMaterial({ color: C.dot, transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide }), count);
+  const matrix = new THREE.Matrix4();
+  let at = 0;
+  for (let i = BND.i[0]; i <= BND.i[1]; i++) {
+    for (let j = BND.j[0]; j <= BND.j[1]; j++) dots.setMatrixAt(at++, matrix.makeTranslation(i * S, j * S, 0.002));
+  }
+  dots.instanceMatrix.needsUpdate = true;
+  dots.renderOrder = 13;
+
+  sheet.add(glow, fill, lines, edge, dots);
+  Object.assign(sheetParts, { glow, fill, lines, edge, dots });
+
+  // Corner posts: thin dashed plumb lines from the board up to the sheet.
+  const postGeometry = new THREE.BufferGeometry();
+  postGeometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(24), 3));
+  const posts = new THREE.LineSegments(postGeometry, new THREE.LineDashedMaterial({ color: C.dot, dashSize: 0.14, gapSize: 0.1, transparent: true, opacity: 0.55, depthWrite: false }));
+  posts.renderOrder = 8;
+  posts.frustumCulled = false;
+  scene.add(posts);
+  sheetParts.posts = posts;
+})();
+
+function placeSheet() {
+  const z = view.cutZ;
+  sheet.position.z = z + 0.008;
+  const corners = [[SHEET.x0, SHEET.y0], [SHEET.x1, SHEET.y0], [SHEET.x1, SHEET.y1], [SHEET.x0, SHEET.y1]];
+  const position = sheetParts.posts.geometry.attributes.position;
+  corners.forEach(([x, y], c) => { position.setXYZ(c * 2, x, y, GROUND * S); position.setXYZ(c * 2 + 1, x, y, z); });
+  position.needsUpdate = true;
+  sheetParts.posts.computeLineDistances();
+  sheetParts.posts.visible = z > GROUND * S + 0.02;
+}
+
+// ====================================================================
+// 8. Views of the model: members, nodes, loads
+// ====================================================================
+
+/** A fresh read of the model plus lookups the tools need. Rebuilt on every change. */
+const model = {
+  nodes: [], members: [], loads: [],
+  nodeById: new Map(), nodeAtKey: new Map(),
+  onMember: new Set(),      // lattice keys that lie on at least one member
+  dirsAt: new Map(),        // lattice key -> unit vectors along members leaving that point
+  floatM: new Set(), floatN: new Set()
+};
+
+function readModel() {
+  model.nodes = core.nodes;
+  model.members = core.members;
+  model.loads = core.loads;
+  model.nodeById = new Map(model.nodes.map((n) => [n.id, n]));
+  model.nodeAtKey = new Map(model.nodes.map((n) => [keyOf(n.grid), n]));
+  const connectivity = core.connectivity();
+  model.floatM = new Set(connectivity.floatingMembers);
+  model.floatN = new Set(connectivity.floatingNodes);
+  model.onMember = new Set();
+  model.dirsAt = new Map();
+  for (const m of model.members) {
+    const points = DOFCore.latticePoints(m.from, m.to);
+    const d = new THREE.Vector3(m.to[0] - m.from[0], m.to[1] - m.from[1], m.to[2] - m.from[2]).normalize();
+    const back = d.clone().negate();
+    points.forEach((p, t) => {
+      const key = keyOf(p);
+      model.onMember.add(key);
+      const list = model.dirsAt.get(key) || [];
+      if (t < points.length - 1) list.push(d);
+      if (t > 0) list.push(back);
+      model.dirsAt.set(key, list);
+    });
+  }
+}
+
+const memberViews = new Map();
+const nodeViews = new Map();
+const loadViews = new Map();
+const groupMembers = new THREE.Group();
+const groupNodes = new THREE.Group();
+const groupLoads = new THREE.Group();
+scene.add(groupMembers, groupNodes, groupLoads);
+const labelsEl = $('#labels');
+
+// ---------------------------------------------------------- members
+
+/** Dash pattern for a member that has no path to a support. */
+function dashSpans(length) {
+  const dash = 0.24, gap = 0.15;
+  const count = Math.max(1, Math.round((length + gap) / (dash + gap)));
+  const d = (length - (count - 1) * gap) / count;
+  const spans = [];
+  for (let c = 0; c < count; c++) spans.push([c * (d + gap), c * (d + gap) + d]);
+  return spans;
+}
+
+function makeMemberView(m, floating) {
+  const a = new THREE.Vector3(m.fromPosition[0], m.fromPosition[1], m.fromPosition[2]);
+  const b = new THREE.Vector3(m.toPosition[0], m.toPosition[1], m.toPosition[2]);
+  const dir = b.clone().sub(a);
+  const len = dir.length();
+  dir.normalize();
+  const v = {
+    id: m.id, m, geoSig: m.from.join() + '>' + m.to.join(), floating,
+    a, dir, len, fat: 1, grow: 1, hot: false, parts: [], group: new THREE.Group(), tw: null,
+    matSolid: lambert(C[m.role]),
+    matFade: faded(C[m.role], SIZE.fadeMember)
+  };
+  const quat = stickQuaternion(dir);
+  for (const span of floating ? dashSpans(len) : [[0, len]]) {
+    const solid = new THREE.Mesh(GEO.stick, v.matSolid);
+    solid.castShadow = true;
+    solid.receiveShadow = true;
+    solid.quaternion.copy(quat);
+    solid.userData.pick = { kind: 'member', id: m.id };
+    const fade = new THREE.Mesh(GEO.stick, v.matFade);
+    fade.quaternion.copy(quat);
+    fade.renderOrder = 20;
+    v.group.add(solid, fade);
+    v.parts.push({ t0: span[0], t1: span[1], solid, fade });
+  }
+  groupMembers.add(v.group);
+  paintMember(v);
+  layoutMember(v);
+  return v;
+}
+
+/**
+ * Split a member at the sheet: the part at or below the active level is
+ * solid, the part above it is a faint ghost with no shadow.
+ */
+function layoutMember(v) {
+  const L = v.len * v.grow;
+  const cut = view.cutZ + 1e-3;
+  const dz = v.dir.z;
+  let s0 = 0, s1 = L; // solid interval along the member
+  if (Math.abs(dz) < 1e-6) { if (v.a.z > cut) s1 = 0; }
+  else if (dz > 0) s1 = clamp((cut - v.a.z) / dz, 0, L);
+  else s0 = clamp((cut - v.a.z) / dz, 0, L);
+  const put = (mesh, t0, t1) => {
+    const n = t1 - t0;
+    if (n <= 1e-4 || v.fat <= 1e-3) { mesh.visible = false; return; }
+    mesh.visible = true;
+    mesh.position.copy(v.a).addScaledVector(v.dir, t0);
+    mesh.scale.set(v.fat, n, v.fat);
+  };
+  for (const part of v.parts) {
+    const t0 = Math.min(part.t0, L), t1 = Math.min(part.t1, L);
+    put(part.solid, Math.max(t0, s0), Math.min(t1, s1));
+    if (dz < -1e-6) put(part.fade, t0, Math.min(t1, s0));
+    else put(part.fade, Math.max(t0, s1), t1);
+  }
+}
+
+/** Colour ramp for the feedback preview: pale and cool when idle, warm and dark toward 1.5. */
+const RAMP = [[0, '#c5d3de'], [0.3, '#8fbfaa'], [0.6, '#e6cb5e'], [0.85, '#e59a3e'], [1, '#d96f3a'], [1.25, '#b9402f'], [1.5, '#7a1f27']];
+const rampColor = new THREE.Color();
+const rampA = new THREE.Color();
+const rampB = new THREE.Color();
+function utilizationColor(u) {
+  const x = clamp(u, 0, 1.5);
+  for (let s = 1; s < RAMP.length; s++) {
+    if (x <= RAMP[s][0]) {
+      const t = (x - RAMP[s - 1][0]) / (RAMP[s][0] - RAMP[s - 1][0]);
+      return rampColor.copy(rampA.set(RAMP[s - 1][1])).lerp(rampB.set(RAMP[s][1]), t);
+    }
+  }
+  return rampColor.set(RAMP[RAMP.length - 1][1]);
+}
+
+let mock = null; // placeholder results, read only while the feedback preview is on
+function paintMember(v) {
+  if (v.floating) v.matSolid.color.set(C.float);
+  else if (view.feedback && mock && mock.members[v.id]) v.matSolid.color.copy(utilizationColor(mock.members[v.id].utilization));
+  else v.matSolid.color.set(C[v.m.role]);
+  if (v.hot) v.matSolid.color.lerp(rampA.set('#d9462c'), 0.85);
+  v.matFade.color.copy(v.matSolid.color);
+  v.matFade.opacity = v.floating ? 0.3 : SIZE.fadeMember;
+}
+
+function popMember(v, delay, long) {
+  v.fat = 0;
+  v.grow = long ? 0.3 : 1;
+  layoutMember(v);
+  stopTween(v.tw);
+  if (long) tween({ dur: 190, delay, ease: ease.outCubic, update: (p) => { v.grow = lerp(0.3, 1, p); } });
+  v.tw = tween({ dur: 420, delay, ease: ease.spring, update: (p) => { v.fat = p; layoutMember(v); shadowDirty = true; }, done: () => { v.fat = 1; v.grow = 1; layoutMember(v); } });
+}
+
+function retireMember(v) {
+  if (memberViews.get(v.id) === v) memberViews.delete(v.id);
+  stopTween(v.tw);
+  for (const part of v.parts) { part.solid.userData.pick = null; part.solid.castShadow = false; }
+  const from = v.fat;
+  tween({
+    dur: 190, ease: ease.inBack,
+    update: (p) => { v.fat = Math.max(0, from * (1 - p)); layoutMember(v); shadowDirty = true; },
+    done: () => { groupMembers.remove(v.group); v.matSolid.dispose(); v.matFade.dispose(); shadowDirty = true; }
+  });
+}
+
+// ---------------------------------------------------------- nodes
+
+function nodeSig(n, floating) {
+  return n.support + '|' + n.restraint.map((r) => (r ? 1 : 0)).join('') + '|' + n.joint + '|' + (floating ? 'f' : 's');
+}
+
+/**
+ * Draw a node from its context: the support decides the foot (plinth,
+ * wedge, wedge on balls, disc) and the joint decides the hub (block or ring).
+ */
+function buildGlyph(v) {
+  for (const part of v.parts) v.group.remove(part.mesh);
+  v.parts = [];
+  const n = v.n;
+  const add = (geometry, solid, fade, z, x, y) => {
+    const mesh = new THREE.Mesh(geometry, solid);
+    mesh.position.set(x || 0, y || 0, z || 0);
+    mesh.receiveShadow = solid.isMeshLambertMaterial === true;
+    v.group.add(mesh);
+    v.parts.push({ mesh, solid, fade, cast: solid.side !== THREE.BackSide });
+    return mesh;
+  };
+  const footHeight = FOOT_HEIGHT[n.support] || 0;
+  // On the board the foot stands on the ground and lifts the hub; in the air it hangs under the hub.
+  const hubZ = n.onGround ? (footHeight ? footHeight + 0.08 : 0.09) : 0;
+  const footZ = n.onGround ? 0 : -(SIZE.hub / 2) - footHeight + 0.07;
+  if (n.support === 'fixed') add(GEO.footFixed, M.foot, M.footFade, footZ);
+  else if (n.support === 'pinned') add(GEO.footPinned, M.foot, M.footFade, footZ);
+  else if (n.support === 'roller') {
+    add(GEO.footRoller, M.foot, M.footFade, footZ);
+    for (const [bx, by] of [[1, 1], [-1, 1], [-1, -1], [1, -1]]) add(GEO.rollerBall, M.footTrim, null, footZ + 0.07, bx * 0.22, by * 0.22);
+  } else if (n.support === 'custom') {
+    add(GEO.footCustom, M.foot, M.footFade, footZ);
+    add(GEO.customBand, M.footTrim, null, footZ);
+  }
+  if (n.joint === 'pinned') {
+    add(GEO.pinBallHull, v.floating ? M.outlineFloat : M.outline, null, hubZ);
+    add(GEO.pinBall, v.floating ? M.hubFloat : M.hub, M.hubFade, hubZ);
+    add(GEO.pinRing, v.floating ? M.ringFloat : M.ring, M.ringFade, hubZ);
+  } else {
+    add(GEO.hubHull, v.floating ? M.outlineFloat : M.outline, null, hubZ);
+    add(GEO.hub, v.floating ? M.hubFloat : M.hub, M.hubFade, hubZ);
+  }
+  v.hubZ = hubZ;
+  v.fadeState = null;
+  fadeNode(v);
+}
+
+/** Solid at or below the active level, a faint ghost with no shadow above it. */
+function fadeNode(v) {
+  const fadeNow = v.n.position[2] > view.cutZ + 1e-3;
+  if (v.fadeState === fadeNow) return;
+  v.fadeState = fadeNow;
+  for (const part of v.parts) {
+    part.mesh.visible = !(fadeNow && !part.fade);
+    part.mesh.material = fadeNow && part.fade ? part.fade : part.solid;
+    part.mesh.castShadow = !fadeNow && part.cast;
+    part.mesh.renderOrder = fadeNow ? 21 : 0;
+  }
+}
+
+function makeNodeView(n, floating) {
+  const v = { id: n.id, n, floating, gridKey: keyOf(n.grid), sig: nodeSig(n, floating), group: new THREE.Group(), parts: [], hubZ: 0, fadeState: null, tw: null };
+  v.group.position.set(n.position[0], n.position[1], n.position[2]);
+  buildGlyph(v);
+  groupNodes.add(v.group);
+  return v;
+}
+function popNode(v, delay) {
+  v.group.scale.setScalar(0.001);
+  stopTween(v.tw);
+  v.tw = tween({ dur: 400, delay, ease: ease.spring, update: (p) => { v.group.scale.setScalar(Math.max(0.001, p)); shadowDirty = true; } });
+}
+function pulseNode(v) {
+  stopTween(v.tw);
+  v.tw = tween({ dur: 380, ease: ease.spring, update: (p) => { v.group.scale.setScalar(lerp(0.72, 1, p)); shadowDirty = true; } });
+}
+function retireNode(v) {
+  if (nodeViews.get(v.id) === v) nodeViews.delete(v.id);
+  stopTween(v.tw);
+  const from = v.group.scale.x;
+  tween({
+    dur: 170, ease: ease.inBack,
+    update: (p) => { v.group.scale.setScalar(Math.max(0.001, from * (1 - p))); shadowDirty = true; },
+    done: () => { groupNodes.remove(v.group); shadowDirty = true; }
+  });
+}
+
+// ---------------------------------------------------------- loads
+
+/** Arrow size by amount: longer and fatter as the load grows. */
+function loadDims(magnitude) {
+  const s = Math.log2(Math.max(magnitude, 2.5) / 5);
+  const r = 0.056 + 0.013 * s;
+  return { len: 0.62 + 0.21 * s, r, headR: r * 2.3, headL: 0.25 + 0.035 * s };
+}
+const arrowCache = new Map();
+function arrowGeometry(magnitude) {
+  if (arrowCache.has(magnitude)) return arrowCache.get(magnitude);
+  const d = loadDims(magnitude);
+  const shaftL = d.len - d.headL;
+  const shaft = new THREE.CylinderGeometry(d.r, d.r, shaftL, 20);
+  shaft.translate(0, shaftL / 2, 0);
+  const cap = new THREE.SphereGeometry(d.r, 20, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+  const head = new THREE.ConeGeometry(d.headR, d.headL, 28);
+  head.translate(0, shaftL + d.headL / 2, 0);
+  const geometry = mergeGeometries([shaft, cap, head]);
+  arrowCache.set(magnitude, geometry);
+  return geometry;
+}
+
+/**
+ * Where a load's arrow sits. It pushes on the node from the side it comes
+ * from, unless a member (or the board) is in the way there; then it is drawn
+ * on the far side, pulling. The arrow always points the way the force acts.
+ */
+function loadPlacement(grid, direction, magnitude) {
+  const d = new THREE.Vector3(direction[0], direction[1], direction[2]).normalize();
+  const at = worldOf(grid);
+  const node = model.nodeAtKey.get(keyOf(grid));
+  const dirs = model.dirsAt.get(keyOf(grid)) || [];
+  const blocked = (side) => {
+    if (grid[2] === GROUND && side.z < -0.5) return true;
+    return dirs.some((m) => m.dot(side) > 0.94);
+  };
+  const dims = loadDims(magnitude);
+  const onFoot = node && node.onGround && node.support !== 'free';
+  const lift = onFoot && Math.abs(d.z) > 0.5 ? 0.3 : 0;
+  const gap = SIZE.hub / 2 + 0.1 + lift;
+  const back = d.clone().negate();
+  const pull = blocked(back) && !blocked(d);
+  const tail = at.clone().addScaledVector(pull ? d : back, pull ? gap : gap + dims.len);
+  if (onFoot && Math.abs(d.z) < 0.5) tail.z += 0.26;
+  const outer = pull ? tail.clone().addScaledVector(d, dims.len + 0.24) : tail.clone().addScaledVector(d, -0.24);
+  return { d, tail, outer, pull, sig: (pull ? 'pull' : 'push') + tail.toArray().map((c) => c.toFixed(2)).join() };
+}
+
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+function makeLoadView(l) {
+  const node = model.nodeById.get(l.node);
+  const v = { id: l.id, l, node, group: new THREE.Group(), mesh: null, tag: document.createElement('div'), place: null, fadeState: null, slide: 0, tw: null, anchor: new THREE.Vector3() };
+  v.mesh = new THREE.Mesh(arrowGeometry(l.magnitude), M.load);
+  v.mesh.castShadow = true;
+  v.mesh.userData.pick = { kind: 'load', id: l.id };
+  v.group.add(v.mesh);
+  v.tag.className = 'tag load-tag';
+  v.tag.dataset.load = l.id;
+  labelsEl.appendChild(v.tag);
+  groupLoads.add(v.group);
+  refreshLoadView(v, l, node);
+  return v;
+}
+function refreshLoadView(v, l, node) {
+  v.l = l;
+  v.node = node;
+  v.mesh.geometry = arrowGeometry(l.magnitude);
+  v.place = loadPlacement(node.grid, l.direction, l.magnitude);
+  v.group.quaternion.setFromUnitVectors(Y_AXIS, v.place.d);
+  v.tag.textContent = l.magnitude + ' kN';
+  v.fadeState = null;
+  fadeLoad(v);
+  placeLoadView(v);
+}
+function placeLoadView(v) {
+  v.group.position.copy(v.place.tail).addScaledVector(v.place.d, -v.slide);
+  v.anchor.copy(v.place.outer);
+}
+function fadeLoad(v) {
+  const fadeNow = v.node.position[2] > view.cutZ + 1e-3;
+  if (v.fadeState === fadeNow) return;
+  v.fadeState = fadeNow;
+  v.mesh.material = fadeNow ? M.loadFade : M.load;
+  v.mesh.castShadow = !fadeNow;
+  v.mesh.renderOrder = fadeNow ? 22 : 0;
+  tagState(v);
+}
+/** A load's label: faded above the level; a handle for editing while the load tool is active. */
+function tagState(v) {
+  v.tag.classList.toggle('faded', !!v.fadeState);
+  v.tag.classList.toggle('pickable', view.tool === 'load' && !v.fadeState && !view.erase);
+  v.tag.classList.toggle('selected', v.id === view.selectedLoad);
+}
+function popLoad(v, delay) {
+  v.slide = 0.7;
+  v.group.scale.setScalar(0.001);
+  placeLoadView(v);
+  stopTween(v.tw);
+  v.tw = tween({
+    dur: 460, delay, ease: ease.spring,
+    update: (p) => { v.slide = 0.7 * (1 - p); v.group.scale.setScalar(Math.max(0.001, Math.min(1, p * 1.4))); placeLoadView(v); shadowDirty = true; },
+    done: () => { v.slide = 0; v.group.scale.setScalar(1); placeLoadView(v); }
+  });
+}
+function pulseLoad(v) {
+  stopTween(v.tw);
+  v.tw = tween({ dur: 360, ease: ease.spring, update: (p) => { v.group.scale.setScalar(lerp(0.7, 1, p)); shadowDirty = true; }, done: () => v.group.scale.setScalar(1) });
+}
+function retireLoad(v) {
+  if (loadViews.get(v.id) === v) loadViews.delete(v.id);
+  stopTween(v.tw);
+  v.mesh.userData.pick = null;
+  v.tag.remove();
+  tween({
+    dur: 180, ease: ease.inBack,
+    update: (p) => { v.group.scale.setScalar(Math.max(0.001, 1 - p)); shadowDirty = true; },
+    done: () => { groupLoads.remove(v.group); shadowDirty = true; }
+  });
+}
+
+// ---------------------------------------------------------- sync
+
+/** Bring every view in line with the model. Pieces named in `change.added` pop in. */
+function syncViews(change) {
+  readModel();
+  const addedCount = change ? change.added.members.length + change.added.nodes.length + change.added.loads.length : 0;
+  const bulk = !!change && (change.reset || addedCount > 8);
+  let order = 0;
+  const stagger = () => (bulk ? Math.min(26 * order++, 460) : 0);
+  const lowFirst = (list, height) => (bulk ? list.slice().sort((p, q) => height(p) - height(q)) : list);
+
+  const liveMembers = new Set();
+  for (const m of lowFirst(model.members, (m) => Math.min(m.from[2], m.to[2]) + Math.max(m.from[2], m.to[2]) * 0.01)) {
+    liveMembers.add(m.id);
+    const floating = model.floatM.has(m.id);
+    let v = memberViews.get(m.id);
+    if (v && v.geoSig !== m.from.join() + '>' + m.to.join()) { retireMember(v); v = null; }
+    if (v && v.floating !== floating) {
+      // Same member, different look (it gained or lost its path to a support): swap without a pop.
+      stopTween(v.tw);
+      groupMembers.remove(v.group);
+      v.matSolid.dispose();
+      v.matFade.dispose();
+      v = makeMemberView(m, floating);
+      memberViews.set(m.id, v);
+    }
+    if (!v) {
+      v = makeMemberView(m, floating);
+      memberViews.set(m.id, v);
+      popMember(v, stagger(), !bulk);
+    }
+    v.m = m;
+  }
+  for (const v of Array.from(memberViews.values())) if (!liveMembers.has(v.id)) retireMember(v);
+
+  const liveNodes = new Set();
+  for (const n of lowFirst(model.nodes, (n) => n.grid[2])) {
+    liveNodes.add(n.id);
+    const floating = model.floatN.has(n.id);
+    let v = nodeViews.get(n.id);
+    if (v && v.gridKey !== keyOf(n.grid)) { retireNode(v); v = null; }
+    if (!v) {
+      v = makeNodeView(n, floating);
+      nodeViews.set(n.id, v);
+      popNode(v, stagger());
+    } else if (v.sig !== nodeSig(n, floating)) {
+      v.n = n;
+      v.floating = floating;
+      v.sig = nodeSig(n, floating);
+      buildGlyph(v);
+      pulseNode(v);
+    }
+    v.n = n;
+  }
+  for (const v of Array.from(nodeViews.values())) if (!liveNodes.has(v.id)) retireNode(v);
+
+  const liveLoads = new Set();
+  for (const l of model.loads) {
+    liveLoads.add(l.id);
+    const node = model.nodeById.get(l.node);
+    let v = loadViews.get(l.id);
+    if (v && (v.l.node !== l.node || keyOf(v.node.grid) !== keyOf(node.grid))) { retireLoad(v); v = null; }
+    if (!v) {
+      v = makeLoadView(l);
+      loadViews.set(l.id, v);
+      popLoad(v, stagger());
+    } else {
+      const changed = v.l.magnitude !== l.magnitude || v.l.direction.join() !== l.direction.join();
+      const before = v.place.sig;
+      refreshLoadView(v, l, node);
+      if (changed || before !== v.place.sig) pulseLoad(v);
+    }
+  }
+  for (const v of Array.from(loadViews.values())) if (!liveLoads.has(v.id)) retireLoad(v);
+
+  repaintMembers();
+  shadowDirty = true;
+  wake();
+}
+
+function repaintMembers() {
+  mock = view.feedback ? core.mockResults() : null;
+  for (const v of memberViews.values()) paintMember(v);
+}
+
+/** Re-apply the cut after the sheet moved. */
+function applyCut() {
+  placeSheet();
+  for (const v of memberViews.values()) layoutMember(v);
+  for (const v of nodeViews.values()) fadeNode(v);
+  for (const v of loadViews.values()) fadeLoad(v);
+  shadowDirty = true;
+}
+
+// ====================================================================
+// 9. The active level and its stepper
+// ====================================================================
+
+let levelTween = null;
+/** Glide the sheet (and the cut that follows it) to the active level. */
+function glideSheet(delay) {
+  const from = view.cutZ;
+  const to = view.level * S;
+  stopTween(levelTween);
+  levelTween = tween({
+    dur: 340, delay: delay || 0, ease: ease.outCubic,
+    update: (p) => { view.cutZ = lerp(from, to, p); applyCut(); },
+    done: () => { levelTween = null; view.cutZ = to; applyCut(); }
+  });
+}
+function setLevel(level, quiet) {
+  const next = clamp(level, GROUND, TOP);
+  if (next === view.level) { if (!quiet) sound('deny'); return false; }
+  view.level = next;
+  glideSheet();
+  if (!quiet) sound('level', next - GROUND);
+  onLevelChanged();
+  return true;
+}
+
+const ELEV_SVG = { width: 150, row: 26, pad: 0, sx: 11.6 };
+const rowY = (z) => (TOP - z / S) * ELEV_SVG.row + ELEV_SVG.row / 2;
+function buildStepper() {
+  const rows = $('#st-rows');
+  for (let k = TOP; k >= GROUND; k--) {
+    const row = document.createElement('button');
+    row.className = 'st-row';
+    row.dataset.level = k;
+    row.title = 'Work on level ' + k + ' (' + fmt(k * S) + ' m)';
+    row.innerHTML = '<span class="n">' + k + '</span>';
+    row.addEventListener('click', () => setLevel(k));
+    rows.appendChild(row);
+  }
+  $('#btn-up').addEventListener('click', () => setLevel(view.level + 1));
+  $('#btn-down').addEventListener('click', () => setLevel(view.level - 1));
+  $('#btn-turn-left').addEventListener('click', () => turnView(-1));
+  $('#btn-turn-right').addEventListener('click', () => turnView(1));
+}
+
+/** The stepper doubles as a small elevation of the building, seen from the current side. */
+function drawElevation() {
+  const az = quarterAz(view.quarter);
+  const rx = -Math.sin(az), ry = Math.cos(az);
+  const cx = ELEV_SVG.width / 2;
+  const X = (p) => cx + ((p[0] - MID.x) * rx + (p[1] - MID.y) * ry) * ELEV_SVG.sx;
+  const cut = view.level * S;
+  let out = '';
+  for (let k = GROUND; k <= TOP; k++) {
+    const y = rowY(k * S);
+    out += k === GROUND
+      ? '<line x1="2" x2="' + (ELEV_SVG.width - 2) + '" y1="' + y + '" y2="' + y + '" stroke="#cfc7b6" stroke-width="2.4" stroke-linecap="round"/>'
+      : '<line x1="2" x2="' + (ELEV_SVG.width - 2) + '" y1="' + y + '" y2="' + y + '" stroke="#e4ded1" stroke-width="1" stroke-dasharray="2 3"/>';
+  }
+  out += '<g id="elev-band" style="transform: translateY(' + rowY(cut) + 'px)">' +
+    '<rect x="-2" y="-8" width="' + (ELEV_SVG.width + 4) + '" height="16" rx="4" fill="#9ec3e6" opacity=".3"/>' +
+    '<rect x="-2" y="-1.5" width="' + (ELEV_SVG.width + 4) + '" height="3" rx="1.5" fill="#5b84b1"/></g>';
+  const seg = (a, b, color, opacity, dashed) =>
+    '<line x1="' + X(a).toFixed(1) + '" y1="' + rowY(a[2]).toFixed(1) + '" x2="' + X(b).toFixed(1) + '" y2="' + rowY(b[2]).toFixed(1) +
+    '" stroke="' + color + '" stroke-width="2.6" stroke-linecap="round" opacity="' + opacity + '"' + (dashed ? ' stroke-dasharray="2.5 3.5"' : '') + '/>';
+  for (const m of model.members) {
+    const floating = model.floatM.has(m.id);
+    const color = floating ? C.float : (view.feedback && mock && mock.members[m.id] ? '#' + utilizationColor(mock.members[m.id].utilization).getHexString() : C[m.role]);
+    let lo = m.fromPosition, hi = m.toPosition;
+    if (lo[2] > hi[2]) { const swap = lo; lo = hi; hi = swap; }
+    if (hi[2] <= cut + 1e-6) out += seg(lo, hi, color, 1, floating);
+    else if (lo[2] >= cut - 1e-6 && hi[2] > cut) out += seg(lo, hi, color, 0.3, floating);
+    else {
+      const t = (cut - lo[2]) / (hi[2] - lo[2]);
+      const mid = [lerp(lo[0], hi[0], t), lerp(lo[1], hi[1], t), cut];
+      out += seg(lo, mid, color, 1, floating) + seg(mid, hi, color, 0.3, floating);
+    }
+  }
+  for (const n of model.nodes) {
+    if (!n.restraint.some(Boolean)) continue;
+    const x = X(n.position), y = rowY(n.position[2]);
+    out += '<path d="M' + (x - 4).toFixed(1) + ' ' + (y + 6.5) + 'h8l-4 -6z" fill="' + C.support + '" opacity="' + (n.position[2] > cut + 1e-6 ? 0.35 : 1) + '"/>';
+  }
+  for (const l of model.loads) {
+    const n = model.nodeById.get(l.node);
+    if (!n) continue;
+    out += '<circle cx="' + X(n.position).toFixed(1) + '" cy="' + rowY(n.position[2]).toFixed(1) + '" r="3" fill="' + C.load + '" opacity="' + (n.position[2] > cut + 1e-6 ? 0.35 : 1) + '"/>';
+  }
+  $('#elev').innerHTML = out;
+}
+
+function updateStepper() {
+  $('#st-num').textContent = view.level;
+  $('#st-height').textContent = fmt(view.level * S) + ' m';
+  $$('.st-row').forEach((row) => row.classList.toggle('active', Number(row.dataset.level) === view.level));
+  $('#btn-up').disabled = view.level >= TOP;
+  $('#btn-down').disabled = view.level <= GROUND;
+  const band = $('#elev-band');
+  if (band) band.style.transform = 'translateY(' + rowY(view.level * S) + 'px)';
+}
+
+function drawGizmo() {
+  const axes = [['X', 1, 0, 0], ['Y', 0, 1, 0], ['Z', 0, 0, 1]];
+  let out = '<circle r="3.2" fill="#2f3b52"/>';
+  for (const [name, x, y, z] of axes) {
+    const sx = (x * camRight.x + y * camRight.y + z * camRight.z) * 25;
+    const sy = -(x * camUp.x + y * camUp.y + z * camUp.z) * 25;
+    const len = Math.hypot(sx, sy) || 1;
+    const ux = sx / len, uy = sy / len;
+    const color = name === 'Z' ? '#5b84b1' : '#2f3b52';
+    out += '<line x1="0" y1="0" x2="' + sx.toFixed(1) + '" y2="' + sy.toFixed(1) + '" stroke="' + color + '" stroke-width="2.4" stroke-linecap="round"/>';
+    out += '<path d="M' + (sx + ux * 5).toFixed(1) + ' ' + (sy + uy * 5).toFixed(1) + 'L' + (sx - uy * 3.6).toFixed(1) + ' ' + (sy + ux * 3.6).toFixed(1) + 'L' + (sx + uy * 3.6).toFixed(1) + ' ' + (sy - ux * 3.6).toFixed(1) + 'z" fill="' + color + '"/>';
+    out += '<text x="' + (sx + ux * 13).toFixed(1) + '" y="' + (sy + uy * 13).toFixed(1) + '">' + name + '</text>';
+  }
+  $('#gizmo').innerHTML = out;
+}
+
+// ====================================================================
+// 10. Picking: everything the left button does lands on the active level
+// ====================================================================
+
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+function rayAt(x, y) {
+  ndc.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  return raycaster.ray;
+}
+
+/**
+ * The lattice point on the active level under a screen position: the mouse
+ * ray meets the level's plane and snaps to the nearest point inside the
+ * bounds. Null when the pointer is off the sheet.
+ */
+function latticeAt(x, y) {
+  const ray = rayAt(x, y);
+  if (Math.abs(ray.direction.z) < 1e-6) return null;
+  const t = (view.level * S - ray.origin.z) / ray.direction.z;
+  const gi = (ray.origin.x + ray.direction.x * t) / S;
+  const gj = (ray.origin.y + ray.direction.y * t) / S;
+  const slack = 0.75;
+  if (gi < BND.i[0] - slack || gi > BND.i[1] + slack || gj < BND.j[0] - slack || gj > BND.j[1] + slack) return null;
+  const point = [clamp(Math.round(gi), BND.i[0], BND.i[1]), clamp(Math.round(gj), BND.j[0], BND.j[1]), view.level];
+  return { point, off: Math.hypot(gi - point[0], gj - point[1]) };
+}
+
+const dirVector = (id) => DOFCore.AXIS_DIRECTIONS.find((d) => d.id === id).vector;
+const dirIdOf = (vector) => {
+  const match = DOFCore.AXIS_DIRECTIONS.find((d) => d.vector[0] * vector[0] + d.vector[1] * vector[1] + d.vector[2] * vector[2] > 0.999);
+  return match ? match.id : null;
+};
+const dirWords = (id) => (id === '-Z' ? 'down' : id === '+Z' ? 'up' : 'along ' + id);
+const loadsOn = (nodeId) => model.loads.filter((l) => l.node === nodeId);
+
+/** The placed load on a node that the brush (or the wheel) refers to. */
+function loadForBrush(node) {
+  if (!node) return null;
+  const loads = loadsOn(node.id);
+  return loads.find((l) => dirIdOf(l.direction) === view.brush.direction) || null;
+}
+
+/**
+ * The piece a right-click (or an erase click) takes away. It is what is
+ * visibly under the pointer among the solid members and loads, with the
+ * active tool's own kind of piece preferred:
+ *   member tool      the member under the pointer, else a load arrow there
+ *   connection tool  the joint on the cursor point, else whatever is under the pointer
+ *   load tool        a load arrow under the pointer, else a load on the cursor point, else a member
+ */
+function pieceAt(x, y) {
+  const hit = latticeAt(x, y);
+  const node = hit && hit.off < 0.38 ? model.nodeAtKey.get(keyOf(hit.point)) : null;
+  if (view.tool === 'connection' && node) return { kind: 'node', id: node.id };
+  rayAt(x, y);
+  groupMembers.updateMatrixWorld(true);
+  groupLoads.updateMatrixWorld(true);
+  const targets = [];
+  for (const v of memberViews.values()) for (const part of v.parts) if (part.solid.visible) targets.push(part.solid);
+  for (const v of loadViews.values()) if (!v.fadeState) targets.push(v.mesh);
+  const picks = raycaster.intersectObjects(targets, false).map((h) => h.object.userData.pick).filter(Boolean); // nearest first
+  const first = (kind) => picks.find((p) => p.kind === kind) || null;
+  if (view.tool === 'connection') return picks[0] || null;
+  if (view.tool === 'load') {
+    const onPoint = node ? loadsOn(node.id) : [];
+    return first('load') || (onPoint.length ? { kind: 'load', id: (loadForBrush(node) || onPoint[0]).id } : first('member'));
+  }
+  return first('member') || first('load');
+}
+
+/** True when the pointer is over a piece that is faded because it is above the active level. */
+function fadedPieceAt(x, y) {
+  rayAt(x, y);
+  const targets = [];
+  for (const v of memberViews.values()) for (const part of v.parts) if (part.fade.visible) targets.push(part.fade);
+  for (const v of loadViews.values()) if (v.fadeState) targets.push(v.mesh);
+  return raycaster.intersectObjects(targets, false).length > 0;
+}
+
+// ====================================================================
+// 11. Markers and placement ghosts
+// ====================================================================
+
+const fx = new THREE.Group();
+scene.add(fx);
+const flatMat = (color, opacity) => new THREE.MeshBasicMaterial({
+  color, transparent: true, opacity: opacity === undefined ? 1 : opacity, depthTest: false, depthWrite: false, side: THREE.DoubleSide
+});
+function barsGeometry(inner, outer, width, turn) {
+  const bars = [];
+  for (let q = 0; q < 4; q++) {
+    const g = new THREE.PlaneGeometry(outer - inner, width);
+    g.translate((inner + outer) / 2, 0, 0);
+    g.rotateZ((q * Math.PI) / 2 + (turn || 0));
+    bars.push(g);
+  }
+  return mergeGeometries(bars);
+}
+const mark = (geometry, material, order) => {
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.renderOrder = order;
+  mesh.visible = false;
+  fx.add(mesh);
+  return mesh;
+};
+const cursorMark = mark(mergeGeometries([new THREE.RingGeometry(0.165, 0.232, 40), barsGeometry(0.32, 0.48, 0.058)]), flatMat(C.ink, 0.92), 61);
+const denyMark = mark(barsGeometry(0, 0.25, 0.08, Math.PI / 4), flatMat(C.bad), 62);
+const startMark = mark(mergeGeometries([new THREE.RingGeometry(0.275, 0.345, 44), new THREE.CircleGeometry(0.105, 28)]), flatMat(C.dot), 59);
+const plumbRing = mark(new THREE.RingGeometry(0.1, 0.16, 32), flatMat(C.dot, 0.95), 58);
+const hoverRing = mark(new THREE.RingGeometry(0.31, 0.365, 48), flatMat(C.dot, 0.9), 57);
+const selectRing = mark(new THREE.RingGeometry(0.345, 0.43, 48), flatMat(C.dot), 57);
+
+const plumbGeometry = new THREE.BufferGeometry();
+plumbGeometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(6), 3));
+const plumbLine = new THREE.Line(plumbGeometry, new THREE.LineDashedMaterial({ color: C.dot, dashSize: 0.12, gapSize: 0.085, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false }));
+plumbLine.renderOrder = 58;
+plumbLine.frustumCulled = false;
+plumbLine.visible = false;
+fx.add(plumbLine);
+
+const previewMat = new THREE.MeshLambertMaterial({ color: C.beam, transparent: true, opacity: 0.64, depthWrite: false });
+const previewStick = new THREE.Mesh(GEO.stick, previewMat);
+previewStick.renderOrder = 45;
+previewStick.visible = false;
+fx.add(previewStick);
+
+const previewNode = new THREE.Group();
+previewNode.visible = false;
+fx.add(previewNode);
+const previewFoot = new THREE.Mesh(GEO.footPinned, new THREE.MeshLambertMaterial({ color: C.support, transparent: true, opacity: 0.55, depthWrite: false }));
+const previewHubHull = new THREE.Mesh(GEO.hubHull, new THREE.MeshBasicMaterial({ color: C.dot, side: THREE.BackSide, transparent: true, opacity: 0.85, depthWrite: false }));
+const previewHub = new THREE.Mesh(GEO.hub, new THREE.MeshLambertMaterial({ color: '#ffffff', transparent: true, opacity: 0.8, depthWrite: false }));
+for (const mesh of [previewFoot, previewHubHull, previewHub]) { mesh.renderOrder = 46; previewNode.add(mesh); }
+
+const previewArrowMat = new THREE.MeshLambertMaterial({ color: C.load, transparent: true, opacity: 0.55, depthWrite: false });
+const previewArrow = new THREE.Mesh(arrowGeometry(10), previewArrowMat);
+previewArrow.renderOrder = 47;
+previewArrow.visible = false;
+fx.add(previewArrow);
+
+const previewTag = document.createElement('div');
+previewTag.className = 'tag note-tag';
+previewTag.hidden = true;
+labelsEl.appendChild(previewTag);
+
+// A degree of freedom shown on the selected joint while its toggle on the card is hovered:
+// an arrow along the axis for a translation, an arc around it for a rotation.
+// A free one moves back and forth; a locked one stays still.
+function doubleArrowGeometry(shaftR, headR, half, headL) {
+  const shaft = new THREE.CylinderGeometry(shaftR, shaftR, 2 * (half - headL), 16);
+  const a = new THREE.ConeGeometry(headR, headL, 22);
+  a.translate(0, half - headL / 2, 0);
+  const b = new THREE.ConeGeometry(headR, headL, 22);
+  b.rotateX(Math.PI);
+  b.translate(0, -(half - headL / 2), 0);
+  return mergeGeometries([shaft, a, b]);
+}
+function arcArrowGeometry(radius, tube, headR, headL) {
+  const sweep = Math.PI * 1.5;
+  const arc = new THREE.TorusGeometry(radius, tube, 10, 44, sweep);
+  const head = new THREE.ConeGeometry(headR, headL, 22);
+  head.translate(0, headL / 2, 0);
+  head.rotateZ(sweep);
+  head.translate(radius * Math.cos(sweep), radius * Math.sin(sweep), 0);
+  const tail = new THREE.ConeGeometry(headR, headL, 22);
+  tail.translate(0, headL / 2, 0);
+  tail.rotateZ(Math.PI);
+  tail.translate(radius, 0, 0);
+  return mergeGeometries([arc, head, tail]);
+}
+const hintMat = flatMat('#2f7fd0');
+const hintHaloMat = flatMat('#ffffff', 0.92);
+const hintParts = {
+  arrowHalo: mark(doubleArrowGeometry(0.075, 0.165, 0.95, 0.3), hintHaloMat, 70),
+  arrow: mark(doubleArrowGeometry(0.045, 0.13, 0.92, 0.26), hintMat, 71),
+  arcHalo: mark(arcArrowGeometry(0.56, 0.07, 0.16, 0.3), hintHaloMat, 70),
+  arc: mark(arcArrowGeometry(0.56, 0.042, 0.125, 0.26), hintMat, 71)
+};
+const dofHint = { d: null, since: 0 };
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
+const AXIS_VECTORS = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
+const spin = new THREE.Quaternion();
+function drawDofHint(selected) {
+  const on = dofHint.d !== null && !!selected;
+  const translation = on && dofHint.d < 3;
+  hintParts.arrow.visible = hintParts.arrowHalo.visible = translation;
+  hintParts.arc.visible = hintParts.arcHalo.visible = on && !translation;
+  if (!on) return;
+  const axis = AXIS_VECTORS[dofHint.d % 3];
+  const locked = selected.restraint[dofHint.d];
+  const swing = locked ? 0 : Math.sin(((now() - dofHint.since) / 1000) * Math.PI * 2 / 0.95);
+  const nodeView = nodeViews.get(selected.id);
+  scratch.set(selected.position[0], selected.position[1], selected.position[2] + (nodeView ? nodeView.hubZ : 0));
+  hintMat.color.set(locked ? C.ink : '#2f7fd0');
+  for (const mesh of translation ? [hintParts.arrow, hintParts.arrowHalo] : [hintParts.arc, hintParts.arcHalo]) {
+    if (translation) {
+      mesh.quaternion.setFromUnitVectors(Y_AXIS, axis);
+      mesh.position.copy(scratch).addScaledVector(axis, 0.17 * swing);
+    } else {
+      mesh.quaternion.setFromUnitVectors(Z_AXIS, axis).multiply(spin.setFromAxisAngle(Z_AXIS, 0.5 * swing - 0.8));
+      mesh.position.copy(scratch);
+    }
+  }
+  wake(); // keep animating while the hint shows
+}
+
+/** What the next click would do. Rebuilt whenever the cursor, tool or model changes. */
+const preview = {
+  stick: null,                       // { a, dir, len, ok, role }
+  node: null,                        // { at, ground } ghost of a new connection
+  load: null,                        // { place, ok } ghost of a load
+  hover: null,                       // existing node under the cursor
+  deny: false,
+  tag: '', tone: '', tagAt: new THREE.Vector3(), tagLift: 24
+};
+
+const TOOLS = ['member', 'connection', 'load'];
+const REASON = {
+  'zero-length': 'Pick a different point',
+  'too-long': 'Too long: a member spans at most ' + core.options.maxSteps + ' grid steps',
+  overlap: 'A member is already there',
+  'out-of-bounds': 'Outside the board',
+  'invalid-point': 'Outside the board',
+  direction: 'That direction is not allowed'
+};
+const roleOf = (p, q) => (p[0] === q[0] && p[1] === q[1] ? 'column' : p[2] === q[2] ? 'beam' : 'brace');
+const SUPPORT_TEXT = { free: 'No support', roller: 'Roller support', pinned: 'Pinned support', fixed: 'Fixed support', custom: 'Custom support' };
+const describeNode = (n) => SUPPORT_TEXT[n.support] + ', ' + n.joint + ' joint';
+
+function setHot(piece) {
+  const prev = view.hotPiece;
+  if (prev && piece && prev.kind === piece.kind && prev.id === piece.id) return;
+  const paint = (p, on) => {
+    if (p.kind === 'member') { const v = memberViews.get(p.id); if (v) { v.hot = on; paintMember(v); } }
+    if (p.kind === 'load') { const v = loadViews.get(p.id); if (v) v.tag.classList.toggle('hot', on); }
+  };
+  if (prev) paint(prev, false);
+  view.hotPiece = piece;
+  if (piece) paint(piece, true);
+}
+
+function previewStickFor(from, to, ok, role) {
+  const a = worldOf(from);
+  const dir = worldOf(to).sub(a);
+  const len = dir.length();
+  dir.normalize();
+  preview.stick = { a, dir, len, ok, role, quat: stickQuaternion(dir) };
+  preview.tagAt.copy(a).addScaledVector(dir, len / 2);
+}
+
+let tagText = null;
+function refreshPreview() {
+  const c = view.cursor;
+  preview.stick = null;
+  preview.node = null;
+  preview.load = null;
+  preview.hover = null;
+  preview.deny = false;
+  preview.tag = '';
+  preview.tone = '';
+  preview.tagLift = 24;
+  let hot = null;
+  const erasing = view.erase || view.altHeld;
+
+  if (view.pointer.inside && erasing) {
+    hot = pieceAt(view.pointer.x, view.pointer.y);
+  } else if (c && view.pointer.inside) {
+    const key = keyOf(c);
+    const node = model.nodeAtKey.get(key) || null;
+    worldOf(c, preview.tagAt);
+    if (view.tool === 'member') {
+      if (view.shiftHeld) {
+        if (c[2] <= GROUND) { preview.deny = true; preview.tag = 'No level below the board'; preview.tone = 'bad'; }
+        else {
+          const below = [c[0], c[1], c[2] - 1];
+          const check = core.checkMember(c, below);
+          previewStickFor(c, below, check.ok, 'column');
+          preview.tag = check.ok ? '<b>' + fmt(check.length, 2) + ' m</b> column down' : REASON[check.reason];
+          preview.tone = check.ok ? '' : 'bad';
+          preview.deny = !check.ok;
+        }
+      } else if (view.chain) {
+        if (samePoint(view.chain, c)) { preview.tag = 'Click to stop here'; preview.tone = 'soft'; }
+        else {
+          const check = core.checkMember(view.chain, c);
+          const role = roleOf(view.chain, c);
+          previewStickFor(view.chain, c, check.ok, role);
+          preview.tag = check.ok ? '<b>' + fmt(check.length, 2) + ' m</b> ' + role : REASON[check.reason] || 'Not allowed';
+          preview.tone = check.ok ? '' : 'bad';
+          preview.deny = !check.ok;
+        }
+      }
+      preview.hover = node;
+    } else if (view.tool === 'connection') {
+      if (node) {
+        preview.hover = node;
+        preview.tag = node.id === view.selectedNode
+          ? 'Click again: ' + (node.onGround ? 'next support type' : node.joint === 'rigid' ? 'make it a pinned joint' : 'make it a rigid joint')
+          : describeNode(node);
+        preview.tone = 'soft';
+        preview.tagLift = 34;
+      } else if (model.onMember.has(key) || c[2] === GROUND) {
+        preview.node = { ground: c[2] === GROUND };
+        preview.tag = c[2] === GROUND ? 'New pinned support' : 'New connection on this member';
+        preview.tone = 'soft';
+        preview.tagLift = 34;
+      } else {
+        preview.deny = true;
+      }
+    } else {
+      const vector = dirVector(view.brush.direction);
+      if (node || model.onMember.has(key)) {
+        const existing = loadForBrush(node);
+        if (existing) {
+          hot = { kind: 'load', id: existing.id };
+          preview.hover = node;
+          preview.tag = existing.magnitude + ' kN ' + dirWords(view.brush.direction) + ': click to edit, scroll to change';
+          preview.tone = 'soft';
+          preview.tagLift = 34;
+        } else {
+          const place = loadPlacement(c, vector, view.brush.magnitude);
+          preview.load = { place };
+          preview.tagAt.copy(place.outer);
+          preview.tag = '<b>' + view.brush.magnitude + ' kN</b> ' + dirWords(view.brush.direction);
+          preview.tagLift = 0;
+        }
+      } else {
+        preview.deny = true;
+      }
+    }
+  }
+  setHot(hot);
+  const text = preview.tag + '|' + preview.tone;
+  if (text !== tagText) {
+    tagText = text;
+    previewTag.innerHTML = preview.tag;
+    previewTag.className = 'tag note-tag' + (preview.tone ? ' ' + preview.tone : '');
+  }
+  refreshHint();
+  wake();
+}
+
+const cursorPos = new THREE.Vector3();
+const scratch = new THREE.Vector3();
+let cursorShown = false;
+/** Per-frame drawing of markers and ghosts from the `preview` state. */
+function drawFx(dt) {
+  const z = view.cutZ + 0.022;
+  const c = view.cursor;
+  const erasing = view.erase || view.altHeld;
+  const showCursor = !!c && view.pointer.inside && !press.pan && !erasing;
+  if (showCursor) {
+    worldOf(c, scratch);
+    scratch.z = z;
+    if (!cursorShown) cursorPos.copy(scratch);
+    else cursorPos.lerp(scratch, 1 - Math.exp(-dt * 34));
+    if (cursorPos.distanceToSquared(scratch) > 1e-5) wake(); else cursorPos.copy(scratch);
+    cursorMark.position.copy(cursorPos);
+    cursorMark.material.color.set(preview.deny || preview.tone === 'bad' ? C.bad : view.tool === 'load' ? '#8f3a28' : C.ink);
+  }
+  cursorShown = showCursor;
+  cursorMark.visible = showCursor;
+  denyMark.visible = showCursor && preview.deny;
+  if (denyMark.visible) denyMark.position.set(cursorPos.x, cursorPos.y, z + 0.004);
+
+  // The held start of a member, with a plumb line to the active level when the level differs.
+  const chain = view.tool === 'member' ? view.chain : null;
+  startMark.visible = !!chain;
+  plumbLine.visible = plumbRing.visible = false;
+  if (chain) {
+    worldOf(chain, scratch);
+    startMark.position.set(scratch.x, scratch.y, scratch.z + 0.022);
+    if (Math.abs(scratch.z - view.cutZ) > 0.03) {
+      const position = plumbGeometry.attributes.position;
+      position.setXYZ(0, scratch.x, scratch.y, scratch.z);
+      position.setXYZ(1, scratch.x, scratch.y, view.cutZ);
+      position.needsUpdate = true;
+      plumbLine.computeLineDistances();
+      plumbLine.visible = plumbRing.visible = true;
+      plumbRing.position.set(scratch.x, scratch.y, z);
+    }
+  }
+
+  // Rings on the hovered and the selected joint.
+  const hot = view.hotPiece && view.hotPiece.kind === 'node' ? model.nodeById.get(view.hotPiece.id) : null;
+  const hover = hot || (view.tool !== 'member' && view.pointer.inside ? preview.hover : null);
+  hoverRing.visible = !!hover && hover.id !== view.selectedNode;
+  if (hoverRing.visible) {
+    hoverRing.position.set(hover.position[0], hover.position[1], Math.max(hover.position[2], view.cutZ) + 0.02);
+    hoverRing.material.color.set(hot ? C.bad : C.dot);
+  }
+  const selected = view.selectedNode ? model.nodeById.get(view.selectedNode) : null;
+  selectRing.visible = !!selected;
+  if (selected) selectRing.position.set(selected.position[0], selected.position[1], Math.max(selected.position[2], view.cutZ) + 0.02);
+  drawDofHint(selected);
+
+  // Ghost of a member.
+  previewStick.visible = !!preview.stick && view.pointer.inside;
+  if (previewStick.visible) {
+    const s = preview.stick;
+    const thick = s.ok ? 1 : 0.6;
+    previewStick.position.copy(s.a);
+    previewStick.quaternion.copy(s.quat);
+    previewStick.scale.set(thick, s.len, thick);
+    previewMat.color.set(s.ok ? C[s.role] : C.bad);
+    previewMat.opacity = s.ok ? 0.66 : 0.5;
+  }
+
+  // Ghost of a new connection.
+  previewNode.visible = !!preview.node && showCursor;
+  if (previewNode.visible) {
+    worldOf(c, previewNode.position);
+    previewFoot.visible = preview.node.ground;
+    const hubZ = preview.node.ground ? FOOT_HEIGHT.pinned + 0.08 : 0;
+    previewHub.position.z = previewHubHull.position.z = hubZ;
+  }
+
+  // Ghost of a load.
+  previewArrow.visible = !!preview.load && showCursor;
+  if (previewArrow.visible) {
+    const place = preview.load.place;
+    previewArrow.geometry = arrowGeometry(view.brush.magnitude);
+    previewArrow.position.copy(place.tail);
+    previewArrow.quaternion.setFromUnitVectors(Y_AXIS, place.d);
+  }
+}
+
+// ====================================================================
+// 12. Hint line
+// ====================================================================
+
+const hintEl = $('#hint');
+let hintTimer = null;
+function showHint(text, bad) {
+  if (hintEl.textContent !== text) hintEl.textContent = text;
+  hintEl.classList.toggle('bad', !!bad);
+}
+function baseHint() {
+  const level = 'level ' + view.level;
+  if (view.erase) return 'Erase mode: click a piece on or below ' + level + ' to remove it. X stops.';
+  if (view.altHeld) return 'Click a piece on or below ' + level + ' to remove it.';
+  if (view.tool === 'member') {
+    if (view.shiftHeld) return 'Shift+click drops a column from ' + level + ' to the level below.';
+    if (view.chain) return 'Click the end point. W and S change level for a column or a brace. Esc stops.';
+    return 'Click a point on ' + level + ' to start a member. Shift+click drops a column.';
+  }
+  if (view.tool === 'connection') {
+    if (view.selectedNode) return 'Toggle the six degrees of freedom on the card, or click the joint again to step its type.';
+    return 'Click a joint on ' + level + ' to open its degrees of freedom, or a point on a member to add one.';
+  }
+  if (view.selectedLoad) return 'Change the direction or the amount on the card. Right-click a load to remove it.';
+  return 'Click a joint or a member on ' + level + ' to place ' + view.brush.magnitude + ' kN ' + dirWords(view.brush.direction) + '. Scroll over a load to change it.';
+}
+function refreshHint() {
+  if (hintTimer) return;
+  showHint(baseHint(), false);
+}
+/** A short message that replaces the hint for a moment (a refusal, a note). */
+function flashHint(text, bad, ms) {
+  clearTimeout(hintTimer);
+  showHint(text, bad);
+  hintTimer = setTimeout(() => { hintTimer = null; refreshHint(); }, ms || 2400);
+}
+function deny(message) {
+  sound('deny');
+  flashHint(message, true);
+  tween({ dur: 260, update: (p) => cursorMark.scale.setScalar(1 + 0.35 * Math.sin(p * Math.PI)) });
+  return false;
+}
+
+// ====================================================================
+// 13. Tools
+// ====================================================================
+
+function setTool(id) {
+  if (!TOOLS.includes(id)) return false;
+  const changed = view.tool !== id;
+  view.tool = id;
+  if (changed) { view.chain = null; select(null); }
+  $$('.tool[data-tool]').forEach((b) => b.classList.toggle('active', b.dataset.tool === id));
+  $('#loadpanel').hidden = id !== 'load';
+  appEl.dataset.tool = id;
+  refreshLoadTags();
+  if (changed) sound('tick');
+  updateCursor();
+  return true;
+}
+
+function setErase(on) {
+  view.erase = !!on;
+  const button = $('#btn-erase');
+  button.classList.toggle('on', view.erase);
+  button.setAttribute('aria-pressed', String(view.erase));
+  if (view.erase) { view.chain = null; select(null); }
+  sound('tick');
+  updateCursor();
+}
+
+/** Selection belongs to the view: a joint (connection tool) or a load (load tool). */
+function select(kind, id) {
+  const node = kind === 'node' ? id : null;
+  const load = kind === 'load' ? id : null;
+  const changed = node !== view.selectedNode || load !== view.selectedLoad;
+  view.selectedNode = node;
+  view.selectedLoad = load;
+  renderCards(changed);
+  refreshHint();
+  wake();
+}
+
+// ---------------------------------------------------------- member tool
+
+function memberClick(p, shift) {
+  if (!p) {
+    if (view.chain) { view.chain = null; sound('tick'); }
+    return;
+  }
+  if (shift) {
+    if (p[2] <= GROUND) return deny('There is no level below the board');
+    const result = core.addMember(p, [p[0], p[1], p[2] - 1]);
+    if (!result.ok) deny(REASON[result.reason] || 'That member cannot go there');
+    return;
+  }
+  if (!view.chain) { view.chain = p.slice(); sound('tick'); return; }
+  if (samePoint(view.chain, p)) { view.chain = null; sound('tick'); return; }
+  const result = core.addMember(view.chain, p);
+  if (!result.ok) { deny(REASON[result.reason] || 'That member cannot go there'); return; }
+  view.chain = p.slice(); // the end becomes the next start
+}
+
+// ---------------------------------------------------------- connection tool
+
+function connectionClick(p) {
+  const had = !!view.selectedNode;
+  if (!p) { select(null); return; }
+  const key = keyOf(p);
+  const node = model.nodeAtKey.get(key);
+  if (node) {
+    if (view.selectedNode === node.id) {
+      // Fast path: clicking the selected joint again steps it to the next sensible type.
+      if (node.onGround) core.cycleSupport(node.id);
+      else core.toggleJoint(node.id);
+    } else {
+      select('node', node.id);
+      sound('tick');
+    }
+    return;
+  }
+  if (model.onMember.has(key) || p[2] === GROUND) {
+    const result = core.ensureNode(p);
+    if (result.ok) select('node', result.id);
+    return;
+  }
+  select(null);
+  if (!had) deny('Connections sit on a member or on the board');
+}
+
+/**
+ * Take a connection away. A connection the player placed along a member (or
+ * on bare ground) disappears. A joint that members or loads still need goes
+ * back to its plain state instead: default support, rigid joint.
+ */
+function removeConnection(id) {
+  const node = core.node(id);
+  if (!node) return false;
+  const ends = core.membersAt(id).some((m) => m.end);
+  const loaded = core.loadsAt(id).length > 0;
+  const before = changeCount;
+  core.batch(() => {
+    if (!ends && !loaded) core.removeNode(id);
+    if (core.node(id)) {
+      core.setSupport(id, node.onGround ? core.options.autoGroundSupport || 'free' : 'free');
+      core.setJoint(id, 'rigid');
+    }
+  }, 'removeConnection');
+  if (changeCount === before) return deny('This joint is already plain. Remove its members to remove it.');
+  return true;
+}
+
+// ---------------------------------------------------------- load tool
+
+function loadClick(p) {
+  if (!p) { select(null); return; }
+  const key = keyOf(p);
+  const node = model.nodeAtKey.get(key);
+  if (!node && !model.onMember.has(key)) {
+    const had = !!view.selectedLoad;
+    select(null);
+    if (!had) deny('Loads sit on a joint or along a member');
+    return;
+  }
+  const existing = loadForBrush(node);
+  if (existing) { select('load', existing.id); sound('tick'); return; }
+  const result = core.addLoad(node ? node.id : p, view.brush.direction, view.brush.magnitude);
+  if (!result.ok) deny('That load cannot go there');
+  else select(null);
+}
+
+/** The placed load the wheel would change: under a hovered label, or on the cursor point. */
+let tagHover = null;
+function hoverLoad() {
+  if (view.tool !== 'load') return null;
+  if (tagHover && core.load(tagHover)) return core.load(tagHover);
+  if (!view.cursor || !view.pointer.inside) return null;
+  const node = model.nodeAtKey.get(keyOf(view.cursor));
+  if (!node) return null;
+  const loads = loadsOn(node.id);
+  return loadForBrush(node) || (loads.length === 1 ? loads[0] : null);
+}
+let wheelCarry = 0;
+function stepLoadAmount(load, deltaY) {
+  wheelCarry += deltaY;
+  if (Math.abs(wheelCarry) < 40) return;
+  const up = wheelCarry < 0;
+  wheelCarry = 0;
+  const steps = DOFCore.LOAD_STEPS;
+  let at = steps.indexOf(load.magnitude);
+  if (at < 0) at = steps.findIndex((s) => s >= load.magnitude);
+  if (at < 0) at = steps.length - 1;
+  const next = clamp(at + (up ? 1 : -1), 0, steps.length - 1);
+  if (next === at) { sound('deny'); return; }
+  core.updateLoad(load.id, { magnitude: steps[next] });
+}
+
+function refreshLoadTags() {
+  for (const v of loadViews.values()) tagState(v);
+}
+labelsEl.addEventListener('click', (e) => {
+  const tag = e.target.closest('.load-tag');
+  if (tag && core.load(tag.dataset.load)) { select('load', tag.dataset.load); sound('tick'); }
+});
+labelsEl.addEventListener('contextmenu', (e) => {
+  const tag = e.target.closest('.load-tag');
+  if (!tag) return;
+  e.preventDefault();
+  removePiece({ kind: 'load', id: tag.dataset.load });
+});
+labelsEl.addEventListener('pointerover', (e) => { const tag = e.target.closest('.load-tag'); tagHover = tag ? tag.dataset.load : null; });
+labelsEl.addEventListener('pointerout', () => { tagHover = null; });
+labelsEl.addEventListener('wheel', (e) => {
+  const tag = e.target.closest('.load-tag');
+  const load = tag ? core.load(tag.dataset.load) : null;
+  if (!load) return;
+  e.preventDefault();
+  stepLoadAmount(load, e.deltaY);
+}, { passive: false });
+
+// ---------------------------------------------------------- removing
+
+function removePiece(piece) {
+  if (!piece) return false;
+  if (piece.kind === 'member') return core.removeMember(piece.id).ok;
+  if (piece.kind === 'load') return core.removeLoad(piece.id).ok;
+  if (piece.kind === 'node') return removeConnection(piece.id);
+  return false;
+}
+
+function eraseAt(x, y) {
+  const piece = pieceAt(x, y);
+  if (piece) { removePiece(piece); return; }
+  if (view.chain) { view.chain = null; sound('tick'); return; }
+  if (fadedPieceAt(x, y)) deny('That piece is above level ' + view.level + '. Go up to reach it.');
+}
+
+function deleteSelection() {
+  if (view.selectedLoad) removePiece({ kind: 'load', id: view.selectedLoad });
+  else if (view.selectedNode) removePiece({ kind: 'node', id: view.selectedNode });
+}
+
+function doUndo() { if (!core.undo()) { sound('deny'); flashHint('Nothing to undo'); } }
+function doRedo() { if (!core.redo()) { sound('deny'); flashHint('Nothing to redo'); } }
+
+// ====================================================================
+// 14. Cards: degrees of freedom, and a placed load
+// ====================================================================
+
+/** Screen axes for the current quarter view, so icons point the way the scene does. */
+function screenBasis() {
+  const az = quarterAz(view.quarter);
+  const right = [-Math.sin(az), Math.cos(az), 0];
+  const back = [Math.cos(ELEV) * Math.cos(az), Math.cos(ELEV) * Math.sin(az), Math.sin(ELEV)];
+  const up = [back[1] * right[2] - back[2] * right[1], back[2] * right[0] - back[0] * right[2], back[0] * right[1] - back[1] * right[0]];
+  return { right, up };
+}
+function flatten(v, basis) {
+  return [v[0] * basis.right[0] + v[1] * basis.right[1] + v[2] * basis.right[2], -(v[0] * basis.up[0] + v[1] * basis.up[1] + v[2] * basis.up[2])];
+}
+const unit2 = (v) => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
+const AXES = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+const n1 = (v) => v.toFixed(1);
+function arrowHead(x, y, ux, uy, size) {
+  const s = size || 4.2;
+  return '<path d="M' + n1(x + ux * s * 1.25) + ' ' + n1(y + uy * s * 1.25) + 'L' + n1(x - uy * s) + ' ' + n1(y + ux * s) + 'L' + n1(x + uy * s) + ' ' + n1(y - ux * s) + 'z" fill="currentColor"/>';
+}
+
+/**
+ * Icon for one degree of freedom, drawn along the axis as it appears on
+ * screen. Translations are arrows, rotations are arcs around the axis.
+ * Free: arrowheads (it can move). Locked: stops across the ends.
+ */
+function dofIcon(d, locked) {
+  const basis = screenBasis();
+  const axis = AXES[d % 3];
+  const s = unit2(flatten(axis, basis));
+  const cx = 20, cy = 20;
+  let out = '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  if (d < 3) {
+    const half = locked ? 9 : 11;
+    const ax = cx - s[0] * half, ay = cy - s[1] * half, bx = cx + s[0] * half, by = cy + s[1] * half;
+    out += '<path d="M' + n1(ax) + ' ' + n1(ay) + 'L' + n1(bx) + ' ' + n1(by) + '" stroke-width="' + (locked ? 3.2 : 2.6) + '"/>';
+    if (locked) {
+      for (const [px, py] of [[ax, ay], [bx, by]]) {
+        out += '<path d="M' + n1(px - s[1] * 6) + ' ' + n1(py + s[0] * 6) + 'L' + n1(px + s[1] * 6) + ' ' + n1(py - s[0] * 6) + '" stroke-width="3.2"/>';
+      }
+    } else {
+      out += arrowHead(bx, by, s[0], s[1]) + arrowHead(ax, ay, -s[0], -s[1]);
+    }
+  } else {
+    const u = AXES[(d + 1) % 3], w = AXES[(d + 2) % 3];
+    const at = (angle) => {
+      const p = flatten([u[0] * Math.cos(angle) + w[0] * Math.sin(angle), u[1] * Math.cos(angle) + w[1] * Math.sin(angle), u[2] * Math.cos(angle) + w[2] * Math.sin(angle)], basis);
+      return [cx + p[0] * 12.5, cy + p[1] * 12.5];
+    };
+    out += '<path d="M' + n1(cx - s[0] * 17) + ' ' + n1(cy - s[1] * 17) + 'L' + n1(cx + s[0] * 17) + ' ' + n1(cy + s[1] * 17) + '" stroke-width="1.5" stroke-dasharray="2.2 3" opacity=".75"/>';
+    const a0 = locked ? 0 : 0.7, a1 = locked ? Math.PI * 2 : Math.PI * 2 - 0.55;
+    let path = '';
+    const steps = 30;
+    for (let k = 0; k <= steps; k++) {
+      const p = at(lerp(a0, a1, k / steps));
+      path += (k ? 'L' : 'M') + n1(p[0]) + ' ' + n1(p[1]);
+    }
+    out += '<path d="' + path + (locked ? 'z' : '') + '" stroke-width="' + (locked ? 3 : 2.5) + '"/>';
+    if (locked) {
+      const p = at(Math.PI * 0.5), q = at(Math.PI * 0.5 + 0.01);
+      const t = unit2([q[0] - p[0], q[1] - p[1]]);
+      out += '<path d="M' + n1(p[0] - t[1] * 5) + ' ' + n1(p[1] + t[0] * 5) + 'L' + n1(p[0] + t[1] * 5) + ' ' + n1(p[1] - t[0] * 5) + '" stroke-width="3.2"/>';
+    } else {
+      const p = at(a1), q = at(a1 - 0.08);
+      const t = unit2([p[0] - q[0], p[1] - q[1]]);
+      out += arrowHead(p[0], p[1], t[0], t[1], 3.9);
+    }
+  }
+  return out + '</svg>';
+}
+const LOCK_ICON = '<svg class="lock" viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="5.3" width="8" height="5.5" rx="1.2" fill="currentColor"/><path d="M3.9 5.3V3.9a2.1 2.1 0 0 1 4.2 0v1.4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>';
+const DOF_WORDS = ['Movement along X', 'Movement along Y', 'Movement along Z', 'Rotation about X', 'Rotation about Y', 'Rotation about Z'];
+const SUPPORT_GLYPH = {
+  free: '<svg viewBox="0 0 16 12"><rect x="5.2" y="2.2" width="5.6" height="5.6" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+  roller: '<svg viewBox="0 0 16 12"><path d="M8 1 12.5 7h-9z" fill="currentColor"/><circle cx="5.5" cy="9.6" r="1.5" fill="currentColor"/><circle cx="10.5" cy="9.6" r="1.5" fill="currentColor"/></svg>',
+  pinned: '<svg viewBox="0 0 16 12"><path d="M8 1 13.5 10.5h-11z" fill="currentColor"/></svg>',
+  fixed: '<svg viewBox="0 0 16 12"><rect x="2.5" y="3.5" width="11" height="7" rx="1" fill="currentColor"/></svg>',
+  rigid: '<svg viewBox="0 0 16 12"><rect x="4.5" y="2.5" width="7" height="7" rx="1.3" fill="currentColor"/></svg>',
+  pinnedJoint: '<svg viewBox="0 0 16 12"><circle cx="8" cy="6" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="8" cy="6" r="1.1" fill="currentColor"/></svg>'
+};
+const capital = (word) => word.charAt(0).toUpperCase() + word.slice(1);
+
+const dofCard = $('#dofcard');
+const loadCard = $('#loadcard');
+const leader = $('#leader');
+const cardSize = { dof: [258, 300], load: [200, 280] };
+
+function renderDofCard(fresh) {
+  const n = view.selectedNode ? model.nodeById.get(view.selectedNode) : null;
+  if (!n) {
+    dofCard.hidden = true;
+    dofSource.hover = dofSource.focus = null;
+    refreshDofHint();
+    return;
+  }
+  const locked = n.restraint.filter(Boolean).length;
+  let html = '<div class="dc-head"><div><div class="dc-title">Connection<span>[' + n.grid.join(', ') + ']</span></div>' +
+    '<div class="dc-sub">' + describeNode(n) + '</div></div>' +
+    '<button class="dc-close" data-act="close" title="Close (Esc)" aria-label="Close">&times;</button></div>' +
+    '<div class="dc-label"><span>Degrees of freedom</span><span>' + locked + ' of 6 locked</span></div><div class="dc-dofs">';
+  DOFCore.DOF_ORDER.forEach((name, d) => {
+    const on = n.restraint[d];
+    html += '<button class="dof' + (on ? ' locked' : '') + '" data-dof="' + d + '" aria-pressed="' + on + '" title="' + DOF_WORDS[d] + ' is ' +
+      (on ? 'locked. Click to free it.' : 'free. Click to lock it.') + '">' + dofIcon(d, on) +
+      '<span class="nm">' + name + '</span><span class="state">' + (on ? 'locked' : 'free') + '</span>' + LOCK_ICON + '</button>';
+  });
+  html += '</div><div class="dc-row"><span class="lab">Support</span><div class="seg">';
+  for (const preset of ['free', 'roller', 'pinned', 'fixed']) {
+    html += '<button data-support="' + preset + '" class="' + (n.support === preset ? 'on' : '') + '" aria-pressed="' + (n.support === preset) + '">' + capital(preset) + '</button>';
+  }
+  html += '</div></div><div class="dc-row"><span class="lab">Joint</span><div class="seg">';
+  for (const joint of ['rigid', 'pinned']) {
+    html += '<button data-joint="' + joint + '" class="' + (n.joint === joint ? 'on' : '') + '" aria-pressed="' + (n.joint === joint) + '">' + capital(joint) + '</button>';
+  }
+  html += '</div></div><div class="dc-note">' + (n.joint === 'rigid'
+    ? 'Rigid: bending moment passes between the members that meet here.'
+    : 'Pinned: members that end here can rotate freely. A member running through stays continuous.') + '</div>';
+  dofCard.innerHTML = html;
+  dofCard.hidden = false;
+  if (fresh) { dofCard.classList.remove('show'); void dofCard.offsetWidth; dofCard.classList.add('show'); }
+  cardSize.dof = [dofCard.offsetWidth, dofCard.offsetHeight];
+}
+dofCard.addEventListener('click', (e) => {
+  const button = e.target.closest('button');
+  const id = view.selectedNode;
+  if (!button || !id) return;
+  if (button.dataset.dof !== undefined) core.toggleDof(id, Number(button.dataset.dof));
+  else if (button.dataset.support) core.setSupport(id, button.dataset.support);
+  else if (button.dataset.joint) core.setJoint(id, button.dataset.joint);
+  else if (button.dataset.act === 'close') select(null);
+});
+// Hovering (or focusing) a toggle shows that degree of freedom on the joint in the scene.
+const dofSource = { hover: null, focus: null };
+const dofOf = (target) => {
+  const button = target && target.closest ? target.closest('.dof') : null;
+  return button ? Number(button.dataset.dof) : null;
+};
+function refreshDofHint() {
+  const d = dofSource.hover !== null ? dofSource.hover : dofSource.focus;
+  if (d !== dofHint.d) { dofHint.d = d; dofHint.since = now(); wake(); }
+}
+dofCard.addEventListener('pointerover', (e) => { dofSource.hover = dofOf(e.target); refreshDofHint(); });
+dofCard.addEventListener('pointerleave', () => { dofSource.hover = null; refreshDofHint(); });
+dofCard.addEventListener('focusin', (e) => { dofSource.focus = dofOf(e.target); refreshDofHint(); });
+dofCard.addEventListener('focusout', () => { dofSource.focus = null; refreshDofHint(); });
+
+/** Direction pad and amount chips, shared by the brush panel and the load card. */
+function loadControlsHtml(direction, magnitude, taken) {
+  const basis = screenBasis();
+  let pad = '';
+  for (const d of DOFCore.AXIS_DIRECTIONS) {
+    const flat = flatten(d.vector, basis);
+    const s = d.vector[2] ? [0, d.vector[2] > 0 ? -1 : 1] : unit2(flat);
+    const reach = d.vector[2] ? 49 : 50;
+    const angle = (Math.atan2(s[1], s[0]) * 180) / Math.PI;
+    pad += '<button data-dir="' + d.id + '" class="' + (d.id === direction ? 'on' : '') + '" aria-pressed="' + (d.id === direction) + '"' +
+      (taken && taken.has(d.id) ? ' disabled title="This joint already has a load in that direction"' : ' title="Push ' + dirWords(d.id) + '"') +
+      ' style="transform: translate(' + n1(s[0] * reach) + 'px,' + n1(s[1] * reach * 0.96) + 'px)">' +
+      '<svg viewBox="0 0 12 12" style="transform: rotate(' + n1(angle) + 'deg)"><path d="M1 6h6.4M5.2 2.6 8.8 6l-3.6 3.4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      d.label + '</button>';
+  }
+  let chips = '';
+  for (const step of DOFCore.LOAD_STEPS) chips += '<button data-mag="' + step + '" class="' + (step === magnitude ? 'on' : '') + '" aria-pressed="' + (step === magnitude) + '">' + step + '</button>';
+  return { pad, chips };
+}
+function renderBrush() {
+  const html = loadControlsHtml(view.brush.direction, view.brush.magnitude, null);
+  $('#brush-pad').innerHTML = html.pad;
+  $('#brush-chips').innerHTML = html.chips;
+  $('#brush-summary').textContent = view.brush.magnitude + ' kN ' + dirWords(view.brush.direction);
+}
+$('#loadpanel').addEventListener('click', (e) => {
+  const button = e.target.closest('button');
+  if (!button) return;
+  if (button.dataset.dir) view.brush.direction = button.dataset.dir;
+  if (button.dataset.mag) view.brush.magnitude = Number(button.dataset.mag);
+  sound('tick');
+  renderBrush();
+  updateCursor();
+});
+
+function renderLoadCard(fresh) {
+  const l = view.selectedLoad ? core.load(view.selectedLoad) : null;
+  const n = l ? model.nodeById.get(l.node) : null;
+  if (!l || !n) { loadCard.hidden = true; return; }
+  const mine = dirIdOf(l.direction);
+  const taken = new Set(loadsOn(n.id).filter((o) => o.id !== l.id).map((o) => dirIdOf(o.direction)));
+  const controls = loadControlsHtml(mine, l.magnitude, taken);
+  loadCard.innerHTML = '<div class="dc-head"><div><div class="dc-title">Load<span>[' + n.grid.join(', ') + ']</span></div>' +
+    '<div class="dc-sub">' + l.magnitude + ' kN ' + dirWords(mine) + '</div></div>' +
+    '<button class="dc-close" data-act="close" title="Close (Esc)" aria-label="Close">&times;</button></div>' +
+    '<div class="dc-label"><span>Direction</span></div><div class="pad">' + controls.pad + '</div>' +
+    '<div class="dc-label" style="padding-bottom:5px"><span>Amount in kN</span></div><div class="chips">' + controls.chips + '</div>' +
+    '<div class="dc-foot"><span class="cap">Scroll over it to step the amount</span><button class="btn small" data-act="remove">Remove</button></div>';
+  loadCard.hidden = false;
+  if (fresh) { loadCard.classList.remove('show'); void loadCard.offsetWidth; loadCard.classList.add('show'); }
+  cardSize.load = [loadCard.offsetWidth, loadCard.offsetHeight];
+}
+loadCard.addEventListener('click', (e) => {
+  const button = e.target.closest('button');
+  const id = view.selectedLoad;
+  if (!button || !id) return;
+  if (button.dataset.dir) {
+    const result = core.updateLoad(id, { direction: button.dataset.dir });
+    if (!result.ok) deny('This joint already has a load in that direction');
+  } else if (button.dataset.mag) core.updateLoad(id, { magnitude: Number(button.dataset.mag) });
+  else if (button.dataset.act === 'remove') removePiece({ kind: 'load', id });
+  else if (button.dataset.act === 'close') select(null);
+});
+loadCard.addEventListener('wheel', (e) => {
+  const l = view.selectedLoad ? core.load(view.selectedLoad) : null;
+  if (l) { e.preventDefault(); stepLoadAmount(l, e.deltaY); }
+}, { passive: false });
+
+function renderCards(fresh) {
+  if (view.selectedNode && !model.nodeById.has(view.selectedNode)) view.selectedNode = null;
+  if (view.selectedLoad && !core.load(view.selectedLoad)) view.selectedLoad = null;
+  renderDofCard(fresh);
+  renderLoadCard(fresh);
+  refreshLoadTags();
+  if (!view.selectedNode && !view.selectedLoad) leader.setAttribute('d', '');
+}
+
+/** Put a card beside its anchor, inside the window and clear of the side panels. */
+function placeCard(card, size, anchor, gap) {
+  const at = toScreen(anchor);
+  const w = size[0], h = size[1];
+  const W = window.innerWidth, H = window.innerHeight;
+  let x = at.x + gap;
+  if (x + w > W - 236) x = at.x - gap - w;
+  x = clamp(x, 106, Math.max(106, W - w - 12));
+  const y = clamp(at.y - h * 0.42, 62, Math.max(62, H - h - 74));
+  card.style.transform = 'translate(' + Math.round(x) + 'px,' + Math.round(y) + 'px)';
+  const ex = x > at.x ? x : x + w;
+  const ey = clamp(at.y, y + 16, y + h - 16);
+  leader.setAttribute('d', 'M' + n1(at.x) + ' ' + n1(at.y) + 'L' + n1(ex) + ' ' + n1(ey));
+}
+
+// ====================================================================
+// 15. Feedback preview, solver input, help, sound, turn
+// ====================================================================
+
+function setFeedback(on) {
+  view.feedback = !!on;
+  $('#btn-feedback').setAttribute('aria-pressed', String(view.feedback));
+  $('#demo').hidden = !view.feedback;
+  repaintMembers();
+  drawElevation();
+  sound('set');
+  wake();
+}
+$('#ramp').style.background = 'linear-gradient(90deg,' + RAMP.map(([stop, color]) => color + ' ' + n1((stop / 1.5) * 100) + '%').join(',') + ')';
+
+const drawer = $('#drawer');
+const solverText = () => JSON.stringify(core.toSolverInput(), null, 2);
+function updateDrawer() {
+  if (drawer.classList.contains('open')) $('#drawer-json').textContent = solverText();
+}
+function setDrawer(open) {
+  drawer.classList.toggle('open', !!open);
+  drawer.setAttribute('aria-hidden', String(!open));
+  $('#btn-solver').setAttribute('aria-expanded', String(!!open));
+  updateDrawer();
+  sound('tick');
+}
+function flashButton(button, text) {
+  const old = button.textContent;
+  button.textContent = text;
+  setTimeout(() => { button.textContent = old; }, 1300);
+}
+$('#btn-copy').addEventListener('click', async (e) => {
+  const button = e.currentTarget;
+  const text = solverText();
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; } catch (error) {
+    try {
+      const area = document.createElement('textarea');
+      area.value = text;
+      area.style.cssText = 'position:fixed;left:-999px;top:0;opacity:0';
+      document.body.appendChild(area);
+      area.select();
+      ok = document.execCommand('copy');
+      area.remove();
+    } catch (error2) { ok = false; }
+  }
+  flashButton(button, ok ? 'Copied' : 'Copy failed');
+});
+$('#btn-download').addEventListener('click', () => {
+  const url = URL.createObjectURL(new Blob([solverText()], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'dof-solver-input-draft.json';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+});
+$('#btn-drawer-close').addEventListener('click', () => setDrawer(false));
+$('#btn-solver').addEventListener('click', () => setDrawer(!drawer.classList.contains('open')));
+$('#btn-feedback').addEventListener('click', () => setFeedback(!view.feedback));
+
+function setHelp(open) {
+  $('#help').hidden = !open;
+  $('#btn-help').setAttribute('aria-pressed', String(!!open));
+}
+$('#btn-help').addEventListener('click', () => setHelp($('#help').hidden));
+$('#btn-help-hide').addEventListener('click', () => setHelp(false));
+
+function setMuted(muted) {
+  view.muted = !!muted;
+  $('#btn-sound').classList.toggle('muted', view.muted);
+  $('#btn-sound').title = view.muted ? 'Sound is off (M)' : 'Sound is on (M)';
+  if (!view.muted) sound('tick');
+}
+$('#btn-sound').addEventListener('click', () => { audioArmed = true; setMuted(!view.muted); });
+
+$('#btn-undo').addEventListener('click', doUndo);
+$('#btn-redo').addEventListener('click', doRedo);
+$('#btn-clear').addEventListener('click', () => {
+  if (!model.nodes.length) { flashHint('The board is already empty'); return; }
+  view.chain = null;
+  core.clear();
+});
+$('#btn-example').addEventListener('click', (e) => {
+  view.chain = null;
+  core.loadExample(e.shiftKey ? 'portal' : 'tower');
+  setLevel(e.shiftKey ? 3 : 2, true);
+});
+$('#btn-endturn').addEventListener('click', () => core.endTurn());
+$$('.tool[data-tool]').forEach((button) => button.addEventListener('click', () => setTool(button.dataset.tool)));
+$('#btn-erase').addEventListener('click', () => setErase(!view.erase));
+// Belt and braces: nothing may scroll the page (focus on a card button could otherwise nudge it).
+appEl.addEventListener('scroll', () => { appEl.scrollLeft = 0; appEl.scrollTop = 0; });
+window.addEventListener('scroll', () => { if (window.scrollX || window.scrollY) window.scrollTo(0, 0); });
+// A button that was clicked with the mouse should not keep the keyboard (Space pans, Enter would re-press it).
+document.addEventListener('click', (e) => {
+  const button = e.target.closest && e.target.closest('button');
+  if (button && e.detail > 0) button.blur();
+}, true);
+
+// ====================================================================
+// 16. Input: pointer, wheel, keyboard
+// ====================================================================
+
+const press = { active: false, pan: false, moved: false, x: 0, y: 0, lastX: 0, lastY: 0, button: 0 };
+const held = { space: false };
+
+function notePointer(e) {
+  view.pointer.x = e.clientX;
+  view.pointer.y = e.clientY;
+  view.pointer.inside = true;
+  view.shiftHeld = e.shiftKey;
+  view.altHeld = e.altKey;
+}
+
+/** Recompute the cursor point from the last pointer position (after a move, a level change, a camera move). */
+function updateCursor() {
+  const hit = view.pointer.inside ? latticeAt(view.pointer.x, view.pointer.y) : null;
+  view.cursor = hit ? hit.point : null;
+  $('#st-cursor').textContent = view.cursor ? '[' + view.cursor.join(', ') + ']' : '-';
+  refreshPreview();
+}
+
+function handleClick(e) {
+  const hit = latticeAt(e.clientX, e.clientY);
+  const p = hit ? hit.point : null;
+  view.cursor = p;
+  if (e.button === 2 || (e.button === 0 && (view.erase || e.altKey))) eraseAt(e.clientX, e.clientY);
+  else if (e.button === 0) {
+    if (view.tool === 'member') memberClick(p, e.shiftKey);
+    else if (view.tool === 'connection') connectionClick(p);
+    else loadClick(p);
+  }
+  updateCursor();
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  audioArmed = true;
+  if (press.active) return;
+  Object.assign(press, {
+    active: true, moved: false, x: e.clientX, y: e.clientY, lastX: e.clientX, lastY: e.clientY, button: e.button,
+    pan: e.button === 1 || (e.button === 0 && held.space)
+  });
+  if (press.pan) { appEl.classList.add('panning'); e.preventDefault(); }
+  try { canvas.setPointerCapture(e.pointerId); } catch (error) { /* capture is a nicety */ }
+  notePointer(e);
+  wake();
+});
+canvas.addEventListener('pointermove', (e) => {
+  notePointer(e);
+  if (press.active) {
+    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > 5) press.moved = true;
+    if (press.pan) {
+      rig.panX -= (e.clientX - press.lastX) / (rig.pxPerUnit * rig.zoom);
+      rig.panY += (e.clientY - press.lastY) / (rig.pxPerUnit * rig.zoom);
+      clampPan();
+    }
+    press.lastX = e.clientX;
+    press.lastY = e.clientY;
+  }
+  updateCursor();
+});
+function endPress(e, cancelled) {
+  if (!press.active) return;
+  press.active = false;
+  appEl.classList.remove('panning');
+  try { canvas.releasePointerCapture(e.pointerId); } catch (error) { /* already released */ }
+  if (!cancelled && !press.pan && !press.moved) handleClick(e);
+  else updateCursor();
+}
+canvas.addEventListener('pointerup', (e) => { if (e.button === press.button) { notePointer(e); endPress(e, false); } });
+canvas.addEventListener('pointercancel', (e) => endPress(e, true));
+canvas.addEventListener('pointerleave', () => { if (!press.active) { view.pointer.inside = false; updateCursor(); } });
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+canvas.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  notePointer(e);
+  const load = hoverLoad();
+  if (load) { stepLoadAmount(load, e.deltaY); return; } // zoom is suspended over a placed load
+  const unit = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1;
+  zoomBy(Math.exp(-e.deltaY * unit * 0.0014), e.clientX, e.clientY);
+}, { passive: false });
+
+function cancel() {
+  if (drawer.classList.contains('open')) { setDrawer(false); return; }
+  if (view.chain) { view.chain = null; sound('tick'); }
+  else if (view.selectedNode || view.selectedLoad) select(null);
+  else if (view.erase) setErase(false);
+  updateCursor();
+}
+
+const ARROWS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+window.addEventListener('keydown', (e) => {
+  audioArmed = true;
+  const target = e.target && e.target.tagName;
+  if (target === 'INPUT' || target === 'TEXTAREA') return;
+  const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (e.ctrlKey || e.metaKey) {
+    if (key === 'z') { e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); }
+    else if (key === 'y') { e.preventDefault(); doRedo(); }
+    return;
+  }
+  if (key === 'Shift') { if (!view.shiftHeld) { view.shiftHeld = true; refreshPreview(); } return; }
+  if (key === 'Alt') { e.preventDefault(); if (!view.altHeld) { view.altHeld = true; refreshPreview(); } return; }
+  if (e.altKey) return;
+  if (ARROWS[key]) { rig.keys[ARROWS[key]] = true; wake(); e.preventDefault(); return; }
+  switch (key) {
+    case '1': case '2': case '3': setTool(TOOLS[Number(key) - 1]); break;
+    case 'w': case 'PageUp': setLevel(view.level + 1); break;
+    case 's': case 'PageDown': setLevel(view.level - 1); break;
+    case 'q': turnView(-1); break;
+    case 'e': turnView(1); break;
+    case 'x': setErase(!view.erase); break;
+    case 'f': setFeedback(!view.feedback); break;
+    case 'm': setMuted(!view.muted); break;
+    case 'h': case '?': setHelp($('#help').hidden); break;
+    case '0': case 'Home': resetView(); break;
+    case 'Escape': cancel(); break;
+    case 'Delete': case 'Backspace': deleteSelection(); break;
+    case ' ': held.space = true; appEl.classList.add('space'); break;
+    default: return;
+  }
+  e.preventDefault();
+});
+window.addEventListener('keyup', (e) => {
+  if (e.key === 'Shift') { view.shiftHeld = false; refreshPreview(); }
+  else if (e.key === 'Alt') { e.preventDefault(); view.altHeld = false; refreshPreview(); }
+  else if (e.key === ' ') { held.space = false; appEl.classList.remove('space'); }
+  else if (ARROWS[e.key]) rig.keys[ARROWS[e.key]] = false;
+});
+window.addEventListener('blur', () => {
+  held.space = false;
+  view.shiftHeld = view.altHeld = false;
+  appEl.classList.remove('space');
+  for (const k of Object.keys(rig.keys)) rig.keys[k] = false;
+});
+
+// ====================================================================
+// 17. Hooks, scene labels, reacting to the model
+// ====================================================================
+
+function onLevelChanged() {
+  select(null);
+  updateStepper();
+  drawElevation();
+  updateCursor();
+}
+function onViewTurned() {
+  paintBoard();
+  drawElevation();
+  renderBrush();
+  renderCards(false);
+  wake();
+}
+
+const levelTag = document.createElement('div');
+levelTag.className = 'tag level-tag';
+labelsEl.appendChild(levelTag);
+const corner = new THREE.Vector3();
+function placeTag(el, screen, dx, dy) {
+  el.style.transform = 'translate(' + Math.round(screen.x + (dx || 0)) + 'px,' + Math.round(screen.y + (dy || 0)) + 'px) translate(-50%,-50%)';
+}
+let gizmoAz = null;
+let levelTagText = '';
+function layoutOverlay() {
+  // The level tag rides on the corner of the sheet that is furthest right on screen.
+  let best = -Infinity;
+  for (const [x, y] of [[SHEET.x0, SHEET.y0], [SHEET.x1, SHEET.y0], [SHEET.x1, SHEET.y1], [SHEET.x0, SHEET.y1]]) {
+    const d = (x - MID.x) * camRight.x + (y - MID.y) * camRight.y;
+    if (d > best) { best = d; corner.set(x, y, view.cutZ); }
+  }
+  const at = toScreen(corner);
+  const text = 'Level ' + view.level + '<small>' + fmt(view.level * S) + ' m</small>';
+  if (text !== levelTagText) { levelTagText = text; levelTag.innerHTML = text; }
+  levelTag.style.transform = 'translate(' + Math.round(at.x + 12) + 'px,' + Math.round(at.y) + 'px) translate(0,-50%)';
+
+  for (const v of loadViews.values()) placeTag(v.tag, toScreen(v.anchor));
+
+  const showTag = !!preview.tag && view.pointer.inside && !press.pan;
+  previewTag.hidden = !showTag;
+  if (showTag) placeTag(previewTag, toScreen(preview.tagAt), 0, -preview.tagLift);
+
+  if (view.selectedNode) {
+    const n = model.nodeById.get(view.selectedNode);
+    if (n) placeCard(dofCard, cardSize.dof, scratch.set(n.position[0], n.position[1], n.position[2]), 52);
+  } else if (view.selectedLoad) {
+    const v = loadViews.get(view.selectedLoad);
+    if (v) placeCard(loadCard, cardSize.load, v.anchor, 40);
+  }
+  if (gizmoAz !== rig.az) { gizmoAz = rig.az; drawGizmo(); }
+}
+
+function updateStats() {
+  const stats = core.stats();
+  $('#st-members').textContent = stats.members;
+  $('#st-length').textContent = fmt(stats.totalLength);
+  $('#st-load').textContent = stats.totalLoad;
+  const turn = core.turn;
+  $('#st-turn').textContent = turn.number;
+  $('#st-player').textContent = turn.player;
+  $('#btn-undo').disabled = !core.canUndo;
+  $('#btn-redo').disabled = !core.canRedo;
+  // Pieces with no path of members to a support: a fact about the model, not an analysis result.
+  const fm = model.floatM.size;
+  const fn = model.nodes.filter((n) => model.floatN.has(n.id) && !(model.dirsAt.get(keyOf(n.grid)) || []).length).length;
+  const bits = [];
+  if (fm) bits.push(fm + (fm === 1 ? ' member' : ' members'));
+  if (fn) bits.push(fn + (fn === 1 ? ' connection' : ' connections'));
+  $('#notice').hidden = bits.length === 0;
+  $('#notice-text').textContent = bits.join(' and ') + ' not connected to a support';
+}
+
+let changeCount = 0;
+core.on('change', (change) => {
+  changeCount++;
+  view.hotPiece = null;
+  syncViews(change);
+  if (view.chain && !core.inBounds(view.chain)) view.chain = null;
+  updateStats();
+  drawElevation();
+  renderCards(false);
+  updateDrawer();
+  updateCursor();
+  if (change.reason === 'endTurn') sound('turn');
+  else if (change.added.members.length || change.added.loads.length || change.added.nodes.length) sound('place');
+  else if (change.removed.members.length || change.removed.loads.length || change.removed.nodes.length) sound('remove');
+  else sound('set');
+});
+
+// ====================================================================
+// 18. Frame loop
+// ====================================================================
+
+let lastFrame = now();
+let framesDrawn = 0;
+let rigSig = '';
+function frame() {
+  requestAnimationFrame(frame);
+  const t = now();
+  const dt = Math.min(0.1, (t - lastFrame) / 1000);
+  lastFrame = t;
+  stepRig(dt);
+  if (tweens.size === 0 && t - lastWake > 900 && framesDrawn > 2) return; // nothing is moving
+  runTweens(t);
+  applyCamera();
+  const sig = rig.az + '|' + rig.zoom + '|' + rig.panX + '|' + rig.panY + '|' + rig.viewH + '|' + rig.aspect;
+  if (sig !== rigSig) { rigSig = sig; if (view.pointer.inside && framesDrawn > 2) updateCursor(); }
+  drawFx(dt);
+  if (shadowDirty) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; }
+  renderer.render(scene, camera);
+  layoutOverlay();
+  framesDrawn++;
+  if (framesDrawn === 2) finishBoot();
+}
+
+// ====================================================================
+// 19. Boot and the debug API used by automated tests
+// ====================================================================
+
+function finishBoot() {
+  clearTimeout(window.__dofBootTimer);
+  $('#veil').classList.add('done');
+  window.__dof = {
+    ready: true,
+    option: 'levels',
+    core,
+    tools: TOOLS.slice(),
+    get tool() { return view.tool; },
+    /** Same effect as pressing the tool's key. */
+    setTool(id) { return setTool(id); },
+    /** Viewport CSS pixels of a lattice point, with the live camera. `visible` is false when it is off screen or under a panel. */
+    screenOf(i, j, k) {
+      applyCamera();
+      const at = toScreen(worldOf([i, j, k]));
+      const inside = at.x >= 0 && at.y >= 0 && at.x <= window.innerWidth && at.y <= window.innerHeight;
+      return { x: at.x, y: at.y, visible: inside && document.elementFromPoint(at.x, at.y) === canvas };
+    },
+    // Extras for this option. Input lands on the active level, so a test sets the level first.
+    get level() { return view.level; },
+    /** Same effect as pressing W or S until the level is k. */
+    setLevel(k) { setLevel(k, true); return view.level; },
+    get quarter() { return view.quarter; },
+    /** Same effect as pressing E (dir = 1) or Q (dir = -1). */
+    turn(dir) { turnView(dir < 0 ? -1 : 1); return view.quarter; },
+    get erase() { return view.erase; },
+    get feedback() { return view.feedback; },
+    get cursor() { return view.cursor ? view.cursor.slice() : null; },
+    get chain() { return view.chain ? view.chain.slice() : null; },
+    get selectedNode() { return view.selectedNode; },
+    get selectedLoad() { return view.selectedLoad; },
+    get brush() { return Object.assign({}, view.brush); },
+    /** True while the sheet, the camera or a pop animation is still moving. */
+    get busy() { return tweens.size > 0 || Math.abs(rig.zoomGoal - rig.zoom) > 1e-4; }
+  };
+}
+
+buildStepper();
+fitView();
+applyCamera();
+paintBoard();
+placeSheet();
+renderBrush();
+window.addEventListener('resize', () => { fitView(); renderCards(false); });
+if (START_EMPTY) syncViews(null);
+else core.loadExample('tower');
+applyCut();
+if (!START_EMPTY) glideSheet(280); // the sheet rises to its level as the tower pops in
+updateStats();
+updateStepper();
+drawElevation();
+refreshHint();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

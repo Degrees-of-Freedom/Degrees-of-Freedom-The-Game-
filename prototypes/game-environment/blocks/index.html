@@ -1,0 +1,2864 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Degrees of Freedom: Blocks (game-environment prototype)</title>
+<style>
+  :root {
+    --cream: #fdf6ea;
+    --cream-deep: #f5e8d3;
+    --cream-line: #ead9c1;
+    --ink: #2f3640;
+    --ink-soft: #636b78;
+    --persimmon: #e8735a;
+    --persimmon-deep: #c9553d;
+    --hub: #3b4252;
+    --load: #c9413a;
+    --mist: #b8b2bf;
+    --ax-x: #d2594a;
+    --ax-y: #3f9477;
+    --ax-z: #5578c2;
+    --shadow: 0 10px 26px rgba(118, 66, 40, .20), 0 2px 6px rgba(118, 66, 40, .14);
+    --shadow-soft: 0 4px 12px rgba(118, 66, 40, .16);
+    --font: ui-rounded, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: linear-gradient(#d9c7e3, #f7d9c4 45%, #fbe9d7);
+    color: var(--ink);
+    font: 500 13.5px/1.35 var(--font);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; outline: none; touch-action: none; }
+  #labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  button:focus-visible { outline: 2.5px solid var(--persimmon); outline-offset: 2px; }
+
+  .chip { background: var(--cream); border-radius: 18px; box-shadow: var(--shadow); pointer-events: auto; }
+  .row { display: flex; align-items: center; gap: 2px; padding: 5px; }
+  .sep { width: 1.5px; align-self: stretch; margin: 7px 5px; background: var(--cream-line); border-radius: 1px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    height: 38px; padding: 0 12px; border-radius: 13px; font-weight: 600; white-space: nowrap;
+    transition: background .12s, color .12s, transform .14s cubic-bezier(.3, 1.6, .5, 1);
+  }
+  .btn.icon { width: 38px; padding: 0; }
+  .btn:hover { background: var(--cream-deep); }
+  .btn:active { transform: scale(.94); }
+  .btn[disabled] { opacity: .35; pointer-events: none; }
+  .btn.on { background: var(--ink); color: var(--cream); }
+  .btn.on:hover { background: #3d4654; }
+  svg.i { width: 21px; height: 21px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---- brand ---- */
+  #brand { position: fixed; left: 16px; top: 14px; display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 10px; }
+  #brand strong { display: block; font-size: 14.5px; font-weight: 700; letter-spacing: .1px; }
+  #brand span { display: block; font-size: 12px; color: var(--ink-soft); }
+
+  /* ---- top right ---- */
+  #top-right { position: fixed; right: 16px; top: 14px; display: flex; align-items: flex-start; gap: 8px; pointer-events: none; }
+  #turn { display: flex; align-items: center; gap: 9px; padding: 5px 5px 5px 13px; }
+  #turn .who { display: flex; flex-direction: column; line-height: 1.2; }
+  #turn .who b { font-weight: 700; font-size: 13.5px; }
+  #turn .who small { font-size: 12px; color: var(--ink-soft); }
+  #turn .dot { width: 12px; height: 12px; border-radius: 50%; background: #f2c078; box-shadow: inset 0 0 0 2px rgba(47, 54, 64, .18); }
+  #turn .btn { background: var(--cream-deep); height: 34px; }
+  #turn .btn:hover { background: var(--cream-line); }
+
+  /* ---- help ---- */
+  #help { position: fixed; left: 16px; top: 76px; width: 262px; padding: 11px 14px 11px; font-size: 12.5px; }
+  #help h2 { margin: 0 0 7px; font-size: 13px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+  #help table { border-collapse: collapse; width: 100%; }
+  #help td { padding: 2.5px 0; vertical-align: top; }
+  #help td:first-child { white-space: nowrap; padding-right: 12px; color: var(--ink); font-weight: 700; }
+  #help kbd + kbd { margin-left: 2px; }
+  #help td:last-child { color: var(--ink-soft); }
+  #help .x { width: 24px; height: 24px; border-radius: 8px; font-size: 16px; line-height: 1; color: var(--ink-soft); }
+  #help .x:hover { background: var(--cream-deep); color: var(--ink); }
+  kbd { font: 700 12px/1 var(--font); display: inline-block; padding: 3px 5px; border-radius: 6px; background: var(--cream-deep); box-shadow: inset 0 -1.5px 0 var(--cream-line); }
+
+  /* ---- demo banner + legend ---- */
+  #demo { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 7px; pointer-events: none; }
+  #demo .banner { display: flex; align-items: center; gap: 9px; padding: 9px 16px; border-radius: 14px; background: var(--ink); color: #fff3df; font-size: 14.5px; font-weight: 700; box-shadow: var(--shadow); }
+  #demo .banner svg { stroke: #f2c078; }
+  #legend { padding: 8px 12px 7px; font-size: 12px; color: var(--ink-soft); text-align: center; }
+  #legend .bar { width: 100%; min-width: 230px; height: 12px; border-radius: 6px; margin: 4px 0 3px; }
+  #legend .ticks { display: flex; justify-content: space-between; font-weight: 700; color: var(--ink); }
+
+  /* ---- bottom ---- */
+  #bottom { position: fixed; left: 16px; right: 16px; bottom: 14px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 12px; pointer-events: none; }
+  #left-group { justify-self: start; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+  #centre-group { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  #right-group { justify-self: end; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+
+  #axis { width: 84px; height: 84px; margin-left: 2px; pointer-events: none; }
+  #axis text { font: 700 12px var(--font); text-anchor: middle; dominant-baseline: central; }
+
+  #toolbar { display: flex; align-items: stretch; gap: 4px; padding: 6px; border-radius: 24px; }
+  .tool {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    width: 84px; height: 62px; border-radius: 18px; font-weight: 600; font-size: 13px;
+    transition: background .12s, color .12s, transform .16s cubic-bezier(.3, 1.6, .5, 1), box-shadow .12s;
+  }
+  .tool svg.i { width: 24px; height: 24px; }
+  .tool:hover { background: var(--cream-deep); transform: translateY(-2px); }
+  .tool:active { transform: scale(.95); }
+  .tool.active { background: var(--persimmon); color: #fff8ee; box-shadow: 0 5px 12px rgba(201, 85, 61, .38); }
+  .tool .key { position: absolute; top: 5px; right: 8px; font-size: 12px; font-weight: 700; opacity: .5; }
+  .tool.active .key { opacity: .8; }
+
+  #hint { max-width: 620px; padding: 6px 14px; border-radius: 13px; background: rgba(253, 246, 234, .86); box-shadow: var(--shadow-soft); font-size: 13px; text-align: center; pointer-events: none; }
+  #hint.warn { background: #fbe3dc; color: #8f2f22; }
+
+  #stats { display: flex; align-items: center; gap: 12px; white-space: nowrap; padding: 6px 13px; border-radius: 13px; background: rgba(253, 246, 234, .86); box-shadow: var(--shadow-soft); font-size: 12.5px; color: var(--ink-soft); pointer-events: none; }
+  #stats b { color: var(--ink); font-weight: 700; }
+  #loose { white-space: nowrap; padding: 6px 13px; border-radius: 13px; background: #e9e4ee; color: #57506a; box-shadow: var(--shadow-soft); font-size: 12.5px; font-weight: 600; pointer-events: none; }
+
+  /* ---- load options (brush) and shared load controls ---- */
+  .opts { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 18px; }
+  .opts-label { font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+  .pick { display: flex; gap: 3px; }
+  .pick button { min-width: 40px; height: 32px; padding: 0 8px; border-radius: 10px; font-weight: 700; font-size: 12.5px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; transition: background .12s, transform .14s cubic-bezier(.3, 1.6, .5, 1); }
+  .pick button:hover { background: var(--cream-deep); transform: translateY(-1px); }
+  .pick button.sel { background: var(--load); color: #fff3ea; }
+  .pick button[disabled] { opacity: .3; pointer-events: none; }
+  .pick button svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .unit { font-size: 12px; color: var(--ink-soft); font-weight: 700; }
+
+  /* ---- cards ---- */
+  #leader { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; display: none; }
+  #leader line { stroke: #2f3640; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 0.1 7; opacity: .75; }
+  #leader circle { fill: #2f3640; opacity: .75; }
+  .card { position: fixed; left: 0; top: 0; width: 246px; padding: 11px; z-index: 5; transform-origin: 0 50%; }
+  .card.pop { animation: card-pop .22s cubic-bezier(.3, 1.5, .5, 1); }
+  @keyframes card-pop { from { opacity: 0; scale: .9; } to { opacity: 1; scale: 1; } }
+  .card-head { display: flex; align-items: flex-start; gap: 2px; margin-bottom: 2px; }
+  .card-head .t { flex: 1; min-width: 0; }
+  .card-head b { display: block; font-size: 14.5px; font-weight: 700; }
+  .card-head small { display: block; font-size: 12px; color: var(--ink-soft); }
+  .card .x { width: 26px; height: 26px; border-radius: 9px; font-size: 17px; line-height: 1; color: var(--ink-soft); display: inline-flex; align-items: center; justify-content: center; }
+  .card .x svg.i { width: 16px; height: 16px; }
+  .card .x:hover { background: var(--cream-deep); color: var(--ink); }
+  .field { margin-top: 8px; }
+  .field.inline { display: flex; align-items: center; gap: 10px; }
+  .field.inline > .lab { margin: 0; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+  .field.inline > .seg { flex: 1; }
+  .field > label, .field > .lab { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--ink-soft); margin-bottom: 4px; }
+  .seg { display: flex; gap: 3px; padding: 3px; border-radius: 12px; background: var(--cream-deep); }
+  .seg button { flex: 1; height: 28px; border-radius: 9px; font-weight: 700; font-size: 12.5px; transition: background .12s, color .12s, transform .14s cubic-bezier(.3, 1.6, .5, 1); }
+  .seg button:hover { background: rgba(255, 255, 255, .7); }
+  .seg button:active { transform: scale(.94); }
+  .seg button.sel { background: var(--ink); color: var(--cream); }
+  .dofs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .dof {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; height: 58px; border-radius: 12px;
+    background: #fffdf8; box-shadow: inset 0 0 0 1.5px var(--cream-line); position: relative;
+    transition: background .14s, color .14s, transform .16s cubic-bezier(.3, 1.6, .5, 1), box-shadow .14s;
+  }
+  .dof:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1.5px var(--ink-soft); }
+  .dof:active { transform: scale(.94); }
+  .dof svg { width: 33px; height: 33px; fill: none; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
+  .dof[data-axis="x"] svg { stroke: var(--ax-x); } .dof[data-axis="y"] svg { stroke: var(--ax-y); } .dof[data-axis="z"] svg { stroke: var(--ax-z); }
+  .dof .lock { display: none; }
+  .dof .nm { font-size: 12px; font-weight: 700; line-height: 1.1; }
+  .dof .nm i { font-style: normal; font-weight: 600; color: var(--ink-soft); }
+  .dof.locked { background: var(--hub); color: #fdf6ea; box-shadow: none; }
+  .dof.locked:hover { box-shadow: inset 0 0 0 1.5px #8a93a6; }
+  .dof.locked svg { stroke: #7d8698; }
+  .dof.locked .lock { display: block; stroke: #fdf6ea; fill: #fdf6ea; }
+  .dof.locked .nm i { color: #b9c0cd; }
+  .dof.free:hover .mv { animation: wiggle .5s ease-in-out infinite alternate; }
+  @keyframes wiggle { from { translate: -1.5px 0; } to { translate: 1.5px 0; } }
+  .note { margin-top: 7px; font-size: 12px; color: var(--ink-soft); line-height: 1.3; }
+  .card-foot { display: flex; gap: 6px; margin-top: 8px; }
+  .card-foot .btn { flex: 1; height: 32px; background: var(--cream-deep); font-size: 12.5px; }
+  .card-foot .btn:hover { background: var(--cream-line); }
+  .card-foot .btn.danger:hover { background: #f7d6cf; color: #8f2f22; }
+  #load-card { width: 232px; }
+  #load-card .pick { flex-wrap: wrap; }
+  #load-card #lc-dirs button { flex: 1 0 30%; }
+  #load-card #lc-amounts button { flex: 1 0 20%; min-width: 0; }
+
+  /* ---- solver drawer ---- */
+  #drawer { position: fixed; right: 16px; top: 76px; bottom: 132px; width: 400px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; padding: 12px; z-index: 6; }
+  #drawer.pop { animation: drawer-in .26s cubic-bezier(.3, 1.3, .5, 1); }
+  @keyframes drawer-in { from { opacity: 0; translate: 30px 0; } to { opacity: 1; translate: 0 0; } }
+  #drawer header { display: flex; align-items: center; gap: 6px; }
+  #drawer header b { flex: 1; font-size: 14.5px; }
+  #drawer header .btn { height: 32px; background: var(--cream-deep); font-size: 12.5px; }
+  #drawer header .btn:hover { background: var(--cream-line); }
+  #drawer p { margin: 6px 0 8px; font-size: 12px; color: var(--ink-soft); }
+  #drawer pre { flex: 1; margin: 0; padding: 10px 12px; overflow: auto; border-radius: 12px; background: #2f3640; color: #f3e9d7; font: 12px/1.45 var(--mono); user-select: text; white-space: pre; }
+
+  /* ---- scene labels ---- */
+  .pill { position: absolute; left: 0; top: 0; padding: 2px 8px 3px; border-radius: 9px; background: #fdf6ea; color: #2f3640; font-size: 12.5px; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 6px rgba(80, 40, 30, .25); will-change: transform; transition: opacity .15s; }
+  .pill.hot { box-shadow: 0 0 0 2.5px var(--load), 0 2px 6px rgba(80, 40, 30, .25); }
+  .pill.sel { background: var(--load); color: #fff3ea; }
+  #tag { position: fixed; left: 0; top: 0; z-index: 4; padding: 4px 9px 5px; border-radius: 10px; background: var(--ink); color: #fdf6ea; font-size: 12.5px; font-weight: 600; white-space: nowrap; pointer-events: none; box-shadow: var(--shadow-soft); }
+  #tag.bad { background: #a8342a; }
+  #tag b { font-weight: 700; color: #ffd9a8; }
+
+  /* ---- boot / fallback ---- */
+  #boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px; z-index: 20; pointer-events: none; }
+  #boot div { max-width: 460px; padding: 18px 22px; border-radius: 18px; background: var(--cream); box-shadow: var(--shadow); font-size: 14px; }
+  #boot b { display: block; font-size: 16px; margin-bottom: 4px; }
+
+  @media (max-width: 1180px) {
+    .tool { width: 72px; }
+    .btn .wide { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="stage" aria-label="Building area"></div>
+<div id="labels"></div>
+
+<header id="brand" class="chip">
+  <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
+    <rect x="7" y="7" width="18" height="18" fill="none" stroke="#f1e3cc" stroke-width="5"/>
+    <rect x="7" y="7" width="18" height="18" fill="none" stroke="#2f3640" stroke-width="1.6" opacity=".55"/>
+    <path d="M7 25 25 7" stroke="#e8735a" stroke-width="3.2" stroke-linecap="round"/>
+    <g fill="#3b4252"><rect x="3" y="3" width="8" height="8" rx="2.2"/><rect x="21" y="3" width="8" height="8" rx="2.2"/><rect x="3" y="21" width="8" height="8" rx="2.2"/><rect x="21" y="21" width="8" height="8" rx="2.2"/></g>
+  </svg>
+  <div><strong>Degrees of Freedom</strong><span>Blocks &middot; environment prototype</span></div>
+</header>
+
+<div id="top-right">
+  <div id="turn" class="chip" title="Turn rules are not decided yet. This only counts turns.">
+    <span class="dot" id="turn-dot"></span>
+    <span class="who"><b id="turn-who">Player 1</b><small id="turn-num">Turn 1 &middot; provisional</small></span>
+    <button class="btn" id="btn-end-turn">End turn</button>
+  </div>
+  <div class="chip row">
+    <button class="btn icon" id="btn-sound" title="Sound on or off" aria-label="Sound"></button>
+    <button class="btn icon" id="btn-help" title="Controls (H or ?)" aria-label="Controls"><svg class="i" viewBox="0 0 24 24"><path d="M9.2 9.2a2.9 2.9 0 1 1 4.3 2.6c-.9.5-1.5 1.2-1.5 2.2v.4"/><circle cx="12" cy="17.6" r=".6" fill="currentColor"/></svg></button>
+  </div>
+</div>
+
+<aside id="help" class="chip">
+  <h2>Controls <button class="x" id="help-close" title="Hide (H)" aria-label="Hide controls">&times;</button></h2>
+  <table>
+    <tr><td>Click</td><td>Place, or step to the next type</td></tr>
+    <tr><td>Right-click</td><td>Remove (or Ctrl+click)</td></tr>
+    <tr><td>Alt+click</td><td>Erase one member</td></tr>
+    <tr><td>Drag</td><td>Orbit. Shift+drag pans</td></tr>
+    <tr><td>Wheel</td><td>Zoom. On a load: its amount</td></tr>
+    <tr><td><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>X</kbd></td><td>Tools and eraser</td></tr>
+    <tr><td><kbd>F</kbd> &nbsp;<kbd>Esc</kbd></td><td>Re-frame, cancel</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></td><td>Undo, redo</td></tr>
+    <tr><td><kbd>H</kbd> or <kbd>?</kbd></td><td>Show or hide this</td></tr>
+  </table>
+</aside>
+
+<div id="demo" hidden>
+  <div class="banner"><svg class="i" viewBox="0 0 24 24"><path d="M12 4 3 19.5h18L12 4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>Demo data - no solver connected</div>
+  <div class="chip" id="legend">
+    Utilization of each member, from a placeholder rule
+    <div class="bar" id="legend-bar"></div>
+    <div class="ticks"><span>0</span><span>0.5</span><span>1.0</span><span>1.5</span></div>
+  </div>
+</div>
+
+<div id="bottom">
+  <div id="left-group">
+    <svg id="axis" viewBox="-42 -42 84 84" aria-label="Axis directions"></svg>
+    <div class="chip row">
+      <button class="btn icon" id="btn-undo" title="Undo (Ctrl+Z)" aria-label="Undo"><svg class="i" viewBox="0 0 24 24"><path d="M8.5 6.5 4 11l4.5 4.5"/><path d="M4 11h10.5a5 5 0 0 1 0 10H11"/></svg></button>
+      <button class="btn icon" id="btn-redo" title="Redo (Ctrl+Y)" aria-label="Redo"><svg class="i" viewBox="0 0 24 24"><path d="M15.5 6.5 20 11l-4.5 4.5"/><path d="M20 11H9.5a5 5 0 0 0 0 10H13"/></svg></button>
+      <span class="sep"></span>
+      <button class="btn" id="btn-clear" title="Remove everything"><svg class="i" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7M10.5 10.5v6M13.5 10.5v6"/></svg><span class="wide">Clear</span></button>
+      <button class="btn" id="btn-example" title="Replace everything with the example structure"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="12.5" width="8" height="8" rx="1.5"/><rect x="12" y="12.5" width="8" height="8" rx="1.5"/><rect x="8" y="4.5" width="8" height="8" rx="1.5"/></svg><span class="wide">Load example</span></button>
+    </div>
+  </div>
+
+  <div id="centre-group">
+    <div id="hint"></div>
+    <div id="load-options" class="chip opts" hidden>
+      <div class="pick" id="brush-dirs" aria-label="Direction of the next load"></div>
+      <span class="sep"></span>
+      <div class="pick" id="brush-amounts" aria-label="Amount of the next load"></div>
+      <span class="unit">kN</span>
+    </div>
+    <nav id="toolbar" class="chip" aria-label="Tools">
+      <button class="tool" data-tool="block" title="Block: stack bays (1)"><span class="key">1</span><svg class="i" viewBox="0 0 24 24"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg>Block</button>
+      <button class="tool" data-tool="brace" title="Brace: step a panel's diagonals (2)"><span class="key">2</span><svg class="i" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M5 19 19 5"/></svg>Brace</button>
+      <button class="tool" data-tool="connection" title="Connection: degrees of freedom at a joint (3)"><span class="key">3</span><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><path d="M12 2.5v5M3.5 19l5-3.7M20.5 19l-5-3.7"/></svg>Connection</button>
+      <button class="tool" data-tool="load" title="Load: drop a force on a joint (4)"><span class="key">4</span><svg class="i" viewBox="0 0 24 24"><path d="M12 2.5v9.5M8 8.5l4 4 4-4"/><rect x="5" y="15.5" width="14" height="6" rx="1.6"/></svg>Load</button>
+      <span class="sep"></span>
+      <button class="tool" data-tool="eraser" title="Eraser: remove one member (X, or Alt+click with any tool)"><span class="key">X</span><svg class="i" viewBox="0 0 24 24"><path d="M9 19.5 4.3 14.8a1.5 1.5 0 0 1 0-2.1L12.7 4.3a1.5 1.5 0 0 1 2.1 0l4.9 4.9a1.5 1.5 0 0 1 0 2.1L11.5 19.5z"/><path d="M8.3 8.7l7 7M9 19.5h11"/></svg>Eraser</button>
+    </nav>
+  </div>
+
+  <div id="right-group">
+    <div id="loose" hidden></div>
+    <div id="stats"></div>
+    <div class="chip row">
+      <button class="btn" id="btn-feedback" title="Tint members with placeholder results"><svg class="i" viewBox="0 0 24 24"><path d="M4 17a8 8 0 0 1 16 0"/><path d="M12 17l4-6"/><circle cx="12" cy="17" r="1.1" fill="currentColor"/></svg>Feedback preview</button>
+      <button class="btn" id="btn-solver" title="Show the model as solver input"><svg class="i" viewBox="0 0 24 24"><path d="M9 4c-2 0-3 1-3 3v2.5C6 10.8 5.2 12 4 12c1.2 0 2 1.2 2 2.5V17c0 2 1 3 3 3M15 4c2 0 3 1 3 3v2.5c0 1.3.8 2.5 2 2.5-1.2 0-2 1.2-2 2.5V17c0 2-1 3-3 3"/></svg>Solver input</button>
+    </div>
+  </div>
+</div>
+
+<aside id="drawer" class="chip" hidden>
+  <header>
+    <b>Solver input</b>
+    <button class="btn" id="btn-copy">Copy</button>
+    <button class="btn" id="btn-download">Download</button>
+    <button class="btn icon" id="btn-drawer-close" aria-label="Close" title="Close (Esc)">&times;</button>
+  </header>
+  <p>Live view of the model as it would be handed to the solver. The format is a draft, not an agreed contract.</p>
+  <pre id="json"></pre>
+</aside>
+
+<svg id="leader" aria-hidden="true"><line/><circle r="4"/></svg>
+<div id="dof-card" class="chip card" hidden></div>
+<div id="load-card" class="chip card" hidden></div>
+<div id="tag" hidden></div>
+
+<div id="boot"><div><b id="boot-title">Setting up the quay</b><span id="boot-text">Loading three.js...</span></div></div>
+
+<script src="../shared/model-core.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+/*
+ * Degrees of Freedom: The Game - game-environment prototype "Blocks".
+ *
+ * The player stacks 2 m bays; the frame is derived from them. The shared model
+ * core (window.DOFCore) is the single source of truth: every edit goes through
+ * it, and every picture on screen is rebuilt from its change event.
+ * Nothing in this file analyses a structure.
+ */
+
+// ====================================================================== 1. boot
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+const bootEl = $('#boot');
+function bootFail(title, text) {
+  bootEl.hidden = false;
+  $('#boot-title').textContent = title;
+  $('#boot-text').textContent = text;
+}
+
+let THREE, OrbitControls, RoundedBoxGeometry;
+try {
+  THREE = await import('three');
+  ({ OrbitControls } = await import('three/addons/controls/OrbitControls.js'));
+  ({ RoundedBoxGeometry } = await import('three/addons/geometries/RoundedBoxGeometry.js'));
+} catch (error) {
+  bootFail('three.js did not load', 'This prototype loads three.js from the jsDelivr CDN, so it needs an internet connection. Reconnect and reload the page.');
+  throw error;
+}
+if (!window.DOFCore) {
+  bootFail('The shared model core did not load', 'Keep this file in prototypes/game-environment/blocks/ so it can find ../shared/model-core.js.');
+  throw new Error('DOFCore is missing');
+}
+
+THREE.Object3D.DEFAULT_UP.set(0, 0, 1); // Z is up; set before any camera or control exists
+const DOF = window.DOFCore;
+const DEG = Math.PI / 180;
+const params = new URLSearchParams(location.search);
+
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const easeInCubic = (t) => t * t * t;
+const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+/** 0 -> about 1.12 -> 1: one soft overshoot. */
+const spring = (t) => (t >= 1 ? 1 : 1 - Math.exp(-6.5 * t) * Math.cos(8.5 * t));
+
+// ====================================================================== 2. model and bay rules
+const BAY = 2;                 // lattice steps per bay edge (2 m)
+const NB = [6, 6, 4];          // bays that fit: 6 by 6 on plan, four storeys
+const G = 0.46;                // the quay surface sits this far below lattice level 0, so supports have room
+const SEC = 0.2;               // drawn frame section; the real section belongs to the solver
+const HUB = 0.3;
+const PIN_INSET = 0.31;        // how far a member end stops short of a pinned joint
+const WATER_Z = -G - 1.0;
+
+const COL = {
+  skyTop: '#d9c7e3', skyMid: '#f7d9c4', horizon: '#fbe9d7',
+  waterNear: '#5f9ea6', waterFar: '#9cc7c4',
+  quayTop: '#f3e3cf', quaySide: '#dcc7ab',
+  frame: '#fbf3e6', brace: '#e8735a', hub: '#3b4252', ring: '#fbf3e6',
+  support: '#4b5563', load: '#c9413a', label: '#2f3640', float: '#b8b2bf',
+  tints: ['#f2c078', '#f4a497', '#a6c8b5', '#9db6d8']
+};
+
+const core = DOF.createModel({ bounds: { i: [0, NB[0] * BAY], j: [0, NB[1] * BAY], k: [0, NB[2] * BAY] } });
+
+const ptKey = (p) => p[0] + ',' + p[1] + ',' + p[2];
+const bayKey = ptKey;
+const bayInBounds = (b) => b.every((c, a) => c >= 0 && c < NB[a]);
+const tintIndex = (b) => (b[0] + 2 * b[1] + 3 * b[2]) % 4;
+
+/** Order-independent key for the segment between two lattice points. */
+function segKey(p, q) {
+  const first = p[0] !== q[0] ? p[0] < q[0] : p[1] !== q[1] ? p[1] < q[1] : p[2] < q[2];
+  return first ? ptKey(p) + '|' + ptKey(q) : ptKey(q) + '|' + ptKey(p);
+}
+const parseSeg = (key) => key.split('|').map((s) => s.split(',').map(Number));
+
+/** The twelve edges of a bay as pairs of lattice points. */
+function bayEdges(b) {
+  const o = [b[0] * BAY, b[1] * BAY, b[2] * BAY];
+  const out = [];
+  for (let axis = 0; axis < 3; axis++) {
+    const u = (axis + 1) % 3;
+    const v = (axis + 2) % 3;
+    for (const du of [0, BAY]) {
+      for (const dv of [0, BAY]) {
+        const p = o.slice();
+        p[u] += du;
+        p[v] += dv;
+        const q = p.slice();
+        q[axis] += BAY;
+        out.push([p, q]);
+      }
+    }
+  }
+  return out;
+}
+
+// A panel is one rectangular face of a bay: normal axis n and its lowest corner c.
+// Two bays that share a face share the panel.
+const PANEL_UV = [[1, 2], [0, 2], [0, 1]];
+const panelKey = (n, c) => n + ':' + ptKey(c);
+function parsePanel(key) {
+  const [n, rest] = key.split(':');
+  return { n: Number(n), c: rest.split(',').map(Number) };
+}
+function bayPanels(b) {
+  const o = [b[0] * BAY, b[1] * BAY, b[2] * BAY];
+  const out = [];
+  for (let n = 0; n < 3; n++) {
+    out.push({ n, c: o.slice() });
+    const c = o.slice();
+    c[n] += BAY;
+    out.push({ n, c });
+  }
+  return out;
+}
+/** Corners and the two diagonals (A and B) of a panel. */
+function panelShape(n, c) {
+  const [u, v] = PANEL_UV[n];
+  const p00 = c.slice();
+  const p10 = c.slice();
+  const p11 = c.slice();
+  const p01 = c.slice();
+  p10[u] += BAY;
+  p11[u] += BAY;
+  p11[v] += BAY;
+  p01[v] += BAY;
+  const centre = c.slice();
+  centre[u] += BAY / 2;
+  centre[v] += BAY / 2;
+  return { corners: [p00, p10, p11, p01], A: [p00, p11], B: [p10, p01], centre, u, v };
+}
+
+const isDiagonal = (p, q) => (p[0] !== q[0]) + (p[1] !== q[1]) + (p[2] !== q[2]) >= 2;
+/** What a member is called in this option. The core calls a level diagonal a beam; here it is a brace. */
+function roleOf(p, q) {
+  if (isDiagonal(p, q)) return 'brace';
+  return p[2] !== q[2] ? 'column' : 'beam';
+}
+/** The panel and diagonal (1 = A, 2 = B) a brace segment belongs to. */
+function braceOwner(p, q) {
+  const n = [0, 1, 2].find((a) => p[a] === q[a]);
+  const c = [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.min(p[2], q[2])];
+  const isA = ptKey(p) === ptKey(c) || ptKey(q) === ptKey(c);
+  return { key: panelKey(n, c), bit: isA ? 1 : 2 };
+}
+
+/** The player's massing: bays, frame edges removed by hand, and braced panels. Lives in the core so undo restores it. */
+function readPlan() {
+  return {
+    bays: core.getMeta('bays') || [],
+    removed: core.getMeta('removed') || [],
+    braces: core.getMeta('braces') || {}
+  };
+}
+
+/** Members the plan asks for: every bay edge once, minus hand-removed edges, plus braces. */
+function wantedSegments(plan) {
+  const frame = new Map();
+  const panels = new Set();
+  for (const b of plan.bays) {
+    for (const [p, q] of bayEdges(b)) frame.set(segKey(p, q), [p, q]);
+    for (const pn of bayPanels(b)) panels.add(panelKey(pn.n, pn.c));
+  }
+  const edges = new Set(frame.keys());
+  for (const key of plan.removed) frame.delete(key);
+  const brace = new Map();
+  for (const key of Object.keys(plan.braces)) {
+    if (!panels.has(key)) continue;
+    const { n, c } = parsePanel(key);
+    const shape = panelShape(n, c);
+    if (plan.braces[key] & 1) brace.set(segKey(shape.A[0], shape.A[1]), shape.A);
+    if (plan.braces[key] & 2) brace.set(segKey(shape.B[0], shape.B[1]), shape.B);
+  }
+  return { frame, brace, panels, edges };
+}
+
+/**
+ * Write a plan to the core and make the members agree with it, as one undo step.
+ * Members that are missing are added, members no longer wanted are removed, and
+ * supports, joints and loads on nodes that survive are left alone.
+ */
+function commitPlan(plan, reason, extra) {
+  core.batch(() => {
+    let wanted = wantedSegments(plan);
+    plan.removed = plan.removed.filter((key) => wanted.edges.has(key));
+    for (const key of Object.keys(plan.braces)) {
+      if (!wanted.panels.has(key) || !(plan.braces[key] & 3)) delete plan.braces[key];
+    }
+    wanted = wantedSegments(plan);
+    core.setMeta('bays', plan.bays);
+    core.setMeta('removed', plan.removed);
+    core.setMeta('braces', plan.braces);
+    const all = new Map([...wanted.frame, ...wanted.brace]);
+    const have = new Map();
+    for (const m of core.members) have.set(segKey(m.from, m.to), m.id);
+    for (const [key, [p, q]] of all) if (!have.has(key)) core.addMember(p, q);
+    for (const [key, id] of have) if (!all.has(key)) core.removeMember(id);
+    // Loads and placed connections left on nothing go with the members they sat on.
+    const covered = new Set();
+    for (const [, [p, q]] of all) for (const point of DOF.latticePoints(p, q)) covered.add(ptKey(point));
+    for (const n of core.nodes) if (!covered.has(ptKey(n.grid))) core.removeNode(n.id);
+    if (extra) extra();
+  }, reason);
+}
+
+function hasBay(plan, b) {
+  const key = bayKey(b);
+  return plan.bays.some((x) => bayKey(x) === key);
+}
+function addBay(b) {
+  const plan = readPlan();
+  if (!bayInBounds(b) || hasBay(plan, b)) return false;
+  plan.bays.push(b.slice());
+  commitPlan(plan, 'addBay');
+  return true;
+}
+function removeBay(b) {
+  const plan = readPlan();
+  if (!hasBay(plan, b)) return false;
+  const key = bayKey(b);
+  plan.bays = plan.bays.filter((x) => bayKey(x) !== key);
+  commitPlan(plan, 'removeBay');
+  return true;
+}
+function setPanel(key, value) {
+  const plan = readPlan();
+  if ((plan.braces[key] || 0) === value) return false;
+  plan.braces[key] = value;
+  commitPlan(plan, 'brace');
+  return true;
+}
+/** Remove one member by hand: a frame edge joins the removed list, a brace leaves its panel. */
+function eraseSegment(key) {
+  const [p, q] = parseSeg(key);
+  const plan = readPlan();
+  if (isDiagonal(p, q)) {
+    const owner = braceOwner(p, q);
+    plan.braces[owner.key] = (plan.braces[owner.key] || 0) & ~owner.bit;
+  } else if (!plan.removed.includes(key)) {
+    plan.removed.push(key);
+  }
+  commitPlan(plan, 'erase');
+}
+function restoreSegment(key) {
+  const plan = readPlan();
+  plan.removed = plan.removed.filter((k) => k !== key);
+  commitPlan(plan, 'restore');
+}
+
+/** The starter structure, built from bays so the plan and the members agree. */
+function buildStarter() {
+  core.batch(() => {
+    core.clear();
+    const plan = { bays: [], removed: [], braces: {} };
+    for (const bz of [0, 1]) for (const by of [2, 3]) for (const bx of [2, 3]) plan.bays.push([bx, by, bz]);
+    plan.bays.push([2, 3, 2]); // one more on top, at the back corner
+    plan.bays.push([4, 2, 0]); // one stepping out at ground level
+    plan.braces[panelKey(1, [4, 4, 0])] = 3; // an X on a front wall
+    plan.braces[panelKey(0, [8, 4, 2])] = 1; // one diagonal on a side wall
+    commitPlan(plan, 'example');
+    core.setSupport(core.nodeAt([4, 4, 0]).id, 'fixed');
+    core.setJoint(core.nodeAt([10, 4, 2]).id, 'pinned');
+    core.addLoad([5, 6, 6], '-Z', 20);
+    core.addLoad([4, 4, 4], '+X', 10);
+  }, 'example');
+}
+
+// ====================================================================== 3. renderer, scene, light
+const stage = $('#stage');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+} catch (error) {
+  bootFail('WebGL did not start', 'This browser could not create a 3D drawing surface. Try a current Chrome or Edge.');
+  throw error;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const canvas = renderer.domElement;
+stage.appendChild(canvas);
+canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(COL.horizon);
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.5, 2400);
+// A little "lens shift": the view is the upper part of a taller frame, so the horizon and
+// the evening sky come into the picture while the structure stays near the middle.
+const LENS_SHIFT = 0.2;
+function fitCameraToWindow() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const fullHeight = h * (1 + LENS_SHIFT);
+  camera.aspect = w / fullHeight;
+  camera.setViewOffset(w, fullHeight, 0, 0, w, h);
+  camera.updateProjectionMatrix();
+}
+fitCameraToWindow();
+
+// Low evening sun from the left of the default view.
+const SUN_AZ = 214 * DEG;
+const SUN_EL = 37 * DEG;
+const sunDir = new THREE.Vector3(Math.cos(SUN_EL) * Math.cos(SUN_AZ), Math.cos(SUN_EL) * Math.sin(SUN_AZ), Math.sin(SUN_EL));
+
+const hemi = new THREE.HemisphereLight('#f1ecfb', '#f6e6d2', 1.75);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight('#fff1dc', 2.7);
+sun.position.set(6, 6, 1.5).addScaledVector(sunDir, 34);
+sun.target.position.set(6, 6, 1.5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -15, right: 15, top: 15, bottom: -15, near: 4, far: 80 });
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.025;
+scene.add(sun, sun.target);
+
+// ---- sky: a dome that follows the camera
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(900, 32, 20),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    depthTest: false,
+    uniforms: {
+      uTop: { value: new THREE.Color(COL.skyTop) },
+      uMid: { value: new THREE.Color(COL.skyMid) },
+      uHorizon: { value: new THREE.Color(COL.horizon) },
+      uGlow: { value: new THREE.Color('#ffe9c9') },
+      uSunDir: { value: new THREE.Vector3(sunDir.x, sunDir.y, 0.12).normalize() }
+    },
+    vertexShader: `
+      varying vec3 vDir;
+      void main() {
+        vDir = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform vec3 uTop; uniform vec3 uMid; uniform vec3 uHorizon; uniform vec3 uGlow; uniform vec3 uSunDir;
+      varying vec3 vDir;
+      void main() {
+        vec3 dir = normalize(vDir);
+        float h = dir.z;
+        // dusk: a cream horizon, a thin peach band, lilac above
+        vec3 col = mix(uHorizon, uMid, smoothstep(0.0, 0.024, h));
+        col = mix(col, uTop, smoothstep(0.012, 0.11, h));
+        float glow = pow(max(dot(dir, uSunDir), 0.0), 5.0);
+        col = mix(col, uGlow, glow * 0.5);
+        gl_FragColor = vec4(col, 1.0);
+        #include <colorspace_fragment>
+      }`
+  })
+);
+sky.renderOrder = -100;
+sky.frustumCulled = false;
+scene.add(sky);
+
+// ---- water: teal near the quay, easing to the horizon colour far out, with small warm glints
+const QUAY_HALF = 7.6;
+const water = new THREE.Mesh(
+  new THREE.CircleGeometry(880, 96),
+  new THREE.ShaderMaterial({
+    uniforms: {
+      uNear: { value: new THREE.Color(COL.waterNear) },
+      uFar: { value: new THREE.Color(COL.waterFar) },
+      uHaze: { value: new THREE.Color(COL.horizon) },
+      uGlint: { value: new THREE.Color('#fff0d2') },
+      uCentre: { value: new THREE.Vector2(6, 6) },
+      uHalf: { value: QUAY_HALF + 0.75 },
+      uTime: { value: 0 }
+    },
+    vertexShader: `
+      varying vec3 vPos;
+      void main() {
+        vec4 world = modelMatrix * vec4(position, 1.0);
+        vPos = world.xyz;
+        gl_Position = projectionMatrix * viewMatrix * world;
+      }`,
+    fragmentShader: `
+      uniform vec3 uNear; uniform vec3 uFar; uniform vec3 uHaze; uniform vec3 uGlint;
+      uniform vec2 uCentre; uniform float uHalf; uniform float uTime;
+      varying vec3 vPos;
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float roundBox(vec2 p, float b, float r) {
+        vec2 q = abs(p) - vec2(b) + r;
+        return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+      }
+      void main() {
+        vec2 rel = vPos.xy - uCentre;
+        float d = length(rel);
+        vec3 col = mix(uNear, uFar, smoothstep(9.0, 64.0, d));
+        col = mix(col, uHaze, smoothstep(48.0, 330.0, d));
+        col *= 1.0 + 0.022 * smoothstep(90.0, 25.0, d) * sin(vPos.x * 0.31 + vPos.y * 0.17 + uTime * 0.22);
+        // paler water lapping against the quay wall
+        float edge = roundBox(rel, uHalf, 1.3);
+        float lap = 1.0 - smoothstep(0.0, 0.55, edge);
+        float ring = (1.0 - smoothstep(0.0, 2.6, edge)) * (0.5 + 0.5 * sin(edge * 7.5 - uTime * 1.1));
+        col = mix(col, uFar, clamp(lap * 0.55 + ring * 0.13, 0.0, 1.0));
+        // glints: short dashes that twinkle
+        vec2 gp = vec2(vPos.x * 0.75, vPos.y * 1.5);
+        vec2 cell = floor(gp);
+        vec2 f = fract(gp) - 0.5;
+        float rnd = hash(cell);
+        vec2 jitter = vec2(hash(cell + 3.1), hash(cell + 7.7)) - 0.5;
+        float twinkle = smoothstep(0.55, 1.0, sin(uTime * (0.5 + rnd) + rnd * 6.283));
+        vec2 q = (f - jitter * 0.55) * vec2(1.0, 2.6);
+        float shape = 1.0 - smoothstep(0.03, 0.2, length(q));
+        float keep = step(0.62, rnd) * smoothstep(110.0, 10.0, d) * smoothstep(0.2, 1.4, edge);
+        col += uGlint * twinkle * shape * keep * 0.32;
+        gl_FragColor = vec4(col, 1.0);
+        #include <colorspace_fragment>
+      }`
+  })
+);
+water.position.set(6, 6, WATER_Z);
+scene.add(water);
+
+// A plane just above the water that only shows the shadow of the quay and the frame.
+const waterShadow = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), new THREE.ShadowMaterial({ color: '#1c4a55', opacity: 0.26 }));
+waterShadow.position.set(6, 6, WATER_Z + 0.02);
+waterShadow.receiveShadow = true;
+waterShadow.renderOrder = -5;
+scene.add(waterShadow);
+
+// ---- quay
+function roundedRect(half, radius) {
+  const s = new THREE.Shape();
+  const a = -half;
+  const b = half;
+  s.moveTo(a + radius, a);
+  s.lineTo(b - radius, a);
+  s.quadraticCurveTo(b, a, b, a + radius);
+  s.lineTo(b, b - radius);
+  s.quadraticCurveTo(b, b, b - radius, b);
+  s.lineTo(a + radius, b);
+  s.quadraticCurveTo(a, b, a, b - radius);
+  s.lineTo(a, a + radius);
+  s.quadraticCurveTo(a, a, a + radius, a);
+  return s;
+}
+
+/** Paving for the quay top: one soft tile per 2 m bay cell, a plain kerb around them. */
+function pavingTexture() {
+  const size = 1024;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ecdac0';
+  g.fillRect(0, 0, size, size);
+  const px = size / (QUAY_HALF * 2);           // pixels per metre
+  const origin = (QUAY_HALF - 6) * px;         // where lattice 0 falls
+  const tones = ['#f3e3cf', '#f5e6d3', '#f1e0ca', '#f4e4d0'];
+  for (let i = 0; i < NB[0]; i++) {
+    for (let j = 0; j < NB[1]; j++) {
+      const x = origin + i * BAY * px;
+      const y = origin + j * BAY * px;
+      const w = BAY * px;
+      g.fillStyle = tones[(i * 7 + j * 3) % tones.length];
+      g.beginPath();
+      g.roundRect(x + 2.5, y + 2.5, w - 5, w - 5, 9);
+      g.fill();
+    }
+  }
+  const texture = new THREE.CanvasTexture(c);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  texture.repeat.set(1 / (QUAY_HALF * 2), 1 / (QUAY_HALF * 2));
+  texture.offset.set(0.5, 0.5);
+  return texture;
+}
+
+const quay = new THREE.Group();
+{
+  const bevel = { bevelEnabled: true, bevelThickness: 0.07, bevelSize: 0.07, bevelSegments: 3, curveSegments: 12 };
+  const topGeo = new THREE.ExtrudeGeometry(roundedRect(QUAY_HALF, 1.0), Object.assign({ depth: 0.5 }, bevel));
+  const top = new THREE.Mesh(topGeo, [
+    new THREE.MeshLambertMaterial({ map: pavingTexture() }),
+    new THREE.MeshLambertMaterial({ color: COL.quaySide })
+  ]);
+  top.position.set(6, 6, -G - 0.57);
+  top.receiveShadow = true;
+  top.castShadow = true;
+  const baseGeo = new THREE.ExtrudeGeometry(roundedRect(QUAY_HALF + 0.62, 1.4), Object.assign({ depth: 1.5 }, bevel));
+  const base = new THREE.Mesh(baseGeo, [
+    new THREE.MeshLambertMaterial({ color: '#e6d2b6' }),
+    new THREE.MeshLambertMaterial({ color: '#cfb797' })
+  ]);
+  base.position.set(6, 6, -G - 0.64 - 1.57);
+  base.receiveShadow = true;
+  base.castShadow = true;
+  quay.add(top, base);
+}
+scene.add(quay);
+
+// ====================================================================== 4. shared geometry and materials
+const zUp = (geometry) => geometry.rotateX(Math.PI / 2); // three.js primitives are built along Y
+
+function coneProfile() {
+  // a rounded cone standing on a small base plate, from the quay up to the joint
+  const pts = [
+    [0, -G], [0.34, -G], [0.35, -G + 0.025], [0.34, -G + 0.05], [0.29, -G + 0.065],
+    [0.25, -G + 0.12], [0.16, -0.17], [0.12, -0.11], [0.07, -0.075], [0, -0.065]
+  ];
+  return pts.map(([r, z]) => new THREE.Vector2(r, z));
+}
+
+const geo = {
+  frame: new RoundedBoxGeometry(SEC, 1, SEC, 3, 0.045),
+  brace: new THREE.CylinderGeometry(0.078, 0.078, 1, 14),
+  rod: new THREE.CylinderGeometry(0.043, 0.043, 1, 8),
+  hub: new RoundedBoxGeometry(HUB, HUB, HUB, 3, 0.07),
+  hubSmall: new RoundedBoxGeometry(0.26, 0.26, 0.26, 3, 0.06),
+  ball: new THREE.SphereGeometry(0.13, 22, 16),
+  ring: new THREE.TorusGeometry(0.21, 0.05, 12, 30),
+  footing: new RoundedBoxGeometry(0.8, 0.8, G - 0.04, 3, 0.075),
+  cone: zUp(new THREE.LatheGeometry(coneProfile(), 28)),
+  pad: new RoundedBoxGeometry(0.7, 0.7, 0.11, 2, 0.045),
+  roll: new THREE.SphereGeometry(0.12, 16, 12),
+  puck: zUp(new THREE.CylinderGeometry(0.33, 0.33, 0.17, 6)),
+  stem: zUp(new THREE.CylinderGeometry(0.09, 0.09, 1, 10)),
+  crate: new RoundedBoxGeometry(1, 1, 1, 3, 0.09),
+  shaft: new THREE.CylinderGeometry(1, 1, 1, 16),
+  head: new THREE.ConeGeometry(1, 1, 20),
+  plate: new RoundedBoxGeometry(1.72, 1.72, 0.06, 2, 0.03),
+  volume: new THREE.BoxGeometry(1.84, 1.84, 1.84),
+  dash: new RoundedBoxGeometry(0.13, 1, 0.13, 2, 0.045),
+  halo: new THREE.TorusGeometry(0.36, 0.028, 10, 40),
+  haloBack: new THREE.TorusGeometry(0.36, 0.055, 10, 40),
+  quad: new THREE.PlaneGeometry(1, 1)
+};
+
+const lambert = (color, extra) => new THREE.MeshLambertMaterial(Object.assign({ color }, extra || {}));
+const glass = (color, opacity, extra) => lambert(color, Object.assign({ transparent: true, opacity, depthWrite: false }, extra || {}));
+const M = {
+  frame: lambert(COL.frame),
+  brace: lambert(COL.brace),
+  hub: lambert(COL.hub),
+  ring: lambert(COL.ring),
+  support: lambert(COL.support),
+  load: lambert(COL.load),
+  float: glass(COL.float, 0.66),
+  floatDark: glass('#8d8799', 0.72),
+  plates: COL.tints.map((c) => glass(c, 0.56)),
+  volumes: COL.tints.map((c) => glass(c, 0.085)),
+  ghost: glass('#fffaf0', 0.82),
+  ghostVolume: COL.tints.map((c) => glass(c, 0.3)),
+  ghostBad: glass(COL.load, 0.5),
+  ghostBrace: glass(COL.brace, 0.62),
+  ghostHub: glass(COL.hub, 0.55),
+  ghostLoad: glass(COL.load, 0.55),
+  leaving: glass(COL.brace, 0.3),
+  erase: lambert('#d9463c'),
+  dash: glass('#7f7a8c', 0.72),
+  dashHot: glass(COL.frame, 0.95),
+  face: new THREE.MeshBasicMaterial({ color: '#fff6e6', transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide }),
+  panel: new THREE.MeshBasicMaterial({ color: COL.brace, transparent: true, opacity: 0.26, depthWrite: false, side: THREE.DoubleSide }),
+  halo: new THREE.MeshBasicMaterial({ color: '#fffaf0', transparent: true, opacity: 1, depthTest: false }),
+  haloBack: new THREE.MeshBasicMaterial({ color: COL.label, transparent: true, opacity: 0.85, depthTest: false })
+};
+
+function mesh(geometry, material, x = 0, y = 0, z = 0) {
+  const m = new THREE.Mesh(geometry, material);
+  m.position.set(x, y, z);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+
+// ====================================================================== 5. animation
+const tweens = [];
+/** Run update(t) with t from 0 to 1 over `dur` ms after `delay` ms. The first state is applied at once. */
+function tween({ dur = 260, delay = 0, update, done }) {
+  const tw = { t0: performance.now() + delay, dur, update, done, dead: false };
+  update(0);
+  tweens.push(tw);
+  return tw;
+}
+function runTweens(now) {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const tw = tweens[i];
+    if (tw.dead) { tweens.splice(i, 1); continue; }
+    const t = (now - tw.t0) / tw.dur;
+    if (t < 0) continue;
+    if (t >= 1) {
+      tweens.splice(i, 1);
+      tw.update(1);
+      if (tw.done) tw.done();
+    } else {
+      tw.update(t);
+    }
+  }
+}
+function popIn(object, delay = 0, dur = 300) {
+  tween({ dur, delay, update: (t) => object.scale.setScalar(Math.max(0.001, spring(t))) });
+}
+function bounce(object, amount = 0.3) {
+  tween({ dur: 300, update: (t) => object.scale.setScalar(1 + amount * Math.sin(Math.PI * t) * (1 - t)) });
+}
+function shrinkAway(object, dur = 200, done) {
+  const from = object.scale.clone();
+  tween({
+    dur,
+    update: (t) => object.scale.copy(from).multiplyScalar(Math.max(0.001, 1 - easeInCubic(t))),
+    done: () => {
+      if (object.parent) object.parent.remove(object);
+      if (done) done();
+    }
+  });
+}
+
+// Where new pieces grow from: the spot the player just acted on, or the ground up when a whole structure appears.
+const stagger = { mode: 'none', anchor: new THREE.Vector3() };
+function delayFor(pos) {
+  if (stagger.mode === 'anchor') return clamp(pos.distanceTo(stagger.anchor) * 62, 0, 300);
+  if (stagger.mode === 'rise') return clamp(pos.z * 85 + Math.hypot(pos.x - 6, pos.y - 6) * 14, 0, 640);
+  return 0;
+}
+
+// ====================================================================== 6. views of the model
+const world = new THREE.Group();
+scene.add(world);
+const labelsLayer = $('#labels');
+const views = { bays: new Map(), members: new Map(), bySeg: new Map(), nodes: new Map(), loads: new Map(), removed: new Map() };
+const cache = {
+  plan: { bays: [], removed: [], braces: {} },
+  nodeById: new Map(),
+  touch: new Map(),
+  floatingMembers: new Set(),
+  floatingNodes: new Set(),
+  results: null,
+  box: new THREE.Box3(new THREE.Vector3(4, 4, 0), new THREE.Vector3(8, 8, 4))
+};
+const EMPTY_TOUCH = { ends: 0, through: 0, dirs: [] };
+const state = { tool: 'block', feedback: false, selected: null };
+const P = (p) => new THREE.Vector3(p[0], p[1], p[2]);
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+
+// ---- bays
+function makeBayView(b) {
+  const t = tintIndex(b);
+  const group = new THREE.Group();
+  group.position.set(b[0] * BAY + 1, b[1] * BAY + 1, b[2] * BAY);
+  const plate = new THREE.Mesh(geo.plate, M.plates[t]);
+  plate.receiveShadow = true;
+  const volume = new THREE.Mesh(geo.volume, M.volumes[t]);
+  volume.position.z = 1;
+  group.add(plate, volume);
+  return { bay: b, group, plate, volume, base: group.position.clone() };
+}
+function plop(group, delay) {
+  tween({
+    dur: 460,
+    delay,
+    update: (t) => {
+      const s = spring(t);
+      const footprint = 0.5 + 0.5 * easeOutCubic(Math.min(1, t * 2.6));
+      const stretch = s > 1 ? 1 - (s - 1) * 0.9 : 1 + (1 - s) * 0.12;
+      group.scale.set(footprint * stretch, footprint * stretch, Math.max(0.001, s));
+    }
+  });
+}
+function syncBays(bays, instant) {
+  const seen = new Set();
+  for (const b of bays) {
+    const key = bayKey(b);
+    seen.add(key);
+    if (views.bays.has(key)) continue;
+    const v = makeBayView(b);
+    views.bays.set(key, v);
+    world.add(v.group);
+    if (!instant) plop(v.group, delayFor(v.base));
+  }
+  for (const [key, v] of views.bays) {
+    if (seen.has(key)) continue;
+    views.bays.delete(key);
+    if (instant) world.remove(v.group);
+    else shrinkAway(v.group, 220);
+  }
+}
+
+// ---- members
+function makeMemberView(m) {
+  const a = P(m.fromPosition);
+  const b = P(m.toPosition);
+  const dir = b.clone().sub(a);
+  const len = dir.length();
+  dir.normalize();
+  const brace = isDiagonal(m.from, m.to);
+  const group = new THREE.Group();
+  group.position.copy(a);
+  group.quaternion.setFromUnitVectors(Y_AXIS, dir);
+  const body = mesh(brace ? geo.brace : geo.frame, brace ? M.brace : M.frame);
+  const rod = mesh(geo.rod, M.hub);
+  rod.visible = false;
+  group.add(body, rod);
+  return {
+    id: m.id, key: segKey(m.from, m.to), from: m.from, to: m.to, role: roleOf(m.from, m.to), brace,
+    group, body, rod, a, b, dir, len, mid: a.clone().add(b).multiplyScalar(0.5),
+    insetA: 0, insetB: 0, grow: 1, growFrom: 'a', thick: 1, floating: false, override: null
+  };
+}
+function layoutMember(v) {
+  const s0 = v.insetA;
+  const s1 = v.len - v.insetB;
+  const span = Math.max(s1 - s0, 0.001) * v.grow;
+  const lo = v.growFrom === 'a' ? s0 : v.growFrom === 'b' ? s1 - span : (s0 + s1 - span) / 2;
+  v.body.position.y = lo + span / 2;
+  v.body.scale.set(v.thick, Math.max(span, 0.001), v.thick);
+  const rodSpan = Math.max(v.len * v.grow, 0.001);
+  v.rod.position.y = v.growFrom === 'a' ? rodSpan / 2 : v.growFrom === 'b' ? v.len - rodSpan / 2 : v.len / 2;
+  v.rod.scale.set(v.thick, rodSpan, v.thick);
+  v.rod.visible = v.insetA > 0.01 || v.insetB > 0.01;
+}
+function memberMaterial(v) {
+  if (v.override) return M[v.override];
+  if (v.floating) return M.float;
+  if (state.feedback && cache.results) {
+    const r = cache.results.members[v.id];
+    return rampMaterial(r ? r.utilization : 0);
+  }
+  return v.brace ? M.brace : M.frame;
+}
+function paintMember(v) {
+  v.body.material = memberMaterial(v);
+  v.rod.material = v.floating ? M.floatDark : M.hub;
+}
+function syncMembers(members, instant) {
+  const seen = new Set();
+  for (const m of members) {
+    seen.add(m.id);
+    let v = views.members.get(m.id);
+    const fresh = !v;
+    if (fresh) {
+      v = makeMemberView(m);
+      views.members.set(m.id, v);
+      views.bySeg.set(v.key, v);
+      world.add(v.group);
+    }
+    const insetA = cache.nodeById.get(m.a).joint === 'pinned' ? PIN_INSET : 0;
+    const insetB = cache.nodeById.get(m.b).joint === 'pinned' ? PIN_INSET : 0;
+    v.floating = cache.floatingMembers.has(m.id);
+    paintMember(v);
+    if (fresh && !instant) {
+      v.insetA = insetA;
+      v.insetB = insetB;
+      const dA = stagger.mode === 'anchor' ? v.a.distanceTo(stagger.anchor) : v.a.z;
+      const dB = stagger.mode === 'anchor' ? v.b.distanceTo(stagger.anchor) : v.b.z;
+      v.growFrom = dA <= dB ? 'a' : 'b';
+      const start = v.growFrom === 'a' ? v.a : v.b;
+      tween({
+        dur: 340,
+        delay: delayFor(start),
+        update: (t) => {
+          v.grow = easeOutCubic(t);
+          v.thick = t <= 0 ? 0.001 : 0.5 + 0.5 * spring(t);
+          layoutMember(v);
+        }
+      });
+    } else if (!instant && (Math.abs(insetA - v.insetA) > 0.001 || Math.abs(insetB - v.insetB) > 0.001)) {
+      const a0 = v.insetA;
+      const b0 = v.insetB;
+      tween({
+        dur: 240,
+        update: (t) => {
+          v.insetA = lerp(a0, insetA, spring(t));
+          v.insetB = lerp(b0, insetB, spring(t));
+          layoutMember(v);
+        }
+      });
+    } else {
+      v.insetA = insetA;
+      v.insetB = insetB;
+      layoutMember(v);
+    }
+  }
+  for (const [id, v] of views.members) {
+    if (seen.has(id)) continue;
+    views.members.delete(id);
+    if (views.bySeg.get(v.key) === v) views.bySeg.delete(v.key);
+    if (instant) { world.remove(v.group); continue; }
+    v.growFrom = 'mid';
+    tween({
+      dur: 210,
+      update: (t) => {
+        v.thick = Math.max(0.001, 1 - easeInCubic(t));
+        v.grow = 1 - 0.55 * easeInCubic(t);
+        layoutMember(v);
+      },
+      done: () => world.remove(v.group)
+    });
+  }
+}
+
+// ---- nodes: the joint (cube, or ring on a pin) and whatever supports it
+function buildNodeGlyph(v, n, info) {
+  const g = v.glyph;
+  g.clear();
+  v.ring = null;
+  const dark = v.floating ? M.floatDark : M.hub;
+  if (n.joint === 'pinned') {
+    g.add(mesh(geo.ball, dark));
+    v.ring = mesh(geo.ring, v.floating ? M.float : M.ring);
+    g.add(v.ring);
+  } else {
+    g.add(mesh(info.ends > 0 ? geo.hub : geo.hubSmall, dark));
+  }
+  if (n.support === 'free') return;
+  const s = new THREE.Group();
+  const sm = v.floating ? M.floatDark : M.support;
+  if (n.support === 'fixed') {
+    s.add(mesh(geo.footing, sm, 0, 0, -G + (G - 0.04) / 2));
+  } else if (n.support === 'pinned') {
+    s.add(mesh(geo.cone, sm));
+  } else if (n.support === 'roller') {
+    s.add(mesh(geo.pad, sm, 0, 0, -G + 0.29));
+    for (const [x, y] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) s.add(mesh(geo.roll, sm, x * 0.2, y * 0.2, -G + 0.12));
+  } else {
+    s.add(mesh(geo.puck, sm, 0, 0, -G + 0.085));
+    const stem = mesh(geo.stem, sm, 0, 0, -G / 2);
+    stem.scale.z = G - 0.1;
+    s.add(stem);
+  }
+  if (!n.onGround) s.scale.setScalar(0.82);
+  g.add(s);
+}
+function syncNodes(nodes, instant) {
+  const seen = new Set();
+  for (const n of nodes) {
+    seen.add(n.id);
+    let v = views.nodes.get(n.id);
+    const fresh = !v;
+    if (fresh) {
+      const group = new THREE.Group();
+      group.position.fromArray(n.position);
+      const glyph = new THREE.Group();
+      group.add(glyph);
+      v = { id: n.id, group, glyph, base: group.position.clone(), sig: '', type: '', ring: null, floating: false, node: n };
+      views.nodes.set(n.id, v);
+      world.add(group);
+    }
+    v.node = n;
+    v.floating = cache.floatingNodes.has(n.id);
+    const info = cache.touch.get(ptKey(n.grid)) || EMPTY_TOUCH;
+    const type = n.support + '/' + n.joint;
+    const sig = [type, info.ends > 0, n.onGround, v.floating].join();
+    if (sig !== v.sig) {
+      const typeChanged = !fresh && type !== v.type;
+      v.sig = sig;
+      v.type = type;
+      buildNodeGlyph(v, n, info);
+      if (fresh && !instant) popIn(v.group, delayFor(v.base) + 40);
+      else if (typeChanged && !instant) bounce(v.glyph);
+    }
+  }
+  for (const [id, v] of views.nodes) {
+    if (seen.has(id)) continue;
+    views.nodes.delete(id);
+    if (instant) world.remove(v.group);
+    else shrinkAway(v.group, 190);
+  }
+}
+
+// ---- loads: a crate for a downward load, a chunky arrow for any other direction
+function loadShape(magnitude) {
+  const f = clamp((Math.sqrt(magnitude) - Math.sqrt(5)) / (Math.sqrt(50) - Math.sqrt(5)), 0, 1.5);
+  return { crate: 0.52 + 0.36 * f, length: 1.0 + 0.95 * f, shaft: 0.075 + 0.045 * f, head: 0.19 + 0.09 * f };
+}
+const crateTextures = new Map();
+function crateTexture(magnitude) {
+  const text = String(magnitude);
+  if (crateTextures.has(text)) return crateTextures.get(text);
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = COL.load;
+  g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = '#a8332c';
+  g.lineWidth = 14;
+  g.strokeRect(13, 13, 230, 230);
+  g.fillStyle = '#fdf6ea';
+  g.beginPath();
+  g.roundRect(34, 44, 188, 168, 26);
+  g.fill();
+  g.fillStyle = COL.label;
+  g.textAlign = 'center';
+  g.textBaseline = 'alphabetic';
+  g.font = '800 ' + (text.length > 2 ? 84 : 112) + 'px "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif';
+  g.fillText(text, 128, 152);
+  g.font = '700 38px "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif';
+  g.fillText('kN', 128, 194);
+  const texture = new THREE.CanvasTexture(c);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  crateTextures.set(text, texture);
+  return texture;
+}
+const crateMaterials = new Map();
+function crateMaterial(magnitude, ghost) {
+  const key = magnitude + (ghost ? 'g' : '');
+  if (!crateMaterials.has(key)) {
+    crateMaterials.set(key, new THREE.MeshLambertMaterial(Object.assign({ map: crateTexture(magnitude) }, ghost ? { transparent: true, opacity: 0.6, depthWrite: false } : {})));
+  }
+  return crateMaterials.get(key);
+}
+/** Which side of the joint an arrow is drawn on: pushing into it by default, pulling away if a member is in the way. */
+function arrowSide(direction, info) {
+  const d = new THREE.Vector3().fromArray(direction);
+  const blockedPush = info.dirs.some((m) => m.dot(d) < -0.9);
+  const blockedPull = info.dirs.some((m) => m.dot(d) > 0.9);
+  return blockedPush && !blockedPull ? 'pull' : 'push';
+}
+/** Fill a group (placed at the joint) with the shape of a load. Returns where its label goes, relative to the joint. */
+function buildLoadShape(group, direction, magnitude, side, ghost) {
+  group.clear();
+  const shape = loadShape(magnitude);
+  const d = new THREE.Vector3().fromArray(direction);
+  if (d.z < -0.9) {
+    const crate = mesh(geo.crate, crateMaterial(magnitude, ghost), 0, 0, HUB / 2 - 0.02 + shape.crate / 2);
+    crate.scale.setScalar(shape.crate);
+    crate.castShadow = !ghost;
+    group.add(crate);
+    return new THREE.Vector3(0, 0, HUB / 2 + shape.crate + 0.1);
+  }
+  const material = ghost ? M.ghostLoad : M.load;
+  const arrow = new THREE.Group();
+  arrow.quaternion.setFromUnitVectors(Y_AXIS, d);
+  const gap = 0.24;
+  const headLen = shape.head * 1.9;
+  const shaftLen = shape.length - headLen;
+  const start = side === 'push' ? -(gap + shape.length) : gap;
+  const shaft = mesh(geo.shaft, material, 0, start + shaftLen / 2, 0);
+  shaft.scale.set(shape.shaft, shaftLen, shape.shaft);
+  const head = mesh(geo.head, material, 0, start + shaftLen + headLen / 2, 0);
+  head.scale.set(shape.head, headLen, shape.head);
+  shaft.castShadow = head.castShadow = !ghost;
+  arrow.add(shaft, head);
+  group.add(arrow);
+  const along = side === 'push' ? -(gap + shape.length + 0.12) : gap + shape.length + 0.12;
+  return d.clone().multiplyScalar(along).add(new THREE.Vector3(0, 0, 0.2));
+}
+function syncLoads(loads, instant) {
+  const seen = new Set();
+  for (const l of loads) {
+    seen.add(l.id);
+    const node = cache.nodeById.get(l.node);
+    if (!node) continue;
+    let v = views.loads.get(l.id);
+    const fresh = !v;
+    if (fresh) {
+      const group = new THREE.Group();
+      group.userData.loadId = l.id;
+      const el = document.createElement('div');
+      el.className = 'pill';
+      labelsLayer.appendChild(el);
+      v = { id: l.id, group, el, base: new THREE.Vector3(), anchor: new THREE.Vector3(), sig: '', floating: false, load: l };
+      views.loads.set(l.id, v);
+      world.add(group);
+    }
+    v.load = l;
+    v.floating = cache.floatingNodes.has(l.node);
+    v.base.fromArray(node.position);
+    v.group.position.copy(v.base);
+    const info = cache.touch.get(ptKey(node.grid)) || EMPTY_TOUCH;
+    const side = arrowSide(l.direction, info);
+    const sig = [l.node, l.direction.join(' '), l.magnitude, side].join();
+    if (sig !== v.sig) {
+      const changed = !fresh;
+      v.sig = sig;
+      v.anchor = buildLoadShape(v.group, l.direction, l.magnitude, side, false);
+      v.el.textContent = l.magnitude + ' kN';
+      if (!instant) {
+        if (changed) bounce(v.group, 0.22);
+        else if (l.direction[2] < -0.9) dropIn(v.group, delayFor(v.base) + 120);
+        else popIn(v.group, delayFor(v.base) + 120);
+      }
+    }
+  }
+  for (const [id, v] of views.loads) {
+    if (seen.has(id)) continue;
+    views.loads.delete(id);
+    v.el.remove();
+    if (instant) world.remove(v.group);
+    else shrinkAway(v.group, 190);
+  }
+}
+/** A crate falls the last little way and squashes when it lands. */
+function dropIn(group, delay) {
+  const child = group.children[0];
+  if (!child) return;
+  const rest = child.position.z;
+  const size = child.scale.x;
+  tween({
+    dur: 420,
+    delay,
+    update: (t) => {
+      if (t <= 0) { child.scale.setScalar(0.001); return; }
+      const fall = Math.min(1, t / 0.45);
+      const land = t < 0.45 ? 0 : (t - 0.45) / 0.55;
+      const squash = t < 0.45 ? 1 : 1 - 0.22 * Math.sin(Math.PI * land) * (1 - land);
+      child.position.z = rest + (1 - fall * fall) * 0.9 - (1 - squash) * size * 0.5;
+      child.scale.set(size * (2 - squash), size * (2 - squash), size * squash);
+    }
+  });
+}
+
+// ---- dashed stand-ins for frame edges the player removed by hand
+function syncRemoved(removedKeys, instant) {
+  const seen = new Set(removedKeys);
+  for (const key of removedKeys) {
+    if (views.removed.has(key)) continue;
+    const [p, q] = parseSeg(key);
+    const a = P(p);
+    const b = P(q);
+    const dir = b.clone().sub(a);
+    const len = dir.length();
+    dir.normalize();
+    const group = new THREE.Group();
+    group.position.copy(a);
+    group.quaternion.setFromUnitVectors(Y_AXIS, dir);
+    const dashes = 5;
+    const pitch = (len - 0.5) / dashes;
+    for (let i = 0; i < dashes; i++) {
+      const dash = new THREE.Mesh(geo.dash, M.dash);
+      dash.position.y = 0.25 + pitch * (i + 0.5);
+      dash.scale.y = pitch * 0.55;
+      group.add(dash);
+    }
+    views.removed.set(key, { key, group, a, b, len, from: p, to: q, role: roleOf(p, q), hot: false });
+    world.add(group);
+    if (!instant) popIn(group, 150, 260);
+  }
+  for (const [key, v] of views.removed) {
+    if (seen.has(key)) continue;
+    views.removed.delete(key);
+    world.remove(v.group);
+  }
+}
+
+// ---- feedback preview colours (placeholder data only)
+const RAMP = [[0, '#9fcdbb'], [0.5, '#f1d07e'], [1.0, '#e9854c'], [1.5, '#a32f4b']];
+const rampMaterials = new Map();
+function rampColor(u) {
+  const x = clamp(u, 0, 1.5);
+  for (let i = 1; i < RAMP.length; i++) {
+    if (x <= RAMP[i][0]) {
+      const t = (x - RAMP[i - 1][0]) / (RAMP[i][0] - RAMP[i - 1][0]);
+      return new THREE.Color(RAMP[i - 1][1]).lerp(new THREE.Color(RAMP[i][1]), t);
+    }
+  }
+  return new THREE.Color(RAMP[RAMP.length - 1][1]);
+}
+function rampMaterial(u) {
+  const step = Math.round(clamp(u, 0, 1.5) * 20);
+  if (!rampMaterials.has(step)) rampMaterials.set(step, new THREE.MeshLambertMaterial({ color: rampColor(step / 20) }));
+  return rampMaterials.get(step);
+}
+
+// ---- one pass over everything, run on every change of the model
+let hoverDirty = true;
+function syncAll(change) {
+  const instant = !!(change && change.reset);
+  const nodes = core.nodes;
+  const members = core.members;
+  const loads = core.loads;
+  const conn = core.connectivity();
+  cache.plan = readPlan();
+  cache.nodes = nodes;
+  cache.members = members;
+  cache.loads = loads;
+  cache.nodeById = new Map(nodes.map((n) => [n.id, n]));
+  cache.loadById = new Map(loads.map((l) => [l.id, l]));
+  cache.box = structureBox();
+  cache.floatingMembers = new Set(conn.floatingMembers);
+  cache.floatingNodes = new Set(conn.floatingNodes);
+  cache.results = state.feedback ? core.mockResults() : null;
+  cache.touch = new Map();
+  const touchAt = (key) => {
+    let t = cache.touch.get(key);
+    if (!t) cache.touch.set(key, (t = { ends: 0, through: 0, dirs: [] }));
+    return t;
+  };
+  for (const m of members) {
+    const points = DOF.latticePoints(m.from, m.to);
+    const d = new THREE.Vector3(m.to[0] - m.from[0], m.to[1] - m.from[1], m.to[2] - m.from[2]).normalize();
+    const back = d.clone().negate();
+    points.forEach((p, i) => {
+      const t = touchAt(ptKey(p));
+      if (i === 0) { t.ends++; t.dirs.push(d); }
+      else if (i === points.length - 1) { t.ends++; t.dirs.push(back); }
+      else { t.through++; t.dirs.push(d, back); }
+    });
+  }
+  syncBays(cache.plan.bays, instant);
+  syncMembers(members, instant);
+  syncNodes(nodes, instant);
+  syncLoads(loads, instant);
+  syncRemoved(cache.plan.removed, instant);
+  stagger.mode = 'none';
+  rebuildPick();
+  hoverDirty = true;
+  hoverSig = ' '; // the ghost is redrawn against the new model
+  refreshSelection();
+  refreshInterface();
+}
+
+// ====================================================================== 7. camera
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.11;
+controls.rotateSpeed = 0.75;
+controls.zoomSpeed = 0.9;
+controls.panSpeed = 0.9;
+controls.screenSpacePanning = false;
+controls.minDistance = 7;
+controls.maxDistance = 80;
+controls.minPolarAngle = 5 * DEG;
+controls.maxPolarAngle = 86 * DEG;
+controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: null };
+controls.addEventListener('change', () => { hoverDirty = true; });
+
+const HOME = { az: -54 * DEG, el: 18.5 * DEG };
+/** The part of the window the structure should sit in, clear of the interface (fractions of the window). */
+const SAFE = { left: 0.08, right: 0.92, top: 0.17, bottom: 0.77 };
+function structureBox() {
+  const box = new THREE.Box3();
+  const nodes = core.nodes;
+  if (!nodes.length) return box.set(new THREE.Vector3(1.5, 1.5, -G), new THREE.Vector3(10.5, 10.5, 2.4));
+  const v = new THREE.Vector3();
+  for (const n of nodes) box.expandByPoint(v.fromArray(n.position));
+  box.min.z = -G;
+  box.expandByScalar(0.6);
+  box.max.z += 0.75; // room for a crate and its label
+  return box;
+}
+const probe = new THREE.PerspectiveCamera();
+const probeCorner = new THREE.Vector3();
+/** Where the corners of a box would land on screen (as fractions of the window) for a given view. */
+function boxOnScreen(box, target, dir, distance) {
+  probe.projectionMatrix.copy(camera.projectionMatrix);
+  probe.position.copy(target).addScaledVector(dir, distance);
+  probe.lookAt(target);
+  probe.updateMatrixWorld();
+  const b = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+  for (let i = 0; i < 8; i++) {
+    probeCorner.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).project(probe);
+    const x = (probeCorner.x + 1) / 2;
+    const y = (1 - probeCorner.y) / 2;
+    b.minX = Math.min(b.minX, x);
+    b.maxX = Math.max(b.maxX, x);
+    b.minY = Math.min(b.minY, y);
+    b.maxY = Math.max(b.maxY, y);
+  }
+  return b;
+}
+/** A camera position and target that put the box in the middle of the safe area, as large as it fits. */
+function viewOf(box, az, el) {
+  const dir = new THREE.Vector3(Math.cos(el) * Math.cos(az), Math.cos(el) * Math.sin(az), Math.sin(el));
+  const right = new THREE.Vector3(-Math.sin(az), Math.cos(az), 0);
+  const target = box.getCenter(new THREE.Vector3());
+  target.z = lerp(box.min.z, box.max.z, 0.3);
+  const tanUp = Math.tan((camera.fov * DEG) / 2);
+  const spanY = (2 * tanUp) / (1 + LENS_SHIFT);     // tan-extent of the window, top to bottom
+  const spanX = 2 * tanUp * camera.aspect;
+  const search = (test) => {
+    let lo = controls.minDistance;
+    let hi = controls.maxDistance;
+    for (let i = 0; i < 20; i++) {
+      const mid = (lo + hi) / 2;
+      if (test(boxOnScreen(box, target, dir, mid))) hi = mid;
+      else lo = mid;
+    }
+    return hi;
+  };
+  let distance = controls.maxDistance;
+  for (let pass = 0; pass < 4; pass++) {
+    distance = search((b) => b.maxX - b.minX <= SAFE.right - SAFE.left && b.maxY - b.minY <= SAFE.bottom - SAFE.top);
+    const b = boxOnScreen(box, target, dir, distance);
+    const offX = (b.minX + b.maxX) / 2 - (SAFE.left + SAFE.right) / 2;
+    const offY = (b.minY + b.maxY) / 2 - (SAFE.top + SAFE.bottom) / 2;
+    target.addScaledVector(right, offX * distance * spanX);
+    target.z = clamp(target.z - (offY * distance * spanY) / Math.cos(el), 0, 9);
+  }
+  distance = search((b) => b.minX >= SAFE.left - 0.01 && b.maxX <= SAFE.right + 0.01 && b.minY >= SAFE.top - 0.01 && b.maxY <= SAFE.bottom + 0.01);
+  return { target, position: target.clone().addScaledVector(dir, distance) };
+}
+let flight = null;
+function flyTo(view, ms = 700) {
+  if (flight) flight.dead = true;
+  const p0 = camera.position.clone();
+  const t0 = controls.target.clone();
+  controls.enabled = false;
+  flight = tween({
+    dur: ms,
+    update: (t) => {
+      const k = easeInOutCubic(t);
+      camera.position.lerpVectors(p0, view.position, k);
+      controls.target.lerpVectors(t0, view.target, k);
+    },
+    done: () => { controls.enabled = true; flight = null; }
+  });
+}
+function reframe(animated) {
+  const offset = camera.position.clone().sub(controls.target);
+  const az = animated ? Math.atan2(offset.y, offset.x) : HOME.az;
+  const el = animated ? clamp(Math.asin(offset.z / offset.length()), 12 * DEG, 60 * DEG) : HOME.el;
+  const view = viewOf(structureBox(), az, el);
+  if (animated) flyTo(view);
+  else {
+    camera.position.copy(view.position);
+    controls.target.copy(view.target);
+    controls.update();
+  }
+}
+function keepCameraSensible() {
+  const t = controls.target;
+  const x = clamp(t.x, -3, 15);
+  const y = clamp(t.y, -3, 15);
+  const z = clamp(t.z, 0, 9);
+  if (x !== t.x || y !== t.y || z !== t.z) {
+    camera.position.x += x - t.x;
+    camera.position.y += y - t.y;
+    camera.position.z += z - t.z;
+    t.set(x, y, z);
+  }
+  if (camera.position.z < 0.4) camera.position.z = 0.4;
+}
+
+let rect = canvas.getBoundingClientRect();
+const projected = new THREE.Vector3();
+/** Viewport pixel position of a world point. */
+function toScreen(x, y, z) {
+  projected.set(x, y, z).project(camera);
+  return {
+    x: rect.left + ((projected.x + 1) / 2) * rect.width,
+    y: rect.top + ((1 - projected.y) / 2) * rect.height,
+    depth: projected.z,
+    visible: projected.z > -1 && projected.z < 1 && Math.abs(projected.x) <= 1 && Math.abs(projected.y) <= 1
+  };
+}
+window.addEventListener('resize', () => {
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  fitCameraToWindow();
+  rect = canvas.getBoundingClientRect();
+  hoverDirty = true;
+});
+
+// ====================================================================== 8. interface basics
+const ui = {
+  stats: $('#stats'), loose: $('#loose'), hint: $('#hint'),
+  turnWho: $('#turn-who'), turnNum: $('#turn-num'), turnDot: $('#turn-dot'),
+  undo: $('#btn-undo'), redo: $('#btn-redo'), drawer: $('#drawer'), json: $('#json')
+};
+const fmt = (value) => (Math.round(value * 10) / 10).toLocaleString('en-US', { maximumFractionDigits: 1 });
+const cap = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+
+// The starter structure is itself one undo step in the core. Undo stops there, so the
+// player cannot undo their way back to a state from before the page opened.
+const history = { depth: 0, floor: 0 };
+const canUndo = () => core.canUndo && history.depth > history.floor;
+
+function refreshJson() {
+  if (!ui.drawer.hidden) ui.json.textContent = JSON.stringify(core.toSolverInput(), null, 2);
+}
+function refreshInterface() {
+  const s = core.stats();
+  const bays = cache.plan.bays.length;
+  ui.stats.innerHTML =
+    '<span><b>' + bays + '</b> ' + (bays === 1 ? 'bay' : 'bays') + '</span>' +
+    '<span><b>' + s.members + '</b> ' + (s.members === 1 ? 'member' : 'members') + '</span>' +
+    '<span title="Total length of all members"><b>' + fmt(s.totalLength) + ' m</b> in total</span>' +
+    '<span title="Sum of all loads"><b>' + fmt(s.totalLoad) + ' kN</b> applied</span>';
+  const loose = cache.floatingMembers.size;
+  ui.loose.hidden = loose === 0;
+  ui.loose.textContent = loose + (loose === 1 ? ' member is' : ' members are') + ' not connected to a support';
+  const turn = core.turn;
+  ui.turnWho.textContent = 'Player ' + turn.player;
+  ui.turnNum.textContent = 'Turn ' + turn.number + ' · provisional';
+  ui.turnDot.style.background = turn.player === 1 ? '#f2c078' : '#9db6d8';
+  ui.undo.disabled = !canUndo();
+  ui.redo.disabled = !core.canRedo;
+  refreshJson();
+}
+
+// ---- axis indicator: follows the camera so +X and +Y mean something
+const axisSvg = $('#axis');
+const AXES = [
+  { name: 'X', v: new THREE.Vector3(1, 0, 0), color: 'var(--ax-x)' },
+  { name: 'Y', v: new THREE.Vector3(0, 1, 0), color: 'var(--ax-y)' },
+  { name: 'Z', v: new THREE.Vector3(0, 0, 1), color: 'var(--ax-z)' }
+];
+const svgNS = 'http://www.w3.org/2000/svg';
+axisSvg.innerHTML = '<circle r="40" fill="rgba(253,246,234,.72)"/>';
+for (const axis of AXES) {
+  axis.g = document.createElementNS(svgNS, 'g');
+  axis.line = document.createElementNS(svgNS, 'line');
+  axis.line.setAttribute('stroke', axis.color);
+  axis.line.setAttribute('stroke-width', '4');
+  axis.line.setAttribute('stroke-linecap', 'round');
+  axis.dot = document.createElementNS(svgNS, 'circle');
+  axis.dot.setAttribute('r', '8.5');
+  axis.dot.setAttribute('fill', axis.color);
+  axis.text = document.createElementNS(svgNS, 'text');
+  axis.text.setAttribute('fill', '#fff8ee');
+  axis.text.textContent = axis.name;
+  axis.g.append(axis.line, axis.dot, axis.text);
+  axisSvg.appendChild(axis.g);
+}
+const axisTmp = new THREE.Vector3();
+let axisOrder = '';
+function updateAxis() {
+  for (const axis of AXES) {
+    axisTmp.copy(axis.v).transformDirection(camera.matrixWorldInverse);
+    axis.depth = axisTmp.z;
+    const x = axisTmp.x * 26;
+    const y = -axisTmp.y * 26;
+    axis.line.setAttribute('x2', x.toFixed(1));
+    axis.line.setAttribute('y2', y.toFixed(1));
+    axis.dot.setAttribute('cx', x.toFixed(1));
+    axis.dot.setAttribute('cy', y.toFixed(1));
+    axis.text.setAttribute('x', x.toFixed(1));
+    axis.text.setAttribute('y', (y + 0.5).toFixed(1));
+    axis.g.setAttribute('opacity', axisTmp.z < -0.3 ? '0.55' : '1');
+  }
+  const sorted = AXES.slice().sort((a, b) => a.depth - b.depth);
+  const order = sorted.map((axis) => axis.name).join('');
+  if (order !== axisOrder) {
+    axisOrder = order;
+    sorted.forEach((axis) => axisSvg.appendChild(axis.g));
+  }
+}
+
+// ---- labels that sit in the scene
+const labelPos = new THREE.Vector3();
+function updateLabels() {
+  const placed = [];
+  const items = [];
+  for (const v of views.loads.values()) {
+    labelPos.copy(v.group.position).add(v.anchor);
+    items.push({ v, s: toScreen(labelPos.x, labelPos.y, labelPos.z) });
+  }
+  items.sort((a, b) => a.s.depth - b.s.depth);
+  for (const { v, s } of items) {
+    let show = s.visible;
+    const box = { l: s.x - 30, r: s.x + 30, t: s.y - 24, b: s.y };
+    if (show) {
+      for (const other of placed) {
+        if (box.l < other.r && box.r > other.l && box.t < other.b && box.b > other.t) { show = false; break; }
+      }
+    }
+    if (show) placed.push(box);
+    v.el.style.opacity = show ? '1' : '0';
+    v.el.style.transform = 'translate(' + s.x.toFixed(1) + 'px,' + s.y.toFixed(1) + 'px) translate(-50%,-100%)';
+  }
+}
+
+// ====================================================================== 9. picking
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+function rayAt(px, py) {
+  ndc.set(((px - rect.left) / rect.width) * 2 - 1, -((py - rect.top) / rect.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  return raycaster.ray;
+}
+
+// Things the pointer can land on, rebuilt whenever the model changes.
+const pick = { points: [], panels: new Map(), segs: new Set() };
+function rebuildPick() {
+  pick.points = [];
+  pick.segs = new Set();
+  const seen = new Set();
+  for (const n of cache.nodes) {
+    pick.points.push({ p: n.grid, pos: P(n.position), nodeId: n.id, on: '' });
+    seen.add(ptKey(n.grid));
+  }
+  for (const m of cache.members) {
+    pick.segs.add(segKey(m.from, m.to));
+    for (const p of DOF.latticePoints(m.from, m.to)) {
+      const key = ptKey(p);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pick.points.push({ p, pos: P(core.position(p)), nodeId: null, on: roleOf(m.from, m.to) });
+    }
+  }
+  pick.panels = new Map();
+  for (const b of cache.plan.bays) {
+    for (const pn of bayPanels(b)) {
+      const key = panelKey(pn.n, pn.c);
+      if (pick.panels.has(key)) continue;
+      const shape = panelShape(pn.n, pn.c);
+      pick.panels.set(key, { key, n: pn.n, c: pn.c, shape, centre: P(shape.centre), corners: shape.corners.map(P) });
+    }
+  }
+}
+
+const bayBox = new THREE.Box3();
+const bayHit = new THREE.Vector3();
+/** The bay whose (invisible) box the ray enters first, and through which face. */
+function pickBay(ray) {
+  let best = null;
+  for (const b of cache.plan.bays) {
+    bayBox.min.set(b[0] * BAY, b[1] * BAY, b[2] * BAY);
+    bayBox.max.set(bayBox.min.x + BAY, bayBox.min.y + BAY, bayBox.min.z + BAY);
+    if (!ray.intersectBox(bayBox, bayHit)) continue;
+    const t = bayHit.distanceTo(ray.origin);
+    if (!best || t < best.t) best = { bay: b, t, point: bayHit.clone(), axis: 0, sign: 1 };
+  }
+  if (!best) return null;
+  let gap = Infinity;
+  for (let a = 0; a < 3; a++) {
+    const lo = best.bay[a] * BAY;
+    const value = best.point.getComponent(a);
+    if (Math.abs(value - lo) < gap) { gap = Math.abs(value - lo); best.axis = a; best.sign = -1; }
+    if (Math.abs(value - lo - BAY) < gap) { gap = Math.abs(value - lo - BAY); best.axis = a; best.sign = 1; }
+  }
+  return best;
+}
+
+/**
+ * The panel under the pointer. A ray usually passes through several panels (front wall,
+ * inner walls, floors), so the one whose centre is closest to the pointer wins, with a
+ * head start for the one in front. That keeps inner panels reachable.
+ */
+function pickPanel(ray, px, py) {
+  const hits = [];
+  for (const panel of pick.panels.values()) {
+    const n = panel.n;
+    const dn = ray.direction.getComponent(n);
+    if (Math.abs(dn) < 1e-6) continue;
+    const t = (panel.c[n] - ray.origin.getComponent(n)) / dn;
+    if (t <= 0) continue;
+    const [u, v] = PANEL_UV[n];
+    const hu = (ray.origin.getComponent(u) + ray.direction.getComponent(u) * t - panel.c[u]) / BAY;
+    const hv = (ray.origin.getComponent(v) + ray.direction.getComponent(v) * t - panel.c[v]) / BAY;
+    if (hu < 0 || hu > 1 || hv < 0 || hv > 1) continue;
+    hits.push({ panel, t, hu, hv });
+  }
+  if (!hits.length) return null;
+  hits.sort((a, b) => a.t - b.t);
+  let best = null;
+  hits.forEach((hit, rank) => {
+    const c = hit.panel.corners.map((corner) => toScreen(corner.x, corner.y, corner.z));
+    const centre = toScreen(hit.panel.centre.x, hit.panel.centre.y, hit.panel.centre.z);
+    const half = Math.max(10, (Math.hypot(c[0].x - c[2].x, c[0].y - c[2].y) + Math.hypot(c[1].x - c[3].x, c[1].y - c[3].y)) / 4);
+    hit.score = Math.hypot(centre.x - px, centre.y - py) / half + (rank === 0 ? -0.28 : 0.05 * rank);
+    if (!best || hit.score < best.score) best = hit;
+  });
+  best.point = ray.at(best.t, new THREE.Vector3());
+  return best;
+}
+
+/** The joint or lattice point on a member nearest the pointer, within a small radius. */
+function pickPoint(px, py) {
+  let best = null;
+  for (const c of pick.points) {
+    const s = toScreen(c.pos.x, c.pos.y, c.pos.z);
+    if (s.depth < -1 || s.depth > 1) continue;
+    const d = Math.hypot(s.x - px, s.y - py);
+    if (d > (c.nodeId ? 22 : 17)) continue;
+    const score = Math.round(d / 4) * 1000 + s.depth * 100; // screen distance first, then the nearer one
+    if (!best || score < best.score) best = { p: c.p, pos: c.pos, nodeId: c.nodeId, on: c.on, score };
+  }
+  return best;
+}
+
+/** The placed load whose crate or arrow is under the pointer. Call rayAt first. */
+function pickLoad() {
+  const groups = [];
+  for (const v of views.loads.values()) groups.push(v.group);
+  if (!groups.length) return null;
+  for (const hit of raycaster.intersectObjects(groups, true)) {
+    let o = hit.object;
+    while (o && !o.userData.loadId) o = o.parent;
+    if (o) return o.userData.loadId;
+  }
+  return null;
+}
+
+/** The member, or dashed stand-in of a removed one, nearest the pointer on screen. */
+function pickSegment(px, py) {
+  let best = null;
+  const test = (kind, v) => {
+    const a = toScreen(v.a.x, v.a.y, v.a.z);
+    const b = toScreen(v.b.x, v.b.y, v.b.z);
+    if (Math.abs(a.depth) > 1 || Math.abs(b.depth) > 1) return;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 > 0 ? clamp(((px - a.x) * dx + (py - a.y) * dy) / len2, 0, 1) : 0;
+    const d = Math.hypot(px - (a.x + dx * t), py - (a.y + dy * t));
+    if (d > 12) return;
+    const score = Math.round(d / 4) * 1000 + lerp(a.depth, b.depth, t) * 100;
+    if (!best || score < best.score) best = { kind, v, score };
+  };
+  for (const v of views.members.values()) test('member', v);
+  for (const v of views.removed.values()) test('removed', v);
+  return best;
+}
+
+// ====================================================================== 10. hover and ghosts
+const pointer = { x: 0, y: 0, inside: false, down: false, dragging: false, startX: 0, startY: 0, alt: false };
+const DRAG_PX = 5;
+let hover = null;
+let hoverSig = '';
+const ghost = new THREE.Group();
+scene.add(ghost);
+const billboards = [];
+const hoverTouched = [];
+const tagEl = $('#tag');
+const brush = { direction: '-Z', magnitude: 10 };
+const DIR_BY_ID = Object.fromEntries(DOF.AXIS_DIRECTIONS.map((d) => [d.id, d]));
+const DIR_WORD = { '-Z': 'down', '+Z': 'up', '+X': 'along +X', '-X': 'along -X', '+Y': 'along +Y', '-Y': 'along -Y' };
+function dirIdOf(vector) {
+  const found = DOF.AXIS_DIRECTIONS.find((d) => d.vector.every((c, i) => Math.abs(c - vector[i]) < 0.01));
+  return found ? found.id : null;
+}
+const BRACE_LENGTH = (Math.SQRT2 * BAY).toFixed(2);
+const SUPPORT_WORD = { free: 'no support', roller: 'roller support', pinned: 'pinned support', fixed: 'fixed support', custom: 'custom support' };
+
+/** Alt held with any tool is the eraser. */
+const activeTool = () => (pointer.alt ? 'eraser' : state.tool);
+
+function ghostBar(p, q, material, geometry) {
+  const a = P(p);
+  const b = P(q);
+  const dir = b.clone().sub(a);
+  const bar = new THREE.Mesh(geometry, material);
+  bar.position.copy(a).add(b).multiplyScalar(0.5);
+  bar.scale.y = dir.length();
+  bar.quaternion.setFromUnitVectors(Y_AXIS, dir.normalize());
+  return bar;
+}
+function flatQuad(centre, axis, material) {
+  const quad = new THREE.Mesh(geo.quad, material);
+  quad.position.copy(centre);
+  if (axis === 0) quad.rotation.y = Math.PI / 2;
+  else if (axis === 1) quad.rotation.x = Math.PI / 2;
+  quad.scale.setScalar(BAY - SEC);
+  quad.renderOrder = 20;
+  return quad;
+}
+function haloAt(pos) {
+  const halo = new THREE.Group();
+  const dark = new THREE.Mesh(geo.haloBack, M.haloBack);
+  const light = new THREE.Mesh(geo.halo, M.halo);
+  dark.renderOrder = 30;
+  light.renderOrder = 31;
+  halo.add(dark, light);
+  halo.position.copy(pos);
+  billboards.push(halo);
+  return halo;
+}
+function describeNode(n) {
+  const joint = n.joint + ' joint';
+  if (n.support === 'free') return n.onGround ? 'No support &middot; ' + joint : cap(joint);
+  return cap(SUPPORT_WORD[n.support]) + ' &middot; ' + joint;
+}
+function nextTypeWord(n) {
+  if (!n.onGround) return n.joint === 'rigid' ? 'pinned joint' : 'rigid joint';
+  const at = DOF.SUPPORT_CYCLE.indexOf(n.support);
+  return SUPPORT_WORD[DOF.SUPPORT_CYCLE[(at + 1) % DOF.SUPPORT_CYCLE.length]];
+}
+/** Bits 1 and 2 are the two diagonals; bit 4 remembers that the second diagonal was placed first. */
+function nextBrace(value, aim) {
+  const bits = value & 3;
+  const first = value & 4 ? 2 : 1;
+  if (bits === 0) return aim === 2 ? 2 | 4 : 1;
+  if (bits === 3) return 0;
+  if (bits === first) return (3 - first) | (value & 4);
+  return 3 | (value & 4);
+}
+
+function hoverBlock(ray) {
+  const hit = pickBay(ray);
+  let cell = null;
+  let face = null;
+  if (ray.direction.z < -1e-6) {
+    const t = -ray.origin.z / ray.direction.z;
+    if (t > 0 && (!hit || t < hit.t)) {
+      const bx = Math.floor((ray.origin.x + ray.direction.x * t) / BAY);
+      const by = Math.floor((ray.origin.y + ray.direction.y * t) / BAY);
+      if (bx < 0 || by < 0 || bx >= NB[0] || by >= NB[1]) return null;
+      cell = [bx, by, 0];
+    }
+  }
+  if (!cell) {
+    if (!hit) return null;
+    face = hit;
+    cell = hit.bay.slice();
+    cell[hit.axis] += hit.sign;
+  }
+  const ok = bayInBounds(cell) && !hasBay(cache.plan, cell);
+  const fresh = bayEdges(cell).filter(([p, q]) => !pick.segs.has(segKey(p, q)));
+  const centre = new THREE.Vector3(cell[0] * BAY + 1, cell[1] * BAY + 1, cell[2] * BAY + 1);
+  const anchor = centre.clone();
+  if (face) anchor.setComponent(face.axis, anchor.getComponent(face.axis) - face.sign);
+  else anchor.z = 0;
+  return {
+    tool: 'block', cell, ok, bad: !ok, anchor, removeBay: face ? face.bay : null,
+    sig: ['block', cell, face ? [face.bay, face.axis, face.sign] : 'ground', ok, fresh.length].join('|'),
+    tag: ok
+      ? 'Bay of 2 m &middot; <b>+' + fresh.length + (fresh.length === 1 ? ' member' : ' members') + '</b> &middot; ' + fresh.length * BAY + ' m'
+      : 'Outside the build area',
+    why: ok ? '' : cell[2] >= NB[2] ? 'Four storeys is as high as this quay goes.' : 'That bay would be off the paving: the build area is 6 by 6 bays.',
+    draw() {
+      if (face) ghost.add(flatQuad(anchor, face.axis, M.face));
+      const volume = new THREE.Mesh(geo.volume, ok ? M.ghostVolume[tintIndex(cell)] : M.ghostBad);
+      volume.position.copy(centre);
+      ghost.add(volume);
+      for (const [p, q] of ok ? fresh : bayEdges(cell)) ghost.add(ghostBar(p, q, ok ? M.ghost : M.ghostBad, geo.frame));
+    }
+  };
+}
+
+function hoverBrace(ray) {
+  const hit = pickPanel(ray, pointer.x, pointer.y);
+  if (!hit) return null;
+  const panel = hit.panel;
+  const value = cache.plan.braces[panel.key] || 0;
+  const aim = Math.abs(hit.hu - hit.hv) <= Math.abs(hit.hu + hit.hv - 1) ? 1 : 2;
+  const next = nextBrace(value, aim);
+  const adds = next & 3 & ~value;
+  const drops = value & 3 & ~next;
+  let tag;
+  if (!(next & 3)) tag = (value & 3) === 3 ? 'Remove both braces' : 'Remove the brace';
+  else if (adds && drops) tag = 'Swap to the other diagonal &middot; <b>' + BRACE_LENGTH + ' m</b>';
+  else if ((next & 3) === 3) tag = 'Add the second brace &middot; <b>' + BRACE_LENGTH + ' m</b>';
+  else tag = 'Brace this ' + (panel.n === 2 ? 'floor' : 'wall') + ' &middot; <b>' + BRACE_LENGTH + ' m</b>';
+  return {
+    tool: 'brace', panel, value, next, anchor: hit.point,
+    sig: ['brace', panel.key, value, next].join('|'),
+    tag,
+    draw() {
+      ghost.add(flatQuad(panel.centre, panel.n, M.panel));
+      if (adds & 1) ghost.add(ghostBar(panel.shape.A[0], panel.shape.A[1], M.ghostBrace, geo.brace));
+      if (adds & 2) ghost.add(ghostBar(panel.shape.B[0], panel.shape.B[1], M.ghostBrace, geo.brace));
+      for (const bit of [1, 2]) {
+        if (!(drops & bit)) continue;
+        const seg = bit === 1 ? panel.shape.A : panel.shape.B;
+        const v = views.bySeg.get(segKey(seg[0], seg[1]));
+        if (v) { v.override = 'leaving'; paintMember(v); hoverTouched.push(v); }
+      }
+    }
+  };
+}
+
+function hoverConnection() {
+  const c = pickPoint(pointer.x, pointer.y);
+  if (!c) return null;
+  const node = c.nodeId ? cache.nodeById.get(c.nodeId) : null;
+  const selected = !!(node && state.selected && state.selected.kind === 'node' && state.selected.id === node.id);
+  return {
+    tool: 'connection', point: c.p, node, selected, anchor: c.pos,
+    sig: ['conn', c.p, node ? node.support + node.joint : 'new', selected].join('|'),
+    tag: node
+      ? (selected ? 'Click again for a <b>' + nextTypeWord(node) + '</b>' : describeNode(node))
+      : 'Add a connection on this ' + (c.on || 'member'),
+    draw() {
+      ghost.add(haloAt(c.pos));
+      if (!node) ghost.add(mesh(geo.hubSmall, M.ghostHub, c.pos.x, c.pos.y, c.pos.z));
+    }
+  };
+}
+
+function hoverLoad() {
+  const loadId = pickLoad();
+  if (loadId && cache.loadById.has(loadId)) {
+    const l = cache.loadById.get(loadId);
+    return {
+      tool: 'load', loadId, node: cache.nodeById.get(l.node), anchor: P(cache.nodeById.get(l.node).position),
+      sig: ['load-on', loadId, l.magnitude].join('|'),
+      tag: '<b>' + l.magnitude + ' kN</b> ' + (DIR_WORD[dirIdOf(l.direction)] || '') + ' &middot; click to edit, wheel to resize',
+      draw() {
+        const v = views.loads.get(loadId);
+        if (v) v.el.classList.add('hot');
+      }
+    };
+  }
+  const c = pickPoint(pointer.x, pointer.y);
+  if (!c) return null;
+  const node = c.nodeId ? cache.nodeById.get(c.nodeId) : null;
+  const vector = DIR_BY_ID[brush.direction].vector;
+  const existing = node ? cache.loads.find((l) => l.node === node.id && dirIdOf(l.direction) === brush.direction) : null;
+  const info = cache.touch.get(ptKey(c.p)) || EMPTY_TOUCH;
+  const tag = existing
+    ? '<b>' + existing.magnitude + ' kN</b> ' + DIR_WORD[brush.direction] + ' &middot; click to edit, wheel to resize'
+    : 'Drop <b>' + brush.magnitude + ' kN</b> ' + DIR_WORD[brush.direction];
+  return {
+    tool: 'load', point: c.p, node, existing, anchor: c.pos,
+    sig: ['load-at', c.p, brush.direction, brush.magnitude, existing ? existing.id + ':' + existing.magnitude : ''].join('|'),
+    tag,
+    draw() {
+      if (existing) {
+        const v = views.loads.get(existing.id);
+        if (v) v.el.classList.add('hot');
+        return;
+      }
+      const group = new THREE.Group();
+      group.position.copy(c.pos);
+      buildLoadShape(group, vector, brush.magnitude, arrowSide(vector, info), true);
+      ghost.add(group);
+      if (!node) ghost.add(mesh(geo.hubSmall, M.ghostHub, c.pos.x, c.pos.y, c.pos.z));
+    }
+  };
+}
+
+function hoverEraser() {
+  const loadId = pickLoad();
+  if (loadId && cache.loadById.has(loadId)) {
+    return {
+      tool: 'eraser', kind: 'load', loadId, sig: 'erase-load|' + loadId, tag: 'Remove this load',
+      draw() {
+        const v = views.loads.get(loadId);
+        if (v) v.el.classList.add('hot');
+      }
+    };
+  }
+  const seg = pickSegment(pointer.x, pointer.y);
+  if (!seg) return null;
+  const v = seg.v;
+  if (seg.kind === 'removed') {
+    return {
+      tool: 'eraser', kind: 'removed', key: v.key, anchor: v.a, sig: 'erase-back|' + v.key,
+      tag: 'Bring this ' + v.role + ' back &middot; <b>' + fmt(v.len) + ' m</b>',
+      draw() {
+        v.hot = true;
+        v.group.children.forEach((dash) => { dash.material = M.dashHot; });
+      }
+    };
+  }
+  return {
+    tool: 'eraser', kind: 'member', key: v.key, anchor: v.mid, sig: 'erase|' + v.key,
+    tag: 'Remove this ' + v.role + ' &middot; <b>' + (v.brace ? BRACE_LENGTH : fmt(v.len)) + ' m</b>',
+    draw() {
+      v.override = 'erase';
+      paintMember(v);
+      hoverTouched.push(v);
+    }
+  };
+}
+
+function clearGhost() {
+  ghost.clear();
+  ghost.position.set(0, 0, 0);
+  billboards.length = 0;
+  for (const v of hoverTouched) { v.override = null; paintMember(v); }
+  hoverTouched.length = 0;
+  for (const v of views.removed.values()) {
+    if (!v.hot) continue;
+    v.hot = false;
+    v.group.children.forEach((dash) => { dash.material = M.dash; });
+  }
+  for (const v of views.loads.values()) v.el.classList.remove('hot');
+}
+
+const HINTS = {
+  block: 'Click the quay or the face of a bay to add a bay. Right-click a bay to take it away.',
+  brace: 'Click a panel to step its bracing: one diagonal, the other, both, none.',
+  connection: 'Click a joint, or a point on a member, to open its degrees of freedom. Click it again to step its type.',
+  load: 'Click a joint, or a point on a member, to drop a load. The wheel changes the amount.',
+  eraser: 'Click one member to remove it. Click a dashed outline to bring it back.'
+};
+let hintFlash = null;
+function refreshHint() {
+  const tool = activeTool();
+  let text = HINTS[tool];
+  let warn = false;
+  if (hintFlash) { text = hintFlash; warn = true; }
+  else if (hover && hover.bad && hover.why) { text = hover.why; warn = true; }
+  else if (tool === 'connection' && state.selected) text = 'Toggle each degree of freedom on the card, or click the joint again to step its type.';
+  else if (tool === 'load' && state.selected) text = 'Change the direction and amount on the card, or use the wheel over the load.';
+  ui.hint.textContent = text;
+  ui.hint.classList.toggle('warn', warn);
+}
+function flashHint(text) {
+  hintFlash = text;
+  refreshHint();
+  clearTimeout(flashHint.timer);
+  flashHint.timer = setTimeout(() => { hintFlash = null; refreshHint(); }, 1800);
+}
+
+function updateHover() {
+  hoverDirty = false;
+  let next = null;
+  if (pointer.inside && !pointer.dragging && !flight) {
+    const ray = rayAt(pointer.x, pointer.y);
+    const tool = activeTool();
+    if (tool === 'block') next = hoverBlock(ray);
+    else if (tool === 'brace') next = hoverBrace(ray);
+    else if (tool === 'connection') next = hoverConnection();
+    else if (tool === 'load') next = hoverLoad();
+    else if (tool === 'eraser') next = hoverEraser();
+  }
+  hover = next;
+  const sig = next ? next.sig : '';
+  if (sig === hoverSig) return;
+  hoverSig = sig;
+  clearGhost();
+  if (next) next.draw();
+  tagEl.hidden = !(next && next.tag);
+  if (next && next.tag) {
+    tagEl.innerHTML = next.tag;
+    tagEl.classList.toggle('bad', !!next.bad);
+  }
+  canvas.style.cursor = !next ? 'default' : next.bad ? 'not-allowed' : 'pointer';
+  refreshHint();
+}
+function shakeGhost() {
+  tween({ dur: 280, update: (t) => { ghost.position.x = Math.sin(t * Math.PI * 6) * 0.07 * (1 - t); } });
+}
+
+// ====================================================================== 11. tools: what a click does
+const TOOL_IDS = ['block', 'brace', 'connection', 'load'];
+let lastBuildTool = 'block';
+function setTool(id) {
+  if (!TOOL_IDS.includes(id) && id !== 'eraser') return;
+  if (id !== 'eraser') lastBuildTool = id;
+  state.tool = id;
+  for (const button of $$('.tool')) button.classList.toggle('active', button.dataset.tool === id);
+  $('#load-options').hidden = id !== 'load';
+  const sel = state.selected;
+  if (sel && ((sel.kind === 'node' && id !== 'connection') || (sel.kind === 'load' && id !== 'load'))) deselect();
+  hoverDirty = true;
+  hoverSig = '\u0000';
+  refreshHint();
+}
+
+function growFrom(point) {
+  stagger.mode = 'anchor';
+  stagger.anchor.copy(point);
+}
+
+function resetConnection(n) {
+  const info = cache.touch.get(ptKey(n.grid)) || EMPTY_TOUCH;
+  const loaded = cache.loads.some((l) => l.node === n.id);
+  if (n.explicit && info.ends === 0 && !loaded) {
+    core.removeNode(n.id); // a connection the player placed part-way along a member
+    return 'removed';
+  }
+  core.batch(() => {
+    core.setSupport(n.id, n.onGround ? 'pinned' : 'free');
+    core.setJoint(n.id, 'rigid');
+  }, 'resetConnection');
+  return 'reset';
+}
+
+function stepAmount(current, direction) {
+  const steps = DOF.LOAD_STEPS;
+  let at = steps.indexOf(current);
+  if (at < 0) at = steps.findIndex((s) => s >= current);
+  if (at < 0) at = steps.length - 1;
+  return steps[clamp(at + direction, 0, steps.length - 1)];
+}
+
+function clickTool(tool, h) {
+  if (tool === 'block') {
+    if (!h) return;
+    if (!h.ok) { sfx.nope(); shakeGhost(); flashHint(h.why); return; }
+    growFrom(h.anchor);
+    if (addBay(h.cell)) sfx.place(h.cell[2]);
+  } else if (tool === 'brace') {
+    if (!h) return;
+    growFrom(h.anchor);
+    if (setPanel(h.panel.key, h.next)) {
+      if (h.next & 3) sfx.brace(h.next & 3);
+      else sfx.remove();
+    }
+  } else if (tool === 'connection') {
+    if (!h) { deselect(); return; }
+    if (h.node && h.selected) {
+      if (h.node.onGround) core.cycleSupport(h.node.id);
+      else core.toggleJoint(h.node.id);
+      sfx.toggle();
+    } else if (h.node) {
+      select({ kind: 'node', id: h.node.id });
+      sfx.tick();
+    } else {
+      growFrom(h.anchor);
+      const result = core.ensureNode(h.point);
+      if (result.ok) { select({ kind: 'node', id: result.id }); sfx.place(1); }
+    }
+  } else if (tool === 'load') {
+    if (!h) { deselect(); return; }
+    if (h.loadId) { select({ kind: 'load', id: h.loadId }); sfx.tick(); return; }
+    if (h.existing) { select({ kind: 'load', id: h.existing.id }); sfx.tick(); return; }
+    growFrom(h.anchor);
+    const result = core.addLoad(h.node ? h.node.id : h.point, brush.direction, brush.magnitude);
+    if (result.ok) { deselect(); sfx.drop(); }
+  } else if (tool === 'eraser') {
+    if (!h) return;
+    if (h.kind === 'load') { core.removeLoad(h.loadId); sfx.remove(); }
+    else if (h.kind === 'removed') { growFrom(h.anchor); restoreSegment(h.key); sfx.place(1); }
+    else { eraseSegment(h.key); sfx.remove(); }
+  }
+}
+
+/** Right-click, or Ctrl+click: take away the piece the active tool works on. */
+function removeWithTool(tool, h) {
+  if (!h) return;
+  if (tool === 'block') {
+    if (h.removeBay && removeBay(h.removeBay)) sfx.remove();
+  } else if (tool === 'brace') {
+    if (h.value & 3) { setPanel(h.panel.key, 0); sfx.remove(); }
+  } else if (tool === 'connection') {
+    if (h.node) { resetConnection(h.node); sfx.remove(); }
+  } else if (tool === 'load') {
+    if (h.loadId) { core.removeLoad(h.loadId); sfx.remove(); }
+    else if (h.node) {
+      const here = cache.loads.filter((l) => l.node === h.node.id);
+      const target = h.existing || here[here.length - 1];
+      if (target) { core.removeLoad(target.id); sfx.remove(); }
+    }
+  } else if (tool === 'eraser') {
+    if (h.kind !== 'removed') clickTool('eraser', h);
+  }
+}
+
+function onClick(event) {
+  if (event.button === 1 || flight) return;
+  pointer.x = event.clientX;
+  pointer.y = event.clientY;
+  pointer.inside = true;
+  pointer.alt = event.altKey;
+  hoverSig = '\u0000';
+  updateHover();
+  const tool = activeTool();
+  if (event.button === 2 || (event.ctrlKey && !event.altKey)) removeWithTool(tool, hover);
+  else clickTool(tool, hover);
+  hoverDirty = true;
+}
+
+// Listen on the wrapper in the capture phase, so small pointer jitters during a click can be
+// kept away from the orbit controls: a click never nudges the camera and a drag never places a piece.
+stage.addEventListener('pointerdown', (event) => {
+  if (event.target !== canvas) return;
+  pointer.down = true;
+  pointer.dragging = false;
+  pointer.startX = pointer.x = event.clientX;
+  pointer.startY = pointer.y = event.clientY;
+  pointer.inside = true;
+  pointer.alt = event.altKey;
+}, true);
+stage.addEventListener('pointermove', (event) => {
+  pointer.x = event.clientX;
+  pointer.y = event.clientY;
+  pointer.inside = true;
+  pointer.alt = event.altKey;
+  if (pointer.down && !pointer.dragging) {
+    if (Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) > DRAG_PX) {
+      pointer.dragging = true;
+      canvas.style.cursor = 'grabbing';
+    } else {
+      event.stopPropagation();
+    }
+  }
+  hoverDirty = true;
+}, true);
+stage.addEventListener('pointerup', (event) => {
+  if (!pointer.down) return;
+  pointer.down = false;
+  const wasDrag = pointer.dragging;
+  pointer.dragging = false;
+  hoverDirty = true;
+  hoverSig = '\u0000';
+  if (!wasDrag) onClick(event);
+}, true);
+stage.addEventListener('pointercancel', () => { pointer.down = false; pointer.dragging = false; hoverDirty = true; }, true);
+canvas.addEventListener('pointerleave', () => { pointer.inside = false; hoverDirty = true; });
+canvas.addEventListener('pointerenter', () => { pointer.inside = true; hoverDirty = true; });
+
+// In the load tool the wheel steps the amount while the pointer is on a load or a place for one.
+stage.addEventListener('wheel', (event) => {
+  if (activeTool() !== 'load' || !hover || !event.deltaY) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const direction = event.deltaY < 0 ? 1 : -1;
+  const placed = hover.loadId ? cache.loadById.get(hover.loadId) : hover.existing;
+  if (placed) {
+    const next = stepAmount(placed.magnitude, direction);
+    if (next !== placed.magnitude) { core.updateLoad(placed.id, { magnitude: next }); sfx.toggle(); }
+  } else {
+    const next = stepAmount(brush.magnitude, direction);
+    if (next !== brush.magnitude) { setBrush({ magnitude: next }); sfx.tick(); }
+  }
+}, { capture: true, passive: false });
+
+// ====================================================================== 12. selection, cards and the degree-of-freedom gizmo
+const dofCard = $('#dof-card');
+const loadCard = $('#load-card');
+const DOF_AXIS = ['x', 'y', 'z', 'x', 'y', 'z'];
+const DOF_WORDS = ['Movement along X', 'Movement along Y', 'Movement along Z', 'Rotation about X', 'Rotation about Y', 'Rotation about Z'];
+// How each axis leans in the small icons (degrees clockwise from straight up), matching the opening view.
+const ICON_TURN = { x: 116, y: 54, z: 0 };
+
+function dofIcon(index) {
+  const axis = DOF_AXIS[index];
+  const shape = index < 3
+    ? '<path class="mv" d="M20 6v28M14.5 11.5 20 6l5.5 5.5M14.5 28.5 20 34l5.5-5.5"/>'
+    : '<path d="M20 4.5v5M20 30.5v5" opacity=".55"/><path class="mv" d="M30.9 17.7A12 5.6 0 1 0 30.9 22.3M30 27.2l.9-4.9-4.9.8"/>';
+  return '<svg viewBox="0 0 40 40" aria-hidden="true"><g transform="rotate(' + ICON_TURN[axis] + ' 20 20)">' + shape + '</g>' +
+    '<g class="lock"><rect x="27.5" y="6.5" width="9" height="7" rx="1.6" stroke="none"/><path d="M29.6 6.5V5a2.4 2.4 0 0 1 4.8 0v1.5" fill="none" stroke-width="1.7"/></g></svg>';
+}
+function arrowIcon(dirId) {
+  const turn = { '+Z': 0, '-Z': 180, '+X': ICON_TURN.x, '-X': ICON_TURN.x + 180, '+Y': ICON_TURN.y, '-Y': ICON_TURN.y + 180 }[dirId];
+  return '<svg viewBox="0 0 14 14" aria-hidden="true"><g transform="rotate(' + turn + ' 7 7)"><path d="M7 12V2.5M3.5 6 7 2.5 10.5 6"/></g></svg>';
+}
+const DIR_LABEL = { '-Z': 'Down', '+Z': 'Up', '+X': '+X', '-X': '-X', '+Y': '+Y', '-Y': '-Y' };
+const dirButtons = () => DOF.AXIS_DIRECTIONS.map((d) =>
+  '<button data-dir="' + d.id + '" title="' + cap(DIR_WORD[d.id]) + ' (' + d.id + ')">' + arrowIcon(d.id) + DIR_LABEL[d.id] + '</button>').join('');
+const amountButtons = () => DOF.LOAD_STEPS.map((kn) => '<button data-kn="' + kn + '" title="' + kn + ' kN">' + kn + '</button>').join('');
+
+dofCard.innerHTML =
+  '<div class="card-head"><div class="t"><b id="dc-title"></b><small id="dc-sub"></small></div>' +
+  '<button class="x" data-act="reset" aria-label="Reset" title="Back to the default connection">' +
+  '<svg class="i" viewBox="0 0 24 24"><path d="M5 12a7 7 0 1 0 2.2-5.1"/><path d="M5 4.5v4h4"/></svg></button>' +
+  '<button class="x" data-act="close" aria-label="Close" title="Close (Esc)">&times;</button></div>' +
+  '<div class="field"><div class="lab"><span>Support</span><span id="dc-support"></span></div><div class="seg" id="dc-supports">' +
+  ['free', 'roller', 'pinned', 'fixed'].map((s) => '<button data-support="' + s + '">' + cap(s) + '</button>').join('') + '</div></div>' +
+  '<div class="field"><div class="lab"><span>Degrees of freedom</span><span id="dc-count"></span></div><div class="dofs">' +
+  DOF.DOF_ORDER.map((name, i) => '<button class="dof" data-dof="' + i + '" data-axis="' + DOF_AXIS[i] + '">' + dofIcon(i) + '<span class="nm">' + name + ' <i></i></span></button>').join('') +
+  '</div></div>' +
+  '<div class="field inline"><span class="lab">Joint</span><div class="seg" id="dc-joints">' +
+  '<button data-joint="rigid">Rigid</button><button data-joint="pinned">Pinned</button></div></div>' +
+  '<div class="note" id="dc-note"></div>' +
+  '<div class="card-foot"><button class="btn danger" data-act="remove">Remove connection</button></div>';
+
+loadCard.innerHTML =
+  '<div class="card-head"><div class="t"><b id="lc-title"></b><small id="lc-sub"></small></div>' +
+  '<button class="x" data-act="close" aria-label="Close" title="Close (Esc)">&times;</button></div>' +
+  '<div class="field"><div class="lab"><span>Direction</span></div><div class="pick" id="lc-dirs">' + dirButtons() + '</div></div>' +
+  '<div class="field"><div class="lab"><span>Amount</span><span>kN</span></div><div class="pick" id="lc-amounts">' + amountButtons() + '</div></div>' +
+  '<div class="card-foot"><button class="btn danger" data-act="remove">Remove load</button></div>';
+
+function fillDofCard(n) {
+  const info = cache.touch.get(ptKey(n.grid)) || EMPTY_TOUCH;
+  $('#dc-title').textContent = 'Connection ' + n.id;
+  $('#dc-sub').textContent = 'x ' + n.position[0] + ' m, y ' + n.position[1] + ' m, z ' + n.position[2] + ' m' + (n.onGround ? ' · on the ground' : '');
+  $('#dc-support').textContent = n.support === 'custom' ? 'Custom' : '';
+  for (const b of $$('#dc-supports button')) b.classList.toggle('sel', b.dataset.support === n.support);
+  let locked = 0;
+  for (const b of $$('.dof', dofCard)) {
+    const i = Number(b.dataset.dof);
+    const on = n.restraint[i];
+    if (on) locked++;
+    b.classList.toggle('locked', on);
+    b.classList.toggle('free', !on);
+    $('i', b).textContent = on ? 'locked' : 'free';
+    b.title = DOF_WORDS[i] + ': ' + (on ? 'locked. Click to free it.' : 'free. Click to lock it.');
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  $('#dc-count').textContent = locked + ' of 6 locked';
+  for (const b of $$('#dc-joints button')) b.classList.toggle('sel', b.dataset.joint === n.joint);
+  $('#dc-note').textContent = info.ends === 0
+    ? 'No member ends here, so the joint type changes nothing. Members run straight through.'
+    : n.joint === 'rigid'
+      ? 'Rigid: members ending here pass bending moment to each other.'
+      : 'Pinned: member ends here are released and turn freely.';
+  $('.card-foot', dofCard).hidden = !(n.explicit && info.ends === 0);
+}
+function fillLoadCard(l) {
+  const id = dirIdOf(l.direction);
+  $('#lc-title').textContent = l.magnitude + ' kN ' + (DIR_WORD[id] || '');
+  $('#lc-sub').textContent = 'Load ' + l.id + ' on connection ' + l.node;
+  const taken = new Set(cache.loads.filter((o) => o.node === l.node && o.id !== l.id).map((o) => dirIdOf(o.direction)));
+  for (const b of $$('#lc-dirs button')) {
+    b.classList.toggle('sel', b.dataset.dir === id);
+    b.disabled = taken.has(b.dataset.dir);
+  }
+  for (const b of $$('#lc-amounts button')) b.classList.toggle('sel', Number(b.dataset.kn) === l.magnitude);
+}
+function popCard(card) {
+  card.classList.remove('pop');
+  void card.offsetWidth;
+  card.classList.add('pop');
+}
+
+// A ring around the selected joint, and around it the ways the joint is still free to move:
+// a double arrow along an axis it can slide on, a curl around an axis it can turn about.
+const selHalo = new THREE.Group();
+{
+  const dark = new THREE.Mesh(geo.haloBack, M.haloBack);
+  const light = new THREE.Mesh(geo.halo, M.halo);
+  dark.renderOrder = 30;
+  light.renderOrder = 31;
+  selHalo.add(dark, light);
+}
+selHalo.visible = false;
+scene.add(selHalo);
+const gizmo = new THREE.Group();
+gizmo.visible = false;
+scene.add(gizmo);
+const gizmoParts = [];
+{
+  const colors = ['#d2594a', '#3f9477', '#5578c2'];
+  const axes = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
+  const stubGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.56, 6);
+  const shaftGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.5, 10);
+  const headGeo = new THREE.ConeGeometry(0.105, 0.24, 16);
+  const curlEnd = Math.PI * 1.55;
+  const curlGeo = new THREE.TorusGeometry(0.2, 0.034, 8, 28, curlEnd);
+  const curlHeadGeo = new THREE.ConeGeometry(0.085, 0.18, 12);
+  for (let i = 0; i < 3; i++) {
+    const material = new THREE.MeshBasicMaterial({ color: colors[i], depthTest: false, transparent: true });
+    const faint = new THREE.MeshBasicMaterial({ color: colors[i], depthTest: false, transparent: true, opacity: 0.5 });
+    const holder = new THREE.Group(); // local +Y runs along the axis
+    holder.quaternion.setFromUnitVectors(Y_AXIS, axes[i]);
+    const stub = new THREE.Mesh(stubGeo, faint);
+    stub.position.y = 0.52;
+    const move = new THREE.Group();
+    for (const sign of [1, -1]) {
+      const shaft = new THREE.Mesh(shaftGeo, material);
+      shaft.position.y = sign * 0.55;
+      const head = new THREE.Mesh(headGeo, material);
+      head.position.y = sign * 0.91;
+      if (sign < 0) head.rotation.z = Math.PI;
+      move.add(shaft, head);
+    }
+    const turn = new THREE.Group();
+    turn.position.y = 0.6;
+    turn.rotation.x = -Math.PI / 2; // the curl's own axis (local Z) now lies along the holder's Y
+    const curl = new THREE.Group();
+    const tip = new THREE.Mesh(curlHeadGeo, material);
+    tip.position.set(Math.cos(curlEnd) * 0.2, Math.sin(curlEnd) * 0.2, 0);
+    tip.rotation.z = curlEnd;
+    curl.add(new THREE.Mesh(curlGeo, material), tip);
+    turn.add(curl);
+    holder.add(stub, move, turn);
+    holder.traverse((o) => { o.renderOrder = 45; });
+    gizmo.add(holder);
+    gizmoParts[i] = { move, turn, curl, stub };
+  }
+}
+function updateSelectionMarks(seconds) {
+  const sel = state.selected;
+  if (!sel) return;
+  if (sel.kind === 'node') {
+    const v = views.nodes.get(sel.id);
+    if (!v) return;
+    gizmo.position.copy(v.group.position);
+    gizmo.scale.setScalar(clamp(camera.position.distanceTo(gizmo.position) / 26, 0.85, 2.2));
+    selHalo.position.copy(v.group.position);
+    selHalo.quaternion.copy(camera.quaternion);
+    const r = v.node.restraint;
+    for (let i = 0; i < 3; i++) {
+      const part = gizmoParts[i];
+      part.move.visible = !r[i];
+      part.turn.visible = !r[i + 3];
+      part.stub.visible = !r[i + 3] && r[i];
+      part.move.position.y = 0.075 * Math.sin(seconds * 4.4 + i * 1.3);
+      part.curl.rotation.z = 0.55 * Math.sin(seconds * 3.1 + i * 1.3);
+    }
+    placeCard(dofCard, v.group.position);
+  } else {
+    const v = views.loads.get(sel.id);
+    if (!v) return;
+    labelPos.copy(v.group.position).add(v.anchor);
+    placeCard(loadCard, labelPos);
+  }
+}
+/**
+ * Put a card beside the structure, level with the point it describes, and draw a dotted
+ * leader to that point. The card stays off the frame so the joint can be watched while it changes.
+ */
+const leader = $('#leader');
+const leaderLine = $('#leader line');
+const leaderDot = $('#leader circle');
+function placeCard(card, pos) {
+  const s = toScreen(pos.x, pos.y, pos.z);
+  const w = card.offsetWidth;
+  const h = card.offsetHeight;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  const box = cache.box;
+  for (let i = 0; i < 8; i++) {
+    const c = toScreen(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z);
+    minX = Math.min(minX, c.x);
+    maxX = Math.max(maxX, c.x);
+  }
+  const leftLimit = 12;
+  const rightLimit = window.innerWidth - 12 - (ui.drawer.hidden ? 0 : ui.drawer.offsetWidth + 16);
+  const toRight = Math.max(maxX + 14, s.x + 64);
+  const toLeft = Math.min(minX - 14, s.x - 64) - w;
+  const fits = (x) => x >= leftLimit && x + w <= rightLimit;
+  let x = s.x >= (minX + maxX) / 2 ? toRight : toLeft;
+  if (!fits(x)) x = fits(toRight) ? toRight : fits(toLeft) ? toLeft : clamp(s.x + 64, leftLimit, Math.max(leftLimit, rightLimit - w));
+  const y = clamp(s.y - h * 0.4, 70, Math.max(70, window.innerHeight - h - 140));
+  card.style.transform = 'translate(' + Math.round(x) + 'px,' + Math.round(y) + 'px)';
+  const edgeX = x > s.x ? x : x + w;
+  const edgeY = clamp(s.y, y + 18, y + h - 18);
+  const lean = Math.atan2(edgeY - s.y, edgeX - s.x);
+  leaderLine.setAttribute('x1', (s.x + Math.cos(lean) * 26).toFixed(1));
+  leaderLine.setAttribute('y1', (s.y + Math.sin(lean) * 26).toFixed(1));
+  leaderLine.setAttribute('x2', edgeX.toFixed(1));
+  leaderLine.setAttribute('y2', edgeY.toFixed(1));
+  leaderDot.setAttribute('cx', edgeX.toFixed(1));
+  leaderDot.setAttribute('cy', edgeY.toFixed(1));
+}
+
+function refreshSelection(pop) {
+  let sel = state.selected;
+  if (sel && sel.kind === 'node' && !cache.nodeById.has(sel.id)) sel = state.selected = null;
+  if (sel && sel.kind === 'load' && !cache.loadById.has(sel.id)) sel = state.selected = null;
+  const onNode = !!(sel && sel.kind === 'node');
+  const onLoad = !!(sel && sel.kind === 'load');
+  dofCard.hidden = !onNode;
+  loadCard.hidden = !onLoad;
+  leader.style.display = onNode || onLoad ? 'block' : 'none';
+  selHalo.visible = gizmo.visible = onNode;
+  for (const v of views.loads.values()) v.el.classList.toggle('sel', onLoad && sel.id === v.id);
+  if (onNode) { fillDofCard(cache.nodeById.get(sel.id)); if (pop) popCard(dofCard); }
+  if (onLoad) { fillLoadCard(cache.loadById.get(sel.id)); if (pop) popCard(loadCard); }
+}
+function select(sel) {
+  state.selected = sel;
+  refreshSelection(true);
+  updateSelectionMarks(performance.now() / 1000);
+  hoverDirty = true;
+  hoverSig = '\u0000';
+  refreshHint();
+}
+function deselect() {
+  if (!state.selected) return;
+  state.selected = null;
+  refreshSelection(false);
+  hoverDirty = true;
+  hoverSig = '\u0000';
+  refreshHint();
+}
+
+dofCard.addEventListener('click', (event) => {
+  const b = event.target.closest('button');
+  const sel = state.selected;
+  if (!b || !sel || sel.kind !== 'node') return;
+  if (b.dataset.support) { core.setSupport(sel.id, b.dataset.support); sfx.toggle(); }
+  else if (b.dataset.dof !== undefined) { core.toggleDof(sel.id, Number(b.dataset.dof)); sfx.toggle(); }
+  else if (b.dataset.joint) { core.setJoint(sel.id, b.dataset.joint); sfx.toggle(); }
+  else if (b.dataset.act === 'close') deselect();
+  else if (b.dataset.act === 'reset' || b.dataset.act === 'remove') {
+    const n = cache.nodeById.get(sel.id);
+    if (n) { resetConnection(n); sfx.remove(); }
+  }
+});
+loadCard.addEventListener('click', (event) => {
+  const b = event.target.closest('button');
+  const sel = state.selected;
+  if (!b || !sel || sel.kind !== 'load') return;
+  if (b.dataset.dir) {
+    if (core.updateLoad(sel.id, { direction: b.dataset.dir }).ok) sfx.toggle();
+  } else if (b.dataset.kn) {
+    if (core.updateLoad(sel.id, { magnitude: Number(b.dataset.kn) }).ok) sfx.toggle();
+  } else if (b.dataset.act === 'close') deselect();
+  else if (b.dataset.act === 'remove') { core.removeLoad(sel.id); sfx.remove(); }
+});
+
+// ---- the load "brush": direction and amount for the next load
+function setBrush(change) {
+  Object.assign(brush, change);
+  for (const b of $$('#brush-dirs button')) b.classList.toggle('sel', b.dataset.dir === brush.direction);
+  for (const b of $$('#brush-amounts button')) b.classList.toggle('sel', Number(b.dataset.kn) === brush.magnitude);
+  hoverDirty = true;
+}
+$('#brush-dirs').innerHTML = dirButtons();
+$('#brush-amounts').innerHTML = amountButtons();
+$('#load-options').addEventListener('click', (event) => {
+  const b = event.target.closest('button');
+  if (!b) return;
+  if (b.dataset.dir) setBrush({ direction: b.dataset.dir });
+  else if (b.dataset.kn) setBrush({ magnitude: Number(b.dataset.kn) });
+  sfx.tick();
+});
+
+// ====================================================================== 13. buttons, keys and sound
+const audio = { ctx: null, muted: false };
+try { audio.muted = localStorage.getItem('dof-blocks-muted') === '1'; } catch (error) { /* storage is optional */ }
+function blip(freq, { dur = 0.09, type = 'sine', gain = 0.055, slide = 0.6, delay = 0 } = {}) {
+  if (audio.muted) return;
+  try {
+    if (!audio.ctx) audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = audio.ctx;
+    if (ctx.state === 'suspended') ctx.resume();
+    const t = ctx.currentTime + delay;
+    const osc = ctx.createOscillator();
+    const amp = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(40, freq * slide), t + dur);
+    amp.gain.setValueAtTime(0.0001, t);
+    amp.gain.exponentialRampToValueAtTime(gain, t + 0.008);
+    amp.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(amp).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.03);
+  } catch (error) { /* sound must never break the page */ }
+}
+const sfx = {
+  place: (level = 0) => { blip(250 + level * 45, { dur: 0.12, slide: 1.9, gain: 0.07 }); blip(560 + level * 70, { dur: 0.08, delay: 0.07, gain: 0.03 }); },
+  remove: () => blip(340, { dur: 0.13, slide: 0.42, gain: 0.06 }),
+  brace: (bits) => blip(bits === 3 ? 660 : bits === 2 ? 520 : 440, { dur: 0.1, slide: 1.25, type: 'triangle', gain: 0.06 }),
+  drop: () => { blip(190, { dur: 0.14, slide: 0.55, gain: 0.08, delay: 0.16 }); blip(420, { dur: 0.05, gain: 0.025 }); },
+  toggle: () => blip(700, { dur: 0.05, slide: 0.8, type: 'triangle', gain: 0.045 }),
+  tick: () => blip(880, { dur: 0.03, slide: 0.9, type: 'triangle', gain: 0.03 }),
+  nope: () => blip(150, { dur: 0.12, slide: 0.8, type: 'triangle', gain: 0.06 }),
+  undo: () => blip(480, { dur: 0.07, slide: 0.7, gain: 0.04 }),
+  redo: () => blip(480, { dur: 0.07, slide: 1.4, gain: 0.04 })
+};
+const ICON_SOUND = '<svg class="i" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5l4.5 4v-13l-4.5 4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>';
+const ICON_MUTED = '<svg class="i" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5l4.5 4v-13l-4.5 4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>';
+function setMuted(muted) {
+  audio.muted = muted;
+  const button = $('#btn-sound');
+  button.innerHTML = muted ? ICON_MUTED : ICON_SOUND;
+  button.title = muted ? 'Sound is off' : 'Sound is on';
+  button.setAttribute('aria-pressed', muted ? 'true' : 'false');
+  try { localStorage.setItem('dof-blocks-muted', muted ? '1' : '0'); } catch (error) { /* storage is optional */ }
+}
+setMuted(audio.muted);
+$('#btn-sound').addEventListener('click', () => { setMuted(!audio.muted); sfx.tick(); });
+
+function undo() {
+  if (!canUndo()) { sfx.nope(); return; }
+  core.undo();
+  sfx.undo();
+}
+function redo() {
+  if (!core.canRedo) { sfx.nope(); return; }
+  core.redo();
+  sfx.redo();
+}
+ui.undo.addEventListener('click', undo);
+ui.redo.addEventListener('click', redo);
+$('#btn-clear').addEventListener('click', () => {
+  if (!core.nodes.length && !cache.plan.bays.length) return;
+  core.clear();
+  sfx.remove();
+});
+$('#btn-example').addEventListener('click', () => {
+  stagger.mode = 'rise';
+  buildStarter();
+  sfx.place(2);
+  reframe(true);
+});
+$('#btn-end-turn').addEventListener('click', () => { core.endTurn(); sfx.tick(); });
+for (const button of $$('.tool')) button.addEventListener('click', () => { setTool(button.dataset.tool); sfx.tick(); });
+
+function setFeedback(on) {
+  state.feedback = on;
+  cache.results = on ? core.mockResults() : null;
+  for (const v of views.members.values()) paintMember(v);
+  $('#demo').hidden = !on;
+  $('#btn-feedback').classList.toggle('on', on);
+  $('#btn-feedback').setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+$('#legend-bar').style.background = 'linear-gradient(90deg, ' + RAMP.map(([u, c]) => c + ' ' + ((u / 1.5) * 100).toFixed(1) + '%').join(', ') + ')';
+$('#btn-feedback').addEventListener('click', () => { setFeedback(!state.feedback); sfx.tick(); });
+
+function setDrawer(open) {
+  ui.drawer.hidden = !open;
+  $('#btn-solver').classList.toggle('on', open);
+  if (open) {
+    ui.drawer.classList.remove('pop');
+    void ui.drawer.offsetWidth;
+    ui.drawer.classList.add('pop');
+    refreshJson();
+  }
+}
+$('#btn-solver').addEventListener('click', () => { setDrawer(ui.drawer.hidden); sfx.tick(); });
+$('#btn-drawer-close').addEventListener('click', () => setDrawer(false));
+$('#btn-copy').addEventListener('click', async () => {
+  const text = JSON.stringify(core.toSolverInput(), null, 2);
+  let done = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    done = true;
+  } catch (error) {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.style.cssText = 'position:fixed;left:-999px;top:0';
+    document.body.appendChild(area);
+    area.select();
+    try { done = document.execCommand('copy'); } catch (inner) { done = false; }
+    area.remove();
+  }
+  const button = $('#btn-copy');
+  button.textContent = done ? 'Copied' : 'Copy failed';
+  setTimeout(() => { button.textContent = 'Copy'; }, 1300);
+});
+$('#btn-download').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(core.toSolverInput(), null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'dof-solver-input-draft.json';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+});
+
+function setHelp(open) {
+  $('#help').hidden = !open;
+  $('#btn-help').classList.toggle('on', open);
+}
+$('#btn-help').addEventListener('click', () => setHelp($('#help').hidden));
+$('#help-close').addEventListener('click', () => setHelp(false));
+
+function cancel() {
+  if (!ui.drawer.hidden) { setDrawer(false); return; }
+  if (state.selected) { deselect(); return; }
+  if (state.tool === 'eraser') { setTool(lastBuildTool); return; }
+  pointer.inside = false; // drop the ghost until the pointer moves again
+  hoverDirty = true;
+}
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Alt') {
+    pointer.alt = true;
+    hoverDirty = true;
+    event.preventDefault(); // keep the browser menu from taking the focus
+    return;
+  }
+  const key = event.key.toLowerCase();
+  if (event.ctrlKey || event.metaKey) {
+    if (key === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo(); }
+    else if (key === 'y') { event.preventDefault(); redo(); }
+    return;
+  }
+  if (event.altKey) return;
+  if (key === '1') setTool('block');
+  else if (key === '2') setTool('brace');
+  else if (key === '3') setTool('connection');
+  else if (key === '4') setTool('load');
+  else if (key === 'x') setTool(state.tool === 'eraser' ? lastBuildTool : 'eraser');
+  else if (key === 'escape') cancel();
+  else if (key === 'f') reframe(true);
+  else if (key === 'h' || key === '?') setHelp($('#help').hidden);
+  else if (key === 'delete' || key === 'backspace') {
+    const sel = state.selected;
+    if (sel && sel.kind === 'load') { core.removeLoad(sel.id); sfx.remove(); }
+    else if (sel && sel.kind === 'node') { resetConnection(cache.nodeById.get(sel.id)); sfx.remove(); }
+  } else return;
+  event.preventDefault();
+});
+window.addEventListener('keyup', (event) => {
+  if (event.key !== 'Alt') return;
+  pointer.alt = false;
+  hoverDirty = true;
+  event.preventDefault();
+});
+window.addEventListener('blur', () => { pointer.alt = false; pointer.down = false; pointer.dragging = false; hoverDirty = true; });
+
+// ====================================================================== 14. loop and start
+core.on('change', (change) => { history.depth += change.reason === 'undo' ? -1 : 1; });
+core.on('change', syncAll);
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const seconds = now / 1000;
+  runTweens(now);
+  controls.update();
+  keepCameraSensible();
+  camera.updateMatrixWorld();
+  sky.position.copy(camera.position);
+  water.material.uniforms.uTime.value = seconds;
+  // pieces with no path to a support bob gently
+  const bob = 0.05 * Math.sin(seconds * 2.3);
+  for (const v of views.members.values()) v.group.position.z = v.a.z + (v.floating ? bob : 0);
+  for (const v of views.nodes.values()) {
+    v.group.position.z = v.base.z + (v.floating ? bob : 0);
+    if (v.ring) v.ring.quaternion.copy(camera.quaternion);
+  }
+  for (const v of views.loads.values()) v.group.position.z = v.base.z + (v.floating ? bob : 0);
+  if (hoverDirty) updateHover();
+  for (const b of billboards) b.quaternion.copy(camera.quaternion);
+  // ghosts breathe a little so they never read as placed pieces
+  const breath = 0.5 + 0.5 * Math.sin(seconds * 5.2);
+  M.ghost.opacity = 0.74 + 0.22 * breath;
+  M.ghostBrace.opacity = 0.5 + 0.25 * breath;
+  M.ghostBad.opacity = 0.34 + 0.2 * breath;
+  for (const m of M.ghostVolume) m.opacity = 0.3 + 0.14 * breath;
+  updateSelectionMarks(seconds);
+  if (!tagEl.hidden) {
+    const tw = tagEl.offsetWidth;
+    let tx = Math.min(pointer.x + 18, window.innerWidth - tw - 8);
+    const ty = pointer.y + 22;
+    const card = !dofCard.hidden ? dofCard : !loadCard.hidden ? loadCard : null;
+    if (card) {
+      const r = card.getBoundingClientRect();
+      if (tx < r.right + 6 && tx + tw > r.left - 6 && ty < r.bottom && ty + 28 > r.top) tx = Math.max(8, pointer.x - 18 - tw);
+    }
+    tagEl.style.transform = 'translate(' + Math.round(tx) + 'px,' + Math.round(ty) + 'px)';
+  }
+  updateAxis();
+  updateLabels();
+  renderer.render(scene, camera);
+}
+
+setTool('block');
+setBrush({});
+if (params.get('empty') !== '1') {
+  stagger.mode = 'rise';
+  buildStarter();
+} else {
+  syncAll(null);
+}
+history.floor = history.depth;
+refreshInterface();
+reframe(false);
+bootEl.hidden = true;
+requestAnimationFrame((now) => {
+  frame(now);
+  window.__dof = {
+    ready: true,
+    option: 'blocks',
+    core,
+    tools: TOOL_IDS.slice(),
+    get tool() { return state.tool; },
+    setTool,
+    screenOf(i, j, k) {
+      camera.updateMatrixWorld();
+      const p = core.position([i, j, k]);
+      const s = toScreen(p[0], p[1], p[2]);
+      return { x: s.x, y: s.y, visible: s.visible };
+    }
+  };
+});
+</script>
+</body>
+</html>
