@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { ITEMS } from '../game/inventory';
-import { allNodeKeys, type GameModel } from '../game/model';
-import type { Selection } from '../game/store';
+import { allNodeKeys, CELL_SIZE, parseNodeKey } from '../game/model';
+import type { useGameStore } from '../game/store';
+import { SCENE_STYLES } from './sceneStyle';
 import {
   computeLoadPath,
   traceToGround,
@@ -10,12 +11,17 @@ import {
 import type { SceneView } from './sceneView';
 export function buildStructure(
   structure: THREE.Group,
-  s: { model: GameModel; selected: Selection },
+  s: ReturnType<typeof useGameStore.getState>,
   v: SceneView,
   point: (key: string) => THREE.Vector3,
   addFlow: (flow: LoadPathMember | undefined, relative: number) => void,
 ) {
   const result = v.result;
+  const palette = SCENE_STYLES[s.style];
+  const turn = s.mode === 'multiplayer' ? s.turn : null;
+  const playerColors = ['#e37f59', '#5b94d3'];
+  const turnOwners = new Map(turn ? [...turn.board.members, ...turn.draft.members].map((member) => [member.id, member.owner]) : []);
+  const activeMembers = new Set(turn?.draft.members.map(({ id }) => id));
   const path = v.loadPath && result ? computeLoadPath(result, v.combo) : null;
   const trace =
     path && s.selected?.type === 'node'
@@ -41,6 +47,11 @@ export function buildStructure(
             : 0.3;
     addFlow(flow, relative);
     const u = result?.members[member.id]?.util;
+    const [ax, ay, az] = parseNodeKey(member.a);
+    const [bx, by, bz] = parseNodeKey(member.b);
+    const role = ax === bx && ay === by ? 0 : az === bz ? 1 : 2;
+    const owner = turn?.players.findIndex(({ id }) => id === turnOwners.get(member.id)) ?? -1;
+    const defaultColor = owner >= 0 ? playerColors[owner] : palette.roles?.[role] ?? ITEMS[member.type].color;
     let color =
       v.utilization && result && !result.error
         ? result.mechanism
@@ -52,7 +63,7 @@ export function buildStructure(
               : u > 0.6
                 ? '#e5a33f'
                 : '#4cae77'
-        : ITEMS[member.type].color;
+        : defaultColor;
     if (path)
       color =
         relative < 0.01
@@ -64,10 +75,15 @@ export function buildStructure(
               : flow?.mode === 'bending'
                 ? '#c58cff'
                 : '#5a6370';
+    const aboveSlice = s.style === 'levels' && Math.min(az, bz) >= s.workK && Math.max(az, bz) > s.workK;
+    const isGhost = aboveSlice || activeMembers.has(member.id);
     const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(width, length, width),
+      palette.roles && s.style !== 'blocks' ? new THREE.CylinderGeometry(width / 2, width / 2, length, 10) : new THREE.BoxGeometry(width, length, width),
       new THREE.MeshStandardMaterial({
         color,
+        transparent: isGhost,
+        opacity: isGhost ? 0.43 : 1,
+        depthWrite: !isGhost,
         emissive: trace?.members.has(member.id)
           ? 0x555555
           : s.selected?.type === 'member' && s.selected.id === member.id
@@ -88,10 +104,12 @@ export function buildStructure(
     const node = new THREE.Mesh(
       new THREE.SphereGeometry(trace?.nodes.has(key) ? 0.26 : 0.16, 12, 8),
       new THREE.MeshStandardMaterial({
+        transparent: s.style === 'levels' && p.z > s.workK * CELL_SIZE,
+        opacity: s.style === 'levels' && p.z > s.workK * CELL_SIZE ? 0.35 : 1,
         color:
           s.selected?.type === 'node' && s.selected.key === key
             ? '#f0b84b'
-            : '#edf1ed',
+            : palette.hub,
       }),
     );
     node.position.copy(p);

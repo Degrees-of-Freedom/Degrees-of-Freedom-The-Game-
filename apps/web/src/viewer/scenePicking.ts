@@ -8,32 +8,44 @@ import {
   type MemberType,
   type NodeItem,
 } from '../game/model';
-import { groundK, terrainCell } from '../game/terrain';
-import { LEVELS } from '../game/levels';
+import { groundK } from '../game/terrain';
+import { sceneLevel } from './sceneLevel';
 import { MEMBER_TYPES, remaining } from '../game/inventory';
 import { memberIssue, nodeItemIssue } from '../game/placementRules';
 import { basePoint } from './sceneResults';
 import type { BuildPlane } from './sceneGeometry';
 
+import { DEFAULT_BAY_SIZE, previewBay, type BayHit } from './bayPreview';
+import { GROWTH_ROLE_INDEX, growthTargets } from './growthTargets';
+import { isGrowthStyle, SCENE_STYLES } from './sceneStyle';
+import { selectedTurnCard, turnConnectionTargets, turnPointIssue, type ConnectionTarget } from './turnPicking';
+import type { SceneView } from './sceneView';
+
 type Hit =
+  | BayHit
+  | ({ kind: 'connection' } & ConnectionTarget)
   | { kind: 'point'; p: GridPoint; issue: string | null }
   | { kind: 'member'; id: number }
   | { kind: 'node'; key: string }
   | null;
 export function createPicker(
   canvas: HTMLCanvasElement,
-  camera: THREE.Camera,
+  getCamera: () => THREE.Camera,
   terrain: THREE.Group,
   ghost: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>,
-  preview: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>,
+  preview: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>,
   point: (key: string) => THREE.Vector3,
   buildPlane: () => BuildPlane,
+  getView: () => SceneView,
 ) {
   const ray = new THREE.Raycaster(),
     ndc = new THREE.Vector2();
   return (e: PointerEvent) => {
     const s = useGameStore.getState(),
-      level = LEVELS[s.levelId],
+      level = sceneLevel(s),
+      camera = getCamera(),
+      card = selectedTurnCard(s),
+      tool = card?.kind === 'element' ? card.type : card?.kind === 'load' ? 'load' : s.mode === 'multiplayer' ? 'inspect' : s.tool,
       rect = canvas.getBoundingClientRect(),
       x = e.clientX - rect.left,
       y = e.clientY - rect.top;
@@ -44,7 +56,7 @@ export function createPicker(
     let nearNode: string | null = null,
       nodeDistance = 14;
     for (const key of allNodeKeys(s.model)) {
-      if (key === s.chainStart && MEMBER_TYPES.includes(s.tool as MemberType))
+      if (key === s.chainStart && MEMBER_TYPES.includes(tool as MemberType))
         continue;
       const p = screen(point(key)),
         d = Math.hypot(p[0] - x, p[1] - y);
@@ -76,11 +88,30 @@ export function createPicker(
     let hit: Hit = null;
     ghost.visible = false;
     preview.visible = false;
-    if (s.tool === 'inspect' || s.tool === 'delete' || s.tool === 'swap') {
+    if (card?.kind === 'connection') {
+      let closest = 19;
+      for (const target of turnConnectionTargets(s)) {
+        const member = s.model.members.find(({ id }) => id === target.memberId);
+        if (!member) continue;
+        // Offset along the member so coincident ends can be picked individually.
+        const endpoint = point(target.key).lerp(point(member[target.end === 'a' ? 'b' : 'a']), 0.2);
+        const [sx, sy, depth] = screen(endpoint);
+        const distance = Math.hypot(sx - x, sy - y);
+        if (depth >= -1 && depth < 1 && distance < closest) {
+          hit = { kind: 'connection', ...target };
+          closest = distance;
+          ghost.position.copy(endpoint);
+        }
+      }
+      if (hit) {
+        ghost.material.color.set('#f6ad49');
+        ghost.visible = true;
+      }
+    } else if (tool === 'inspect' || tool === 'delete' || tool === 'swap') {
       if (
         nearNode &&
-        s.tool !== 'swap' &&
-        (s.tool === 'inspect' ||
+        tool !== 'swap' &&
+        (tool === 'inspect' ||
           !!(
             s.model.attrs[nearNode]?.found ||
             s.model.attrs[nearNode]?.joint ||
@@ -100,12 +131,13 @@ export function createPicker(
           : plane.axis === 'y'
             ? new THREE.Vector3(0, 1, 0)
             : new THREE.Vector3(0, 0, 1);
+      const isMember = MEMBER_TYPES.includes(tool as MemberType);
       let intersection = ray.ray.intersectPlane(
         new THREE.Plane(normal, -plane.value * CELL_SIZE),
         new THREE.Vector3(),
       );
       // Before starting a chain, pick the closest terrain top as in the prototype.
-      if (!start) {
+      if (!start && s.style !== 'levels' && s.style !== 'blocks') {
         const terrainHit = ray
           .intersectObjects(terrain.children)
           .find(
@@ -123,55 +155,79 @@ export function createPicker(
         )
           intersection = terrainHit.point;
       }
-      if (intersection || (nearNode && nearNode !== s.chainStart)) {
-        const p: GridPoint =
-          nearNode && nearNode !== s.chainStart
-            ? parseNodeKey(nearNode)
-            : [
-                Math.max(
-                  0,
-                  Math.min(level.nx, Math.round(intersection!.x / CELL_SIZE)),
-                ),
-                Math.max(
-                  0,
-                  Math.min(level.ny, Math.round(intersection!.y / CELL_SIZE)),
-                ),
-                Math.max(
-                  0,
-                  Math.min(level.nz, Math.round(intersection!.z / CELL_SIZE)),
-                ),
-              ];
-        p[2] = Math.max(p[2], groundK(level, p[0], p[1]));
-        const isMember = MEMBER_TYPES.includes(s.tool as MemberType),
-          issue = isMember
+      const isGrowing = !!start && isMember && !card && isGrowthStyle(s.style);
+      const reachable = isGrowing ? closestGrowthTarget() : null;
+      if (!card && s.style === 'blocks' && isMember && intersection) {
+        hit = previewBay(s, intersection, getView().baySize ?? DEFAULT_BAY_SIZE, tool as MemberType, preview);
+      } else if (reachable || (!isGrowing && (intersection || nearNode))) {
+        const useExisting = nearNode && nearNode !== s.chainStart && (
+          s.style !== 'levels' || parseNodeKey(nearNode)[2] === plane.value
+        ) ? nearNode : null;
+        const p: GridPoint | null = card?.kind === 'load'
+          ? nearNode ? parseNodeKey(nearNode) : null
+          : reachable
+          ? reachable.point
+          : useExisting
+            ? parseNodeKey(useExisting)
+            : intersection
+              ? [
+                  Math.max(0, Math.min(level.nx, Math.round(intersection.x / CELL_SIZE))),
+                  Math.max(0, Math.min(level.ny, Math.round(intersection.y / CELL_SIZE))),
+                  Math.max(0, Math.min(level.nz, Math.round(intersection.z / CELL_SIZE))),
+                ]
+              : null;
+        if (p) {
+          // Levels preserves the active slice. Invalid underground picks show
+          // the same rule feedback as the committed edit.
+          if (s.style !== 'levels') p[2] = Math.max(p[2], groundK(level, p[0], p[1]));
+          const issue = card ? turnPointIssue(s, p) : isMember
             ? start
-              ? memberIssue(level, s.model, start, p, s.tool as MemberType)
-              : remaining(level, s.model, s.tool as MemberType) <= 0
+              ? memberIssue(level, s.model, start, p, tool as MemberType)
+              : remaining(level, s.model, tool as MemberType) <= 0
                 ? 'No items left in supply'
                 : null
-            : nodeItemIssue(level, s.model, p, s.tool as NodeItem);
-        hit = { kind: 'point', p, issue };
-        ghost.position.set(...(p.map((v) => v * CELL_SIZE) as GridPoint));
-        ghost.material.color.set(issue ? 0xe75151 : 0x31aa78);
-        ghost.visible = true;
-        if (start && isMember) {
-          preview.geometry.setFromPoints([
-            basePoint(s.chainStart!),
-            ghost.position,
-          ]);
-          preview.material.color.copy(ghost.material.color);
-          preview.visible = true;
+            : nodeItemIssue(level, s.model, p, tool as NodeItem);
+          hit = { kind: 'point', p, issue };
+          ghost.position.set(...p).multiplyScalar(CELL_SIZE);
+          const roles = SCENE_STYLES[s.style].roles;
+          const roleColor = reachable && roles ? roles[GROWTH_ROLE_INDEX[reachable.role]] : '#31aa78';
+          ghost.material.color.set(issue ? '#e75151' : roleColor);
+          ghost.visible = true;
+          if (start && isMember) {
+            preview.geometry.dispose();
+            preview.geometry = new THREE.BufferGeometry().setFromPoints([
+              new THREE.Vector3(...start).multiplyScalar(CELL_SIZE),
+              ghost.position,
+            ]);
+            preview.material.color.copy(ghost.material.color);
+            preview.visible = true;
+          }
         }
       }
     }
+    function closestGrowthTarget() {
+      let closest: ReturnType<typeof growthTargets>[number] | null = null;
+      let distance = 12;
+      for (const target of growthTargets(s)) {
+        const [sx, sy, depth] = screen(basePoint(target.key));
+        const candidate = Math.hypot(sx - x, sy - y);
+        if (depth >= -1 && depth < 1 && candidate < distance) {
+          closest = target;
+          distance = candidate;
+        }
+      }
+      return closest;
+    }
     canvas.title =
-      hit?.kind === 'point'
+      hit?.kind === 'point' || hit?.kind === 'bay'
         ? hit.issue || `${hit.p.map((v) => v * CELL_SIZE).join(', ')} m`
         : hit?.kind === 'member'
           ? `Member ${hit.id}`
           : hit?.kind === 'node'
             ? `Node ${hit.key}`
-            : '';
+            : hit?.kind === 'connection'
+              ? ["Connect member", hit.memberId, "end", hit.end.toUpperCase()].join(" ")
+              : '';
     return hit;
   };
 }

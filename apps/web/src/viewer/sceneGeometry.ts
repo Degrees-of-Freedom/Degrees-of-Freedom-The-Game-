@@ -2,12 +2,13 @@ import * as THREE from 'three';
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CELL_SIZE, type Level } from '../game/model';
 import { terrainCell } from '../game/terrain';
+import type { ScenePalette } from './sceneStyle';
 export const disposeGroup = (group: THREE.Group) => {
   group.traverse((o) => {
     if (o instanceof THREE.Sprite) {
       o.material.map?.dispose();
       o.material.dispose();
-    } else if (o instanceof THREE.Mesh || o instanceof THREE.Line) {
+    } else if (o instanceof THREE.Mesh || o instanceof THREE.Line || o instanceof THREE.Points) {
       o.geometry.dispose();
       const materials = Array.isArray(o.material) ? o.material : [o.material];
       materials.forEach((m) => m.dispose());
@@ -19,8 +20,9 @@ export type BuildPlane = { axis: 'x' | 'y' | 'z'; value: number };
 export function buildTerrain(
   terrain: THREE.Group,
   level: Level,
-  camera: THREE.PerspectiveCamera,
+  camera: THREE.Camera,
   controls: OrbitControls,
+  palette: ScenePalette,
 ) {
   disposeGroup(terrain);
   const size = CELL_SIZE;
@@ -30,7 +32,7 @@ export function buildTerrain(
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(size * 0.985, size * 0.985, (cell.h + 1) * size),
         new THREE.MeshStandardMaterial({
-          color: cell.water ? '#6094ab' : '#a2b89b',
+          color: cell.water ? palette.water : palette.land,
           roughness: 1,
         }),
       );
@@ -77,9 +79,9 @@ export function buildTerrain(
   }
   controls.target.set((level.nx * size) / 2, (level.ny * size) / 2, 2);
   camera.position.set(
-    level.nx * size * 1.3,
-    -level.ny * size,
-    level.nz * size * 1.1,
+    level.nx * size * palette.offset[0],
+    level.ny * size * palette.offset[1],
+    level.nz * size * palette.offset[2],
   );
   controls.update();
 }
@@ -87,6 +89,7 @@ export function buildGuides(
   guides: THREE.Group,
   level: Level,
   plane: BuildPlane,
+  palette: ScenePalette,
 ) {
   const pts: THREE.Vector3[] = [],
     size = CELL_SIZE;
@@ -128,7 +131,7 @@ export function buildGuides(
     new THREE.LineSegments(
       new THREE.BufferGeometry().setFromPoints(pts),
       new THREE.LineBasicMaterial({
-        color: plane.axis === 'z' ? 0x759b96 : 0xd99a47,
+        color: plane.axis === 'z' ? palette.grid : 0xd99a47,
         transparent: true,
         opacity: 0.45,
       }),

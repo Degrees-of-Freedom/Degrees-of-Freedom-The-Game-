@@ -11,12 +11,13 @@ import { MEMBER_TYPES } from '../game/inventory';
 import type { SceneView } from './sceneView';
 import type { BuildPlane } from './sceneGeometry';
 import { createPicker } from './scenePicking';
+import { selectedTurnCard } from './turnPicking';
 export function bindSceneInteraction(
   canvas: HTMLCanvasElement,
-  camera: THREE.Camera,
+  getCamera: () => THREE.Camera,
   terrain: THREE.Group,
   ghost: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>,
-  preview: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>,
+  preview: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>,
   point: (key: string) => THREE.Vector3,
   getView: () => SceneView,
   rebuild: () => void,
@@ -26,22 +27,24 @@ export function bindSceneInteraction(
   const buildPlane = (): BuildPlane => {
     const s = useGameStore.getState(),
       start = s.chainStart ? parseNodeKey(s.chainStart) : null;
+    if (s.style === 'levels' || s.style === 'blocks') return { axis: 'z', value: s.workK };
     if (!start || shiftDown)
       return { axis: 'z' as const, value: start ? start[2] : s.workK };
     const direction = new THREE.Vector3();
-    camera.getWorldDirection(direction);
+    getCamera().getWorldDirection(direction);
     return Math.abs(direction.x) > Math.abs(direction.y)
       ? { axis: 'x' as const, value: start[0] }
       : { axis: 'y' as const, value: start[1] };
   };
   const pick = createPicker(
     canvas,
-    camera,
+    getCamera,
     terrain,
     ghost,
     preview,
     point,
     buildPlane,
+    getView,
   );
   let down: { x: number; y: number; button: number } | null = null;
   const move = (e: PointerEvent) => pick(e);
@@ -59,7 +62,23 @@ export function bindSceneInteraction(
     }
     if (button !== 0) return;
     const hit = pick(e);
-    if (s.tool === 'inspect')
+    const card = selectedTurnCard(s);
+    if (s.mode === 'multiplayer') {
+      let issue: string | null = null;
+      if (card?.kind === 'connection' && hit?.kind === 'connection')
+        issue = s.playConnection(card.id, hit.memberId, hit.end, hit.key);
+      else if (card && hit?.kind === 'point') {
+        issue = hit.issue;
+        if (!issue && card.kind === 'load') issue = s.toggleAttr(hit.p, 'load');
+        else if (!issue && card.kind === 'element') {
+          if (s.chainStart) issue = s.addMember(parseNodeKey(s.chainStart), hit.p, card.type);
+          else s.setChainStart(nodeKey(...hit.p));
+        }
+      } else if (!card) {
+        s.setSelected(hit?.kind === 'member' ? { type: 'member', id: hit.id } : hit?.kind === 'node' ? { type: 'node', key: hit.key } : null);
+      }
+      getView().onMessage?.(issue ?? '');
+    } else if (s.tool === 'inspect')
       s.setSelected(
         hit?.kind === 'member'
           ? { type: 'member', id: hit.id }
@@ -95,15 +114,15 @@ export function bindSceneInteraction(
           );
         } else getView().onMessage?.(s.swapMember(hit.id, s.swapTarget) ?? '');
       }
+    } else if (hit?.kind === 'bay') {
+      getView().onMessage?.(hit.issue ?? s.addBay(hit.p, hit.size, hit.type) ?? '');
     } else if (hit?.kind === 'point' && hit.issue)
       getView().onMessage?.(hit.issue);
     else if (hit?.kind === 'point' && !hit.issue) {
       if (MEMBER_TYPES.includes(s.tool as MemberType)) {
-        if (
-          !s.chainStart ||
-          !s.addMember(parseNodeKey(s.chainStart), hit.p, s.tool as MemberType)
-        )
-          s.setChainStart(nodeKey(...hit.p));
+        const issue = s.chainStart ? s.addMember(parseNodeKey(s.chainStart), hit.p, s.tool as MemberType) : null;
+        getView().onMessage?.(issue ?? '');
+        if (!issue) s.setChainStart(nodeKey(...hit.p));
       } else
         getView().onMessage?.(s.toggleAttr(hit.p, s.tool as NodeItem) ?? '');
     }
@@ -170,6 +189,7 @@ export function bindSceneInteraction(
   window.addEventListener('keydown', keydown);
   return {
     buildPlane,
+    clearPreview: leave,
     dispose() {
       canvas.removeEventListener('pointerdown', pointerDown);
       canvas.removeEventListener('pointermove', move);
