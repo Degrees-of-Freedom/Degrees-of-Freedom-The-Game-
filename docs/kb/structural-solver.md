@@ -6,14 +6,21 @@ validated_against:
   - packages/solver-contract/src/index.ts
   - packages/solver-contract/README.md
   - apps/web/src/solver/unavailable.ts
+  - apps/web/src/solver/voxel.ts
   - services/opensees/README.md
+  - docs/kb/solver-criteria.md
+  - docs/kb/solver-criteria-gap-analysis.md
 owner: unknown
 status: partial
 ---
 
 # Structural Solver
 
-The game intends to communicate load paths, instability, member or connection failure, and structural complexity. No numerical solver is implemented. The web app's placeholder returns `unsupported` for every analysis.
+The game intends to communicate load paths, instability, member or connection failure, and structural complexity. The workspace includes an experimental voxel-specific numerical analysis extracted from the standalone prototype. It uses metres and kN internally, frame and cable elements, multiple load combinations, regularization and simplified stability and design checks. It has not been independently validated and is not suitable for engineering design. It is not a shared `SolverAdapter`; the placeholder adapter still returns `unsupported`.
+
+## Target requirements and implementation status
+
+The owner-supplied [solver criteria](solver-criteria.md) are the proposed implementation requirements. They specify intentional member-end connectivity, six-axis connection laws, exact rigid constraints, verified linear and nonlinear physics, component-scoped stability and validity, signed reactions, and deterministic turn analysis. Their gameplay defaults, numerical gates, and performance targets remain proposals. The [gap analysis and milestones](solver-criteria-gap-analysis.md) compare them with current code and tests; no milestone is accepted as complete.
 
 ## Model and interface today
 
@@ -25,18 +32,14 @@ The project owner decided that a node has six potential degrees of freedom, in g
 
 The shared contract is the intended boundary between the game and interchangeable solver adapters. Adapters translate the common model to their backend and must explicitly report unsupported input; an adapter must not silently claim an analysis for features it cannot represent. The contract currently provides no capability discovery or detailed validation schema, so those remain design work.
 
-OpenSees, a custom Rust solver, and a TypeScript solver are intended experiments, not implemented or selected solutions. The reserved `services/opensees` directory contains no service or endpoint. Possible evaluation approaches include a remote OpenSees service, a Rust implementation compiled for an appropriate runtime, and a TypeScript implementation; execution environment, integration, deployment, and supported features remain open. Compare candidates against the same agreed model semantics and reference cases before treating their results as interchangeable. Record unsupported features and numerical limitations for each adapter.
+OpenSees, a custom Rust solver, and a shared-contract TypeScript solver remain intended experiments, not implemented or selected solutions. The voxel TypeScript analysis is a separate game-specific experiment. The reserved `services/opensees` directory contains no service or endpoint. Possible evaluation approaches include a remote OpenSees service, a Rust implementation compiled for an appropriate runtime, and a TypeScript implementation; execution environment, integration, deployment, and supported features remain open. Compare candidates against the same agreed model semantics and reference cases before treating their results as interchangeable. Record unsupported features and numerical limitations for each adapter.
 
 Before numerical implementation, decide exact units and coordinate/sign conventions; element and material properties; connectivity and releases; support and constraint semantics; load cases and combinations; analysis type; result quantities and conventions; stability diagnostics; and failure criteria. Establish how invalid models, unsupported features, solver errors, cancellation, and version or capability differences are communicated. The current types alone do not enforce these rules.
 
 ## Testing options to work through
 
-These are proposed evaluation options, not existing solver tests or approved acceptance thresholds:
+[Criteria section 7](solver-criteria.md#7-acceptance-tests) now supplies the proposed benchmark suite and gates: at most 0.1% relative error for nonzero linear analytical quantities, 1% for nonlinear reference quantities, 2% for mesh-converged buckling loads, and normalized equilibrium residual at most 1e-5. Absolute tolerances for expected zeros and characteristic force/moment scales still need specification. These are targets, not demonstrated solver accuracy.
 
-1. Define small analytical reference cases for each supported element and analysis type, including displacements, reactions, and internal forces where available. Examples could include an axial bar and a cantilever, once properties and conventions are fixed.
-2. Exercise restraints and mechanisms, disconnected or malformed models, zero-length members, unsupported features, and singular systems. Decide which cases return validation errors, unsupported results, or instability diagnostics.
-3. Check equilibrium and appropriate symmetry, scaling, and coordinate transformation properties. Specify absolute and relative tolerances with units and justify them per quantity and case.
-4. Run the same compatible cases through candidate adapters and compare with analytical references or independently trusted benchmark results. Agreement between implementations alone does not establish correctness.
-5. Test adapter translation, result mapping, error handling, and cancellation independently from backend numerical tests; add integration tests for any real service or runtime. Measure performance and deployment costs on representative models only after agreeing on comparable workloads.
+Current tests cover selected voxel examples, an axial displacement reference, matrix operations, force balance, and load-path behavior. They do not establish compliance with the complete criteria. See the [gap analysis](solver-criteria-gap-analysis.md) for requirement coverage and the [development and testing page](development-and-testing.md) for commands and validation evidence.
 
-Reference fixtures, benchmark sources, acceptance thresholds, and a first supported model subset remain to be chosen. See [development and testing](development-and-testing.md) for current commands and coverage.
+For each implementation milestone, add analytical or independently trusted reference fixtures, regression tests, and pass/fail evidence. Verify adapter translation, result validity, unsupported inputs, cancellation, and any service integration separately. Compare nonlinear cases under identical physical assumptions and load paths; agreement between implementations alone does not establish correctness.
