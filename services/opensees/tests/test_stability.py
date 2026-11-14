@@ -2,13 +2,14 @@
 
 import numpy as np
 
-from dof_opensees.stability import assess
+from dof_opensees.stability import NEAR_MECHANISM, assess
 
 
-def test_positive_definite_matrix_has_no_mechanism():
+def test_positive_definite_matrix_has_nothing_to_report():
     k = np.array([[4.0, -1.0], [-1.0, 3.0]])
     result = assess(k, np.array([True, True]), np.zeros(2))
-    assert result.stable and result.mechanisms == 0 and result.free_dofs == 2
+    assert result.stable and result.positive_definite and result.mechanisms == 0 and result.free_dofs == 2
+    assert not result.near_mechanism and not result.negative_modes
 
 
 def test_zero_stiffness_translation_is_a_mechanism():
@@ -17,6 +18,7 @@ def test_zero_stiffness_translation_is_a_mechanism():
     assert not result.stable
     assert len(result.translational_modes) == 1
     assert np.allclose(np.abs(result.translational_modes[0]), [0.0, 1.0, 0.0])
+    assert not result.mechanism_loaded
 
 
 def test_widely_different_scales_do_not_look_singular():
@@ -25,13 +27,15 @@ def test_widely_different_scales_do_not_look_singular():
     assert assess(k, np.array([True, False]), np.zeros(2)).mechanisms == 0
 
 
-def test_pure_rotation_mode_is_unstable_only_when_loaded():
+def test_pure_rotation_mode_is_a_mechanism_whether_loaded_or_not():
     k = np.diag([3.0, 0.0])
     mask = np.array([True, False])
     unloaded = assess(k, mask, np.array([10.0, 0.0]))
-    assert unloaded.stable and len(unloaded.rotational_modes) == 1 and not unloaded.translational_modes
+    assert not unloaded.stable
+    assert len(unloaded.rotational_modes) == 1 and not unloaded.translational_modes
+    assert not unloaded.rotation_loaded and not unloaded.mechanism_loaded
     loaded = assess(k, mask, np.array([10.0, 1.0]))
-    assert not loaded.stable and loaded.rotation_loaded
+    assert not loaded.stable and loaded.rotation_loaded and loaded.mechanism_loaded
 
 
 def test_mixed_null_space_is_split_into_translation_and_rotation():
@@ -41,6 +45,24 @@ def test_mixed_null_space_is_split_into_translation_and_rotation():
     assert len(result.translational_modes) == 1 and len(result.rotational_modes) == 1
     sway = result.translational_modes[0]
     assert np.isclose(sway[0], sway[1]) and abs(sway[2]) < 1e-9
+
+
+def test_negative_stiffness_is_instability_not_a_mechanism():
+    # A tangent matrix past its buckling load: one negative direction.
+    k = np.array([[2.0, 0.0], [0.0, -0.5]])
+    result = assess(k, np.array([True, True]), np.zeros(2))
+    assert not result.stable and result.mechanisms == 0
+    assert len(result.negative_modes) == 1
+    assert np.allclose(np.abs(result.negative_modes[0]), [0.0, 1.0])
+    assert result.min_eigenvalue < 0
+
+
+def test_small_positive_stiffness_is_a_near_mechanism():
+    # After scaling, the coupled pair has a smallest eigenvalue of 0.1 * NEAR_MECHANISM.
+    weak = 1.0 - 0.1 * NEAR_MECHANISM
+    k = np.array([[1.0, weak], [weak, 1.0]])
+    result = assess(k, np.array([True, True]), np.zeros(2))
+    assert result.stable and result.near_mechanism and result.mechanisms == 0
 
 
 def test_empty_system_is_stable():
