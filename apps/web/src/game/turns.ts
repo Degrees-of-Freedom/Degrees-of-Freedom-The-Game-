@@ -6,6 +6,7 @@ import {
 } from "./model";
 import { LEGACY_CATALOGUE, SCORED_CATALOGUE, printedCards, type CardDefinition, type CatalogueId } from "./cardCatalogue";
 import { conflictingJointAxes, CONNECTION_PROFILES } from "./jointFreedom";
+import { findMaterialClash } from "./materialClashes";
 import { findPort, targetCoordinate, turnJoints } from "./turnPorts";
 import { analyzeTurn } from "./turnAnalysis";
 import { awardFinalScore, finalReceipt, recoverFinalScore, type FinalScore } from "./finalScore";
@@ -271,6 +272,10 @@ export function stageElement(
     owner: activePlayer(state).id,
     cardId,
   };
+  if (state.catalogue === SCORED_CATALOGUE) {
+    const clash = findMaterialClash(member, parents);
+    if (clash) return fail(clash);
+  }
   return stage(
     state,
     { ...state.draft, members: [member] },
@@ -401,6 +406,14 @@ function commitTurn(
 ): Transition {
   if (state.finished || expectedTurn !== state.turn)
     return fail("This turn has already ended.");
+  if (state.catalogue === SCORED_CATALOGUE) {
+    const occupied = [...state.board.members];
+    for (const member of state.draft.members) {
+      const clash = findMaterialClash(member, occupied);
+      if (clash) return fail(clash);
+      occupied.push(member);
+    }
+  }
   const connections = [...state.board.connections, ...state.draft.connections];
   const conflict = jointProfileConflict(connections);
   if (conflict) return fail(conflict);
