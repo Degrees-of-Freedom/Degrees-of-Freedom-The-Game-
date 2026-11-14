@@ -3,14 +3,14 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { VoxelAnalysis } from '../solver/voxel';
 import { useGameStore } from '../game/store';
-import { allNodeKeys, CELL_SIZE, groundK, ITEMS, LEVELS, MEMBER_TYPES, memberIssue, nodeItemIssue, nodeKey, remaining, parseNodeKey, terrainCell, type GridPoint, type MemberType, type NodeItem } from '../game/model';
+import { allNodeKeys, CELL_SIZE, groundK, ITEMS, LEVELS, MEMBER_TYPES, memberIssue, nodeItemIssue, nodeKey, remaining, parseNodeKey, terrainCell, type GridPoint, type MemberType, type NodeItem, type Tool } from '../game/model';
 
-export interface SceneView { result: VoxelAnalysis | null; combo: number; deformed: boolean; scale: number; utilization: boolean; loads: boolean }
+export interface SceneView { result: VoxelAnalysis | null; combo: number; deformed: boolean; scale: number; utilization: boolean; loads: boolean; onMessage?: (message: string) => void }
 
 /** Three.js owns only presentation and picking; the game store owns the model and rules. */
-export function Scene({ result, combo, deformed, scale, utilization, loads }: SceneView) {
-  const view = useRef<SceneView>({ result, combo, deformed, scale, utilization, loads });
-  view.current = { result, combo, deformed, scale, utilization, loads };
+export function Scene({ result, combo, deformed, scale, utilization, loads, onMessage }: SceneView) {
+  const view = useRef<SceneView>({ result, combo, deformed, scale, utilization, loads, onMessage });
+  view.current = { result, combo, deformed, scale, utilization, loads, onMessage };
   const refresh = useRef<() => void>(() => {});
   useEffect(() => { refresh.current(); }, [result, combo, deformed, scale, utilization, loads]);
   const host = useRef<HTMLDivElement>(null);
@@ -133,15 +133,16 @@ export function Scene({ result, combo, deformed, scale, utilization, loads }: Sc
       const button = down.button; down = null; const s = useGameStore.getState();
       if (button === 2) { s.setChainStart(null); return; } if (button !== 0) return; pick(e);
       if (s.tool === 'inspect') s.setSelected(hit?.kind === 'member' ? { type:'member', id:hit.id } : hit?.kind === 'node' ? { type:'node', key:hit.key } : null);
-      else if (s.tool === 'delete') { if (hit?.kind === 'member') s.removeMember(hit.id); else if (hit?.kind === 'node') s.removeNodeAttrs(hit.key); }
-      else if (s.tool === 'swap' && hit?.kind === 'member') { if (e.shiftKey) s.swapAllOfType(s.model.members.find(m => m.id === (hit as {kind: "member"; id: number}).id)!.type, s.swapTarget); else s.swapMember(hit.id,s.swapTarget); }
-      else if (hit?.kind === 'point' && !hit.issue) { if (MEMBER_TYPES.includes(s.tool as MemberType)) { if (!s.chainStart || !s.addMember(parseNodeKey(s.chainStart),hit.p,s.tool as MemberType)) s.setChainStart(nodeKey(...hit.p)); } else s.toggleAttr(hit.p,s.tool as NodeItem); }
+      else if (s.tool === 'delete') { if (hit?.kind === 'member') { s.removeMember(hit.id); view.current.onMessage?.(''); } else if (hit?.kind === 'node') { if (s.model.attrs[hit.key]?.locked) view.current.onMessage?.('Abutment bearings cannot be removed.'); else { s.removeNodeAttrs(hit.key); view.current.onMessage?.(''); } } }
+      else if (s.tool === 'swap' && hit?.kind === 'member') { const member = s.model.members.find(m => m.id === (hit as {kind: 'member'; id: number}).id); if (member) { if (e.shiftKey) { const count = s.swapAllOfType(member.type, s.swapTarget); view.current.onMessage?.(count ? `Swapped ${count} member${count === 1 ? '' : 's'}.` : 'No members could be swapped; check the target section and supply.'); } else view.current.onMessage?.(s.swapMember(hit.id,s.swapTarget) ?? ''); } }
+      else if (hit?.kind === 'point' && hit.issue) view.current.onMessage?.(hit.issue);
+      else if (hit?.kind === 'point' && !hit.issue) { if (MEMBER_TYPES.includes(s.tool as MemberType)) { if (!s.chainStart || !s.addMember(parseNodeKey(s.chainStart),hit.p,s.tool as MemberType)) s.setChainStart(nodeKey(...hit.p)); } else view.current.onMessage?.(s.toggleAttr(hit.p,s.tool as NodeItem) ?? ''); }
       pick(e);
     };
     const pointerDown = (e: PointerEvent) => { down = { x:e.clientX, y:e.clientY, button:e.button }; };
     const leave = () => { ghost.visible = false; preview.visible = false; };
     const context = (e: Event) => e.preventDefault();
-    const keydown = (e: KeyboardEvent) => { if (e.key === 'Shift' && !shiftDown) { shiftDown = true; rebuild(); } if ((e.target as HTMLElement)?.matches('input, select, textarea')) return; const s=useGameStore.getState(); if(e.key==='Escape') s.setChainStart(null); else if(e.key==='[') s.setWorkK(s.workK-1); else if(e.key===']') s.setWorkK(s.workK+1); else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='z') { e.preventDefault(); s.undo(); } else if ((e.key==='Delete'||e.key==='Backspace') && s.selected?.type==='member') { e.preventDefault(); s.removeMember(s.selected.id); } };
+    const keydown = (e: KeyboardEvent) => { if (e.key === 'Shift' && !shiftDown) { shiftDown = true; rebuild(); } if ((e.target as HTMLElement)?.matches('input, select, textarea')) return; const s=useGameStore.getState(); if(e.key==='Escape') s.setChainStart(null); else if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey) { const tools: Tool[] = ['inspect','delete','swap','shs','glulam','ipe','heb','cable','joint','found']; const tool = tools[(Number(e.key)+9)%10]; if (tool) s.setTool(tool); } else if(e.key==='[') s.setWorkK(s.workK-1); else if(e.key===']') s.setWorkK(s.workK+1); else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='z') { e.preventDefault(); s.undo(); } else if ((e.key==='Delete'||e.key==='Backspace') && s.selected?.type==='member') { e.preventDefault(); s.removeMember(s.selected.id); } };
     const keyup = (e: KeyboardEvent) => { if (e.key === 'Shift') { shiftDown = false; rebuild(); } };
     const cameraChanged = () => { if (useGameStore.getState().chainStart) rebuild(); };
     controls.addEventListener('end', cameraChanged); window.addEventListener('keyup', keyup);
@@ -151,6 +152,7 @@ export function Scene({ result, combo, deformed, scale, utilization, loads }: Sc
   }, []);
   return <div className="scene" ref={host} aria-label="3D workspace. Drag to orbit, scroll to zoom, and click to build." />;
 }
+
 
 
 
