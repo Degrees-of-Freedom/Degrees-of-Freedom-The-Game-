@@ -98,6 +98,7 @@ export function Workspace() {
   }
   return (
     <main className="workspace">
+      {game.persistenceError && <p role="alert">{game.persistenceError}</p>}
       <div className="heading">
         <div>
           <p className="eyebrow">● &nbsp; THE WORKSPACE / VOXEL STRUCT</p>

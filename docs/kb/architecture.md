@@ -2,6 +2,7 @@
 title: "Architecture"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/turn-criteria.md
   - package.json
   - apps/web/src/game
   - apps/web/src/viewer
@@ -43,4 +44,6 @@ A second, narrower path does use the shared contract. `game/structuralModel.ts` 
 - Keep backend conversion and unsupported-feature handling in adapters. The OpenSees service follows this rule by rejecting request fields it does not know, and the game translation returns notes for what the contract cannot express.
 - Treat the viewer as a consumer of structural state, not the source of engineering or game rules.
 
-See [structural solver](structural-solver.md) for analysis limitations and candidate frameworks. The OpenSees service runs locally for development and has an untested Dockerfile. Persistence beyond local browser storage, turn flow, and deployment remain open.
+See [structural solver](structural-solver.md) for analysis limitations and candidate frameworks. The [turn criteria](turn-criteria.md) define the confirmed core rules and proposed transaction flow; the turn system is not implemented. The OpenSees service runs locally for development and has an untested Dockerfile. Persistence beyond local browser storage and deployment remain open.
+
+The voxel game uses versioned browser saves and an experimental analysis snapshot; see [structural state](structural-state.md) for validation, replay limits, and the proposed solver-neutral model.

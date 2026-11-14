@@ -2,6 +2,7 @@
 title: "Solver Criteria Gap Analysis and Milestones"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria.md
   - packages/solver-contract/src/index.ts
   - apps/web/src/solver/unavailable.ts
@@ -29,6 +30,12 @@ status: partial
 This review compares the owner's [proposed solver criteria](solver-criteria.md) with main at `b01a30edd262ad7718220889d30f897450c6c33b`. The criteria retain their proposed status; recording them does not approve unresolved gameplay rules or demonstrate numerical compliance. This documentation change preserves the working voxel experiment and preliminary shared contract. No criteria milestone is complete.
 
 There are two distinct interfaces: `packages/solver-contract/src/index.ts` is a preliminary shared contract whose placeholder returns `unsupported`; `apps/web/src/solver/voxel.ts` implements experimental game-specific analysis through `voxelInput.ts`. Its existing capabilities are useful starting points, not evidence of a verified reference solver. The standalone prototype is context; this review evaluates the workspace implementation.
+
+## Later confirmed turn decisions
+
+The coverage table below is a historical review against the stated `b01a30e` baseline, not a fresh audit of later refactoring. Since that review, the owner confirmed the [turn rules](turn-criteria.md#1-status-and-confirmed-rules): two draws per deck, optional 1-element/1-load/2-connection plays, per-end attachments, shared access without editing placed connections, starting foundations only, persistent gravity loads and a 1-point deduction once per turn for verified new/worsened issues. Unchanged issues and unresolved results do not trigger deductions. These decisions supersede the earlier statement that all other gameplay defaults are unconfirmed; they do not complete any solver milestone.
+
+See [open turn decisions](turn-criteria.md#9-questions-still-to-resolve) for remaining policy choices and [structural solver](structural-solver.md) for current implementation context.
 
 ## OpenSees service addendum
 

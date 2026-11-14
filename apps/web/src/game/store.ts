@@ -12,7 +12,7 @@ import {
 import { LEVELS } from './levels';
 import { initialModel } from './layout';
 import { memberIssue, nodeItemIssue, swapIssue } from './placementRules';
-import { save, savedLevel, load, saveLevel } from './persistence';
+import { save, savedLevel, loadWithStatus, saveLevel } from './persistence';
 export type Selection =
   | { type: 'member'; id: number }
   | { type: 'node'; key: string }
@@ -20,6 +20,7 @@ export type Selection =
 interface GameState {
   levelId: LevelId;
   model: GameModel;
+  persistenceError: string | null;
   history: GameModel[];
   tool: Tool;
   workK: number;
@@ -64,13 +65,15 @@ function cleanup(model: GameModel) {
 export const useGameStore = create<GameState>((set, get) => {
   const commit = (model: GameModel) =>
     set((s) => {
-      save(s.levelId, model);
-      return { model, history: [...s.history.slice(-199), clone(s.model)] };
+      const persisted = save(s.levelId, model);
+      return { model, persistenceError: persisted.ok ? null : 'Changes could not be saved. Existing stored data was preserved.', history: [...s.history.slice(-199), clone(s.model)] };
     });
   const startLevel = savedLevel();
+  const initial = loadWithStatus(startLevel);
   return {
     levelId: startLevel,
-    model: load(startLevel),
+    model: initial.model,
+    persistenceError: initial.error,
     swapTarget: 'ipe',
     setSwapTarget: (swapTarget) => set({ swapTarget }),
     history: [],
@@ -80,9 +83,11 @@ export const useGameStore = create<GameState>((set, get) => {
     selected: null,
     setLevel: (levelId) => {
       saveLevel(levelId);
+      const loaded = loadWithStatus(levelId);
       set((s) => ({
         levelId,
-        model: load(levelId),
+        model: loaded.model,
+        persistenceError: loaded.error,
         history: [],
         workK: LEVELS[levelId].cliffH ?? 0,
         chainStart: null,
@@ -132,9 +137,10 @@ export const useGameStore = create<GameState>((set, get) => {
       set((s) => {
         if (!s.history.length) return {};
         const model = s.history[s.history.length - 1];
-        save(s.levelId, model);
+        const persisted = save(s.levelId, model);
         return {
           model,
+          persistenceError: persisted.ok ? null : 'Changes could not be saved. Existing stored data was preserved.',
           history: s.history.slice(0, -1),
           chainStart: null,
           selected: null,

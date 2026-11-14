@@ -2,6 +2,7 @@
 title: "Solver Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/turn-criteria.md
   - "Project owner supplied Solver Criteria, 2026-11-14"
 owner: project owner
 status: needs-review
@@ -10,6 +11,8 @@ status: needs-review
 # Degrees of Freedom — Solver Criteria
 
 **Status:** Proposed implementation requirements. Review against the current repository before starting work. The confirmed model uses a 3D grid and six potential degrees of freedom per node. Other gameplay defaults below are proposals, not established rules.
+
+> **Later gameplay decisions — 2026-11-14:** Read [turn criteria](turn-criteria.md#1-status-and-confirmed-rules) for confirmed draw/play limits, per-end connections, shared access, immutable placed connectors, setup-only foundations, gravity-only persistent loads and the 1-point per-turn issue penalty. These later decisions supersede earlier gameplay proposals in this supplied document. Its numerical requirements remain proposed; this note does not claim implementation.
 
 ## 1. Objective
 

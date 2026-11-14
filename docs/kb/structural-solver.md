@@ -14,6 +14,7 @@ validated_against:
   - services/opensees/src/dof_opensees
   - services/opensees/tests
   - docs/kb/solver-criteria.md
+  - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria-gap-analysis.md
 owner: unknown
 status: partial
@@ -28,6 +29,8 @@ One backend does implement the shared contract: an OpenSees service in `services
 ## Target requirements and implementation status
 
 The owner-supplied [solver criteria](solver-criteria.md) are the proposed implementation requirements. They specify intentional member-end connectivity, six-axis connection laws, exact rigid constraints, verified linear and nonlinear physics, component-scoped stability and validity, signed reactions, and deterministic turn analysis. Their gameplay defaults, numerical gates, and performance targets remain proposals. The [gap analysis and milestones](solver-criteria-gap-analysis.md) compare them with current code and tests; no milestone is accepted as complete.
+
+The [turn criteria](turn-criteria.md) now define the confirmed two-deck draw/play limits and per-end connection-card model. End-turn assessment compares the full shared structure with the prior committed baseline. The game engine owns issue responsibility and penalties; the solver returns physical classifications and validity. This system is not implemented.
 
 ## Model and interface today
 
