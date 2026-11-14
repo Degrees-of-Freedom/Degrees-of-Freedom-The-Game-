@@ -1,86 +1,143 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from "vitest";
 import {
-  activeTurnHand, cancelTurnDraft, createTurnGame, endTurn, parseTurnState,
-  projectTurnModel, stageConnection, stageElement, stageLoad, type TurnState,
-} from './turns';
+  activeTurnHand,
+  cancelTurnDraft,
+  createTurnGame,
+  endTurn,
+  parseTurnState,
+  projectTurnModel,
+  stageConnection,
+  stageElement,
+  stageLoad,
+  type TurnState,
+} from "./turns";
 
 function apply(result: ReturnType<typeof endTurn>): TurnState {
   if (!result.ok) throw new Error(result.reason);
   return result.state;
 }
 
-describe('Kit turns', () => {
-  it('draws two cards from each deck exactly once per turn and preserves passes in replay', () => {
+describe("Kit turns", () => {
+  it("draws two cards from each deck exactly once per turn and preserves passes in replay", () => {
     const first = createTurnGame(23);
     expect(first.players[0].hand).toHaveLength(4);
-    expect(activeTurnHand(first).filter((card) => card.kind === 'connection')).toHaveLength(2);
+    expect(
+      activeTurnHand(first).filter((card) => card.kind === "connection"),
+    ).toHaveLength(2);
     const second = apply(endTurn(first, 1));
     expect(endTurn(second, 1).ok).toBe(false);
     expect(second.players.map(({ hand }) => hand.length)).toEqual([4, 4]);
-    expect(second.reports[0]).toMatchObject({ status: 'unresolved', penalty: 0 });
+    expect(second.reports[0]).toMatchObject({
+      status: "unresolved",
+      penalty: 0,
+    });
     expect(parseTurnState(JSON.parse(JSON.stringify(second)))).toEqual(second);
-    expect(parseTurnState({ version: second.version, seed: second.seed, events: [{ kind: 'end', turn: 2 }] })).toBeNull();
+    expect(
+      parseTurnState({
+        version: second.version,
+        seed: second.seed,
+        events: [{ kind: "end", turn: 2 }],
+      }),
+    ).toBeNull();
   });
 
-  it('separates coincident ends from attached joints and retains placements across turns', () => {
+  it("separates coincident ends from attached joints and retains placements across turns", () => {
     let first = createTurnGame();
-    for (let seed = 1; !activeTurnHand(first).some((card) => card.kind === 'element'); seed++) {
+    for (
+      let seed = 1;
+      !activeTurnHand(first).some((card) => card.kind === "element");
+      seed++
+    ) {
       first = createTurnGame(seed);
     }
     const hand = activeTurnHand(first);
-    const element = hand.find((card) => card.kind === 'element')!;
-    const connectors = hand.filter((card) => card.kind === 'connection');
-    const withMember = apply(stageElement(first, element.id, '5,3,1', '5,2,1'));
+    const element = hand.find((card) => card.kind === "element")!;
+    const connectors = hand.filter((card) => card.kind === "connection");
+    const withMember = apply(stageElement(first, element.id, "5,3,1", "5,2,1"));
     const id = withMember.draft.members[0].id;
     expect(withMember.draft.connections).toEqual([]);
-    const attached = apply(stageConnection(withMember, connectors[0].id, id, 'a', '5,3,1'));
-    expect(stageConnection(attached, connectors[1].id, id, 'a').ok).toBe(false);
-    const both = apply(stageConnection(attached, connectors[1].id, id, 'b'));
-    expect(cancelTurnDraft(both)).toMatchObject({ ok: true, state: { draft: { members: [], connections: [] } } });
+    const attached = apply(
+      stageConnection(withMember, connectors[0].id, id, "a", "5,3,1"),
+    );
+    expect(stageConnection(attached, connectors[1].id, id, "a").ok).toBe(false);
+    const both = apply(stageConnection(attached, connectors[1].id, id, "b"));
+    expect(cancelTurnDraft(both)).toMatchObject({
+      ok: true,
+      state: { draft: { members: [], connections: [] } },
+    });
     const committed = apply(endTurn(both));
-    expect(committed.board.connections.filter((connection) => connection.memberId === id)).toHaveLength(2);
-    expect(projectTurnModel(committed).members.map((member) => member.id)).toContain(id);
+    expect(
+      committed.board.connections.filter(
+        (connection) => connection.memberId === id,
+      ),
+    ).toHaveLength(2);
+    expect(
+      projectTurnModel(committed).members.map((member) => member.id),
+    ).toContain(id);
     expect(parseTurnState(committed)).toEqual(committed);
   });
 
-  it('allows a persistent downward load on the other player’s shared structure', () => {
+  it("allows a persistent downward load on the other player’s shared structure", () => {
     let first = createTurnGame();
-    for (let seed = 1; !activeTurnHand(first).some((card) => card.kind === 'load'); seed++) {
+    for (
+      let seed = 1;
+      !activeTurnHand(first).some((card) => card.kind === "load");
+      seed++
+    ) {
       first = createTurnGame(seed);
     }
-    const load = activeTurnHand(first).find((card) => card.kind === 'load')!;
-    if (load.kind !== 'load') throw new Error('Expected a load card');
-    expect(stageLoad(first, load.id, '6,6,6').ok).toBe(false);
-    const committed = apply(endTurn(apply(stageLoad(first, load.id, '5,3,1'))));
-    expect(projectTurnModel(committed).attrs['5,3,1'].load).toBe(load.magnitude);
-    expect(committed.players[0].hand.some((card) => card.id === load.id)).toBe(false);
+    const load = activeTurnHand(first).find((card) => card.kind === "load")!;
+    if (load.kind !== "load") throw new Error("Expected a load card");
+    expect(stageLoad(first, load.id, "6,6,6").ok).toBe(false);
+    const committed = apply(endTurn(apply(stageLoad(first, load.id, "5,3,1"))));
+    expect(projectTurnModel(committed).attrs["5,3,1"].load).toBe(
+      load.magnitude,
+    );
+    expect(committed.players[0].hand.some((card) => card.id === load.id)).toBe(
+      false,
+    );
   });
 
-  it('restores active cards without drawing again and rejects excess placements', () => {
+  it("restores active cards without drawing again and rejects excess placements", () => {
     let state = createTurnGame(17);
-    while (activeTurnHand(state).filter((card) => card.kind === 'connection').length < 4 ||
-      activeTurnHand(state).filter((card) => card.kind === 'element').length < 2 ||
-      activeTurnHand(state).filter((card) => card.kind === 'load').length < 2) {
+    while (
+      activeTurnHand(state).filter((card) => card.kind === "connection")
+        .length < 4 ||
+      activeTurnHand(state).filter((card) => card.kind === "element").length <
+        2 ||
+      activeTurnHand(state).filter((card) => card.kind === "load").length < 2
+    ) {
       state = apply(endTurn(state));
     }
     const hand = activeTurnHand(state);
-    const [element, extraElement] = hand.filter((card) => card.kind === 'element');
-    const [load, extraLoad] = hand.filter((card) => card.kind === 'load');
-    const [first, second, extra] = hand.filter((card) => card.kind === 'connection');
-    let planned = apply(stageElement(state, element.id, '3,3,0', '3,3,1'));
-    expect(stageElement(planned, extraElement.id, '2,3,0', '2,3,1').ok).toBe(false);
-    expect(stageLoad(planned, load.id, '3,3,1').ok).toBe(false);
+    const [element, extraElement] = hand.filter(
+      (card) => card.kind === "element",
+    );
+    const [load, extraLoad] = hand.filter((card) => card.kind === "load");
+    const [first, second, extra] = hand.filter(
+      (card) => card.kind === "connection",
+    );
+    let planned = apply(stageElement(state, element.id, "3,3,0", "3,3,1"));
+    expect(stageElement(planned, extraElement.id, "2,3,0", "2,3,1").ok).toBe(
+      false,
+    );
+    expect(stageLoad(planned, load.id, "3,3,1").ok).toBe(false);
     const id = planned.draft.members[0].id;
-    planned = apply(stageConnection(planned, first.id, id, 'a'));
-    planned = apply(stageConnection(planned, second.id, id, 'b'));
-    expect(stageConnection(planned, extra.id, id, 'b')).toMatchObject({ ok: false, reason: 'Two connections may be played per turn.' });
-    planned = apply(stageLoad(planned, load.id, '3,3,1'));
-    expect(stageLoad(planned, extraLoad.id, '3,3,1').ok).toBe(false);
-    expect(parseTurnState(JSON.parse(JSON.stringify(planned)))).toEqual(planned);
+    planned = apply(stageConnection(planned, first.id, id, "a"));
+    planned = apply(stageConnection(planned, second.id, id, "b"));
+    expect(stageConnection(planned, extra.id, id, "b")).toMatchObject({
+      ok: false,
+      reason: "Two connections may be played per turn.",
+    });
+    planned = apply(stageLoad(planned, load.id, "3,3,1"));
+    expect(stageLoad(planned, extraLoad.id, "3,3,1").ok).toBe(false);
+    expect(parseTurnState(JSON.parse(JSON.stringify(planned)))).toEqual(
+      planned,
+    );
     expect(apply(cancelTurnDraft(planned))).toEqual(state);
   });
 
-  it('ends at the configured round boundary and rejects oversized replay logs', () => {
+  it("ends at the configured round boundary and rejects oversized replay logs", () => {
     let state = createTurnGame();
     for (let turn = 1; turn <= 16; turn++) state = apply(endTurn(state, turn));
     expect(state).toMatchObject({ turn: 16, finished: true });
@@ -88,6 +145,11 @@ describe('Kit turns', () => {
     expect(activeTurnHand(state)).toEqual([]);
     expect(endTurn(state).ok).toBe(false);
     expect(parseTurnState(state)).toEqual(state);
-    expect(parseTurnState({ ...state, events: Array(81).fill({ kind: 'end', turn: 1 }) })).toBeNull();
+    expect(
+      parseTurnState({
+        ...state,
+        events: Array(81).fill({ kind: "end", turn: 1 }),
+      }),
+    ).toBeNull();
   });
 });

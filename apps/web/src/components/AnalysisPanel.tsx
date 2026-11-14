@@ -1,5 +1,5 @@
-import type { VoxelAnalysis } from '../solver/voxel';
-import { computeLoadPath } from '../solver/loadPath';
+import type { VoxelAnalysis } from "../solver/voxel";
+import { computeLoadPath } from "../solver/loadPath";
 interface AnalysisPanelProps {
   result: VoxelAnalysis | null;
   message: string;
@@ -49,13 +49,26 @@ export function AnalysisPanel({
       ) : (
         <>
           <h3>
-            {result.success ? 'Checks passed' : 'Not yet passing'}{' '}
-            {result.stars ? '★'.repeat(result.stars) : ''}
+            {result.mechanism
+              ? "Unstable structure"
+              : result.floating.length
+                ? "Disconnected structure"
+                : result.success
+                  ? "Checks passed"
+                  : "Simulation complete · review checks"}{" "}
+            {result.stars ? "★".repeat(result.stars) : ""}
           </h3>
+          {(result.mechanism || result.floating.length > 0) && (
+            <p role="status">
+              {result.mechanism
+                ? "The model has a movement that is not resisted. Add a support, brace, or connection before interpreting force results."
+                : `${result.floating.length} node(s) have no connection to a support.`}
+            </p>
+          )}
           <ul className="objectives">
             {result.objectives.map((o, i) => (
               <li key={i}>
-                {o.ok ? '✓' : '✕'} {o.label}
+                {o.ok ? "✓" : "✕"} {o.label}
                 {o.detail && <small>{o.detail}</small>}
               </li>
             ))}
@@ -65,40 +78,87 @@ export function AnalysisPanel({
             <b>{result.mass?.toFixed(2)} t</b>
           </div>
           <div className="stat">
-            <span>Maximum utilisation</span>
+            <span>Maximum displacement</span>
             <b>
-              {result.mechanism || result.maxU === undefined
-                ? '—'
-                : `${(result.maxU * 100).toFixed(0)}%`}
+              {result.mechanism || result.combos[combo]?.maxD === undefined
+                ? "—"
+                : `${(result.combos[combo].maxD! * 1000).toFixed(2)} mm`}
             </b>
           </div>
-          <h3>Most utilised members</h3>
+          <details>
+            <summary>Support reactions</summary>
+            <p>X, Y, Z forces in kN for the selected load case.</p>
+            {Object.keys(result.found).map((key) => {
+              const node = result.ctx?.idx.get(key);
+              const active =
+                node === undefined ? undefined : result.ctx?.aid[node];
+              const reaction =
+                active === undefined
+                  ? undefined
+                  : result.combos[combo]?.reac?.[active];
+              return (
+                <div className="stat" key={key}>
+                  <span>{key}</span>
+                  <b>
+                    {reaction && !result.mechanism
+                      ? `${reaction[0].toFixed(2)}, ${reaction[1].toFixed(2)}, ${reaction[2].toFixed(2)} kN`
+                      : "Unavailable"}
+                  </b>
+                </div>
+              );
+            })}
+          </details>
+          {result.designChecksAvailable !== false && (
+            <div className="stat">
+              <span>Maximum utilisation</span>
+              <b>
+                {result.mechanism || result.maxU === undefined
+                  ? "—"
+                  : `${(result.maxU * 100).toFixed(0)}%`}
+              </b>
+            </div>
+          )}
+          <h3>
+            {result.designChecksAvailable === false
+              ? "Member end forces"
+              : "Most utilised members"}
+          </h3>
           {Object.entries(result.members)
             .sort((a, b) => b[1].util - a[1].util)
-            .slice(0, 8)
+            .slice(0, result.designChecksAvailable === false ? undefined : 8)
             .map(([id, member]) => (
               <button
                 className="member-result"
                 key={id}
                 onClick={() => selectMember(Number(id))}
               >
-                #{id} · {member.gov} <b>{(member.util * 100).toFixed(0)}%</b>
+                {result.designChecksAvailable === false ? (
+                  (() => {
+                    const force = result.combos[combo]?.ef?.get(member.e)?.f;
+                    return force && !result.mechanism
+                      ? `#${id} · |N| ${Math.max(Math.abs(force[0]), Math.abs(force[6])).toFixed(1)} kN · |V| ${Math.max(...[1, 2, 7, 8].map((i) => Math.abs(force[i]))).toFixed(1)} kN · |M| ${Math.max(...[4, 5, 10, 11].map((i) => Math.abs(force[i]))).toFixed(1)} kNm`
+                      : `#${id} · Forces unavailable`;
+                  })()
+                ) : (
+                  <>
+                    #{id} · {member.gov}{" "}
+                    <b>{(member.util * 100).toFixed(0)}%</b>
+                  </>
+                )}
               </button>
             ))}
           <div className="view-options">
             <label>
-              Load case{' '}
+              Load case{" "}
               <select
                 value={combo}
                 onChange={(e) => setCombo(Number(e.target.value))}
               >
-                {['ULS wind X', 'ULS wind Y', 'SLS wind X', 'SLS wind Y'].map(
-                  (name, i) => (
-                    <option value={i} key={name}>
-                      {name}
-                    </option>
-                  ),
-                )}
+                {result.combos.map(({ combo: loadCase }, i) => (
+                  <option value={i} key={loadCase.short}>
+                    {loadCase.short}
+                  </option>
+                ))}
               </select>
             </label>
             <label>
@@ -106,11 +166,11 @@ export function AnalysisPanel({
                 type="checkbox"
                 checked={deformed}
                 onChange={(e) => setDeformed(e.target.checked)}
-              />{' '}
+              />{" "}
               Deformed shape
             </label>
             <label>
-              Scale{' '}
+              Scale{" "}
               <input
                 type="range"
                 min="0.1"
@@ -123,9 +183,10 @@ export function AnalysisPanel({
             <label>
               <input
                 type="checkbox"
-                checked={utilization}
+                checked={utilization && result.designChecksAvailable !== false}
+                disabled={result.designChecksAvailable === false}
                 onChange={(e) => setUtilization(e.target.checked)}
-              />{' '}
+              />{" "}
               Utilisation colours
             </label>
             <label>
@@ -133,7 +194,7 @@ export function AnalysisPanel({
                 type="checkbox"
                 checked={loadPath}
                 onChange={(e) => setLoadPath(e.target.checked)}
-              />{' '}
+              />{" "}
               Load path (L)
             </label>
             {path && (
@@ -152,7 +213,7 @@ export function AnalysisPanel({
                 type="checkbox"
                 checked={loads}
                 onChange={(e) => setLoads(e.target.checked)}
-              />{' '}
+              />{" "}
               Loads and reactions
             </label>
           </div>
