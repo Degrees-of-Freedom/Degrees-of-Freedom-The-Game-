@@ -72,6 +72,14 @@ body,
   background: var(--ink);
   color: var(--cream);
 }
+.environment[data-style="grow-dusk"] .env-tools .tool[aria-pressed="true"] {
+  background: var(--amber);
+  color: var(--ink);
+}
+.environment[data-style="grow-dusk"] .env-tools .tool[aria-pressed="true"] kbd {
+  background: #22313f24;
+  color: var(--ink);
+}
 .environment .env-tools svg {
   flex: none;
   width: 28px;

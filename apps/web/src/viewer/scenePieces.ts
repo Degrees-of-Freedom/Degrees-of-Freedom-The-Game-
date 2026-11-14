@@ -13,6 +13,7 @@ export function paintedSupport(
   const height =
     (style === "blocks" ? 0.38 : style === "levels" ? 0.21 : 0.28) * scale;
   const locks = attrs.restraint;
+  const allLocked = !locks || locks.every(Boolean);
   const hasRotation = !locks || locks.slice(3).some(Boolean);
   const color =
     style === "levels"
@@ -21,6 +22,22 @@ export function paintedSupport(
         ? "#22313f"
         : "#505967";
   const material = new THREE.MeshLambertMaterial({ color });
+  if (allLocked && (style === "grow" || style === "grow-dusk")) {
+    for (const [width, depth, z, paint] of [
+      [0.56, 0.12, -height / scale + 0.06, color],
+      [0.40, 0.22, -height / scale + 0.23, "#637486"],
+    ] as const) {
+      const shoe = new THREE.Mesh(
+        new THREE.BoxGeometry(width * scale, width * scale, depth * scale),
+        new THREE.MeshLambertMaterial({ color: paint }),
+      );
+      shoe.position.copy(position).z += z * scale;
+      shoe.castShadow = true;
+      group.add(shoe);
+    }
+    material.dispose();
+    return;
+  }
   const base = new THREE.Mesh(
     new THREE.CylinderGeometry(scale * 0.19, scale * 0.2, scale * 0.055, 20),
     material,
@@ -137,12 +154,15 @@ export function paintedJoint(
   position: THREE.Vector3,
   selected: boolean,
   fixed: boolean,
+  style: SceneStyle,
   baseColor: string,
   faded: boolean,
 ) {
-  const radius = CELL_SIZE * (fixed ? 0.15 : 0.115);
+  const isGrowth = style === "grow" || style === "grow-dusk";
+  const pinned = isGrowth && !fixed;
+  const radius = CELL_SIZE * (isGrowth ? pinned ? 0.105 : 0.13 : fixed ? 0.15 : 0.115);
   const body = new THREE.Mesh(
-    fixed
+    style === "levels" && fixed
       ? new THREE.BoxGeometry(radius * 1.7, radius * 1.7, radius * 1.7)
       : new THREE.SphereGeometry(radius, 18, 12),
     new THREE.MeshLambertMaterial({
@@ -155,11 +175,11 @@ export function paintedJoint(
   body.position.copy(position);
   body.castShadow = true;
   group.add(body);
-  if (selected) {
+  if (selected || pinned) {
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(radius * 1.75, radius * 0.11, 8, 30),
+      new THREE.TorusGeometry(radius * (selected ? 1.75 : 1.4), radius * (selected ? 0.11 : 0.22), 8, 30),
       new THREE.MeshBasicMaterial({
-        color: "#ee9a43",
+        color: selected ? "#ee9a43" : "#465461",
         depthTest: false,
         depthWrite: false,
       }),

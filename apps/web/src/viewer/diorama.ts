@@ -76,7 +76,7 @@ function addSea(
       glint: { value: new THREE.Color(dusk ? "#6c8e99" : "#d5e9eb") },
       limits: { value: new THREE.Vector2(halfWidth, halfHeight) },
       time: { value: 0 },
-      ripple: { value: dusk ? 0.43 : 0.85 },
+      ripple: { value: dusk ? 0.72 : 0.85 },
     },
     vertexShader: `
       varying vec2 local;
@@ -98,7 +98,7 @@ function addSea(
         vec2 outside = max(abs(local) - limits, vec2(0.0));
         float nearWall = length(outside);
         float far = smoothstep(20.0, 125.0, length(local));
-        float wake = pow(0.5 + 0.5 * sin(nearWall * 4.4 - time * 0.55), 15.0) * exp(-nearWall * 0.62);
+        float wake = pow(0.5 + 0.5 * sin(nearWall * 3.3 - time * 0.55), 9.0) * exp(-nearWall * 0.49);
         vec2 p = vec2(local.x * 0.95, local.y * 3.4);
         float shimmer = smoothstep(0.90, 1.0, hash(floor(p))) *
           smoothstep(0.15, 0.32, fract(p.x)) * (1.0 - smoothstep(0.69, 0.86, fract(p.x))) *

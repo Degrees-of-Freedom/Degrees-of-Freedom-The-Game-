@@ -167,6 +167,7 @@ export function buildStructure(
         p,
         s.selected?.type === "node" && s.selected.key === key,
         !!attrs.joint && s.mode !== "multiplayer",
+        s.style,
         palette.hub,
         s.style === "levels" && parseNodeKey(key)[2] > s.workK,
       );

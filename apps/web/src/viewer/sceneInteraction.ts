@@ -197,13 +197,19 @@ export function bindSceneInteraction(
       !e.ctrlKey &&
       !e.metaKey &&
       !e.altKey &&
-      ["f", "q", "e", "pageup", "pagedown"].includes(key)
+      (["f", "q", "e", "pageup", "pagedown"].includes(key) || s.style === "levels" && ["w", "s"].includes(key) || s.style === "kit" && ["a", "d"].includes(key))
     ) {
       e.preventDefault();
       if (key === "f") getCameraActions().fit();
-      else if (key === "q" || key === "e")
-        getCameraActions().orbit(key === "q" ? -1 : 1);
-      else s.setWorkK(s.workK + (key === "pageup" ? 1 : -1));
+      else if (key === "q" || key === "e" || key === "a" || key === "d")
+        getCameraActions().orbit(key === "q" || key === "a" ? -1 : 1);
+      else s.setWorkK(s.workK + (key === "pageup" || key === "w" ? 1 : -1));
+    } else if (!e.ctrlKey && !e.metaKey && !e.altKey && s.style !== "engineering" && ["x", "i", "1", "2", "3", "4"].includes(key)) {
+      const tools: Partial<Record<string, Tool>> = s.style === "blocks"
+        ? { "1": "shs", "2": "brace", "3": "joint", "4": "load", x: "delete", i: "inspect" }
+        : { "1": "shs", "2": "joint", "3": "load", x: "delete", i: "inspect" };
+      const tool = tools[key];
+      if (tool) s.setTool(tool);
     } else if (e.key.toLowerCase() === "l" && !e.ctrlKey && !e.metaKey)
       getView().onToggleLoadPath?.();
     else if (e.key === "Escape") s.setChainStart(null);
