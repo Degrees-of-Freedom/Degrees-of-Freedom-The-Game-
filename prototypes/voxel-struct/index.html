@@ -142,10 +142,10 @@ input[type=checkbox]{accent-color:var(--accent)}
 <div id="help" style="display:none">
   <div class="box">
     <h2>Voxel Struct — build, analyse, design</h2>
-    <p class="desc">Space is a 3D voxel grid with 2 m cells. Members connect voxel corners. Every challenge has a limited supply of parts.</p>
+    <p class="desc">Space is a 3D voxel grid with 2 m cells. Every member piece runs from one voxel corner to the next (straight or diagonal); drawing a longer straight line builds one piece per field, and each piece uses one item from your limited supply. A straight run of the same section acts as one continuous member.</p>
     <ul class="desc">
-      <li><b>Beams</b> (steel tube, glulam timber, IPE, HEB) carry axial force, shear and bending. Max 3 cells per axis.</li>
-      <li><b>Cables</b> are tension-only and go slack under compression. Max 8 cells per axis.</li>
+      <li><b>Beams</b> (steel tube, glulam timber, IPE, HEB) carry axial force, shear and bending.</li>
+      <li><b>Cables</b> are tension-only, pretensioned to 25 kN, and go slack under compression.</li>
       <li><b>Joints are pinned</b> by default. A <b>Moment connection</b> makes every member end at that node rigid and raises joint capacity.</li>
       <li><b>Foundations</b> fix a node to solid ground (not water).</li>
       <li><b>Run analysis</b> solves a 3D frame model (4 load combinations: ULS/SLS with wind in X and Y, imperfections, tension-only cable iteration) and checks:
@@ -155,6 +155,7 @@ input[type=checkbox]{accent-color:var(--accent)}
       <li><b>Load path</b> (L) shows how force travels to the ground: thickness = force, red = compression, blue = tension,
         purple = bending/shear; dots flow towards the supports. Inspect a node to trace its route down.</li>
       <li><b>Pick-up levels</b>: weights float in space — connect every one of them to foundations.</li>
+      <li><b>Flip levels</b>: a structure is given; rebuild it so the orange target member carries the opposite force (tension ↔ compression).</li>
       <li><b>Auto-design</b> resizes beams to the lightest adequate section still in your supply.</li>
     </ul>
     <p class="desc">Tip: pin-jointed frames need triangles (bracing) in <i>all three</i> directions — or moment connections.</p>
@@ -177,20 +178,20 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
    ===================================================================== */
 const S = 2; // voxel size [m]
 const ITEMS = {
-  shs:   { kind:'beam', label:'SHS 100×6', sub:'Steel tube S355', color:'#a3adb8', cost:120, E:210e6, G:81e6,
+  shs:   { kind:'beam', label:'SHS 100×6', sub:'Steel tube S355', color:'#a3adb8', cost:40, E:210e6, G:81e6,
            A:2.24e-3, Iy:3.20e-6, Iz:3.20e-6, J:5.13e-6, Wy:6.40e-5, Wz:6.40e-5, Avy:1.12e-3, Avz:1.12e-3,
-           ft:355e3, fc:355e3, fm:355e3, fv:205e3, alpha:0.21, l0:0.2, w:0.176, dim:[0.10,0.10], shape:'box', maxCells:3 },
-  glulam:{ kind:'beam', label:'Glulam 200×400', sub:'Timber GL24h', color:'#c8955a', cost:180, E:11.5e6, G:0.65e6,
+           ft:355e3, fc:355e3, fm:355e3, fv:205e3, alpha:0.21, l0:0.2, w:0.176, dim:[0.10,0.10], shape:'box' },
+  glulam:{ kind:'beam', label:'Glulam 200×400', sub:'Timber GL24h', color:'#c8955a', cost:60, E:11.5e6, G:0.65e6,
            A:0.08, Iy:1.0667e-3, Iz:2.667e-4, J:7.33e-4, Wy:5.333e-3, Wz:2.667e-3, Avy:0.0533, Avz:0.0533,
-           ft:12.3e3, fc:15.4e3, fm:15.4e3, fv:2.24e3, alpha:0.1, l0:0.3, w:0.34, dim:[0.2,0.4], shape:'box', maxCells:3 },
-  ipe:   { kind:'beam', label:'IPE 300', sub:'Steel I-beam S355', color:'#6a8db3', cost:260, E:210e6, G:81e6,
+           ft:12.3e3, fc:15.4e3, fm:15.4e3, fv:2.24e3, alpha:0.1, l0:0.3, w:0.34, dim:[0.2,0.4], shape:'box' },
+  ipe:   { kind:'beam', label:'IPE 300', sub:'Steel I-beam S355', color:'#6a8db3', cost:90, E:210e6, G:81e6,
            A:5.38e-3, Iy:8.356e-5, Iz:6.04e-6, J:2.01e-7, Wy:5.57e-4, Wz:8.05e-5, Avy:3.2e-3, Avz:2.57e-3,
-           ft:355e3, fc:355e3, fm:355e3, fv:205e3, alpha:0.34, l0:0.2, w:0.422, dim:[0.15,0.30], shape:'I', maxCells:3 },
-  heb:   { kind:'beam', label:'HEB 300', sub:'Heavy steel H-section', color:'#45617f', cost:620, E:210e6, G:81e6,
+           ft:355e3, fc:355e3, fm:355e3, fv:205e3, alpha:0.34, l0:0.2, w:0.422, dim:[0.15,0.30], shape:'I' },
+  heb:   { kind:'beam', label:'HEB 300', sub:'Heavy steel H-section', color:'#45617f', cost:210, E:210e6, G:81e6,
            A:1.49e-2, Iy:2.517e-4, Iz:8.563e-5, J:1.85e-6, Wy:1.678e-3, Wz:5.71e-4, Avy:1.14e-2, Avz:4.74e-3,
-           ft:355e3, fc:355e3, fm:355e3, fv:205e3, alpha:0.49, l0:0.2, w:1.17, dim:[0.30,0.30], shape:'I', maxCells:3 },
-  cable: { kind:'cable', label:'Cable Ø24', sub:'Tension only · 25 kN pretension', color:'#2b2f36', cost:90, E:160e6, A:3.6e-4, NRd:260, P0:25,
-           w:0.03, dim:[0.05,0.05], shape:'box', maxCells:8 },
+           ft:355e3, fc:355e3, fm:355e3, fv:205e3, alpha:0.49, l0:0.2, w:1.17, dim:[0.30,0.30], shape:'I' },
+  cable: { kind:'cable', label:'Cable Ø24', sub:'Tension only · 25 kN pretension', color:'#2b2f36', cost:25, E:160e6, A:3.6e-4, NRd:260, P0:25,
+           w:0.03, dim:[0.05,0.05], shape:'box' },
   joint: { kind:'joint', label:'Moment connection', sub:'Rigid + stronger joint', color:'#f39c34', cost:80 },
   found: { kind:'found', label:'Foundation', sub:'Fixed support on ground', color:'#b9b4aa', cost:400 },
   load:  { kind:'load', label:'Point load 50 kN', sub:'Sandbox live load', color:'#ff5a5f', cost:0 },
@@ -214,32 +215,52 @@ const COMBOS = [
 ];
 
 const LEVELS = {
-  tower1:{ name:'Tower I · 12 m lookout', type:'tower', nx:10, ny:10, nz:10, target:6, payload:40, q0:0.6, budget:6500,
-    inv:{shs:24, glulam:6, ipe:6, heb:0, cable:8, joint:6, found:4},
+  tower1:{ name:'Tower I · 12 m lookout', type:'tower', nx:10, ny:10, nz:10, target:6, payload:40, q0:0.6, budget:6000,
+    inv:{shs:60, glulam:36, ipe:24, heb:0, cable:30, joint:8, found:4},
     desc:'Build a tower whose top reaches 12 m. A 40 kN lookout deck sits on the highest level, and wind acts on every member.' },
   tower2:{ name:'Tower II · 24 m antenna', type:'tower', nx:10, ny:10, nz:15, target:12, payload:30, q0:0.9, budget:12000,
-    inv:{shs:44, glulam:0, ipe:16, heb:4, cable:16, joint:10, found:4},
+    inv:{shs:120, glulam:0, ipe:48, heb:12, cable:40, joint:12, found:4},
     desc:'Reach 24 m with an antenna load of 30 kN at the top. Strong wind grows with height — watch slenderness and global buckling.' },
   bridge1:{ name:'Bridge I · 16 m canyon', type:'bridge', nx:16, ny:10, nz:9, cliffL:4, cliffR:12, cliffH:3, water:[6,9], ys:[4,6],
-    traffic:30, q0:0.5, budget:7000,
-    inv:{shs:40, glulam:8, ipe:16, heb:4, cable:8, joint:12, found:4},
-    desc:'Span the canyon between the four abutment bearings. Traffic of 30 kN/m is shared by all deck nodes over the gap. No foundations in the river.' },
+    traffic:30, q0:0.5, budget:5000,
+    inv:{shs:60, glulam:12, ipe:30, heb:6, cable:20, joint:12, found:4},
+    desc:'Span the canyon between the four abutment bearings. Traffic of 30 kN/m runs along the two lanes above the bearings and is shared by the lane nodes over the gap. No foundations in the river.' },
   bridge2:{ name:'Bridge II · 28 m gorge', type:'bridge', nx:22, ny:10, nz:13, cliffL:4, cliffR:18, cliffH:4, water:[6,15], ys:[4,6],
     traffic:25, q0:0.6, budget:15000,
-    inv:{shs:50, glulam:0, ipe:24, heb:8, cable:24, joint:16, found:6},
+    inv:{shs:150, glulam:0, ipe:64, heb:20, cable:60, joint:16, found:6},
     desc:'A 28 m gorge — too far for a shallow girder. Pylons with cables, or a deep truss? Traffic 25 kN/m.' },
   // "Pick up the loads": weights hang at fixed points in space; connect every one to the ground.
-  pickup1:{ name:'Pick-up I · three weights', type:'pickup', nx:12, ny:12, nz:8, q0:0.5, budget:3000,
-    loads:[[4,4,3,40],[7,4,3,40],[5,7,3,60]],
-    inv:{shs:16, glulam:6, ipe:4, heb:0, cable:6, joint:6, found:4},
+  pickup1:{ name:'Pick-up I · three weights', type:'pickup', nx:12, ny:12, nz:8, q0:0.5, budget:2800,
+    loads:[[4,4,3,40],[7,4,3,40],[4,7,3,60]],
+    inv:{shs:24, glulam:16, ipe:9, heb:0, cable:12, joint:6, found:4},
     desc:'Three weights float 6 m above the ground. Build one structure that picks up every weight and carries it safely to foundations.' },
   pickup2:{ name:'Pick-up II · over the lake', type:'pickup', nx:14, ny:14, nz:10, q0:0.6, budget:9000,
     lakes:[[5,9,4,10]], loads:[[7,7,4,50],[9,6,5,40],[4,10,6,40],[11,3,3,30]],
-    inv:{shs:30, glulam:8, ipe:12, heb:2, cable:12, joint:10, found:5},
+    inv:{shs:80, glulam:24, ipe:30, heb:6, cable:30, joint:10, found:5},
     desc:'Four weights at different heights, two of them over a lake where no foundation can go. Reach out with cantilevers, trusses or cables.' },
   pickupR:{ name:'Pick-up · random layout', type:'pickup', random:true, nx:14, ny:14, nz:10, q0:0.5, budget:9000,
-    inv:{shs:36, glulam:8, ipe:12, heb:4, cable:12, joint:10, found:6},
+    inv:{shs:90, glulam:24, ipe:30, heb:10, cable:30, joint:10, found:6},
     desc:'A random set of weights in space. Press “New layout” for another puzzle.' },
+  // "Flip the force": a given structure; change it so the highlighted (locked) member carries the opposite
+  // axial force. Supply = the given parts + `extra`; removed parts go back to the supply.
+  flip1:{ name:'Flip I · see-saw', type:'flip', nx:12, ny:10, nz:6, q0:0.4, budget:3600, goal:'tension',
+    target:[[2,5,0],[2,5,3]], extra:{shs:6, glulam:0, ipe:4, heb:3, cable:6, joint:2, found:1},
+    build(m){
+      for(const i of [2,8]){ m.attrs[key(i,5,0)]={found:true, joint:true}; m.attrs[key(i,5,3)]={joint:true}; }
+      addLineTo(m,[2,5,0],[2,5,3],'heb'); addLineTo(m,[8,5,0],[8,5,3],'heb'); addLineTo(m,[2,5,3],[8,5,3],'heb');
+      m.attrs[key(5,5,3)]={load:40, locked:true, target:true};
+    },
+    desc:'The weight squeezes the highlighted column (compression). Change the frame so that the same column is pulled (tension) — and everything still passes. Think of a see-saw.' },
+  flip2:{ name:'Flip II · hanger to prop', type:'flip', nx:10, ny:10, nz:6, q0:0.4, budget:4200, goal:'compression',
+    target:[[5,5,4],[5,5,2]], extra:{shs:6, glulam:0, ipe:4, heb:0, cable:6, joint:2, found:1},
+    build(m){
+      for(const i of [3,7]){ m.attrs[key(i,5,0)]={found:true, joint:true}; m.attrs[key(i,5,4)]={joint:true}; }
+      addLineTo(m,[3,5,0],[3,5,4],'heb'); addLineTo(m,[7,5,0],[7,5,4],'heb'); addLineTo(m,[3,5,4],[7,5,4],'ipe');
+      addLineTo(m,[5,5,4],[5,5,2],'shs');
+      m.attrs[key(5,5,4)]={joint:true, load:20, locked:true, target:true};
+      m.attrs[key(5,5,2)]={load:30, locked:true, target:true};
+    },
+    desc:'A weight hangs from the highlighted member, stretching it (tension). Rebuild so that the same member is pushed (compression) — and everything still passes.' },
   sandbox:{ name:'Sandbox · unlimited', type:'sandbox', nx:16, ny:16, nz:14, q0:0.5, budget:Infinity, inv:null,
     desc:'Unlimited supply. Place point loads (50 kN) on any node, add foundations anywhere on the ground and experiment.' },
 };
@@ -318,19 +339,72 @@ function used(t){
 function total(t){ if(!LV.inv) return Infinity; if(t==='load') return 0; return LV.inv[t]||0; }
 function remaining(t){ return total(t)-used(t); }
 
+/* ---------------- corner-to-corner members ----------------
+   Rule: every member (piece) runs from one voxel corner to the next one — a step of at most one cell
+   per axis (straight, face-diagonal or space-diagonal). A longer straight line is built as one piece per
+   field, and each piece uses one item from the supply. Straight runs of the same section are treated as
+   one continuous member in the analysis (see analyze()). */
+const MAX_PIECES_PER_LINE = 12;
+const gcd=(a,b)=>b?gcd(b,a%b):a;
+/** Unit pieces [[keyA,keyB],…] along the straight line a→b, or null if the line skips grid corners. */
+function linePieces(a,b){
+  const d=[b[0]-a[0],b[1]-a[1],b[2]-a[2]], g=gcd(gcd(Math.abs(d[0]),Math.abs(d[1])),Math.abs(d[2]));
+  if(!g) return null;
+  const s=d.map(v=>v/g); if(s.some(v=>Math.abs(v)>1)) return null;
+  const out=[];
+  for(let n=0;n<g;n++) out.push([key(...a.map((v,i)=>v+s[i]*n)), key(...a.map((v,i)=>v+s[i]*(n+1)))]);
+  return out;
+}
+/** Pieces of the line a→b that do not exist yet (pieces already built, of any type, are skipped). */
+function newPieces(a,b){ const p=linePieces(a,b); return p?p.filter(([x,y])=>!findMember(x,y)):null; }
 function memberIssue(a,b,type){
   const it=ITEMS[type];
   if(a.join()===b.join()) return 'Pick a different end point';
   if(!nodeValid(...a)||!nodeValid(...b)) return 'Outside the voxel space or inside the ground';
+  const pcs=linePieces(a,b);
+  if(!pcs) return 'Members run corner to corner — draw straight lines or 45° diagonals';
+  if(pcs.length>MAX_PIECES_PER_LINE) return `At most ${MAX_PIECES_PER_LINE} pieces per line`;
   const d=[b[0]-a[0],b[1]-a[1],b[2]-a[2]];
-  if(Math.max(...d.map(Math.abs))>it.maxCells) return `Too long — max ${it.maxCells} cells per axis`;
-  if(findMember(key(...a),key(...b))) return 'These points are already connected';
-  if(remaining(type)<=0) return `No ${it.label} left in supply`;
-  for(let t=0.05;t<0.96;t+=0.05){
+  for(let t=0.025;t<0.99;t+=0.025){
     const p=a.map((v,n)=>v+d[n]*t);
     if(p[2] < groundAtPoint(p[0],p[1])-1e-6) return 'Member would pass through the ground';
   }
+  const n=newPieces(a,b).length;
+  if(!n) return 'Already built';
+  if(remaining(type)<n) return `Needs ${n} × ${it.label}, only ${Math.max(0,remaining(type))} left`;
   return null;
+}
+/** Adds the missing unit pieces of line a→b to model m (used by building and by the example builders). */
+function addLineTo(m,a,b,type,extra={}){
+  const pa=typeof a==='string'?parse(a):a, pb=typeof b==='string'?parse(b):b;
+  const pcs=linePieces(pa,pb); if(!pcs) throw new Error('not a corner-to-corner line '+pa+' → '+pb);
+  for(const [x,y] of pcs) if(!m.members.some(q=>(q.a===x&&q.b===y)||(q.a===y&&q.b===x))) m.members.push({id:m.nextId++,a:x,b:y,type,...extra});
+}
+/** Splits members from older saves (which could span several cells) into unit pieces; drops invalid ones. */
+function normalizeModel(m){
+  const old=m.members; m.members=[]; m.nextId=m.nextId||1;
+  for(const q of old){ const pa=parse(q.a), pb=parse(q.b); if(!linePieces(pa,pb)) continue;
+    const {id,a,b,...rest}=q; addLineTo(m,pa,pb,q.type,rest); }
+  return m;
+}
+/** Direction (cell steps) of piece m pointing away from node k. */
+function stepFrom(m,k){ const a=parse(k), b=parse(m.a===k?m.b:m.a); return [b[0]-a[0],b[1]-a[1],b[2]-a[2]]; }
+const opposite=(u,v)=>u[0]===-v[0]&&u[1]===-v[1]&&u[2]===-v[2];
+/** All pieces of the straight, same-type run that contains piece `id` (the physical member). */
+function runOf(id){
+  const start=model.members.find(x=>x.id===id); if(!start) return [];
+  const at=new Map(); for(const q of model.members) for(const k of [q.a,q.b]){ if(!at.has(k)) at.set(k,[]); at.get(k).push(q); }
+  const run=[start];
+  for(const end of [start.a,start.b]){
+    let cur=start, node=end;
+    for(let guard=0; guard<200; guard++){
+      const dirIn=stepFrom(cur,node);   // points back along cur; the continuation must point the other way
+      const nxt=(at.get(node)||[]).find(q=>q!==cur&&q.type===cur.type&&opposite(stepFrom(q,node),dirIn));
+      if(!nxt||run.includes(nxt)) break;
+      run.push(nxt); cur=nxt; node=nxt.a===node?nxt.b:nxt.a;
+    }
+  }
+  return run;
 }
 function nodeItemIssue(ijk,t){
   const k=key(...ijk), a=model.attrs[k]||{};
@@ -361,39 +435,40 @@ function commit(){
   results=null; view.deformed=false;
   save(); rebuildStructure(); renderPalette(); renderResults(); updateHover();
 }
-function addMember(a,b,type){ pushHistory(); model.members.push({id:model.nextId++, a, b, type}); commit(); }
-/** Removes a member; its item returns to the supply because supply is derived from the model. */
+/** Builds the line a→b (keys) as unit pieces, one supply item per new piece. */
+function addMember(a,b,type){ pushHistory(); addLineTo(model,a,b,type); commit(); }
+/** Removes one piece; its item returns to the supply because supply is derived from the model. */
 function removeMember(id){
   const m=model.members.find(x=>x.id===id); if(!m) return;
+  if(m.locked){ toast('The target member is part of the puzzle and cannot be removed'); return; }
   pushHistory();
   model.members = model.members.filter(x=>x.id!==id);
   cleanupAttrs(); if(selected?.id===id) selected=null; commit();
   toast(`Removed ${ITEMS[m.type].label} #${id} — returned to supply`);
 }
-/** Why member m cannot become type t, or null when the swap is allowed (supply and length limit). */
-function swapIssue(m,t){
+/** Why the run containing piece m cannot become type t (needs one supply item per piece), or null. */
+function swapIssue(m,t,pieces=runOf(m.id).length){
   const it=ITEMS[t];
   if(!it || (it.kind!=='beam'&&it.kind!=='cable')) return 'Choose a beam or cable type';
+  if(m.locked) return 'The target member is part of the puzzle';
   if(m.type===t) return `Already ${it.label}`;
-  if(remaining(t)<=0) return `No ${it.label} left in supply`;
-  const a=parse(m.a), b=parse(m.b);
-  if(Math.max(...a.map((v,i)=>Math.abs(v-b[i])))>it.maxCells) return `Too long for ${it.label} (max ${it.maxCells} cells per axis)`;
+  if(remaining(t)<pieces) return `Needs ${pieces} × ${it.label}, only ${Math.max(0,remaining(t))} left`;
   return null;
 }
-/** Replaces the type of one member, keeping its id and end nodes; the old item is refunded. */
+/** Replaces the type of the whole straight run containing piece `id`; old pieces are refunded. */
 function swapMember(id,t){
   const m=model.members.find(x=>x.id===id); if(!m) return false;
-  const issue=swapIssue(m,t); if(issue){ toast(issue); return false; }
-  const from=m.type; pushHistory(); m.type=t; commit();
-  toast(`Swapped #${id}: ${ITEMS[from].label} → ${ITEMS[t].label}`);
+  const run=runOf(id), issue=swapIssue(m,t,run.length); if(issue){ toast(issue); return false; }
+  const from=m.type; pushHistory(); run.forEach(q=>q.type=t); commit();
+  toast(`Swapped ${run.length} piece${run.length>1?'s':''}: ${ITEMS[from].label} → ${ITEMS[t].label}`);
   return true;
 }
-/** Swaps every member of type `from` to `to`, as far as supply and length limits allow (one undo step). */
+/** Swaps every piece of type `from` to `to`, as far as supply allows (one undo step). */
 function swapAllOfType(from,to){
-  const list=model.members.filter(m=>m.type===from);
+  const list=model.members.filter(m=>m.type===from&&!m.locked);
   if(from===to||!list.length){ toast(`Nothing to swap`); return; }
   pushHistory(); let n=0, skipped=0;
-  for(const m of list){ if(swapIssue(m,to)) { skipped++; continue; } m.type=to; n++; }
+  for(const m of list){ if(swapIssue(m,to,1)) { skipped++; continue; } m.type=to; n++; }
   if(!n){ history.pop(); toast(`Cannot swap: ${swapIssue(list[0],to)}`); return; }
   commit();
   toast(`Swapped ${n} × ${ITEMS[from].label} → ${ITEMS[to].label}`+(skipped?` · ${skipped} skipped (supply/length)`:''));
@@ -423,6 +498,11 @@ function initialModel(){
   if(LV.type==='bridge'){
     for(const y of LV.ys){ m.attrs[key(LV.cliffL,y,LV.cliffH)]={found:true,locked:true}; m.attrs[key(LV.cliffR,y,LV.cliffH)]={found:true,locked:true}; }
   }
+  if(LV.type==='flip'){
+    LV.build(m);
+    const [ta,tb]=LV.target, tk=new Set(linePieces(ta,tb).map(([x,y])=>x+'|'+y));
+    for(const q of m.members) if(tk.has(q.a+'|'+q.b)||tk.has(q.b+'|'+q.a)){ q.target=true; q.locked=true; }
+  }
   if(LV.type==='pickup'){
     const loads = LV.random ? randomLoads() : LV.loads;
     for(const [i,j,k,f] of loads) m.attrs[key(i,j,k)]={load:f, locked:true, target:true};
@@ -441,44 +521,45 @@ function randomLoads(){
 }
 function save(){ try{ localStorage.setItem('voxstruct:'+levelId, JSON.stringify(model)); }catch(e){} }
 function load(){
-  try{ const s=localStorage.getItem('voxstruct:'+levelId); if(s){ const m=JSON.parse(s); if(m&&Array.isArray(m.members)) return m; } }catch(e){}
+  try{ const s=localStorage.getItem('voxstruct:'+levelId); if(s){ const m=JSON.parse(s); if(m&&Array.isArray(m.members)) return normalizeModel(m); } }catch(e){}
   return initialModel();
 }
 
 /* ---------------- examples ---------------- */
 const EXAMPLES = {
-  // braced triangular prism: legs under each weight, closed top triangle, one glulam diagonal per face
+  // braced triangular prism: a leg under each weight, closed top triangle, one glulam diagonal per face
   pickup1(){
-    const m=initialModel(), add=(a,b,t)=>m.members.push({id:m.nextId++,a,b,type:t});
-    const P=[[4,4],[7,4],[5,7]];
-    P.forEach(([i,j])=>{ m.attrs[key(i,j,0)]={found:true}; add(key(i,j,0),key(i,j,3),'shs'); });
-    P.forEach(([i,j],n)=>{ const [p,q]=P[(n+1)%3]; add(key(i,j,3),key(p,q,3),'shs'); add(key(i,j,0),key(p,q,3),'glulam'); });
+    const m=initialModel(), add=(a,b,t)=>addLineTo(m,a,b,t);
+    const P=[[4,4],[7,4],[4,7]];
+    P.forEach(([i,j])=>{ m.attrs[key(i,j,0)]={found:true}; add([i,j,0],[i,j,3],'shs'); });
+    add([4,4,3],[7,4,3],'shs'); add([4,7,3],[4,4,3],'shs'); add([7,4,3],[4,7,3],'glulam');
+    P.forEach(([i,j],n)=>{ const [p,q]=P[(n+1)%3]; add([i,j,0],[p,q,3],'glulam'); });
     return m;
   },
+  // 4 SHS legs 6 m apart, rings at 6 and 12 m, one glulam diagonal per face and panel, plan diagonals
   tower1(){
-    const m=initialModel(), add=(a,b,t)=>m.members.push({id:m.nextId++,a,b,type:t});
-    const legs=[[4,4],[6,4],[6,6],[4,6]];
-    legs.forEach(([i,j])=>m.attrs[key(i,j,0)]={found:true});
-    legs.forEach(([i,j],n)=>{ add(key(i,j,0),key(i,j,3),'ipe'); add(key(i,j,3),key(i,j,6), n<2?'ipe':'glulam'); });
-    for(const k of [3,6]) legs.forEach(([i,j],n)=>{ const [p,q]=legs[(n+1)%4]; add(key(i,j,k),key(p,q,k),'shs'); });
-    for(const k of [0,3]) legs.forEach(([i,j],n)=>{ const [p,q]=legs[(n+1)%4]; add(key(i,j,k),key(p,q,k+3),'shs'); });
-    add(key(4,4,3),key(6,6,3),'shs'); add(key(4,4,6),key(6,6,6),'shs');
+    const m=initialModel(), add=(a,b,t)=>addLineTo(m,a,b,t);
+    const legs=[[3,3],[6,3],[6,6],[3,6]];
+    legs.forEach(([i,j])=>{ m.attrs[key(i,j,0)]={found:true}; add([i,j,0],[i,j,6],'shs'); });
+    for(const k of [3,6]) legs.forEach(([i,j],n)=>{ const [p,q]=legs[(n+1)%4]; add([i,j,k],[p,q,k],'shs'); });
+    for(const k of [0,3]) legs.forEach(([i,j],n)=>{ const [p,q]=legs[(n+1)%4]; add([i,j,k],[p,q,k+3],'glulam'); });
+    add([3,3,3],[6,6,3],'glulam'); add([3,3,6],[6,6,6],'glulam');
     return m;
   },
+  // two Pratt trusses (deck at the bottom chord) with deck, top and portal bracing
   bridge1(){
-    const m=initialModel(), add=(a,b,t)=>m.members.push({id:m.nextId++,a,b,type:t});
+    const m=initialModel(), add=(a,b,t)=>addLineTo(m,a,b,t);
     const d=3, t=5;
     for(const y of [4,6]){
-      for(const i of [4,6,8,10]) add(key(i,y,d),key(i+2,y,d),'ipe');
-      for(const i of [6,8]) add(key(i,y,t),key(i+2,y,t),'ipe');
-      add(key(4,y,d),key(6,y,t),'glulam'); add(key(12,y,d),key(10,y,t),'glulam');
-      for(const i of [6,8,10]) add(key(i,y,d),key(i,y,t),'shs');
-      add(key(6,y,t),key(8,y,d),'shs'); add(key(10,y,t),key(8,y,d),'shs');
+      add([4,y,d],[12,y,d],'ipe'); add([6,y,t],[10,y,t],'ipe');
+      add([4,y,d],[6,y,t],'glulam'); add([12,y,d],[10,y,t],'glulam');
+      for(const i of [6,8,10]) add([i,y,d],[i,y,t],'shs');
+      add([6,y,t],[8,y,d],'shs'); add([10,y,t],[8,y,d],'shs');
     }
-    for(const i of [6,8,10]){ add(key(i,4,d),key(i,6,d),'shs'); add(key(i,4,t),key(i,6,t),'shs'); }
-    add(key(4,4,d),key(6,6,d),'shs'); add(key(6,6,d),key(8,4,d),'shs'); add(key(8,4,d),key(10,6,d),'shs'); add(key(10,6,d),key(12,4,d),'shs');
-    add(key(6,4,t),key(8,6,t),'shs'); add(key(8,6,t),key(10,4,t),'shs');
-    add(key(4,4,d),key(6,6,t),'shs'); add(key(12,4,d),key(10,6,t),'shs');
+    for(const i of [6,8,10]){ add([i,4,d],[i,6,d],'shs'); add([i,4,t],[i,6,t],'shs'); }
+    add([4,4,d],[6,6,d],'shs'); add([6,6,d],[8,4,d],'shs'); add([8,4,d],[10,6,d],'shs'); add([10,6,d],[12,4,d],'shs');
+    add([6,4,t],[8,6,t],'shs'); add([8,6,t],[10,4,t],'shs');
+    add([4,4,d],[6,6,t],'shs'); add([12,4,d],[10,6,t],'shs');
     return m;
   },
 };
@@ -560,17 +641,19 @@ function cholSolve(L,n,b,bw=n){
   return y;
 }
 
-function makeElement(m, pa, pb, a, b, eq){
+/** Analysis element for one physical member m = {a,b,type,segs}. An end is rigid when its node has a
+ *  moment connection or when the member continues straight through that node as the same section (contA/B). */
+function makeElement(m, pa, pb, a, b, eq, contA=false, contB=false){
   const it=ITEMS[m.type];
   const d=[pb[0]-pa[0],pb[1]-pa[1],pb[2]-pa[2]], L=Math.hypot(...d);
   const ex=d.map(v=>v/L), R=localAxes(ex);
   const cable = it.kind==='cable';
-  const rigidA = !cable && !!model.attrs[m.a]?.joint, rigidB = !cable && !!model.attrs[m.b]?.joint;
+  const rigidA = !cable && (!!model.attrs[m.a]?.joint || contA), rigidB = !cable && (!!model.attrs[m.b]?.joint || contB);
   const k = cable ? trussK(it.E,it.A,L) : frameK(it.E,it.G,it.A,it.Iy,it.Iz,it.J,L);
   const rel=[]; if(!cable){ if(!rigidA) rel.push(4,5); if(!rigidB) rel.push(10,11); }
   const kgl = toGlobal(condense(k,rel), R);
   const dofs=[]; for(let q=0;q<6;q++) dofs.push(eq[a*6+q]); for(let q=0;q<6;q++) dofs.push(eq[b*6+q]);
-  return { m, it, L, R, ex, a, b, k, rel, kgl, dofs, cable, rigidA, rigidB };
+  return { m, it, L, R, ex, a, b, k, rel, kgl, dofs, cable, rigidA, rigidB, contA:!cable&&contA, contB:!cable&&contB };
 }
 function recover(e,u){
   const ug=new Float64Array(12);
@@ -585,6 +668,8 @@ function recover(e,u){
   for(let i=0;i<12;i++){ let s=0; for(let j=0;j<12;j++) s+=e.k[i*12+j]*ul[j]; f[i]=s; }
   return {ul,f};
 }
+/** Bridge traffic acts on the two lanes above the abutment bearings, over the gap. */
+function isLaneNode(i,j,k){ return LV.type==='bridge' && k===LV.cliffH && i>LV.cliffL && i<LV.cliffR && LV.ys.includes(j); }
 const windQ = z => LV.q0*Math.pow(Math.max(z,2)/10,0.25);
 
 function variableLoads(ctx){
@@ -594,8 +679,7 @@ function variableLoads(ctx){
     const tops=[]; for(let a=0;a<ctx.NA;a++) if(ctx.pos[ctx.act[a]][2]===top && top>0) tops.push(a);
     tops.forEach(a=>out.push({a, f:LV.payload/tops.length}));
   } else if(LV.type==='bridge'){
-    const deck=[]; for(let a=0;a<ctx.NA;a++){ const [i,j,k]=parse(ctx.keys[ctx.act[a]]);
-      if(k===LV.cliffH && i>LV.cliffL && i<LV.cliffR) deck.push(a); }
+    const deck=[]; for(let a=0;a<ctx.NA;a++){ const [i,j,k]=parse(ctx.keys[ctx.act[a]]); if(isLaneNode(i,j,k)) deck.push(a); }
     const tot=LV.traffic*(LV.cliffR-LV.cliffL)*S;
     deck.forEach(a=>out.push({a, f:tot/deck.length}));
   } else {
@@ -717,7 +801,7 @@ function memberDeflSLS(e, r){
 }
 const CHECK_NAMES = { strength:'Strength', shear:'Shear', buckling:'Buckling', slenderness:'Slenderness', deflection:'Deflection',
   connection:'Connection', tension:'Cable tension' };
-function checkMember(it, d, L, rA, rB){
+function checkMember(it, d, L, rA, rB, cA=false, cB=false){
   const c={};
   if(it.kind==='cable'){ c.tension=d.Nt/it.NRd; return c; }
   const bend=d.My/(it.Wy*it.fm)+d.Mz/(it.Wz*it.fm);
@@ -733,7 +817,8 @@ function checkMember(it, d, L, rA, rB){
   c.slenderness=lam/(d.Nc>1e-3?200:300);
   c.deflection=Math.max(d.dEIy/(it.E*it.Iz), d.dEIz/(it.E*it.Iy))/(L/250);
   const conn=(F,M,rigid)=> rigid?Math.max(F/JOINT_CAP.rigidF, M/JOINT_CAP.rigidM):F/JOINT_CAP.pinF;
-  c.connection=Math.max(conn(d.endF[0],d.endM[0],rA), conn(d.endF[1],d.endM[1],rB));
+  // a member that continues straight through a node is spliced, not jointed: no connection check there
+  c.connection=Math.max(cA?0:conn(d.endF[0],d.endM[0],rA), cB?0:conn(d.endF[1],d.endM[1],rB));
   return c;
 }
 function govern(c){ let u=0,g=''; for(const k in c) if(c[k]>u){u=c[k];g=k;} return {util:u, gov:g}; }
@@ -754,19 +839,49 @@ function analyze(){
   while(st.length){ const n=st.pop(); for(const o of adj[n]) if(!sup[o]){sup[o]=1;st.push(o);} }
   out.floating=keys.filter((k,n)=>!sup[n]);
   if(!isF.some(Boolean)){ out.error='No foundation — place at least one foundation on the ground.'; return out; }
+  // ---- physical members: merge straight same-type pieces through "pass-through" nodes.
+  // A node is pass-through when exactly two pieces meet, they are the same type and collinear, and the node
+  // carries nothing else (no support, joint or load, and it is not a load point of the level). Pass-through
+  // nodes get no degrees of freedom, so a straight line of pieces is analysed and designed as one member.
+  const atNode=new Map(); for(const m of model.members) for(const k of [m.a,m.b]){ if(!atNode.has(k)) atNode.set(k,[]); atNode.get(k).push(m); }
+  let maxZ=-1; keys.forEach((k,n)=>{ if(sup[n]) maxZ=Math.max(maxZ,pos[n][2]); });
+  const loadPoint=k=>{ const [i,j,kk]=parse(k); return (LV.type==='tower'&&kk*S===maxZ) || isLaneNode(i,j,kk); };
+  const through=new Set();
+  for(const [k,list] of atNode){ const at=model.attrs[k];
+    if(list.length!==2||at?.found||at?.joint||at?.load||loadPoint(k)) continue;
+    const [p,q]=list; if(p.type===q.type&&opposite(stepFrom(p,k),stepFrom(q,k))) through.add(k); }
+  const runs=[], seenP=new Set(), throughPos=new Map();
+  for(const m of model.members){ if(seenP.has(m.id)) continue; seenP.add(m.id);
+    const segs=[m], ends=[];
+    for(const startNode of [m.a,m.b]){ let cur=m, node=startNode;
+      while(through.has(node)){ const nxt=atNode.get(node).find(q=>q!==cur); if(seenP.has(nxt.id)) break;
+        seenP.add(nxt.id); segs.push(nxt); cur=nxt; node=nxt.a===node?nxt.b:nxt.a; }
+      ends.push(node); }
+    const r={id:m.id, a:ends[0], b:ends[1], type:m.type, segs:segs.map(q=>q.id), locked:segs.some(q=>q.locked)};
+    runs.push(r);
+    const pa=parse(r.a), pb=parse(r.b), len=Math.hypot(pb[0]-pa[0],pb[1]-pa[1],pb[2]-pa[2]);
+    for(const q of segs) for(const k of [q.a,q.b]) if(through.has(k)){ const pk=parse(k); throughPos.set(k,{a:r.a,b:r.b,t:Math.hypot(pk[0]-pa[0],pk[1]-pa[1],pk[2]-pa[2])/len}); }
+  }
+  // continuity: two members of the same beam section meeting in a straight line are spliced (rigid) there
+  const runEnds=new Map();
+  for(const r of runs){ const pa=parse(r.a), pb=parse(r.b), v=pb.map((x,i)=>x-pa[i]), g=gcd(gcd(Math.abs(v[0]),Math.abs(v[1])),Math.abs(v[2])), st=v.map(x=>x/g);
+    for(const [k,d,end] of [[r.a,st,'A'],[r.b,st.map(x=>-x),'B']]){ if(!runEnds.has(k)) runEnds.set(k,[]); runEnds.get(k).push({r,d,end}); } }
+  for(const list of runEnds.values()) for(const x of list) for(const y of list)
+    if(x!==y && x.r.type===y.r.type && ITEMS[x.r.type].kind==='beam' && opposite(x.d,y.d)) x.r['cont'+x.end]=true;
+
   const act=[], aid=new Int32Array(keys.length).fill(-1);
-  keys.forEach((k,n)=>{ if(sup[n]) act.push(n); });
+  keys.forEach((k,n)=>{ if(sup[n]&&!through.has(k)) act.push(n); });
   // order nodes spatially (z, x, y) to keep the stiffness matrix bandwidth small
   act.sort((p,q)=>pos[p][2]-pos[q][2] || pos[p][0]-pos[q][0] || pos[p][1]-pos[q][1]);
   act.forEach((n,a)=>aid[n]=a);
   const NA=act.length, eq=new Int32Array(NA*6); let nf=0;
   for(let a=0;a<NA;a++){ const fx=isF[act[a]]; for(let q=0;q<6;q++) eq[a*6+q]=fx?-1:nf++; }
   const els=[];
-  for(const m of model.members){ const na=idx.get(m.a), nb=idx.get(m.b); if(!sup[na]) continue;
-    els.push(makeElement(m,pos[na],pos[nb],aid[na],aid[nb],eq)); }
+  for(const r of runs){ const na=idx.get(r.a), nb=idx.get(r.b); if(!sup[na]) continue;
+    els.push(makeElement(r,pos[na],pos[nb],aid[na],aid[nb],eq,!!r.contA,!!r.contB)); }
   let bw=0;
   for(const e of els){ let lo=Infinity,hi=-1; for(const d of e.dofs) if(d>=0){ lo=Math.min(lo,d); hi=Math.max(hi,d); } if(hi>=0) bw=Math.max(bw,hi-lo); }
-  const ctx={keys,idx,pos,act,aid,NA,eq,nf,els,isF,bw};
+  const ctx={keys,idx,pos,act,aid,NA,eq,nf,els,isF,bw,throughPos};
   out.ctx=ctx;
   if(nf>2400){ out.error='Model too large to analyse in the browser (>400 free nodes).'; return out; }
 
@@ -816,9 +931,10 @@ function analyze(){
         const x=memberDeflSLS(e,r); d.dEIy=Math.max(d.dEIy,x.dEIy); d.dEIz=Math.max(d.dEIz,x.dEIz); d.dmax=Math.max(d.dmax,x.dy||0,x.dz||0);
       }
     }
-    const checks=out.mechanism?{}:checkMember(e.it,d,e.L,e.rigidA,e.rigidB);
+    const checks=out.mechanism?{}:checkMember(e.it,d,e.L,e.rigidA,e.rigidB,e.contA,e.contB);
     const g=govern(checks);
-    out.members[e.m.id]={e, demand:d, checks, util:g.util, gov:g.gov, slack};
+    const rec={e, demand:d, checks, util:g.util, gov:g.gov, slack};
+    for(const sid of e.m.segs) out.members[sid]=rec;   // every piece of the member shares its result
     if(!out.mechanism){
       maxU=Math.max(maxU,g.util); if(g.util>1) failing++;
       if(checks.connection) connMax=Math.max(connMax,checks.connection);
@@ -841,7 +957,8 @@ function analyze(){
   // ---- objectives
   const O=out.objectives, add=(ok,label,detail,warn)=>O.push({ok,label,detail,warn});
   const targets=keys.filter(k=>model.attrs[k]?.target), loose=out.floating.filter(k=>!model.attrs[k]?.target);
-  if(targets.length){
+  if(LV.type==='flip') add(...flipObjective(out));
+  if(targets.length && LV.type==='pickup'){
     const got=targets.filter(k=>!out.floating.includes(k)).length;
     add(got===targets.length,`Pick up all weights (${got}/${targets.length})`, got<targets.length?'red weights are not yet connected to a foundation':'');
   }
@@ -868,7 +985,7 @@ function analyze(){
     const deckOK=deckContinuous();
     add(deckOK,'Continuous deck between abutments', deckOK?'':`chain beams at z = ${LV.cliffH*S} m from left to right abutment`);
     if(!out.mechanism){
-      let dz=0; for(let a=0;a<NA;a++){ const [i,,k]=parse(keys[act[a]]); if(k!==LV.cliffH||i<=LV.cliffL||i>=LV.cliffR) continue;
+      let dz=0; for(let a=0;a<NA;a++){ const [i,j,k]=parse(keys[act[a]]); if(!isLaneNode(i,j,k)) continue;
         for(const c of out.combos){ if(c.fail||c.combo.type!=='SLS') continue; dz=Math.max(dz,Math.abs(c.u[a*6+2])); } }
       const lim=(LV.cliffR-LV.cliffL)*S/400;
       add(dz<=lim,'Deck deflection ≤ span/400 (SLS)', `${(dz*1000).toFixed(0)} mm (limit ${(lim*1000).toFixed(0)} mm)`);
@@ -886,6 +1003,18 @@ function analyze(){
   out.stars = !out.success||LV.type==='sandbox' ? 0 : out.cost<=LV.budget*0.75?3:out.cost<=LV.budget?2:1;
   out.time=performance.now()-t0;
   return out;
+}
+/** Flip mode: the target member must carry the goal force (≥ FLIP_MIN kN) in every ULS load case. */
+const FLIP_MIN=5;
+function flipObjective(out){
+  const want=LV.goal, recs=[...new Set(model.members.filter(m=>m.target).map(m=>out.members[m.id]).filter(Boolean))];
+  const label=`Make the target member carry ${want.toUpperCase()} (≥ ${FLIP_MIN} kN)`;
+  if(!recs.length) return [false,label,'the target member is not connected to a foundation'];
+  if(out.mechanism) return [false,label,'fix the mechanism first'];
+  const Ns=[]; for(const c of out.combos){ if(c.fail||c.combo.type!=='ULS') continue; for(const r of recs) Ns.push(c.ef.get(r.e).f[6]); }
+  const state=Ns.every(n=>n>0.5)?'tension':Ns.every(n=>n<-0.5)?'compression':'mixed / ≈ 0';
+  const ok=Ns.length>0 && Ns.every(n=>want==='tension'?n>=FLIP_MIN:n<=-FLIP_MIN);
+  return [ok,label,`now: ${state} · N = ${Ns.map(n=>(n>0?'+':'')+n.toFixed(0)).join(' / ')} kN (ULS wind X / Y; + = tension)`];
 }
 function deckContinuous(){
   const dk=LV.cliffH, starts=LV.ys.map(y=>key(LV.cliffL,y,dk)), ends=new Set(LV.ys.map(y=>key(LV.cliffR,y,dk)));
@@ -913,21 +1042,22 @@ function autoDesign(){
     if(!results || results.mechanism || results.error) break;
     const pool={}; for(const t of BEAM_TYPES) pool[t]=total(t);
     const beams=model.members.filter(m=>ITEMS[m.type].kind==='beam');
-    const analysed=beams.filter(m=>results.members[m.id]);
-    beams.filter(m=>!results.members[m.id]).forEach(m=>pool[m.type]--);
-    analysed.sort((a,b)=>results.members[b.id].util-results.members[a.id].util);
+    beams.filter(m=>!results.members[m.id]||m.locked).forEach(m=>pool[m.type]--);   // floating / locked pieces keep their type
+    // one decision per physical member (all its pieces share the result); needs one supply item per piece
+    const recs=[...new Set(beams.filter(m=>results.members[m.id]&&!m.locked).map(m=>results.members[m.id]))];
+    recs.sort((a,b)=>b.util-a.util);
     let changed=false;
-    for(const m of analysed){
-      const r=results.members[m.id];
+    for(const r of recs){
+      const pcs=model.members.filter(m=>r.e.m.segs.includes(m.id)), n=pcs.length, cur=pcs[0].type;
       let best=null, bestU=Infinity, fallback=null;
       for(const t of order){
-        if(pool[t]<=0) continue;
-        const u=govern(checkMember(ITEMS[t],r.demand,r.e.L,r.e.rigidA,r.e.rigidB)).util;
+        if(pool[t]<n) continue;
+        const u=govern(checkMember(ITEMS[t],r.demand,r.e.L,r.e.rigidA,r.e.rigidB,r.e.contA,r.e.contB)).util;
         if(u<=0.95){ best=t; break; }
         if(u<bestU){ bestU=u; fallback=t; }
       }
-      const t=best||fallback||m.type; pool[t]--;
-      if(t!==m.type){ m.type=t; changed=true; }
+      const t=best||fallback||cur; pool[t]-=n;
+      if(t!==cur){ pcs.forEach(m=>m.type=t); changed=true; }
     }
     if(!changed) break;
     changedAny=true;
@@ -1050,6 +1180,11 @@ function rebuildStructure(){
     const mesh=new THREE.Mesh(GEO[it.shape],mat); mesh.matrixAutoUpdate=false; mesh.castShadow=true; mesh.receiveShadow=true;
     mesh.userData={id:m.id}; structGroup.add(mesh); memberMeshes.set(m.id,mesh);
   }
+  const tgt=model.members.filter(m=>m.target);
+  if(tgt.length){ // flip target label at the member's midpoint
+    const c=new THREE.Vector3(); tgt.forEach(m=>c.add(nodePos(m.a)).add(nodePos(m.b))); c.multiplyScalar(1/(2*tgt.length));
+    const lbl=textSprite(`TARGET → ${LV.goal?.toUpperCase()||''}`,'#ffb35c',0.6); lbl.position.copy(c).add(new THREE.Vector3(0.9,0,0.3)); structGroup.add(lbl);
+  }
   for(const k of allNodeKeys()){
     const a=model.attrs[k]||{};
     const g=new THREE.Group(); g.userData={key:k};
@@ -1078,7 +1213,10 @@ function utilColor(u){
 function dispOf(k){
   if(!results||!results.ctx||!view.deformed) return null;
   const c=results.combos[view.combo]; if(!c||c.fail) return null;
-  const n=results.ctx.idx.get(k); if(n===undefined) return null; const a=results.ctx.aid[n]; if(a<0) return null;
+  const n=results.ctx.idx.get(k); if(n===undefined) return null; const a=results.ctx.aid[n];
+  if(a<0){ // pass-through node inside a member: interpolate between the member ends
+    const t=results.ctx.throughPos?.get(k); if(!t) return null;
+    const da=dispOf(t.a), db=dispOf(t.b); return da&&db ? da.lerp(db,t.t) : null; }
   return new THREE.Vector3(c.u[a*6],c.u[a*6+1],c.u[a*6+2]).multiplyScalar(deformScale());
 }
 function deformScale(){
@@ -1160,36 +1298,36 @@ function computeLoadPath(ci){
   results._lp ??= {};
   if(results._lp[ci]) return results._lp[ci];
   const c=results.combos[ci], ctx=results.ctx; if(!c||c.fail) return null;
-  const mem=new Map(); let maxF=1e-9;
+  const mem=new Map(), ents=[]; let maxF=1e-9;   // mem: piece id → entry of its physical member
   for(const e of ctx.els){
     const r=c.ef.get(e), f=r.f;
     const F=Math.max(Math.hypot(f[0],f[1],f[2]),Math.hypot(f[6],f[7],f[8])), N=f[6];
     const mode=r.slack?'none':Math.abs(N)>=0.7*F?(N>0?'tension':'compression'):'bending';
-    mem.set(e.m.id,{e,F,N,mode}); maxF=Math.max(maxF,F);
+    const x={e,F,N,mode}; ents.push(x); for(const sid of e.m.segs) mem.set(sid,x); maxF=Math.max(maxF,F);
   }
   // Dijkstra from the foundations (O(n²) is fine for the model sizes allowed here)
   const adj=new Map();
-  for(const [id,x] of mem){ if(x.F<0.01*maxF) continue; const w=x.e.L*maxF/(x.F+0.02*maxF);
-    for(const [p,q] of [[x.e.m.a,x.e.m.b],[x.e.m.b,x.e.m.a]]){ if(!adj.has(p)) adj.set(p,[]); adj.get(p).push({to:q,w,id}); } }
+  for(const x of ents){ if(x.F<0.01*maxF) continue; const w=x.e.L*maxF/(x.F+0.02*maxF);
+    for(const [p,q] of [[x.e.m.a,x.e.m.b],[x.e.m.b,x.e.m.a]]){ if(!adj.has(p)) adj.set(p,[]); adj.get(p).push({to:q,w,x}); } }
   const dist=new Map(), parent=new Map(), done=new Set();
   ctx.act.forEach(n=>{ const k=ctx.keys[n]; if(ctx.isF[n]) dist.set(k,0); });
   for(;;){
     let best=null,bd=Infinity; for(const [k,d] of dist) if(!done.has(k)&&d<bd){bd=d;best=k;}
     if(best===null) break; done.add(best);
-    for(const {to,w,id} of adj.get(best)||[]){ const nd=bd+w; if(nd<(dist.get(to)??Infinity)){ dist.set(to,nd); parent.set(to,{next:best,id}); } }
+    for(const {to,w,x} of adj.get(best)||[]){ const nd=bd+w; if(nd<(dist.get(to)??Infinity)){ dist.set(to,nd); parent.set(to,{next:best,x}); } }
   }
-  for(const x of mem.values()){ const da=dist.get(x.e.m.a), db=dist.get(x.e.m.b);
+  for(const x of ents){ const da=dist.get(x.e.m.a), db=dist.get(x.e.m.b);
     x.dir = da===undefined||db===undefined||Math.abs(da-db)<1e-9 ? 0 : da>db ? 1 : -1; } // +1: flows a→b
   // share of the total vertical load taken by each support
   const shares=[]; let tot=0;
   for(const a in c.reac){ const rz=Math.max(0,c.reac[a][2]); tot+=rz; shares.push({key:ctx.keys[ctx.act[a]], rz}); }
   shares.forEach(s=>s.pct=tot>0?s.rz/tot:0); shares.sort((p,q)=>q.rz-p.rz);
-  return (results._lp[ci]={mem,maxF,dist,parent,shares,totV:tot});
+  return (results._lp[ci]={mem,ents,maxF,dist,parent,shares,totV:tot});
 }
 /** Members and nodes on the strongest route from node k down to a foundation (follows Dijkstra parents). */
 function traceToGround(lp,k){
   const members=new Set(), nodes=new Set([k]); let cur=k, guard=0;
-  while(lp.parent.has(cur)&&guard++<1000){ const p=lp.parent.get(cur); members.add(p.id); cur=p.next; nodes.add(cur); }
+  while(lp.parent.has(cur)&&guard++<1000){ const p=lp.parent.get(cur); p.x.e.m.segs.forEach(id=>members.add(id)); cur=p.next; nodes.add(cur); }
   return {members,nodes,end:lp.dist.get(cur)===0?cur:null};
 }
 
@@ -1203,7 +1341,7 @@ function syncParticles(lp){
   if(partKey&&partKey.res===results&&partKey.ci===view.combo){ partMesh.visible=true; return; }
   partKey={res:results,ci:view.combo}; parts=[];
   const col=new THREE.Color();
-  for(const x of lp.mem.values()){
+  for(const x of lp.ents){
     const rel=x.F/lp.maxF; if(rel<0.03||!x.dir) continue;
     const n=Math.max(1,Math.round(x.e.L/1.4*(0.4+rel)));
     for(let i=0;i<n&&parts.length<PART_MAX;i++)
@@ -1340,7 +1478,7 @@ function updateHover(){
     let txt=`<b>${hover.ijk[0]*S}, ${hover.ijk[1]*S}, ${hover.ijk[2]*S}</b> m`;
     if(chainStart){
       const s=nodePos(chainStart); ghostLine.geometry.setFromPoints([s,p]); ghostLine.material.color.set(col); ghostLine.visible=true;
-      txt+=` · L = ${s.distanceTo(p).toFixed(2)} m`;
+      const pcs=linePieces(parse(chainStart),hover.ijk); txt+=` · L = ${s.distanceTo(p).toFixed(2)} m`+(pcs?` · ${pcs.length} piece${pcs.length>1?'s':''}`:'');
     }
     txt+= hover.issue?`<br><span class="err">${hover.issue}</span>`:`<br><span class="hint">${hintFor()}</span>`;
     tip.innerHTML=txt;
@@ -1451,6 +1589,7 @@ function renderLevelInfo(){
   if(LV.type==='tower') goal=`Goal: top ≥ <b>${LV.target*S} m</b> · payload ${LV.payload} kN · wind q₀ ${LV.q0} kN/m²`;
   if(LV.type==='bridge') goal=`Goal: deck A→B at <b>z = ${LV.cliffH*S} m</b>, span ${(LV.cliffR-LV.cliffL)*S} m · traffic ${LV.traffic} kN/m`;
   if(LV.type==='sandbox') goal='No goal — free play. Loads: self-weight, wind, your point loads.';
+  if(LV.type==='flip') goal=`Goal: turn the <b>highlighted member</b> into <b>${LV.goal.toUpperCase()}</b> in every load case (≥ ${FLIP_MIN} kN) while all checks pass. Removed parts return to your supply.`;
   if(LV.type==='pickup'){ const w=Object.values(model.attrs).filter(a=>a.target);
     goal=`Goal: connect all <b>${w.length} weights</b> (${w.reduce((s,a)=>s+a.load,0)} kN in total) to the ground · wind q₀ ${LV.q0} kN/m²`; }
   $('#levelInfo').innerHTML=`<div class="desc">${LV.desc}</div><div class="goal">${goal}${LV.budget!==Infinity?`<br>Budget ★★: $${LV.budget.toLocaleString()} · ★★★: $${(LV.budget*0.75).toLocaleString()}`:''}</div>`;
@@ -1496,7 +1635,7 @@ function renderResults(){
   h+=loadPathHTML();
   h+=selectionHTML();
   if(!R.mechanism){
-    const top=Object.entries(R.members).sort((a,b)=>b[1].util-a[1].util).slice(0,8);
+    const top=[...new Map(Object.entries(R.members).map(([id,r])=>[r,id])).entries()].map(([r,id])=>[id,r]).sort((a,b)=>b[1].util-a[1].util).slice(0,8);
     h+=`<div class="card"><h3>Most utilised members</h3><div class="mlist">${top.map(([id,r])=>`<button data-mid="${id}"><span>#${id} ${ITEMS[r.e.m.type].label} <span class="muted">${CHECK_NAMES[r.gov]||''}</span></span><b style="color:#${utilColor(r.util).getHexString()}">${pct(r.util)}</b></button>`).join('')}</div></div>`;
   }
   el.innerHTML=h; bindResultEvents();
@@ -1509,7 +1648,7 @@ function loadPathHTML(){
   const sw=c=>`<span class="sw" style="background:#${new THREE.Color(c).getHexString()}"></span>`;
   h+=`<div class="lplegend">${sw(LP_COLORS.compression)}compression ${sw(LP_COLORS.tension)}tension ${sw(LP_COLORS.bending)}bending / shear</div>
     <div class="muted" style="font-size:11.5px">Thickness ∝ √force · dots flow towards the supports · faded = under 1 % of the peak (${fmt(lp.maxF,0)} kN) · case: ${COMBOS[view.combo].short}</div>`;
-  let cnt={tension:0,compression:0,bending:0}; for(const x of lp.mem.values()) if(x.F>=0.01*lp.maxF&&cnt[x.mode]!==undefined) cnt[x.mode]++;
+  let cnt={tension:0,compression:0,bending:0}; for(const x of lp.ents) if(x.F>=0.01*lp.maxF&&cnt[x.mode]!==undefined) cnt[x.mode]++;
   h+=`<div class="stat" style="margin-top:6px"><span>Members in compression / tension / bending</span><span>${cnt.compression} / ${cnt.tension} / ${cnt.bending}</span>
     <span>Total vertical load to ground</span><span>${fmt(lp.totV,0)} kN</span></div>`;
   h+=`<h3>Share per support</h3>`+lp.shares.map(s=>{ const [i,j,k]=parse(s.key); return `<div class="chk"><span>${i*S}, ${j*S}, ${k*S}</span>${barHTML(Math.min(1,s.pct)).replace(/background:#[0-9a-f]+/,'background:#4da3ff')}<b>${pct(s.pct)}</b></div>`; }).join('');
@@ -1524,9 +1663,13 @@ function selectionHTML(){
   if(!selected) return `<div class="card muted">Use <b>Inspect</b> (1) and click a member or node for details.</div>`;
   if(selected.type==='member'){
     const m=model.members.find(x=>x.id===selected.id); if(!m) return '';
-    const it=ITEMS[m.type], a=parse(m.a), b=parse(m.b), L=Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2])*S;
-    let h=`<div class="card"><h3>Member #${m.id}</h3><div class="stat"><span>Section</span><span>${it.label}</span><span>Length</span><span>${L.toFixed(2)} m</span>
-      <span>Ends</span><span>${it.kind==='cable'?'pinned (cable)':(model.attrs[m.a]?.joint?'rigid':'pinned')+' / '+(model.attrs[m.b]?.joint?'rigid':'pinned')}</span>`;
+    const it=ITEMS[m.type], run=runOf(m.id), rr=results&&!results.error?results.members[m.id]:null, L=rr?rr.e.L:run.length*Math.hypot(...stepFrom(m,m.a))*S;
+    const endTxt=(rig,cont)=>cont?'continuous':rig?'rigid':'pinned';
+    const ends = it.kind==='cable' ? 'pinned (cable)' : rr ? endTxt(rr.e.rigidA,rr.e.contA)+' / '+endTxt(rr.e.rigidB,rr.e.contB) : 'run analysis';
+    const pieces = rr ? rr.e.m.segs.length : run.length;
+    let h=`<div class="card"><h3>Member #${m.id}${m.locked?' · target':''}</h3><div class="stat"><span>Section</span><span>${it.label}</span>
+      <span>Pieces (supply used)</span><span>${pieces}</span><span>Length</span><span>${L.toFixed(2)} m</span>
+      <span>Ends</span><span>${ends}</span>`;
     const r=results&&!results.error?results.members[m.id]:null;
     if(r&&!results.mechanism){
       const d=r.demand;
@@ -1538,7 +1681,7 @@ function selectionHTML(){
       if(r.slack) h+=`<div class="muted">Cable is slack in at least one load case (carries no load there).</div>`;
       for(const c in r.checks){ const u=r.checks[c]; h+=`<div class="chk"><span>${CHECK_NAMES[c]}</span>${barHTML(u)}<b>${pct(u)}</b></div>`; }
       if(it.kind==='beam'){
-        const alts=BEAM_TYPES.filter(t=>t!==m.type).map(t=>({t,u:govern(checkMember(ITEMS[t],d,r.e.L,r.e.rigidA,r.e.rigidB)).util}));
+        const alts=BEAM_TYPES.filter(t=>t!==m.type).map(t=>({t,u:govern(checkMember(ITEMS[t],d,r.e.L,r.e.rigidA,r.e.rigidB,r.e.contA,r.e.contB)).util}));
         h+=`<h3>Alternative sections (same forces)</h3>`+alts.map(x=>`<div class="chk"><span>${ITEMS[x.t].label}</span>${barHTML(x.u)}<b>${pct(x.u)}</b></div>`).join('');
       }
     } else h+='</div>';
@@ -1575,20 +1718,26 @@ function bindResultEvents(){
   document.querySelectorAll('[data-mid]').forEach(b=>b.onclick=()=>{ selected={type:'member',id:+b.dataset.mid}; tool='inspect'; renderPalette(); renderResults(); applyView(); });
 }
 
-function runAnalysis(){
+function runAnalysis(quiet=false){
   chainStart=null;
   results=analyze();
   // show the mechanism mode automatically; switch that automatic view off again once it is fixed
   if(results.mechanism){ if(!view.deformed) view.autoDeformed=true; view.deformed=true; }
   else if(view.autoDeformed){ view.deformed=false; view.autoDeformed=false; }
   rebuildStructure(); renderPalette(); renderResults(); updateHover();
-  if(results.success) toast(`Challenge passed! ${'★'.repeat(results.stars)}`);
+  if(results.success&&!quiet) toast(`Challenge passed! ${'★'.repeat(results.stars)}`);
 }
 
 /* ---------- level loading ---------- */
 function loadLevel(id){
   levelId=id; LV=LEVELS[id]; $('#levelSel').value=id;
   buildTerrainData(); buildTerrainMesh();
+  if(LV.type==='flip' && !LV.inv){ // supply = the given structure's parts + the extra parts
+    const base=initialModel(), inv={...LV.extra};
+    base.members.forEach(q=>inv[q.type]=(inv[q.type]||0)+1);
+    for(const a of Object.values(base.attrs)){ if(a.joint) inv.joint=(inv.joint||0)+1; if(a.found&&!a.locked) inv.found=(inv.found||0)+1; }
+    LV.inv=inv;
+  }
   model=load(); history=[]; results=null; selected=null; chainStart=null; planeKey='';
   workK = LV.type==='bridge'?LV.cliffH:0; $('#planeVal').textContent=workK*S+' m';
   const cx=LV.nx*S/2, cy=LV.ny*S/2, sz=Math.max(LV.nx,LV.ny,LV.nz)*S;
@@ -1597,6 +1746,7 @@ function loadLevel(id){
   controls.update();
   renderLevelInfo(); renderPalette(); rebuildStructure(); renderResults(); drawPlane();
   try{ localStorage.setItem('voxstruct:level',id); }catch(e){}
+  if(LV.type==='flip') runAnalysis(true);   // show the current force in the target member straight away
 }
 $('#levelSel').innerHTML=Object.entries(LEVELS).map(([id,l])=>`<option value="${id}">${l.name}</option>`).join('');
 $('#levelSel').onchange=e=>loadLevel(e.target.value);
@@ -1629,6 +1779,10 @@ renderer.setAnimationLoop(()=>{
   if(results&&!results.error&&!results.mechanism&&view.util&&!view.loadPath){
     const s=0.25+0.25*Math.sin(pulse);
     for(const [id,mesh] of memberMeshes){ const r=results.members[id]; if(r&&r.util>1&&!(selected?.id===id)){ mesh.material.emissive.set(0xff0000); mesh.material.emissiveIntensity=s; } }
+  }
+  if(LV.type==='flip'){ // pulse the flip target in orange
+    const s=0.3+0.3*Math.sin(pulse*0.8);
+    for(const m of model.members) if(m.target&&selected?.id!==m.id){ const mesh=memberMeshes.get(m.id); if(mesh){ mesh.material.emissive.set(0xff8a00); mesh.material.emissiveIntensity=s; } }
   }
   renderer.render(scene,camera);
 });
