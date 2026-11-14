@@ -2,6 +2,7 @@
 title: "Architecture"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/turn-criteria.md
   - package.json
   - apps/web/src/game
   - apps/web/src/viewer
@@ -35,6 +36,6 @@ The workspace incorporates the Voxel Struct experiment. Its Zustand store owns v
 - Keep backend conversion and unsupported-feature handling in adapters. No numerical adapter currently implements the shared interface.
 - Treat the viewer as a consumer of structural state, not the source of engineering or game rules.
 
-See [structural solver](structural-solver.md) for analysis limitations and candidate frameworks. Persistence beyond local browser storage, turn flow, and deployment remain open.
+See [structural solver](structural-solver.md) for analysis limitations and candidate frameworks. The [turn criteria](turn-criteria.md) define the confirmed core rules and proposed transaction flow; the turn system is not implemented. Persistence beyond local browser storage and deployment remain open.
 
 The voxel game uses versioned browser saves and an experimental analysis snapshot; see [structural state](structural-state.md) for validation, replay limits, and the proposed solver-neutral model.
