@@ -190,6 +190,13 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
     for node in &model.nodes {
         pass.nodes.insert(node.id.clone(), object([("componentId", Json::Null), ("displacement", Json::Null)]));
     }
+    for foundation in &model.foundations {
+        // Replaced below for every foundation that belongs to a component.
+        pass.foundations.insert(
+            foundation.id.clone(),
+            object([("nodeId", foundation.node_id.as_str().into()), ("componentId", Json::Null), ("valid", false.into()), ("reaction", Json::Null)]),
+        );
+    }
     for id in failed {
         pass.members.insert(id.clone(), object([("componentId", Json::Null), ("state", "failed".into()), ("forces", Json::Null), ("utilization", Json::Null)]));
     }
@@ -328,7 +335,8 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
                 }
             }
             let peak = |range: std::ops::Range<usize>| shape.iter().map(|(_, v)| v[range.clone()].iter().map(|x| x * x).sum::<f64>().sqrt()).fold(0.0, f64::max);
-            let scale = if peak(0..3) > 0.0 { peak(0..3) } else { peak(3..6) };
+            // A spin has no translation worth scaling by, only rounding noise.
+            let scale = if mode.kind != "spin" && peak(0..3) > 0.0 { peak(0..3) } else { peak(3..6) };
             let mut displacements = Vec::new();
             for (node_id, values) in shape {
                 if scale > 0.0 && values.iter().any(|v| v.abs() > 1e-6 * scale) {
