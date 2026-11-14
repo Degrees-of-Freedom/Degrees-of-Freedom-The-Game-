@@ -1,1 +1,1 @@
-# Degrees-of-Freedom-The-Game-
+# Degrees-of-Freedom (The-Game)
