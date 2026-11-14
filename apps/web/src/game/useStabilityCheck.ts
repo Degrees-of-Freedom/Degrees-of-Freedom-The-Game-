@@ -58,5 +58,10 @@ export function useStabilityCheck(
     [solver],
   );
 
-  return { check: state?.model === model ? state.check : IDLE, run };
+  return {
+    check: state?.model === model ? state.check : IDLE,
+    run,
+    /** Display name of the solver that produces the check. */
+    solverName: solver.name,
+  };
 }

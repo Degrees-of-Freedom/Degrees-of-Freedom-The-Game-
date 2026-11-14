@@ -32,8 +32,8 @@ export function Workspace() {
       : null;
   const stability = useStabilityCheck(game.model);
   function run() {
-    // The OpenSees stability check runs alongside the in-browser analysis and
-    // reports on its own, so a missing service never blocks the voxel result.
+    // The contract-solver stability check runs alongside the voxel analysis and
+    // reports on its own, so a solver failure never blocks the voxel result.
     void stability.run(game.model);
     try {
       setAnalysis({
@@ -187,7 +187,10 @@ export function Workspace() {
             setLoadPath={setLoadPath}
             selectMember={(id) => game.setSelected({ type: 'member', id })}
           />
-          <StabilityCheckPanel check={stability.check} />
+          <StabilityCheckPanel
+            check={stability.check}
+            solverName={stability.solverName}
+          />
         </StructureInspector>
       </div>
       <footer>

@@ -12,19 +12,25 @@ function Stat({ name, value }: { name: string; value: string }) {
 }
 
 /**
- * Kinematic stability and determinacy from the OpenSees service.
+ * Kinematic stability and determinacy from the shared-contract solver.
  *
  * This is independent of the voxel analysis above it: it looks only at
  * geometry, connections and supports, and answers whether the structure can
  * move without deforming and how many redundant load paths it has.
  */
-export function StabilityCheckPanel({ check }: { check: StabilityCheck }) {
+export function StabilityCheckPanel({
+  check,
+  solverName,
+}: {
+  check: StabilityCheck;
+  solverName: string;
+}) {
   if (check.phase === 'idle') return null;
   if (check.phase === 'running')
     return (
       <div className="analysis stability-check">
         <h3>Degrees of freedom</h3>
-        <p role="status">Checking stability with OpenSees…</p>
+        <p role="status">Checking stability with {solverName}…</p>
       </div>
     );
 
@@ -33,7 +39,9 @@ export function StabilityCheckPanel({ check }: { check: StabilityCheck }) {
     return (
       <div className="analysis stability-check">
         <h3>Degrees of freedom</h3>
-        <p>OpenSees check unavailable: {result.message}</p>
+        <p>
+          {solverName} check unavailable: {result.message}
+        </p>
       </div>
     );
 
@@ -59,7 +67,7 @@ export function StabilityCheckPanel({ check }: { check: StabilityCheck }) {
           {text}
         </p>
       ))}
-      <p>Geometry, connections and supports only. Computed by OpenSees.</p>
+      <p>Geometry, connections and supports only. Computed by {solverName}.</p>
     </div>
   );
 }

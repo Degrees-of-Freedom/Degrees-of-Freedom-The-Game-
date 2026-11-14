@@ -85,9 +85,10 @@ describe('game model to solver contract', () => {
 });
 
 describe('solver selection', () => {
-  it('uses the configured service, the local one in development, and none otherwise', () => {
+  it('uses the in-browser solver unless an OpenSees service is asked for', () => {
     expect(resolveSolver({ VITE_OPENSEES_URL: 'http://solver.test' }).id).toBe('opensees');
-    expect(resolveSolver({ DEV: true }).id).toBe('opensees');
-    expect(resolveSolver({ DEV: false })).toBe(unavailableSolver);
+    expect(resolveSolver({ VITE_SOLVER: 'opensees' }).id).toBe('opensees');
+    expect(resolveSolver({}).id).toBe('dof-wasm');
+    expect(resolveSolver({}, false)).toBe(unavailableSolver);
   });
 });
