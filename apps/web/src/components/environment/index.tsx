@@ -6,7 +6,7 @@ import { ITEMS, MEMBER_TYPES } from '../../game/inventory';
 import { activeTurnHand } from '../../game/turns';
 
 type Props = { style: PresentationStyle; onMessage: (message: string) => void };
-type IconKind = 'member' | 'connection' | 'load' | 'erase' | 'inspect' | 'block';
+type IconKind = 'member' | 'connection' | 'load' | 'erase' | 'inspect' | 'block' | 'brace';
 
 /** The tool glyphs follow the Levels and Blocks prototype artwork. */
 function Icon({ kind, style }: { kind: IconKind; style: PresentationStyle }) {
@@ -22,6 +22,7 @@ function Icon({ kind, style }: { kind: IconKind; style: PresentationStyle }) {
     if (kind === 'load') return <svg viewBox="0 0 30 30" aria-hidden="true"><path d="M15 3v15" stroke="#d94f3d" strokeWidth="4.5" strokeLinecap="round"/><path d="M8 15l7 10 7-10z" fill="#d94f3d" stroke="#d94f3d" strokeWidth="2" strokeLinejoin="round"/></svg>;
   }
   if (kind === 'block') return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg>;
+  if (kind === 'brace') return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M5 19 19 5"/></svg>;
   if (kind === 'member') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 17.5 17.5 6.5" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/><rect x="2.5" y="14.5" width="7" height="7" rx="1.8" fill="currentColor"/><rect x="14.5" y="2.5" width="7" height="7" rx="1.8" fill="currentColor"/></svg>;
   if (kind === 'connection') return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="9" width="6" height="6" rx="1.4" fill="currentColor" stroke="none"/><path d="M4.6 12a7.4 7.4 0 0 1 12.6-5.2M17.6 3.4v3.8h-3.8M19.4 12a7.4 7.4 0 0 1-12.6 5.2M6.4 20.6v-3.8h3.8"/></svg>;
   if (kind === 'load') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.6 3h4.8v9.2h4.4L12 21.5 5.2 12.2h4.4z" fill="currentColor"/></svg>;
@@ -35,8 +36,9 @@ export function EnvironmentTools({ style }: Props) {
   const isMember = MEMBER_TYPES.includes(game.tool as MemberType);
   const tools: { kind: IconKind; label: string; key: string; active: boolean; action: () => void }[] = [
     { kind: style === 'blocks' ? 'block' : 'member', label: style === 'blocks' ? 'Block' : 'Member', key: '1', active: isMember, action: () => game.setTool(isMember ? game.tool : 'shs') },
-    { kind: 'connection', label: 'Connection', key: '2', active: game.tool === 'joint', action: () => game.setTool('joint') },
-    { kind: 'load', label: 'Load', key: '3', active: game.tool === 'load', action: () => game.setTool('load') },
+    ...(style === 'blocks' ? [{ kind: 'brace' as const, label: 'Brace', key: '2', active: game.tool === 'brace', action: () => game.setTool('brace') }] : []),
+    { kind: 'connection', label: 'Connection', key: style === 'blocks' ? '3' : '2', active: game.tool === 'joint', action: () => game.setTool('joint') },
+    { kind: 'load', label: 'Load', key: style === 'blocks' ? '4' : '3', active: game.tool === 'load', action: () => game.setTool('load') },
     { kind: 'erase', label: 'Erase', key: 'X', active: game.tool === 'delete', action: () => game.setTool('delete') },
     { kind: 'inspect', label: 'Inspect', key: 'I', active: game.tool === 'inspect', action: () => game.setTool('inspect') },
   ];
