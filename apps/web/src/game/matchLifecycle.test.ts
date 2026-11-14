@@ -6,6 +6,7 @@ afterEach(() => {
   vi.resetModules();
 });
 
+// This test reloads the application module graph to simulate browser startup.
 it("restores the active match across startup and mode changes, then persists a new match", async () => {
   const entries = new Map<string, string>();
   vi.stubGlobal("localStorage", {
@@ -47,4 +48,4 @@ it("restores the active match across startup and mode changes, then persists a n
       turn: { seed: 2, turn: 1, finished: false, reports: [] },
     },
   });
-});
+}, 15_000);
