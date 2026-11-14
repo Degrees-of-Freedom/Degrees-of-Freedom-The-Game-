@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { analyzeConnectivity } from '../game/connectivity';
 import { ITEMS } from '../game/inventory';
 import { allNodeKeys, CELL_SIZE, parseNodeKey } from '../game/model';
 import type { useGameStore } from '../game/store';
@@ -21,6 +22,7 @@ export function buildStructure(
   const turn = s.mode === 'multiplayer' ? s.turn : null;
   const playerColors = ['#e37f59', '#5b94d3'];
   const turnOwners = new Map(turn ? [...turn.board.members, ...turn.draft.members].map((member) => [member.id, member.owner]) : []);
+  const unsupported = new Set(s.style !== 'engineering' ? analyzeConnectivity(s.model, turn).unsupportedMembers : []);
   const activeMembers = new Set(turn?.draft.members.map(({ id }) => id));
   const path = v.loadPath && result ? computeLoadPath(result, v.combo) : null;
   const trace =
@@ -29,9 +31,7 @@ export function buildStructure(
       : null;
   for (const member of s.model.members) {
     const a = point(member.a),
-      b = point(member.b),
-      direction = b.clone().sub(a),
-      length = direction.length();
+      b = point(member.b);
     const flow = path?.members.get(member.id),
       relative = flow && path ? flow.force / path.maxForce : 0;
     const width = path
@@ -75,28 +75,39 @@ export function buildStructure(
               : flow?.mode === 'bending'
                 ? '#c58cff'
                 : '#5a6370';
-    const aboveSlice = s.style === 'levels' && Math.min(az, bz) >= s.workK && Math.max(az, bz) > s.workK;
-    const isGhost = aboveSlice || activeMembers.has(member.id);
-    const mesh = new THREE.Mesh(
-      palette.roles && s.style !== 'blocks' ? new THREE.CylinderGeometry(width / 2, width / 2, length, 10) : new THREE.BoxGeometry(width, length, width),
-      new THREE.MeshStandardMaterial({
-        color,
-        transparent: isGhost,
-        opacity: isGhost ? 0.43 : 1,
-        depthWrite: !isGhost,
-        emissive: trace?.members.has(member.id)
-          ? 0x555555
-          : s.selected?.type === 'member' && s.selected.id === member.id
-            ? 0x536b54
-            : 0x000000,
-      }),
-    );
-    mesh.position.copy(a).add(b).multiplyScalar(0.5);
-    mesh.quaternion.setFromUnitVectors(
-      new THREE.Vector3(0, 1, 0),
-      direction.normalize(),
-    );
-    structure.add(mesh);
+    const pending = activeMembers.has(member.id);
+    if (s.style === 'levels' && Math.min(az, bz) < s.workK && Math.max(az, bz) > s.workK) {
+      const cut = a.clone().lerp(b, (s.workK - az) / (bz - az));
+      addSegment(a, cut, az > s.workK);
+      addSegment(cut, b, bz > s.workK);
+    } else {
+      addSegment(a, b, s.style === 'levels' && Math.max(az, bz) > s.workK);
+    }
+
+    function addSegment(start: THREE.Vector3, end: THREE.Vector3, aboveSlice: boolean) {
+      const delta = end.clone().sub(start);
+      const span = delta.length();
+      const isGhost = pending || aboveSlice || unsupported.has(member.id);
+      const mesh = new THREE.Mesh(
+        palette.roles && s.style !== 'blocks'
+          ? new THREE.CylinderGeometry(width / 2, width / 2, span, 10)
+          : new THREE.BoxGeometry(width, span, width),
+        new THREE.MeshStandardMaterial({
+          color,
+          transparent: isGhost,
+          opacity: aboveSlice ? 0.3 : pending ? 0.62 : isGhost ? 0.51 : 1,
+          depthWrite: !isGhost,
+          emissive: trace?.members.has(member.id)
+            ? 0x555555
+            : s.selected?.type === 'member' && s.selected.id === member.id
+              ? 0x536b54
+              : 0x000000,
+        }),
+      );
+      mesh.position.copy(start).add(end).multiplyScalar(0.5);
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.normalize());
+      structure.add(mesh);
+    }
   }
   for (const key of allNodeKeys(s.model)) {
     const p = point(key),

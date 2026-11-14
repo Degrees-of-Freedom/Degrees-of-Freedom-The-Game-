@@ -11,6 +11,7 @@ import { bindSceneInteraction } from './sceneInteraction';
 import { sceneLevel } from './sceneLevel';
 import type { SceneView } from './sceneView';
 import { createSky, SCENE_STYLES } from './sceneStyle';
+import { buildTurnGuides } from './turnGuides';
 import { buildGrowthGuides } from './growthGuides';
 /** Three.js owns only presentation and picking; the game store owns the model and rules. */
 export function Scene({
@@ -147,6 +148,7 @@ export function Scene({
       addResultArrows(structure, view.current, point);
       buildGuides(guides, level, interaction.buildPlane(), palette);
       buildGrowthGuides(guides, state, palette);
+      buildTurnGuides(guides, state, point);
     }
     refresh.current = rebuild;
     const unsubscribe = useGameStore.subscribe(rebuild);

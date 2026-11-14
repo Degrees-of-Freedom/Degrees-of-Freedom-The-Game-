@@ -18,6 +18,7 @@ import type { BuildPlane } from './sceneGeometry';
 import { DEFAULT_BAY_SIZE, previewBay, type BayHit } from './bayPreview';
 import { GROWTH_ROLE_INDEX, growthTargets } from './growthTargets';
 import { isGrowthStyle, SCENE_STYLES } from './sceneStyle';
+import { memberEndPosition } from './turnGuides';
 import { selectedTurnCard, turnConnectionTargets, turnPointIssue, type ConnectionTarget } from './turnPicking';
 import type { SceneView } from './sceneView';
 
@@ -94,7 +95,7 @@ export function createPicker(
         const member = s.model.members.find(({ id }) => id === target.memberId);
         if (!member) continue;
         // Offset along the member so coincident ends can be picked individually.
-        const endpoint = point(target.key).lerp(point(member[target.end === 'a' ? 'b' : 'a']), 0.2);
+        const endpoint = memberEndPosition(point, member, target.end);
         const [sx, sy, depth] = screen(endpoint);
         const distance = Math.hypot(sx - x, sy - y);
         if (depth >= -1 && depth < 1 && distance < closest) {
@@ -195,10 +196,14 @@ export function createPicker(
           ghost.visible = true;
           if (start && isMember) {
             preview.geometry.dispose();
-            preview.geometry = new THREE.BufferGeometry().setFromPoints([
+            const segments = [
               new THREE.Vector3(...start).multiplyScalar(CELL_SIZE),
               ghost.position,
-            ]);
+            ];
+            if (s.style === 'levels' && start[2] !== p[2]) {
+              segments.push(segments[0], new THREE.Vector3(start[0], start[1], p[2]).multiplyScalar(CELL_SIZE));
+            }
+            preview.geometry = new THREE.BufferGeometry().setFromPoints(segments);
             preview.material.color.copy(ghost.material.color);
             preview.visible = true;
           }
