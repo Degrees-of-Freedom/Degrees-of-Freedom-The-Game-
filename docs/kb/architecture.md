@@ -2,28 +2,24 @@
 title: "Architecture"
 last_validated: 2026-11-14
 validated_against:
-  - README.md
+  - package.json
+  - apps/web/src
+  - packages/solver-contract/src/index.ts
+  - services/opensees/README.md
 owner: unknown
 status: partial
 ---
 
 # Architecture
 
-## Purpose
+## Current foundation
 
-Orient work around the intended parts of the project. The three-area organization below comes from the project owner's direction; it is not an implemented architecture.
+The npm workspace contains a React and TypeScript site in `apps/web` and a shared preliminary structural model and solver adapter contract in `packages/solver-contract`. `services/opensees` reserves a location for a future service; it contains no implementation.
 
-## Intended areas
-
-| Area | Responsibility | Detail |
-| --- | --- | --- |
-| Structural solver | Evaluate the structure and its response to loads. | [Structural solver](structural-solver.md) |
-| Game architecture and turn dynamics | Represent game state, player actions, turns, rules, and modes. | [Game dynamics](game-dynamics.md) |
-| 3D viewer | Present the grid and structure and support visual interaction. | [3D viewer](3d-viewer.md) |
-
-These are conceptual boundaries, not a commitment to separate processes, packages, or a particular technology. A future design should define how game state supplies a structural model to the solver and how results and state are presented in the viewer.
+The site separates its Zustand game state, UI components, routes, Three.js viewer, and solver adapter placeholder into directories. The viewer receives a structural model rather than owning the game state. The contract permits asynchronous adapters so future local or remote solvers can share an interface. No actual solver or gameplay rules are implemented.
 
 ## Open questions
 
-- What are the data contracts, ownership boundaries, and update flow between the three areas?
-- Which parts run locally or remotely, and what technologies will they use?
+- Define exact units, material and element properties, load cases, result formats, and supported analysis capabilities before implementing adapters.
+- Decide the lifecycle and deployment of OpenSees and the placement of future TypeScript and Rust solver implementations.
+- Define ownership and update flow for turns, analysis, results, and persistence.

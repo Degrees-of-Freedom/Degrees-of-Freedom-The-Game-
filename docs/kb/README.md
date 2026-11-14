@@ -11,7 +11,7 @@ status: partial
 
 ## Purpose
 
-This is the canonical entry point for durable project knowledge. The project is at the concept stage; distinguish documented intent from implemented behavior and unresolved design decisions.
+This is the canonical entry point for durable project knowledge. The game remains at the concept stage with an initial web scaffold; distinguish documented intent from implemented behavior and unresolved design decisions.
 
 ## Pages
 
@@ -30,3 +30,4 @@ This is the canonical entry point for durable project knowledge. The project is 
 - Update affected pages in the same change as durable behavior or decisions. Keep `last_validated` and `status` accurate.
 - Use `current`, `partial`, `needs-review`, or `deprecated` for status. Record unanswered questions rather than guessing.
 - Treat design intent as intent, not shipped functionality. Existing non-KB documents are context unless explicitly cited and validated.
+

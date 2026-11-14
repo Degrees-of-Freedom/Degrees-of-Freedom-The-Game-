@@ -3,27 +3,20 @@ title: "Structural Solver"
 last_validated: 2026-11-14
 validated_against:
   - README.md
+  - packages/solver-contract/src/index.ts
+  - apps/web/src/solver/unavailable.ts
 owner: unknown
 status: partial
 ---
 
 # Structural Solver
 
-## Purpose
+The game intends to communicate load paths, instability, member or connection failure, and structural complexity. No structural solver is implemented. The web app has an adapter placeholder that reports analysis as unsupported.
 
-Record the intended structural analysis behavior and decisions as they are made.
-
-## Documented intent
-
-The game aims to communicate load paths, instability, member or connection failure, and structural complexity. Players are intended to change members, connections, supports, and loads. The README does not specify an analysis method or claim a solver exists.
+The preliminary shared TypeScript contract describes nodes, members, supports, loads, an asynchronous adapter, and results. It is not yet sufficient for numerical analysis: exact units, member and material properties, load cases, constraints, result conventions, and failure criteria need decisions. Adapters must report unsupported input explicitly.
 
 ## Design decision: node degrees of freedom
 
-The project owner decided that the structural model will use six degrees of freedom per node: translation along the global X, Y, and Z axes, and rotation about those axes. These are potential movements; supports, connections, and other constraints may restrict them. The choice does not imply that every member or connection resists all six movements, or that a solver is implemented.
+The project owner decided that the structural model will use six potential degrees of freedom per node: translation along global X, Y, and Z, followed by rotation about those axes. Supports and other constraints may restrict them. This does not imply every element resists all six movements.
 
-## Open questions
-
-- What structural idealization, member and connection types, units, and material properties will be supported?
-- How will loads, boundary conditions, stability, and failure be defined and reported?
-- What numerical methods, accuracy limits, and reference cases will be used?
-- What inputs and results will form the contract with the game and viewer?
+OpenSees, custom Rust, and TypeScript are intended solver experiments. Their accuracy, supported models, execution environments, and reference cases remain to be evaluated.
