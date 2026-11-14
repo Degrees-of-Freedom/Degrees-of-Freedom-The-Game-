@@ -83,6 +83,15 @@ h3:first-child{margin-top:0}
 #help li{margin:4px 0}
 input[type=range]{width:110px;accent-color:var(--accent)}
 input[type=checkbox]{accent-color:var(--accent)}
+.swapbar{margin:-2px 0 6px;padding:8px;border-radius:8px;background:#1e1830;border:1px solid #3d3160;font-size:12px}
+.swapbar .muted{margin-top:4px;font-size:11px}
+.chip{display:inline-flex;align-items:center;gap:4px;margin:4px 4px 0 0;padding:3px 7px;border-radius:12px;background:#151d26;border:1px solid var(--line);cursor:pointer;font-size:11.5px}
+.chip.on{border-color:#b48cff;background:#2d2347}
+.chip .sw{width:10px;height:10px;border-radius:2px}
+.chip small{color:var(--muted)}
+.btnrow{display:flex;gap:6px;margin-top:8px}
+.btn.danger{border-color:#7a2f33;color:#ffb3b5}
+.btn.danger:hover{background:#3a1f22}
 </style>
 </head>
 <body>
@@ -109,6 +118,7 @@ input[type=checkbox]{accent-color:var(--accent)}
   <div class="keys">
     <kbd>Click</kbd> place / chain members · <kbd>Esc</kbd>/<kbd>Right-click</kbd> stop chain<br>
     <kbd>Shift</kbd> draw in horizontal plane (else vertical plane facing you)<br>
+    <kbd>Del</kbd> remove selected member · <b>Swap</b>: <kbd>Shift</kbd>+click swaps all of a type<br>
     <kbd>[</kbd> <kbd>]</kbd> build-plane height · <kbd>R</kbd> analyse · <kbd>D</kbd> deformed view<br>
     <kbd>Left-drag</kbd> orbit · <kbd>Right-drag</kbd> pan · <kbd>Wheel</kbd> zoom
   </div>
@@ -138,6 +148,8 @@ input[type=checkbox]{accent-color:var(--accent)}
       <li><b>Foundations</b> fix a node to solid ground (not water).</li>
       <li><b>Run analysis</b> solves a 3D frame model (4 load combinations: ULS/SLS with wind in X and Y, imperfections, tension-only cable iteration) and checks:
         mechanisms, global buckling (α<sub>cr</sub>), member strength, shear, flexural buckling, slenderness, deflection, connections and foundations.</li>
+      <li><b>Remove</b> deletes members or node attachments and returns them to your supply. <b>Swap</b> replaces a member with another type
+        (beam ↔ beam or beam ↔ cable) in place, keeping its ends; Shift+click swaps every member of that type. Both can be undone.</li>
       <li><b>Auto-design</b> resizes beams to the lightest adequate section still in your supply.</li>
     </ul>
     <p class="desc">Tip: pin-jointed frames need triangles (bracing) in <i>all three</i> directions — or moment connections.</p>
@@ -181,9 +193,11 @@ const ITEMS = {
 const TOOLS = {
   inspect:{ kind:'tool', label:'Inspect', sub:'Select members & nodes', color:'#e8edf2' },
   delete: { kind:'tool', label:'Remove', sub:'Delete & refund to supply', color:'#ff5a5f' },
+  swap:   { kind:'tool', label:'Swap', sub:'Replace a member with another type', color:'#b48cff' },
   ...ITEMS
 };
 const BEAM_TYPES = ['shs','glulam','ipe','heb'];
+const MEMBER_TYPES = [...BEAM_TYPES,'cable'];
 const JOINT_CAP = { pinF:350, rigidF:700, rigidM:220 };   // kN, kNm
 const FOUND_CAP = { Nc:1500, Nt:250, H:350, M:300 };       // kN, kNm
 const GAMMA = { ULS:{G:1.35,Q:1.5,W:0.9,notional:true}, SLS:{G:1,Q:1,W:0.6,notional:false} };
@@ -222,6 +236,7 @@ let model = { members:[], attrs:{}, nextId:1 };
 let history = [];
 let results = null;
 let tool = 'shs';
+let swapTarget = 'ipe';   // member type the Swap tool converts to
 let chainStart = null;
 let workK = 0;
 let shiftDown = false;
@@ -329,10 +344,41 @@ function commit(){
   save(); rebuildStructure(); renderPalette(); renderResults(); updateHover();
 }
 function addMember(a,b,type){ pushHistory(); model.members.push({id:model.nextId++, a, b, type}); commit(); }
+/** Removes a member; its item returns to the supply because supply is derived from the model. */
 function removeMember(id){
+  const m=model.members.find(x=>x.id===id); if(!m) return;
   pushHistory();
-  model.members = model.members.filter(m=>m.id!==id);
+  model.members = model.members.filter(x=>x.id!==id);
   cleanupAttrs(); if(selected?.id===id) selected=null; commit();
+  toast(`Removed ${ITEMS[m.type].label} #${id} — returned to supply`);
+}
+/** Why member m cannot become type t, or null when the swap is allowed (supply and length limit). */
+function swapIssue(m,t){
+  const it=ITEMS[t];
+  if(!it || (it.kind!=='beam'&&it.kind!=='cable')) return 'Choose a beam or cable type';
+  if(m.type===t) return `Already ${it.label}`;
+  if(remaining(t)<=0) return `No ${it.label} left in supply`;
+  const a=parse(m.a), b=parse(m.b);
+  if(Math.max(...a.map((v,i)=>Math.abs(v-b[i])))>it.maxCells) return `Too long for ${it.label} (max ${it.maxCells} cells per axis)`;
+  return null;
+}
+/** Replaces the type of one member, keeping its id and end nodes; the old item is refunded. */
+function swapMember(id,t){
+  const m=model.members.find(x=>x.id===id); if(!m) return false;
+  const issue=swapIssue(m,t); if(issue){ toast(issue); return false; }
+  const from=m.type; pushHistory(); m.type=t; commit();
+  toast(`Swapped #${id}: ${ITEMS[from].label} → ${ITEMS[t].label}`);
+  return true;
+}
+/** Swaps every member of type `from` to `to`, as far as supply and length limits allow (one undo step). */
+function swapAllOfType(from,to){
+  const list=model.members.filter(m=>m.type===from);
+  if(from===to||!list.length){ toast(`Nothing to swap`); return; }
+  pushHistory(); let n=0, skipped=0;
+  for(const m of list){ if(swapIssue(m,to)) { skipped++; continue; } m.type=to; n++; }
+  if(!n){ history.pop(); toast(`Cannot swap: ${swapIssue(list[0],to)}`); return; }
+  commit();
+  toast(`Swapped ${n} × ${ITEMS[from].label} → ${ITEMS[to].label}`+(skipped?` · ${skipped} skipped (supply/length)`:''));
 }
 function cleanupAttrs(){
   for(const k in model.attrs){ const a=model.attrs[k];
@@ -1109,7 +1155,9 @@ function updateHover(){
   ndc.set(mx/r.width*2-1,-(my/r.height)*2+1); raycaster.setFromCamera(ndc,camera);
   const prevHover=hover; hover=null;
   $('#modeHint').textContent = isMemberTool()?(chainStart?(shiftDown?'drawing in horizontal plane':'drawing in vertical plane — hold Shift for horizontal'):'click a node or grid point to start'):'';
-  if(tool==='inspect'||tool==='delete'){
+  if(tool==='swap'){
+    const mid=nearestMember(mx,my,9); if(mid) hover={kind:'member',id:mid};
+  } else if(tool==='inspect'||tool==='delete'){
     const nk=nearestNode(mx,my,12);
     const hasAttr=nk&&(model.attrs[nk]?.found||model.attrs[nk]?.joint||model.attrs[nk]?.load);
     if(tool==='delete'&&hasAttr) hover={kind:'node',key:nk};
@@ -1140,6 +1188,8 @@ function updateHover(){
   } else if(hover?.kind==='member'){
     const m=model.members.find(x=>x.id===hover.id), r=results&&!results.error?results.members[hover.id]:null;
     tip.innerHTML=`<b>${ITEMS[m.type].label}</b> #${m.id}`+(r&&!results.mechanism?` · ${(r.util*100).toFixed(0)}% <span class="hint">${CHECK_NAMES[r.gov]||''}</span>`:'')+(tool==='delete'?'<br><span class="err">Click to remove</span>':'');
+    if(tool==='swap'){ const iss=swapIssue(m,swapTarget);
+      tip.innerHTML+=`<br>${ITEMS[m.type].label} → <b>${ITEMS[swapTarget].label}</b>`+(iss?`<br><span class="err">${iss}</span>`:`<br><span class="hint">Click to swap · Shift+click swaps all ${ITEMS[m.type].label}</span>`); }
   } else if(hover?.kind==='node'){
     const a=model.attrs[hover.key]||{}; const [i,j,k]=parse(hover.key);
     tip.innerHTML=`Node <b>${i*S}, ${j*S}, ${k*S}</b> m`+(a.found?' · foundation':'')+(a.joint?' · moment connection':'')+(tool==='delete'&&(a.found||a.joint||a.load)?'<br><span class="err">Click to remove attachment</span>':'');
@@ -1160,6 +1210,11 @@ function onClick(){
   if(!hover){ if(tool==='inspect'){ selected=null; renderResults(); applyView(); } return; }
   if(tool==='inspect'){ selected=hover.kind==='member'?{type:'member',id:hover.id}:hover.kind==='node'?{type:'node',key:hover.key}:null; renderResults(); applyView(); return; }
   if(tool==='delete'){ if(hover.kind==='member') removeMember(hover.id); else if(hover.kind==='node') removeNodeAttrs(hover.key); hover=null; updateHover(); return; }
+  if(tool==='swap'){
+    if(hover.kind==='member'){ const m=model.members.find(x=>x.id===hover.id);
+      if(shiftDown) swapAllOfType(m.type,swapTarget); else swapMember(hover.id,swapTarget); }
+    updateHover(); return;
+  }
   if(hover.kind!=='point') return;
   if(hover.issue){ toast(hover.issue); return; }
   const k=key(...hover.ijk);
@@ -1188,6 +1243,7 @@ addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){ e.preventDefault(); undo(); return; }
   if(e.key==='r'||e.key==='R') runAnalysis();
   if(e.key==='d'||e.key==='D'){ if(results&&!results.error){ view.deformed=!view.deformed; applyView(); renderResults(); } }
+  if((e.key==='Delete'||e.key==='Backspace') && selected?.type==='member'){ e.preventDefault(); removeMember(selected.id); return; }
   if(e.key==='['){ setWorkK(workK-1); } if(e.key===']'){ setWorkK(workK+1); }
   const n=parseInt(e.key,10); if(!isNaN(n)&&!e.ctrlKey){ const list=toolList(); const t=list[(n+9)%10]; if(t) setTool(t); }
 });
@@ -1196,7 +1252,7 @@ addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.upd
 
 function setWorkK(k){ workK=Math.max(0,Math.min(LV.nz,k)); $('#planeVal').textContent=workK*S+' m'; updateHover(); }
 function setTool(t){ tool=t; chainStart=null; renderPalette(); updateHover(); }
-function toolList(){ return ['inspect','delete','shs','glulam','ipe','heb','cable','joint','found',...(LV.type==='sandbox'?['load']:[])]; }
+function toolList(){ return ['inspect','delete','swap','shs','glulam','ipe','heb','cable','joint','found',...(LV.type==='sandbox'?['load']:[])]; }
 
 let toastT=0;
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600); }
@@ -1211,11 +1267,17 @@ function renderPalette(){
     let cnt='';
     if(item && item.kind!=='load'){ const tot=total(t); cnt = tot===Infinity?'∞':`${remaining(t)}/${tot}`; }
     const empty=item&&item.kind!=='load'&&remaining(t)<=0;
-    return `<button class="tool ${tool===t?'on':''} ${empty?'empty':''}" data-tool="${t}">
-      <span class="k">${(n+1)%10}</span><span class="sw" style="background:${it.color}"></span>
+    const btn=`<button class="tool ${tool===t?'on':''} ${empty?'empty':''}" data-tool="${t}">
+      <span class="k">${n<10?(n+1)%10:''}</span><span class="sw" style="background:${it.color}"></span>
       <span class="nm">${it.label}<small>${it.sub}${item?.cost?` · $${item.cost}`:''}</small></span><span class="cnt">${cnt}</span></button>`;
+    // Swap tool: pick the member type to convert to
+    const picker = t==='swap'&&tool==='swap' ? `<div class="swapbar">Swap to
+      ${MEMBER_TYPES.map(s=>`<button class="chip ${s===swapTarget?'on':''}" data-swap="${s}" title="${ITEMS[s].label}"><span class="sw" style="background:${ITEMS[s].color}"></span>${ITEMS[s].label.split(' ')[0]} <small>${total(s)===Infinity?'∞':remaining(s)}</small></button>`).join('')}
+      <div class="muted">Click a member to swap it · Shift+click swaps all of that type</div></div>` : '';
+    return btn+picker;
   }).join('');
   $('#palette').querySelectorAll('.tool').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+  $('#palette').querySelectorAll('[data-swap]').forEach(b=>b.onclick=()=>{ swapTarget=b.dataset.swap; renderPalette(); updateHover(); });
   const mt=isMemberTool();
   $('#modeHint').textContent = mt?(chainStart?'drawing in vertical plane — hold Shift for horizontal':'click a node or grid point to start'):'';
 }
@@ -1290,11 +1352,12 @@ function selectionHTML(){
       if(it.kind==='beam'){
         const alts=BEAM_TYPES.filter(t=>t!==m.type).map(t=>({t,u:govern(checkMember(ITEMS[t],d,r.e.L,r.e.rigidA,r.e.rigidB)).util}));
         h+=`<h3>Alternative sections (same forces)</h3>`+alts.map(x=>`<div class="chk"><span>${ITEMS[x.t].label}</span>${barHTML(x.u)}<b>${pct(x.u)}</b></div>`).join('');
-        h+=`<div class="row"><label>Change section</label><select id="secSel">${BEAM_TYPES.map(t=>`<option value="${t}" ${t===m.type?'selected':''} ${t!==m.type&&remaining(t)<=0?'disabled':''}>${ITEMS[t].label} (${total(t)===Infinity?'∞':remaining(t)} left)</option>`).join('')}</select></div>`;
       }
-    } else if(it.kind==='beam'){
-      h+=`</div><div class="row"><label>Change section</label><select id="secSel">${BEAM_TYPES.map(t=>`<option value="${t}" ${t===m.type?'selected':''} ${t!==m.type&&remaining(t)<=0?'disabled':''}>${ITEMS[t].label}</option>`).join('')}</select></div>`;
     } else h+='</div>';
+    // swap / remove controls (all member types; options blocked by supply or length are disabled)
+    h+=`<div class="row"><label>Swap to</label><select id="secSel">${MEMBER_TYPES.map(t=>{ const iss=t===m.type?null:swapIssue(m,t);
+      return `<option value="${t}" ${t===m.type?'selected':''} ${iss?'disabled':''}>${ITEMS[t].label} (${total(t)===Infinity?'∞':remaining(t)} left)${iss&&!iss.startsWith('No ')?' – too long':''}</option>`; }).join('')}</select></div>
+      <div class="btnrow"><button class="btn danger" id="rmBtn" title="Delete / Backspace">Remove member</button></div>`;
     return h+'</div>';
   }
   const k=selected.key; if(!allNodeKeys().includes(k)) return '';
@@ -1318,7 +1381,8 @@ function bindResultEvents(){
   on('defScale','input',e=>{ view.scale=+e.target.value; applyView(); });
   on('utilChk','change',e=>{ view.util=e.target.checked; applyView(); });
   on('loadChk','change',e=>{ view.loads=e.target.checked; applyView(); });
-  on('secSel','change',e=>{ const m=model.members.find(x=>x.id===selected.id); if(!m) return; pushHistory(); m.type=e.target.value; commit(); });
+  on('secSel','change',e=>{ if(selected?.type==='member' && !swapMember(selected.id,e.target.value)) renderResults(); });
+  on('rmBtn','click',()=>{ if(selected?.type==='member') removeMember(selected.id); });
   document.querySelectorAll('[data-mid]').forEach(b=>b.onclick=()=>{ selected={type:'member',id:+b.dataset.mid}; tool='inspect'; renderPalette(); renderResults(); applyView(); });
 }
 
@@ -1369,7 +1433,7 @@ renderer.setAnimationLoop(()=>{
   }
   renderer.render(scene,camera);
 });
-window.__vs={analyze:()=>analyze(), get model(){return model;}, run:runAnalysis, loadLevel, get results(){return results;}, EXAMPLES, autoDesign};
+window.__vs={analyze:()=>analyze(), get model(){return model;}, run:runAnalysis, loadLevel, get results(){return results;}, EXAMPLES, autoDesign, swapMember, swapAllOfType, removeMember, undo};
 </script>
 </body>
 </html>

@@ -17,6 +17,10 @@ Then open `http://localhost:8765`. Three.js 0.160.0 is loaded from the jsDelivr 
 - Grid: 2 m voxels. Members connect voxel corners; beams span at most 3 cells per axis, cables at most 8.
 - Items (limited supply per level): SHS 100×6 steel tube, glulam 200×400, IPE 300, HEB 300, Ø24 cable (tension only, 25 kN pretension), moment connection (makes all member ends at a node rigid and raises joint capacity), foundation (fixed support on solid ground, not water).
 - Levels: Tower I (12 m), Tower II (24 m), Bridge I (16 m span), Bridge II (28 m span), Sandbox (unlimited supply, placeable 50 kN point loads). Stars depend on cost against a level budget.
+- Editing members:
+  - **Remove** tool (or Delete/Backspace on a member selected with Inspect, or the panel's *Remove member* button) deletes it and returns the item to the supply. On nodes it removes attachments (load, then moment connection, then foundation); abutment bearings are locked.
+  - **Swap** tool replaces a member with the chosen type (any beam ↔ beam or beam ↔ cable) in place, keeping its id and end nodes; Shift+click swaps every member of the clicked type as far as supply allows. The Inspect panel's *Swap to* list does the same for one member.
+  - Swaps are refused when the target type has no supply left or the member is longer than the target's per-axis limit (3 cells for beams). Every remove or swap is one undo step and clears stale analysis results.
 - **Example** loads a passing reference structure for Tower I and Bridge I. Tower II and Bridge II have no reference solution yet, so their supply and budget are unverified.
 
 ## Analysis (as implemented)
