@@ -20,3 +20,5 @@ export interface VoxelAnalysis {
 }
 /** Analyse the game model using the original prototype's load combinations and checks. */
 export function analyzeVoxel(model: GameModel, level: Level): VoxelAnalysis;
+/** Resize beams using prototype checks; the input is not mutated. */
+export function autoDesignVoxel(model: GameModel, level: Level): { model: GameModel; analysis: VoxelAnalysis; changed: boolean };

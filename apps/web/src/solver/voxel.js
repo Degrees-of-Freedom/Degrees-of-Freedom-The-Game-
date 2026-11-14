@@ -32,7 +32,7 @@ const COMBOS = [
 ];
 
 
-export function analyzeVoxel(model, LV) {
+function runVoxel(model, LV, autoDesign) {
 const key = (i,j,k) => `${i},${j},${k}`;
 const parse = s => s.split(',').map(Number);
 function allNodeKeys(){
@@ -446,5 +446,42 @@ function costOf(){
 function massOf(){ let w=0; for(const m of model.members){ const a=parse(m.a), b=parse(m.b); w+=ITEMS[m.type].w*Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2])*S; } return w/9.81; }
 
 
-return analyze();
+if (!autoDesign) return analyze();
+// Work on a copy so callers can commit the complete operation as one undo step.
+model = { ...model, members: model.members.map(m => ({ ...m })), attrs: Object.fromEntries(Object.entries(model.attrs).map(([k, a]) => [k, { ...a }])) };
+let analysis = analyze(), changedAny = false;
+if (!analysis.error && !analysis.mechanism) {
+  const order = ['shs', 'glulam', 'ipe', 'heb'].sort((a, b) => ITEMS[a].cost - ITEMS[b].cost);
+  for (let round = 0; round < 4; round++) {
+    if (analysis.error || analysis.mechanism) break;
+    const pool = Object.fromEntries(order.map(t => [t, LV.inv ? (LV.inv[t] || 0) : Infinity]));
+    const beams = model.members.filter(m => ITEMS[m.type].kind === 'beam');
+    const analysed = beams.filter(m => analysis.members[m.id]);
+    beams.filter(m => !analysis.members[m.id]).forEach(m => pool[m.type]--);
+    analysed.sort((a, b) => analysis.members[b.id].util - analysis.members[a.id].util);
+    let changed = false;
+    for (const m of analysed) {
+      const r = analysis.members[m.id];
+      let best = null, bestU = Infinity, fallback = null;
+      for (const t of order) {
+        if (pool[t] <= 0) continue;
+        const u = govern(checkMember(ITEMS[t], r.demand, r.e.L, r.e.rigidA, r.e.rigidB)).util;
+        if (u <= 0.95) { best = t; break; }
+        if (u < bestU) { bestU = u; fallback = t; }
+      }
+      const t = best || fallback || m.type;
+      pool[t]--;
+      if (t !== m.type) { m.type = t; changed = true; }
+    }
+    if (!changed) break;
+    changedAny = true;
+    analysis = analyze();
+  }
 }
+return { model, analysis, changed: changedAny };
+}
+
+/** Run the original prototype's game-specific analysis. */
+export function analyzeVoxel(model, level) { return runVoxel(model, level, false); }
+/** Resize beam sections from available supply and reanalyse, without mutating the input. */
+export function autoDesignVoxel(model, level) { return runVoxel(model, level, true); }
