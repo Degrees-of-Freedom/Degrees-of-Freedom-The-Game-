@@ -29,7 +29,7 @@ Configuration, by environment variable:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `DOF_OPENSEES_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated browser origins allowed to call the service. |
+| `DOF_OPENSEES_CORS_ORIGINS` | unset | Comma-separated browser origins allowed to call the service. When unset, any port on `localhost` or `127.0.0.1` is allowed, for local development. Set it in any deployment. |
 | `DOF_OPENSEES_MAX_NODES` | `2000` | Largest accepted node count. |
 | `DOF_OPENSEES_MAX_MEMBERS` | `8000` | Largest accepted member count. |
 | `DOF_OPENSEES_WORKERS` | `2` | Worker processes in the Docker image. |

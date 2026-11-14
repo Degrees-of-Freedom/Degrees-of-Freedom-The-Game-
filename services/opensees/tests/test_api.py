@@ -2,7 +2,7 @@
 
 from fastapi.testclient import TestClient
 
-from dof_opensees.app import app
+from dof_opensees.app import app, create_app
 from helpers import EA, FIXED, model
 
 client = TestClient(app)
@@ -57,9 +57,20 @@ def test_schema_violations_return_422_with_an_error_result():
         assert result["status"] == "error" and result["message"].startswith("Invalid model:")
 
 
-def test_cors_allows_the_vite_dev_origin():
-    response = client.options(
-        "/analyze",
-        headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "POST"},
-    )
-    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+def preflight(test_client, origin):
+    return test_client.options("/analyze", headers={"Origin": origin, "Access-Control-Request-Method": "POST"})
+
+
+def test_cors_allows_any_local_port_by_default():
+    # Vite moves to another port when 5173 is taken.
+    for origin in ("http://localhost:5173", "http://localhost:5175", "http://127.0.0.1:4173"):
+        assert preflight(client, origin).headers["access-control-allow-origin"] == origin
+    assert "access-control-allow-origin" not in preflight(client, "https://example.com").headers
+    assert "access-control-allow-origin" not in preflight(client, "http://localhost.example.com").headers
+
+
+def test_configured_cors_origins_replace_the_local_default(monkeypatch):
+    monkeypatch.setenv("DOF_OPENSEES_CORS_ORIGINS", "https://game.example")
+    configured = TestClient(create_app())
+    assert preflight(configured, "https://game.example").headers["access-control-allow-origin"] == "https://game.example"
+    assert "access-control-allow-origin" not in preflight(configured, "http://localhost:5173").headers

@@ -13,7 +13,8 @@ Endpoints:
 Configuration is by environment variable:
 
 * ``DOF_OPENSEES_CORS_ORIGINS`` - comma-separated browser origins allowed to
-  call the service. Defaults to the Vite dev server.
+  call the service. When unset, any port on localhost is allowed, because the
+  Vite dev server picks another port when its usual one is taken.
 * ``DOF_OPENSEES_MAX_NODES`` / ``DOF_OPENSEES_MAX_MEMBERS`` - request limits.
 """
 
@@ -32,7 +33,8 @@ from . import __version__, engine
 from .properties import STEEL_MEMBER
 from .schema import StructuralModel
 
-DEFAULT_CORS_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
+#: Development default: a page served from this machine, on any port.
+LOCAL_ORIGIN_PATTERN = r"http://(localhost|127\.0\.0\.1)(:\d+)?"
 
 
 def _limits() -> engine.Limits:
@@ -47,12 +49,18 @@ def create_app() -> FastAPI:
     limits = _limits()
     origins = [
         origin.strip()
-        for origin in os.environ.get("DOF_OPENSEES_CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",")
+        for origin in os.environ.get("DOF_OPENSEES_CORS_ORIGINS", "").split(",")
         if origin.strip()
     ]
 
     app = FastAPI(title="Degrees of Freedom OpenSees service", version=__version__)
-    app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST"], allow_headers=["*"])
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_origin_regex=None if origins else LOCAL_ORIGIN_PATTERN,
+        allow_methods=["GET", "POST"],
+        allow_headers=["*"],
+    )
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(_: Request, error: RequestValidationError) -> JSONResponse:
