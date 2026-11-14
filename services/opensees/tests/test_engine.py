@@ -601,6 +601,8 @@ def test_timeout_makes_components_unknown_without_results():
     part = result["components"][0]
     assert part["state"] == "unknown" and part["reasonCodes"] == ["timeout"] and not part["resultsValid"]
     assert part["loadFactor"] == 0.0
+    # The reference classification never ran: no mechanism count, so 0, and not stable.
+    assert part["stability"]["staticIndeterminacy"] == 0 and not part["stability"]["stable"]
     assert result["displacements"] == {} and result["reactions"] == {}
 
 
@@ -757,6 +759,7 @@ def test_random_models_never_raise():
         if result["status"] in ("success", "unstable", "unresolved"):
             valid = {node for part in result["components"] if part["resultsValid"] for node in part["nodeIds"]}
             assert set(result["displacements"]) == valid
+            assert all(part["stability"]["staticIndeterminacy"] >= 0 for part in result["components"])
     assert len(statuses) >= 3
 
 
@@ -803,6 +806,10 @@ def test_nonlinear_cable_stiffens_under_transverse_load():
     assert "geometrically_stiffened" in part["reasonCodes"]
     sag = -result["displacements"]["c"][2]
     assert sag == pytest.approx(2.0 * (1e4 / EA) ** (1 / 3), rel=0.05)
+    # Counted with the reference mechanisms (two transverse modes), not the
+    # final state's none: two collinear cables between fixed supports have one
+    # redundant axial restraint.
+    assert part["stability"]["staticIndeterminacy"] == 1
 
 
 def test_nonlinear_mechanism_is_unstable_with_its_reason():
@@ -812,3 +819,57 @@ def test_nonlinear_mechanism_is_unstable_with_its_reason():
     result = run_nonlinear(nodes, members, {"a": PINNED, "b": PINNED, "c": in_plane, "d": in_plane})
     assert result["status"] == "unstable"
     assert result["components"][0]["reasonCodes"] == ["internal_mechanism"]
+
+
+# --- subdivision rules (nonlinear fidelity) ---------------------------------
+
+
+def _beam(length=4.0):
+    from dof_opensees.model import prepare
+
+    body = model({"a": (0, 0, 0), "b": (length, 0, 0)}, [("a", "b")], {"a": FIXED})
+    return prepare(StructuralModel.model_validate(body)).members["a-b"]
+
+
+def test_required_segments_rotation_rule():
+    from dof_opensees.builder import required_segments
+
+    beam = _beam()
+    # n_rot = ceil(12.5 theta): 1 rad needs 13 elements, small rotations need one.
+    assert required_segments(beam, 0.0, 1.0) == 13
+    assert required_segments(beam, 0.0, 0.05) == 1
+    assert required_segments(beam, 0.0, 0.0) == 1
+    assert required_segments(beam, 0.0, 100.0) == 32
+    # The larger of the buckling and rotation counts.
+    euler = math.pi**2 * EI / 4.0**2
+    assert required_segments(beam, euler, 0.0) == 29
+    assert required_segments(beam, euler, 1.0) == 29
+    assert required_segments(beam, 0.01 * euler, 1.0) == 13
+
+
+def preview_segments(load):
+    """Segments the linear preview asks for on a 4 m cantilever with a tip load."""
+    from dof_opensees import engine
+    from dof_opensees.model import prepare
+
+    body = model({"a": (0, 0, 0), "b": (4, 0, 0)}, [("a", "b")], {"a": FIXED}, {"b": (0, 0, -load)},
+                 {"fidelity": "nonlinear"})
+    prepared = prepare(StructuralModel.model_validate(body))
+    part = prepared.components[0]
+    with engine._LOCK:
+        reference = engine._coarse_reference(prepared, part)
+        return engine._preview_segments(prepared, part, reference[0])["a-b"]
+
+
+def test_large_preview_rotation_refines_the_beam():
+    # P L^2 / EI = 2. Linear tip deflection P L^3 / 3EI = 2L/3, so the chord
+    # turns 2/3 rad; the root (fixed, rotation 0) is 2/3 rad off the chord and
+    # the tip (P L^2 / 2EI = 1 rad) 1/3 rad. Largest 2/3: ceil(12.5 * 2/3) = 9.
+    load = 2 * EI / 4.0**2
+    assert preview_segments(load) == 9
+
+
+def test_small_preview_rotation_keeps_one_element():
+    # A tip rotation of 1e-3 rad is an ordinary structure: one element.
+    load = 1e-3 * 2 * EI / 4.0**2
+    assert preview_segments(load) == 1

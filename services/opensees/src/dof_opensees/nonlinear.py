@@ -157,10 +157,11 @@ class Settings:
 class Outcome:
     #: ``stable``: converged at full load with a positive definite tangent.
     #: ``unstable``: verified mechanism or verified loss of stability.
-    #: ``unknown``: no verified conclusion (not converged, timeout).
+    #: ``unknown``: no verified conclusion (not converged, timeout, solver error).
     state: Literal["stable", "unstable", "unknown"]
     #: Contract reason codes that apply: ``load_induced_instability``,
-    #: ``geometrically_stiffened``, ``not_converged``, ``timeout``. Mechanism
+    #: ``geometrically_stiffened``, ``not_converged``, ``timeout``,
+    #: ``solver_error`` (an unexpected exception inside the driver). Mechanism
     #: naming (rigid body, internal, unsupported) is the engine's job.
     reason_codes: list[str] = field(default_factory=list)
     #: Last load factor in [0, 1] with a verified stable equilibrium. For
@@ -199,7 +200,11 @@ def solve(problem: Problem, deadline: float, settings: Settings = Settings()) ->
     except _Timeout:
         return driver.unverified("timeout")
     except Exception:  # noqa: BLE001 - no exception may escape the solver (A08)
-        return driver.unverified("not_converged")
+        # Non-convergence never raises: OpenSees reports it through return
+        # codes, which the driver turns into ``not_converged`` itself. An
+        # exception is therefore a programming or model error (a bad command,
+        # a misbehaving Problem) and must not pass for a convergence failure.
+        return driver.unverified("solver_error")
 
 
 class _Timeout(Exception):
@@ -271,6 +276,13 @@ class _Driver:
             if reference.mechanism_loaded:
                 return self.recover(reference, dofs)
             return self.outcome("unstable", [], 0.0, reference, dofs)
+        if not reference.positive_definite:
+            # ``indefinite`` with empty mode lists: the reference verdict
+            # (negative direction, or loaded or unloaded mechanism) depends on
+            # the spectrum, so a Problem must compute it here. Without it no
+            # verified conclusion is possible, and loading on would treat an
+            # unstable reference as stable.
+            return self.outcome("unknown", ["solver_error"], 0.0, reference, dofs)
         self.verified(0.0, reference, dofs)
         return self.load_path()
 
@@ -301,7 +313,10 @@ class _Driver:
             # point. A null vector without one (a cable gone slack leaving a
             # node free, or a step landing exactly on a bifurcation) is
             # treated the same way: the loaded state is not stable, and the
-            # factor where it stopped being so is the critical factor.
+            # factor where it stopped being so is the critical factor. Only
+            # ``positive_definite`` is consulted, so an ``indefinite``
+            # assessment with empty mode lists (a failed Cholesky test) works
+            # the same; the reported assessment then carries no buckling shape.
             if not assessment.positive_definite:
                 return self.bracket(previous, factor, assessment, dofs)
             self.verified(factor, assessment, dofs)

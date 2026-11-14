@@ -28,7 +28,18 @@ import numpy as np
 import openseespy.opensees as ops
 
 from . import __version__, builder, nonlinear, stability, tangent
-from .model import ALIGNED, Component, Limits, PreparationError, PreparedModel, free_dofs, prepare, static_counts
+from .model import (
+    ALIGNED,
+    FREE,
+    RELEASE,
+    Component,
+    Limits,
+    PreparationError,
+    PreparedModel,
+    free_dofs,
+    prepare,
+    static_counts,
+)
 from .results import (
     MARGINAL,
     STABLE,
@@ -138,9 +149,24 @@ class _Counts:
     unknowns: int
     equations: int
     linear_free_dofs: int
+    #: Mechanism count of the reference classification, once it has completed.
+    reference_mechanisms: int | None = None
 
-    def indeterminacy(self, mechanisms: int) -> int:
-        return self.unknowns - self.equations + mechanisms
+    def indeterminacy(self) -> int:
+        """Static indeterminacy from the reference classification.
+
+        Always the reference mechanism count, whatever the final state: the
+        count is a property of the structure, not of the load. 0 when the
+        reference classification did not complete (for example a timeout
+        before it), since there is no count to use; such components are
+        never ``stable``. Never negative: under nonlinear fidelity the
+        reference tangent includes pretension, which can stiffen a kinematic
+        mechanism the force-unknown count does not see, and the true
+        redundancy is then still at least zero.
+        """
+        if self.reference_mechanisms is None:
+            return 0
+        return max(0, self.unknowns - self.equations + self.reference_mechanisms)
 
 
 def _guarded(prepared: PreparedModel, component: Component, budget: _Budget, warnings: list[str]) -> ComponentOutcome:
@@ -160,7 +186,7 @@ def _unknown(component: Component, counts: _Counts, codes: list[str], load_facto
     data = StabilityData(
         stable=False,
         free_dofs=counts.linear_free_dofs if free is None else free,
-        static_indeterminacy=counts.indeterminacy(0),
+        static_indeterminacy=counts.indeterminacy(),
     )
     return ComponentOutcome(component, UNKNOWN, codes, data, load_factor=load_factor, residual=residual)
 
@@ -184,9 +210,11 @@ def _analyse(prepared: PreparedModel, component: Component, budget: _Budget, war
 def _analyse_linear(prepared: PreparedModel, component: Component, counts: _Counts) -> ComponentOutcome:
     domain = builder.build(prepared, component, builder.LINEAR)
     if domain.free_dofs == 0:
+        counts.reference_mechanisms = 0
         return _fully_restrained(prepared, component, domain, counts)
 
     reference, equations = _assess(domain)
+    counts.reference_mechanisms = reference.mechanisms
     if not reference.positive_definite:
         return _instability(prepared, component, domain, equations, reference, counts, load_factor=0.0)
     codes = ["near_mechanism"] if reference.near_mechanism else []
@@ -264,8 +292,8 @@ class ComponentProblem:
         self._reference_owners: list[tuple[int, int]] = list(reference[1]) if reference else []
         self._owners: list[tuple[int, int]] = []
         self._shape_read = False
-        #: Largest compressive axial force per beam after a stable solve.
-        self.compression: dict[str, float] = {}
+        #: (compression, chord-relative end rotation) per beam after a stable solve.
+        self.demand: dict[str, tuple[float, float]] = {}
 
     def build(self) -> None:
         self.domain = builder.build(self.prepared, self.component, builder.COROTATIONAL, self.segments)
@@ -344,37 +372,98 @@ def _preview_segments(prepared: PreparedModel, component: Component,
     has_cables = any(prepared.members[m].kind == "cable" for m in component.member_ids)
     if not _solve_linear(has_cables):
         return fallback
-    compression = _compression(domain, beams)
-    if not all(math.isfinite(value) for value in compression.values()):
+    demand = _demand(domain, beams)
+    if not all(math.isfinite(value) for pair in demand.values() for value in pair):
         return fallback
-    return {member.id: builder.required_segments(member, compression[member.id]) for member in beams}
+    return {member.id: builder.required_segments(member, *demand[member.id]) for member in beams}
 
 
-def _compression(domain: builder.Domain, beams: list) -> dict[str, float]:
-    """Largest compressive axial force of each beam in the current state (positive)."""
+def _demand(domain: builder.Domain, beams: list) -> dict[str, tuple[float, float]]:
+    """(largest compressive axial force, largest end rotation relative to the chord) per beam.
+
+    The compression is positive N from the end-node axial force of each
+    element (``localForce`` index 6, tension positive).
+    """
     result = {}
     for member in beams:
-        # localForce index 6 is the end-node axial force, tension positive.
-        forces = [float(ops.eleResponse(tag, "localForce")[6]) for tag in domain.members[member.id].elements]
-        result[member.id] = max(0.0, -min(forces))
+        built = domain.members[member.id]
+        forces = [float(ops.eleResponse(tag, "localForce")[6]) for tag in built.elements]
+        finite = domain.geometry == builder.COROTATIONAL
+        result[member.id] = (max(0.0, -min(forces)), _chord_rotation(member, built, finite))
     return result
+
+
+def _chord_rotation(member, built: builder.BuiltMember, finite: bool) -> float:
+    """Largest bending rotation of either member end relative to the member's chord, in radians.
+
+    From the nodal displacements of the member's own end nodes (the first and
+    last node along it, which carry the member end's rotation for every
+    representation except a moment release):
+
+    1. The chord rotation omega. With x the original member axis and
+       du = u_end - u_start (translations):
+       - linear preview (``finite`` false): the small-rotation value
+         omega = x cross du / L, consistent with the small-rotation nodal
+         rotations of a linear solve (a finite formula applied to a large
+         linear displacement would understate it: atan(2/3) instead of 2/3);
+       - corotational result (``finite`` true): the rotation taking x to the
+         deformed chord d = L x + du,
+         omega = (x cross d^) / |x cross d^| * atan2(|x cross d^|, x . d^).
+    2. At each end, the relative rotation is the nodal rotation minus omega,
+       with its component about the chord (twist, which does not bend the
+       member) removed.
+    3. At a moment-release end the element sits on the joint node, whose
+       rotation about a released axis has nothing to do with the member, so
+       the components about the released local axes are removed as well.
+    4. The result is the larger magnitude of the two ends.
+
+    Subtracting rotation vectors is exact for small rotations and a fair
+    estimate for moderate ones, which is all a segment count needs. Under
+    linear fidelity the nodal rotations are the small-rotation values, so
+    this is the linear end rotation the rotation rule is calibrated on.
+    """
+    start, end = (np.array(ops.nodeDisp(tag), dtype=float) for tag in (built.nodes[0], built.nodes[-1]))
+    axis = member.axes[0]
+    chord = member.length * axis + end[:3] - start[:3]
+    norm = float(np.linalg.norm(chord))
+    if not norm > 0.0:
+        return math.inf
+    if finite:
+        direction = chord / norm
+        cross = np.cross(axis, direction)
+        sine = float(np.linalg.norm(cross))
+        omega = cross / sine * math.atan2(sine, float(axis @ direction)) if sine > 0.0 else np.zeros(3)
+    else:
+        direction = axis
+        omega = np.cross(axis, end[:3] - start[:3]) / member.length
+    largest = 0.0
+    for member_end, displacement in ((member.start, start), (member.end, end)):
+        relative = displacement[3:] - omega
+        relative -= (relative @ direction) * direction
+        if member_end.representation == RELEASE:
+            for law_index, local in ((4, member.axes[1]), (5, member.axes[2])):
+                if member_end.laws[law_index] == FREE:
+                    relative -= (relative @ local) * local
+        largest = max(largest, float(np.linalg.norm(relative)))
+    return largest
 
 
 def _analyse_nonlinear(prepared: PreparedModel, component: Component, budget: _Budget,
                        counts: _Counts, warnings: list[str]) -> ComponentOutcome:
     reference = _coarse_reference(prepared, component)
+    counts.reference_mechanisms = reference[0].mechanisms
     segments = _preview_segments(prepared, component, reference[0])
     outcome, problem = _solve_nonlinear(prepared, component, budget, counts, segments, reference, warnings)
     if outcome.state != STABLE and outcome.state != MARGINAL:
         return outcome
 
-    # Size the subdivision again from the actual axial forces, and refine once.
+    # Size the subdivision again from the actual forces and rotations, and refine once.
     beams = [prepared.members[m] for m in component.member_ids if not prepared.members[m].axial]
     short = _short_members(problem, beams)
     if not short:
         return outcome
     refined = {
-        member.id: max(segments[member.id], builder.required_segments(member, problem.compression[member.id]))
+        member.id: max(segments[member.id], builder.required_segments(member, *problem.demand[member.id]))
         for member in beams
     }
     second, problem = _solve_nonlinear(prepared, component, budget, counts, refined, reference, warnings)
@@ -397,7 +486,7 @@ def _analyse_nonlinear(prepared: PreparedModel, component: Component, budget: _B
 def _short_members(problem: ComponentProblem, beams: list) -> list[str]:
     return [
         member.id for member in beams
-        if builder.required_segments(member, problem.compression.get(member.id, 0.0)) > problem.segments[member.id]
+        if builder.required_segments(member, *problem.demand.get(member.id, (0.0, 0.0))) > problem.segments[member.id]
     ]
 
 
@@ -433,7 +522,7 @@ def _solve_nonlinear(prepared: PreparedModel, component: Component, budget: _Bud
             codes.append("near_mechanism")
         state = _read(prepared, component, domain, deformed=True)
         beams = [prepared.members[m] for m in component.member_ids if not prepared.members[m].axial]
-        problem.compression = _compression(domain, beams)
+        problem.demand = _demand(domain, beams)
         return _finish(prepared, component, state, codes, counts, domain.free_dofs, load_factor=1.0), problem
     if outcome.state == "unstable" and assessment is not None and (
         assessment.mechanisms or assessment.negative_modes
@@ -444,7 +533,7 @@ def _solve_nonlinear(prepared: PreparedModel, component: Component, budget: _Bud
     if outcome.state == "unstable":
         # Verified by the driver, but no shape to show (indefinite without a
         # dense read): report the verdict alone.
-        data = StabilityData(stable=False, free_dofs=free, static_indeterminacy=counts.indeterminacy(0))
+        data = StabilityData(stable=False, free_dofs=free, static_indeterminacy=counts.indeterminacy())
         return ComponentOutcome(component, UNSTABLE, codes, data, load_factor=outcome.load_factor), problem
     return _unknown(component, counts, codes, load_factor=outcome.load_factor, free=free), problem
 
@@ -475,7 +564,7 @@ def _instability(prepared: PreparedModel, component: Component, domain: builder.
         free_dofs=assessment.free_dofs,
         translational=len(assessment.translational_modes),
         rotational=len(assessment.rotational_modes),
-        static_indeterminacy=counts.indeterminacy(assessment.mechanisms),
+        static_indeterminacy=counts.indeterminacy(),
         unstable_node_ids=[node_id for node_id in component.node_ids if node_id in participants],
         modes=modes,
     )
@@ -717,7 +806,7 @@ def _joint_of(domain: builder.Domain, node: builder.Node) -> str:
 def _finish(prepared: PreparedModel, component: Component, state: _State, codes: list[str], counts: _Counts,
             free: int, load_factor: float) -> ComponentOutcome:
     """Verify a solved state (DESIGN.md, Verification) and turn it into results."""
-    data = StabilityData(stable=True, free_dofs=free, static_indeterminacy=counts.indeterminacy(0))
+    data = StabilityData(stable=True, free_dofs=free, static_indeterminacy=counts.indeterminacy())
     numbers = [state.displacements.values(), state.reactions.values()]
     finite = all(np.all(np.isfinite(v)) for group in numbers for v in group) and all(
         math.isfinite(value) for entry in state.forces.values() for value in entry.values() if not isinstance(value, str)

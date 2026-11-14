@@ -19,7 +19,7 @@ import openseespy.opensees as ops
 import pytest
 
 import nonlinear_problems as nlp
-from dof_opensees import nonlinear
+from dof_opensees import nonlinear, stability
 
 BUCKLING_GATE = 0.02
 NONLINEAR_GATE = 0.01
@@ -429,10 +429,10 @@ def test_deadline_passing_during_the_analysis_returns_timeout(monkeypatch: pytes
     assert 0.0 <= outcome.load_factor < 1.0
 
 
-def test_unexpected_failure_becomes_not_converged() -> None:
+def test_unexpected_exception_is_a_solver_error_not_a_convergence_failure() -> None:
     class Failing(nlp.HandBuilt):
         def assess(self):  # type: ignore[override]
-            raise RuntimeError("simulated OpenSees failure")
+            raise RuntimeError("simulated programming error")
 
     reference = nlp.column("pinned", 4, 1.0)
     problem = Failing(reference.define, reference.recovery_displacement_limit)
@@ -440,7 +440,51 @@ def test_unexpected_failure_becomes_not_converged() -> None:
     outcome = solve(problem)
 
     assert outcome.state == "unknown"
-    assert outcome.reason_codes == ["not_converged"]
+    assert outcome.reason_codes == ["solver_error"]
+
+
+class _CholeskyOnly(nlp.HandBuilt):
+    """Answers like the engine's fast test: not positive definite, no spectrum."""
+
+    def __init__(self, base: nlp.HandBuilt, from_call: int) -> None:
+        super().__init__(base.define, base.recovery_displacement_limit)
+        self.calls = 0
+        self.from_call = from_call
+
+    def assess(self) -> stability.Assessment:  # type: ignore[override]
+        self.calls += 1
+        assessment = super().assess()
+        if self.calls >= self.from_call and not assessment.positive_definite:
+            return stability.Assessment(free_dofs=assessment.free_dofs, indefinite=True)
+        return assessment
+
+
+def test_indefinite_loaded_state_without_modes_still_brackets_the_critical_load() -> None:
+    # Same reference as the perfect pinned column test: critical factor 0.5.
+    # Every loaded assessment that is not positive definite comes back as
+    # ``indefinite`` with empty mode lists.
+    pcr = nlp.euler_load("pinned")
+    problem = _CholeskyOnly(nlp.column("pinned", 8, 2.0 * pcr), from_call=2)
+
+    outcome = solve(problem)
+
+    assert outcome.state == "unstable"
+    assert outcome.reason_codes == ["load_induced_instability"]
+    assert relative_error(outcome.load_factor, 0.5) <= BUCKLING_GATE
+    assert outcome.assessment is not None and outcome.assessment.indefinite
+
+
+def test_indefinite_reference_state_is_not_loaded_on_as_if_stable() -> None:
+    # Compressive initial strain makes the reference unstable; reported as
+    # ``indefinite`` without its spectrum, the driver cannot name the
+    # reference verdict and must not continue loading.
+    problem = _CholeskyOnly(nlp.straight_pair(10.0, -1.0e-4, tension_only=False), from_call=1)
+
+    outcome = solve(problem)
+
+    assert outcome.state == "unknown"
+    assert outcome.reason_codes == ["solver_error"]
+    assert outcome.steps == 0
 
 
 def test_component_without_free_dofs_is_stable_without_analysis() -> None:

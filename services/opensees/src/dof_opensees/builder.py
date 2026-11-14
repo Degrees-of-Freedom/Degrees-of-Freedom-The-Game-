@@ -50,6 +50,9 @@ from .model import (
 #: P-delta are captured (DESIGN.md, Elements).
 #: From 0.83 rho / n^2 <= 0.1%: n >= sqrt(830 rho).
 SEGMENT_FACTOR = 29.0
+#: From 0.16 theta^2 / n^2 <= 0.1%: n >= sqrt(160) theta, with theta the
+#: chord-relative end rotation.
+ROTATION_FACTOR = 12.5
 #: Upper bound on elements per beam.
 MAX_SEGMENTS = 32
 #: Elements per beam when no linear preview gives the axial forces.
@@ -136,11 +139,13 @@ def segment_count(segments: Segments | None, member: Member) -> int:
     return max(1, int(segments.get(member.id, 1)))
 
 
-def required_segments(member: Member, compression: float) -> int:
-    """Beam elements needed so a compressed member's buckling is resolved.
+def required_segments(member: Member, compression: float, rotation: float = 0.0) -> int:
+    """Beam elements needed for the 0.1% accuracy target; the larger of two rules.
 
-    ``compression`` is the member's largest compressive axial force (N,
-    positive; zero or negative for a member in tension). With
+    Braces and cables are always one element.
+
+    Buckling rule. ``compression`` is the member's largest compressive axial
+    force (N, positive; zero or negative for a member in tension). With
 
         rho = N L^2 / (pi^2 E I_min),
 
@@ -149,14 +154,39 @@ def required_segments(member: Member, compression: float) -> int:
     0.83 rho / n^2 for n elements (measured for the nonlinear driver). Asking
     for 0.83 rho / n^2 <= 0.1% gives n >= sqrt(830 rho) ~= 29 sqrt(rho). The
     0.1% target, tighter than the 2% buckling gate, keeps the response
-    amplification near a critical load inside the 1% nonlinear gate.
-    Clamped to 1..MAX_SEGMENTS; a member in tension needs one element.
+    amplification near a critical load inside the 1% nonlinear gate. A member
+    in tension needs one element by this rule.
+
+    Rotation rule. One corotational element treats deformation relative to
+    its chord as small, so a member that bends through a large rotation needs
+    more. ``rotation`` is the largest bending rotation of either member end
+    relative to the member chord, in radians (see the engine for how it is
+    measured). On a cantilever elastica with P L^2 / EI = 2 the tip error
+    was +1.77%, +0.40% and +0.10% for 2, 4 and 8 elements, about 0.07 / n^2.
+    In the linear solution of that case the chord turns 2/3 rad and the root,
+    which does not rotate, is therefore 2/3 rad off the chord, so in terms of
+    the chord-relative rotation theta the error is about
+    0.07 / (2/3)^2 * theta^2 / n^2 = 0.16 theta^2 / n^2. Asking for
+    0.16 theta^2 / n^2 <= 0.1% gives n >= sqrt(160) theta ~= 12.5 theta.
+    Below 0.08 rad this gives one element, so ordinary structures are not
+    refined. The error is assumed to scale with theta^2; only one load level
+    was measured.
+
+    Each rule is clamped to 1..MAX_SEGMENTS.
     """
-    if member.axial or not compression > 0.0:
+    if member.axial:
         return 1
-    p = member.properties
-    rho = compression * member.length**2 / (math.pi**2 * p.elastic_modulus * min(p.inertia_y, p.inertia_z))
-    return max(1, min(MAX_SEGMENTS, math.ceil(SEGMENT_FACTOR * math.sqrt(rho))))
+
+    def clamp(value: float) -> int:
+        return max(1, min(MAX_SEGMENTS, math.ceil(value)))
+
+    buckling = 1
+    if compression > 0.0:
+        p = member.properties
+        rho = compression * member.length**2 / (math.pi**2 * p.elastic_modulus * min(p.inertia_y, p.inertia_z))
+        buckling = clamp(SEGMENT_FACTOR * math.sqrt(rho))
+    bending = clamp(ROTATION_FACTOR * rotation) if rotation > 0.0 else 1
+    return max(buckling, bending)
 
 
 def tag_bound(prepared: PreparedModel, component: Component, segments: Segments | None = None) -> int:
