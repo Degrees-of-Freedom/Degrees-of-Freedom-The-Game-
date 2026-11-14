@@ -12,4 +12,4 @@ The workspace includes an experimental voxel building and analysis loop with tow
 
 A standalone, playable build-and-analyse prototype lives in [prototypes/voxel-struct](prototypes/voxel-struct/README.md); the original standalone version remains available for comparison.
 
-
+The proposed [solver criteria](docs/kb/solver-criteria.md) define the target physics, result contract, acceptance tests, and implementation order. The [gap analysis](docs/kb/solver-criteria-gap-analysis.md) records current coverage and remaining work; the voxel experiment does not yet satisfy these criteria.
