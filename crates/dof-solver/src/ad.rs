@@ -16,11 +16,30 @@ pub trait Scalar:
     fn sqrt(self) -> Self;
     fn sin(self) -> Self;
     fn cos(self) -> Self;
+    /// Whether this number type carries derivatives.
+    const DERIVATIVES: bool;
+    /// Independent variable number `index` with value `v`.
+    fn variable(v: f64, index: usize) -> Self;
+    /// A value whose first and second derivatives with respect to the three
+    /// consecutive variables starting at `base` are known.
+    fn seeded3(v: f64, base: usize, first: &[f64; 3], second: &[[f64; 3]; 3]) -> Self;
+    /// Add a plain constant.
+    fn offset(self, k: f64) -> Self;
     /// Multiply by a plain constant.
     fn scale(self, k: f64) -> Self;
 }
 
 impl Scalar for f64 {
+    const DERIVATIVES: bool = false;
+    fn variable(v: f64, _index: usize) -> Self {
+        v
+    }
+    fn seeded3(v: f64, _base: usize, _first: &[f64; 3], _second: &[[f64; 3]; 3]) -> Self {
+        v
+    }
+    fn offset(self, k: f64) -> Self {
+        self + k
+    }
     fn cst(v: f64) -> Self {
         v
     }
@@ -147,6 +166,25 @@ impl<const N: usize, const H: usize> Div for Dual2<N, H> {
 }
 
 impl<const N: usize, const H: usize> Scalar for Dual2<N, H> {
+    const DERIVATIVES: bool = true;
+    fn variable(v: f64, index: usize) -> Self {
+        Self::var(v, index)
+    }
+    fn seeded3(v: f64, base: usize, first: &[f64; 3], second: &[[f64; 3]; 3]) -> Self {
+        let mut d = Self::cst(v);
+        for i in 0..3 {
+            d.g[base + i] = first[i];
+            for j in 0..=i {
+                d.h[(base + i) * (base + i + 1) / 2 + base + j] = second[i][j];
+            }
+        }
+        d
+    }
+    #[inline]
+    fn offset(mut self, k: f64) -> Self {
+        self.v += k;
+        self
+    }
     fn cst(v: f64) -> Self {
         Self { v, g: [0.0; N], h: [0.0; H] }
     }
@@ -175,6 +213,117 @@ impl<const N: usize, const H: usize> Scalar for Dual2<N, H> {
             self.h[j] *= k;
         }
         self
+    }
+}
+
+/// Value and gradient in `N` variables: the cheap companion of [`Dual2`],
+/// used when only the internal force is needed.
+#[derive(Clone, Copy)]
+pub struct Dual1<const N: usize> {
+    pub v: f64,
+    pub g: [f64; N],
+}
+
+impl<const N: usize> Dual1<N> {
+    #[inline]
+    fn chain(&self, f: f64, f1: f64) -> Self {
+        let mut g = self.g;
+        g.iter_mut().for_each(|x| *x *= f1);
+        Self { v: f, g }
+    }
+}
+
+impl<const N: usize> Add for Dual1<N> {
+    type Output = Self;
+    #[inline]
+    fn add(mut self, o: Self) -> Self {
+        self.v += o.v;
+        for i in 0..N {
+            self.g[i] += o.g[i];
+        }
+        self
+    }
+}
+
+impl<const N: usize> Sub for Dual1<N> {
+    type Output = Self;
+    #[inline]
+    fn sub(mut self, o: Self) -> Self {
+        self.v -= o.v;
+        for i in 0..N {
+            self.g[i] -= o.g[i];
+        }
+        self
+    }
+}
+
+impl<const N: usize> Neg for Dual1<N> {
+    type Output = Self;
+    #[inline]
+    fn neg(self) -> Self {
+        self.scale(-1.0)
+    }
+}
+
+impl<const N: usize> Mul for Dual1<N> {
+    type Output = Self;
+    #[inline]
+    fn mul(mut self, o: Self) -> Self {
+        for i in 0..N {
+            self.g[i] = self.v * o.g[i] + o.v * self.g[i];
+        }
+        self.v *= o.v;
+        self
+    }
+}
+
+impl<const N: usize> Div for Dual1<N> {
+    type Output = Self;
+    #[inline]
+    fn div(self, o: Self) -> Self {
+        let inv = 1.0 / o.v;
+        self * o.chain(inv, -inv * inv)
+    }
+}
+
+impl<const N: usize> Scalar for Dual1<N> {
+    const DERIVATIVES: bool = true;
+    fn variable(v: f64, index: usize) -> Self {
+        let mut d = Self::cst(v);
+        d.g[index] = 1.0;
+        d
+    }
+    fn seeded3(v: f64, base: usize, first: &[f64; 3], _second: &[[f64; 3]; 3]) -> Self {
+        let mut d = Self::cst(v);
+        d.g[base..base + 3].copy_from_slice(first);
+        d
+    }
+    #[inline]
+    fn offset(mut self, k: f64) -> Self {
+        self.v += k;
+        self
+    }
+    fn cst(v: f64) -> Self {
+        Self { v, g: [0.0; N] }
+    }
+    fn val(&self) -> f64 {
+        self.v
+    }
+    fn sqrt(self) -> Self {
+        let s = self.v.sqrt();
+        self.chain(s, 0.5 / s)
+    }
+    fn sin(self) -> Self {
+        let (s, c) = self.v.sin_cos();
+        self.chain(s, c)
+    }
+    fn cos(self) -> Self {
+        let (s, c) = self.v.sin_cos();
+        self.chain(c, -s)
+    }
+    #[inline]
+    fn scale(self, k: f64) -> Self {
+        self.chain(self.v * k, k)
     }
 }
 

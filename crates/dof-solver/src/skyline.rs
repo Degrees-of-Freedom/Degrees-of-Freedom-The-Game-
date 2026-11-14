@@ -152,15 +152,16 @@ impl Skyline {
         let mut inertia = Inertia { min_pivot: 1.0, ..Inertia::default() };
         for j in 0..n {
             let fj = sky.first[j];
-            // Reduce column j by the columns before it.
+            // Reduce column j by the columns before it. Rows shared by
+            // columns i and j are contiguous in both, so each reduction is
+            // one dot product of two slices.
             for i in fj..j {
                 let fi = sky.first[i];
-                let mut sum = sky.a[sky.at(i, j)];
-                for k in fi.max(fj)..i {
-                    sum -= sky.a[sky.at(k, i)] * sky.a[sky.at(k, j)];
-                }
-                let idx = sky.at(i, j);
-                sky.a[idx] = if fixed[i] { 0.0 } else { sum };
+                let low = fi.max(fj);
+                let (pi, pj, len) = (sky.ptr[i] + low - fi, sky.ptr[j] + low - fj, i - low);
+                let sum = dot(&sky.a[pi..pi + len], &sky.a[pj..pj + len]);
+                let idx = sky.ptr[j] + i - fj;
+                sky.a[idx] = if fixed[i] { 0.0 } else { sky.a[idx] - sum };
             }
             // Divide by earlier pivots and form this pivot.
             let mut d = sky.a[sky.at(j, j)];
@@ -189,21 +190,18 @@ impl Skyline {
 }
 
 impl Factor {
+    fn column(&self, j: usize) -> &[f64] {
+        let sky = &self.sky;
+        &sky.a[sky.ptr[j]..sky.ptr[j] + j - sky.first[j]]
+    }
+
     /// Solve `K x = b`. Components at null-pivot DOFs are zero.
     pub fn solve(&self, b: &[f64]) -> Vec<f64> {
         let sky = &self.sky;
         let n = sky.n;
         let mut x: Vec<f64> = (0..n).map(|i| b[i] * self.scale[i]).collect();
         for j in 0..n {
-            if self.fixed[j] {
-                x[j] = 0.0;
-                continue;
-            }
-            let mut sum = x[j];
-            for i in sky.first[j]..j {
-                sum -= sky.a[sky.at(i, j)] * x[i];
-            }
-            x[j] = sum;
+            x[j] = if self.fixed[j] { 0.0 } else { x[j] - dot(self.column(j), &x[sky.first[j]..j]) };
         }
         for j in 0..n {
             x[j] = if self.fixed[j] { 0.0 } else { x[j] / self.pivots[j] };
@@ -211,8 +209,8 @@ impl Factor {
         for j in (0..n).rev() {
             let xj = x[j];
             if xj != 0.0 {
-                for i in sky.first[j]..j {
-                    x[i] -= sky.a[sky.at(i, j)] * xj;
+                for (xi, l) in x[sky.first[j]..j].iter_mut().zip(self.column(j)) {
+                    *xi -= l * xj;
                 }
             }
         }
@@ -231,8 +229,8 @@ impl Factor {
         for j in (0..=dof).rev() {
             let xj = x[j];
             if xj != 0.0 {
-                for i in sky.first[j]..j {
-                    x[i] -= sky.a[sky.at(i, j)] * xj;
+                for (xi, l) in x[sky.first[j]..j].iter_mut().zip(self.column(j)) {
+                    *xi -= l * xj;
                 }
             }
         }
@@ -241,6 +239,20 @@ impl Factor {
         }
         x
     }
+}
+
+/// Dot product with four running sums, which the compiler can keep in
+/// registers; the summation order is fixed, so results are repeatable.
+fn dot(a: &[f64], b: &[f64]) -> f64 {
+    let mut sums = [0.0; 4];
+    let (chunks_a, chunks_b) = (a.chunks_exact(4), b.chunks_exact(4));
+    let tail: f64 = chunks_a.remainder().iter().zip(chunks_b.remainder()).map(|(x, y)| x * y).sum();
+    for (x, y) in chunks_a.zip(chunks_b) {
+        for k in 0..4 {
+            sums[k] += x[k] * y[k];
+        }
+    }
+    (sums[0] + sums[1]) + (sums[2] + sums[3]) + tail
 }
 
 /// Reverse Cuthill–McKee ordering of a graph given as adjacency lists.

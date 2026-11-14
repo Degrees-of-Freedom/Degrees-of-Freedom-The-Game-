@@ -313,32 +313,69 @@ struct Newton<'a> {
     gauge: &'a [usize],
     options: &'a Options,
     stiffness: Skyline,
+    /// A factorised tangent from an earlier, nearby state, to start from.
+    carry: Option<Factor>,
     iterations: u32,
     budget: u32,
 }
 
+/// A residual that falls by less than this factor in one iteration means the
+/// tangent in use is out of date and is rebuilt.
+const SLOW_CONVERGENCE: f64 = 0.3;
+
 impl Newton<'_> {
+    /// Assemble the tangent stiffness at `state` into `self.stiffness`.
+    /// At the undeformed state it is the stored linear stiffness, which costs
+    /// almost nothing; elsewhere it is differentiated afresh.
+    fn assemble(&mut self, state: &State, reference: bool) {
+        let sys = self.sys;
+        self.stiffness.clear();
+        if reference {
+            let zeros = vec![0.0; sys.neq];
+            // The same cable states the nonlinear evaluation finds here.
+            let active: Vec<bool> = sys.bars.iter().map(|b| !b.geom.cable || b.geom.initial_force() > 0.0).collect();
+            sys.evaluate(&Config::Linear { x: &zeros, active: &active }, Some(&mut self.stiffness));
+        } else {
+            sys.evaluate(&Config::Nonlinear(state), Some(&mut self.stiffness));
+        }
+        for &dof in self.gauge {
+            self.stiffness.constrain(dof);
+        }
+    }
+
     /// Iterate `state` to equilibrium under `lam` times the loads.
+    /// `reference` says that `state` is the undeformed state.
     ///
-    /// The step is a Newton step whenever the tangent is positive definite.
-    /// Otherwise the scaled tangent is shifted towards the identity until it
-    /// is, which turns the step towards steepest descent of the potential
-    /// energy; a backtracking line search on that energy accepts the step.
-    fn solve(&mut self, state: &mut State, lam: f64) -> Result<Converged, Failure> {
+    /// Each iteration evaluates the internal forces only. The tangent
+    /// stiffness is kept from one iteration to the next and rebuilt when
+    /// convergence slows or a step fails (a modified Newton method), so most
+    /// iterations cost one force evaluation and one back-substitution.
+    ///
+    /// The step direction is the tangent solve whenever the tangent is
+    /// positive definite. Otherwise the scaled tangent is shifted towards the
+    /// identity until it is, which turns the step towards steepest descent of
+    /// the potential energy. A backtracking line search on that energy
+    /// accepts the step, so every accepted step lowers the energy.
+    ///
+    /// On convergence the tangent is rebuilt at the solution and returned
+    /// factorised, because its inertia decides whether the equilibrium is
+    /// stable.
+    fn solve(&mut self, state: &mut State, lam: f64, mut reference: bool) -> Result<Converged, Failure> {
         let sys = self.sys;
         let mut shift = 0.0;
         let mut previous = f64::INFINITY;
+        let mut factor = self.carry.take();
+        // Whether `factor` was formed at the current state.
+        let mut current = false;
         for _ in 0..self.options.max_iterations {
             if self.budget == 0 {
                 return Err(Failure::Budget);
             }
             self.budget -= 1;
             self.iterations += 1;
-            self.stiffness.clear();
-            let eval = sys.evaluate(&Config::Nonlinear(state), Some(&mut self.stiffness));
+            let eval = sys.evaluate(&Config::Nonlinear(state), None);
             let mut r: Vec<f64> = (0..sys.neq).map(|i| lam * self.f[i] - eval.g_eq[i]).collect();
             for &dof in self.gauge {
-                self.stiffness.constrain(dof);
                 r[dof] = 0.0;
             }
             let scale = (lam.abs() * sys.load_norm()).max(eval.force_scale);
@@ -347,24 +384,38 @@ impl Newton<'_> {
                 return Err(Failure::NonFinite);
             }
             if residual <= self.options.tolerance || (residual <= ROUNDING_FLOOR && residual > 0.5 * previous) {
+                self.assemble(state, reference);
                 let factor = self.stiffness.factor(0.0);
                 return Ok(Converged { eval, factor, residual });
             }
+            if residual > SLOW_CONVERGENCE * previous || shift > 0.0 {
+                factor = None;
+            }
             previous = residual;
 
-            // Find a descent direction, shifting the tangent if necessary.
             let work = eval.energy.abs();
-            let mut accepted = None;
-            while accepted.is_none() {
-                let factor = self.stiffness.factor(shift);
-                let r_size = dot_n(&r, &r).sqrt();
-                let usable = factor.inertia.negative.is_empty()
-                    && factor.inertia.null.iter().all(|j| {
-                        let v = factor.pivot_vector(*j);
+            let r_size = dot_n(&r, &r).sqrt();
+            let mut assembled = false;
+            let accepted = loop {
+                if factor.is_none() {
+                    if !assembled {
+                        self.assemble(state, reference);
+                        assembled = true;
+                    }
+                    factor = Some(self.stiffness.factor(shift));
+                    current = true;
+                }
+                let Some(tangent) = factor.as_ref() else { return Err(Failure::NoConvergence) };
+                // A singular tangent is usable only if the residual does not
+                // push along its null vectors.
+                let usable = tangent.inertia.negative.is_empty()
+                    && tangent.inertia.null.iter().all(|j| {
+                        let v = tangent.pivot_vector(*j);
                         dot_n(&r, &v).abs() <= LOADED_MODE * r_size * dot_n(&v, &v).sqrt()
                     });
+                let mut step = None;
                 if usable {
-                    let d = factor.solve(&r);
+                    let d = tangent.solve(&r);
                     let slope = dot_n(&r, &d);
                     let external: f64 = lam * dot_n(self.f, &d);
                     let mut alpha = 1.0;
@@ -377,22 +428,28 @@ impl Newton<'_> {
                         let change = energy - eval.energy - alpha * external;
                         let rounding = 1e-12 * (work + energy.abs() + (alpha * external).abs());
                         if energy.is_finite() && (change <= -1e-4 * alpha * slope || change.abs() <= rounding) {
-                            accepted = Some(trial);
+                            step = Some(trial);
                             break;
                         }
                         alpha *= 0.5;
                     }
                 }
-                if accepted.is_none() {
+                if let Some(next) = step {
+                    break next;
+                }
+                // No acceptable step. An out-of-date tangent gets one more
+                // chance rebuilt here; a current one is shifted further.
+                if current {
                     shift = if shift == 0.0 { 1e-6 } else { shift * 100.0 };
                     if shift > 1e6 {
                         return Err(Failure::NoConvergence);
                     }
                 }
-            }
-            if let Some(next) = accepted {
-                *state = next;
-            }
+                factor = None;
+            };
+            *state = accepted;
+            reference = false;
+            current = false;
             shift = if shift <= 1e-8 { 0.0 } else { shift * 0.1 };
         }
         Err(Failure::NoConvergence)
@@ -403,7 +460,7 @@ impl Newton<'_> {
     /// On failure returns the fraction of the load that was reached.
     fn path(&mut self, target: f64) -> Result<(State, Converged), (f64, Failure)> {
         let mut state = self.sys.reference();
-        match self.solve(&mut state, target) {
+        match self.solve(&mut state, target, true) {
             Ok(result) => return Ok((state, result)),
             Err(Failure::Budget) => return Err((0.0, Failure::Budget)),
             Err(_) => {}
@@ -411,19 +468,24 @@ impl Newton<'_> {
         let mut state = self.sys.reference();
         let (mut fraction, mut step) = (0.0_f64, 0.25_f64);
         // Settle prestress on its own before any load is applied.
-        if let Err(failure) = self.solve(&mut state, 0.0) {
-            return Err((0.0, failure));
-        }
+        self.carry = None;
+        let settled = match self.solve(&mut state, 0.0, true) {
+            Ok(result) => result,
+            Err(failure) => return Err((0.0, failure)),
+        };
+        // Each increment starts from the tangent of the one before.
+        self.carry = Some(settled.factor);
         loop {
             let next = (fraction + step).min(1.0);
             let mut trial = state.clone();
-            match self.solve(&mut trial, next * target) {
+            match self.solve(&mut trial, next * target, false) {
                 Ok(result) => {
                     state = trial;
                     fraction = next;
                     if fraction >= 1.0 {
                         return Ok((state, result));
                     }
+                    self.carry = Some(result.factor);
                     step *= 1.5;
                 }
                 Err(Failure::Budget) => return Err((fraction, Failure::Budget)),
@@ -568,7 +630,7 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
         return out;
     }
 
-    let mut newton = Newton { sys, f: &f, gauge: &linear.nulls.gauge, options, stiffness: sys.stiffness(), iterations: 0, budget: options.max_total_iterations };
+    let mut newton = Newton { sys, f: &f, gauge: &linear.nulls.gauge, options, stiffness: sys.stiffness(), carry: None, iterations: 0, budget: options.max_total_iterations };
     let path = newton.path(lam);
     out.iterations = newton.iterations;
     let load: Vec<f64> = f.iter().map(|v| lam * v).collect();
@@ -625,10 +687,10 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
                         out.reasons.push("nearMechanism");
                     } else if options.stability_margin > 1.0 && lam != 0.0 {
                         // Does the equilibrium survive a little more load?
-                        let mut probe = Newton { budget: options.max_total_iterations, iterations: 0, stiffness: sys.stiffness(), ..newton };
+                        let mut probe = Newton { budget: options.max_total_iterations, iterations: 0, stiffness: sys.stiffness(), carry: Some(converged.factor), ..newton };
                         let mut state = stable_state;
                         let amplified: Vec<f64> = load.iter().map(|v| v * options.stability_margin).collect();
-                        let survives = match probe.solve(&mut state, lam * options.stability_margin) {
+                        let survives = match probe.solve(&mut state, lam * options.stability_margin, false) {
                             Ok(result) => tangent_stable(sys, &result, &amplified),
                             Err(_) => false,
                         };
@@ -674,11 +736,11 @@ fn finish(sys: &System, options: &Options, out: &mut Outcome, solution: Solution
 /// Load factor at which the fundamental equilibrium path first loses
 /// stability, found by bisection between zero and the applied factor.
 fn critical_load(sys: &System, f: &[f64], gauge: &[usize], options: &Options, lam: f64) -> Option<f64> {
-    let mut newton = Newton { sys, f, gauge, options, stiffness: sys.stiffness(), iterations: 0, budget: options.max_total_iterations };
+    let mut newton = Newton { sys, f, gauge, options, stiffness: sys.stiffness(), carry: None, iterations: 0, budget: options.max_total_iterations };
     let stable_at = |newton: &mut Newton, fraction: f64| -> Option<bool> {
         let mut state = sys.reference();
         let load: Vec<f64> = f.iter().map(|v| v * fraction * lam).collect();
-        match newton.solve(&mut state, fraction * lam) {
+        match newton.solve(&mut state, fraction * lam, true) {
             Ok(result) => Some(tangent_stable(sys, &result, &load)),
             Err(Failure::Budget) => None,
             Err(_) => Some(false),

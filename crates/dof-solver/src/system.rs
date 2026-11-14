@@ -283,7 +283,7 @@ impl System {
                         fext[node][i] += self_weight[6 * e + i];
                     }
                 }
-                let linear = seg_derivatives(&geom, &REFERENCE, &[0.0; 12]);
+                let linear = seg_linear(&geom);
                 segs.push(Seg { n, geom, q_eq: [-1; 12], self_weight, linear });
                 force_unknowns += 6;
             }
@@ -524,10 +524,18 @@ impl System {
                 }
                 Config::Nonlinear(state) => {
                     let (seg_state, q) = self.seg_state(s, state);
-                    nonlinear = seg_derivatives(&seg.geom, &seg_state, &q);
-                    gradient = nonlinear.g;
-                    eval.energy += nonlinear.energy;
-                    &nonlinear
+                    if stiffness.is_some() {
+                        nonlinear = seg_derivatives(&seg.geom, &seg_state, &q);
+                        gradient = nonlinear.g;
+                        eval.energy += nonlinear.energy;
+                        &nonlinear
+                    } else {
+                        // Forces only: skip the far more expensive Hessian.
+                        let (energy, forces) = seg_gradient(&seg.geom, &seg_state, &q);
+                        gradient = forces;
+                        eval.energy += energy;
+                        &seg.linear
+                    }
                 }
             };
             for end in 0..2 {

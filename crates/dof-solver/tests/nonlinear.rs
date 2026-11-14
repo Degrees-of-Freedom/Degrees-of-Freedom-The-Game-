@@ -243,7 +243,8 @@ fn pretensioned_cable_system() {
     let (sag, tension) = span_sag(strain, area, p);
     close(r.displacement("m")[2], -sag, 1e-6);
     close(r.forces("c1", "end")[0], tension, 1e-6);
-    close(r.reaction("a")[2] + r.reaction("b")[2], p, 1e-8);
+    // Convergence is measured against the pretension, which dwarfs the load.
+    close(r.reaction("a")[2] + r.reaction("b")[2], p, 1e-6);
     assert!(r.residual(0) < 1e-5);
 }
 
