@@ -5,7 +5,7 @@ validated_against:
   - package.json
   - apps/web/src/game
   - apps/web/src/viewer/Scene.tsx
-  - apps/web/src/solver/voxel.js
+  - apps/web/src/solver/voxel.ts
   - packages/solver-contract/src/index.ts
   - services/opensees/README.md
 owner: unknown
@@ -16,7 +16,7 @@ status: partial
 
 The npm workspace contains a React and TypeScript site in `apps/web`, using React Router, Zustand, Three.js and Vite. The shared `packages/solver-contract` defines a preliminary structural model and asynchronous adapter interface; `services/opensees` reserves a location for a future service. TypeScript project references build the shared package before the app.
 
-The workspace incorporates the Voxel Struct experiment. Its Zustand store owns voxel game state and rules, while the Three.js scene renders and interacts with that state. The experimental voxel analysis is extracted into a separate JavaScript module called by the workspace. It takes the voxel game model and level directly; it does not implement the shared solver adapter. Its sections, loads and checks cannot yet be represented by the preliminary shared contract, so backend interchangeability remains future work. The original standalone prototype remains available for comparison.
+The workspace incorporates the Voxel Struct experiment. Its Zustand store owns voxel game state and rules, while the Three.js scene renders and interacts with that state. The experimental voxel analysis is extracted into a separate TypeScript module called by the workspace. It takes the voxel game model and level directly; it does not implement the shared solver adapter. Its sections, loads and checks cannot yet be represented by the preliminary shared contract, so backend interchangeability remains future work. The original standalone prototype remains available for comparison.
 
 ## Working boundaries
 
@@ -26,3 +26,4 @@ The workspace incorporates the Voxel Struct experiment. Its Zustand store owns v
 - Treat the viewer as a consumer of structural state, not the source of engineering or game rules.
 
 See [structural solver](structural-solver.md) for analysis limitations and candidate frameworks. Persistence beyond local browser storage, turn flow, and deployment remain open.
+

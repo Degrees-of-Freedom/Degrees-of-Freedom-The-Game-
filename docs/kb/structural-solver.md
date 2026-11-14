@@ -6,7 +6,7 @@ validated_against:
   - packages/solver-contract/src/index.ts
   - packages/solver-contract/README.md
   - apps/web/src/solver/unavailable.ts
-  - apps/web/src/solver/voxel.js
+  - apps/web/src/solver/voxel.ts
   - services/opensees/README.md
 owner: unknown
 status: partial
@@ -26,7 +26,7 @@ The project owner decided that a node has six potential degrees of freedom, in g
 
 The shared contract is the intended boundary between the game and interchangeable solver adapters. Adapters translate the common model to their backend and must explicitly report unsupported input; an adapter must not silently claim an analysis for features it cannot represent. The contract currently provides no capability discovery or detailed validation schema, so those remain design work.
 
-OpenSees, a custom Rust solver, and a shared-contract TypeScript solver remain intended experiments, not implemented or selected solutions. The voxel JavaScript analysis is a separate game-specific experiment. The reserved `services/opensees` directory contains no service or endpoint. Possible evaluation approaches include a remote OpenSees service, a Rust implementation compiled for an appropriate runtime, and a TypeScript implementation; execution environment, integration, deployment, and supported features remain open. Compare candidates against the same agreed model semantics and reference cases before treating their results as interchangeable. Record unsupported features and numerical limitations for each adapter.
+OpenSees, a custom Rust solver, and a shared-contract TypeScript solver remain intended experiments, not implemented or selected solutions. The voxel TypeScript analysis is a separate game-specific experiment. The reserved `services/opensees` directory contains no service or endpoint. Possible evaluation approaches include a remote OpenSees service, a Rust implementation compiled for an appropriate runtime, and a TypeScript implementation; execution environment, integration, deployment, and supported features remain open. Compare candidates against the same agreed model semantics and reference cases before treating their results as interchangeable. Record unsupported features and numerical limitations for each adapter.
 
 Before numerical implementation, decide exact units and coordinate/sign conventions; element and material properties; connectivity and releases; support and constraint semantics; load cases and combinations; analysis type; result quantities and conventions; stability diagnostics; and failure criteria. Establish how invalid models, unsupported features, solver errors, cancellation, and version or capability differences are communicated. The current types alone do not enforce these rules.
 
@@ -41,4 +41,5 @@ These are proposed evaluation options, not existing solver tests or approved acc
 5. Test adapter translation, result mapping, error handling, and cancellation independently from backend numerical tests; add integration tests for any real service or runtime. Measure performance and deployment costs on representative models only after agreeing on comparable workloads.
 
 Reference fixtures, benchmark sources, acceptance thresholds, and a first supported model subset remain to be chosen. See [development and testing](development-and-testing.md) for current commands and coverage.
+
 
