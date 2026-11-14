@@ -55,4 +55,39 @@ describe('Kit turns', () => {
     expect(projectTurnModel(committed).attrs['5,3,1'].load).toBe(load.magnitude);
     expect(committed.players[0].hand.some((card) => card.id === load.id)).toBe(false);
   });
+
+  it('restores active cards without drawing again and rejects excess placements', () => {
+    let state = createTurnGame(17);
+    while (activeTurnHand(state).filter((card) => card.kind === 'connection').length < 4 ||
+      activeTurnHand(state).filter((card) => card.kind === 'element').length < 2 ||
+      activeTurnHand(state).filter((card) => card.kind === 'load').length < 2) {
+      state = apply(endTurn(state));
+    }
+    const hand = activeTurnHand(state);
+    const [element, extraElement] = hand.filter((card) => card.kind === 'element');
+    const [load, extraLoad] = hand.filter((card) => card.kind === 'load');
+    const [first, second, extra] = hand.filter((card) => card.kind === 'connection');
+    let planned = apply(stageElement(state, element.id, '3,3,0', '3,3,1'));
+    expect(stageElement(planned, extraElement.id, '2,3,0', '2,3,1').ok).toBe(false);
+    expect(stageLoad(planned, load.id, '3,3,1').ok).toBe(false);
+    const id = planned.draft.members[0].id;
+    planned = apply(stageConnection(planned, first.id, id, 'a'));
+    planned = apply(stageConnection(planned, second.id, id, 'b'));
+    expect(stageConnection(planned, extra.id, id, 'b')).toMatchObject({ ok: false, reason: 'Two connections may be played per turn.' });
+    planned = apply(stageLoad(planned, load.id, '3,3,1'));
+    expect(stageLoad(planned, extraLoad.id, '3,3,1').ok).toBe(false);
+    expect(parseTurnState(JSON.parse(JSON.stringify(planned)))).toEqual(planned);
+    expect(apply(cancelTurnDraft(planned))).toEqual(state);
+  });
+
+  it('ends at the configured round boundary and rejects oversized replay logs', () => {
+    let state = createTurnGame();
+    for (let turn = 1; turn <= 16; turn++) state = apply(endTurn(state, turn));
+    expect(state).toMatchObject({ turn: 16, finished: true });
+    expect(state.reports).toHaveLength(16);
+    expect(activeTurnHand(state)).toEqual([]);
+    expect(endTurn(state).ok).toBe(false);
+    expect(parseTurnState(state)).toEqual(state);
+    expect(parseTurnState({ ...state, events: Array(81).fill({ kind: 'end', turn: 1 }) })).toBeNull();
+  });
 });

@@ -29,7 +29,6 @@ type Event =
   | { kind: 'element'; cardId: string; a: string; b: string }
   | { kind: 'load'; cardId: string; jointId: string }
   | { kind: 'connection'; cardId: string; memberId: number; end: 'a' | 'b'; jointId?: string }
-  | { kind: 'cancel' }
   | { kind: 'end'; turn: number };
 
 export type TurnReport = {
@@ -181,7 +180,14 @@ export function stageConnection(state: TurnState, cardId: string, memberId: numb
 
 export function cancelTurnDraft(state: TurnState): Transition {
   if (state.finished) return fail('The playtest match is complete.');
-  return stage(state, emptyDraft(), { kind: 'cancel' }, state.nextId - state.draft.members.length);
+  const count = draftIds(state).size;
+  if (!count) return { ok: true, state };
+  return { ok: true, state: {
+    ...state,
+    draft: emptyDraft(),
+    nextId: state.nextId - state.draft.members.length,
+    events: state.events.slice(0, -count),
+  } };
 }
 
 export function endTurn(state: TurnState, expectedTurn = state.turn): Transition {
@@ -220,13 +226,15 @@ export function projectTurnModel(state: TurnState): GameModel {
   for (const load of [...state.board.loads, ...state.draft.loads]) {
     attrs[load.jointId] = { ...attrs[load.jointId], load: (attrs[load.jointId]?.load ?? 0) + load.magnitude };
   }
-  return { attrs, members: [...state.board.members, ...state.draft.members], nextId: state.nextId };
+  const members = [...state.board.members, ...state.draft.members].map(({ id, a, b, type }) => ({ id, a, b, type }));
+  return { attrs, members, nextId: state.nextId };
 }
 
 /** Replay validated user actions so persisted deck order, ownership and scores cannot drift. */
 export function parseTurnState(raw: unknown): TurnState | null {
   if (!record(raw) || raw.version !== KIT_PLAYTEST.version || typeof raw.seed !== 'number' ||
-    !Number.isInteger(raw.seed) || raw.seed < 0 || raw.seed > 0xffffffff || !Array.isArray(raw.events)) return null;
+    !Number.isInteger(raw.seed) || raw.seed < 0 || raw.seed > 0xffffffff || !Array.isArray(raw.events) ||
+    raw.events.length > KIT_PLAYTEST.players * KIT_PLAYTEST.rounds * 5) return null;
   let state = createTurnGame(raw.seed);
   for (const event of raw.events) {
     const result = replayEvent(state, event);
@@ -242,7 +250,6 @@ function record(value: unknown): value is Record<string, unknown> {
 
 function replayEvent(state: TurnState, event: unknown): Transition | null {
   if (!record(event)) return null;
-  if (event.kind === 'cancel') return cancelTurnDraft(state);
   if (event.kind === 'end' && typeof event.turn === 'number') return endTurn(state, event.turn);
   if (typeof event.cardId !== 'string') return null;
   if (event.kind === 'element' && typeof event.a === 'string' && typeof event.b === 'string') {
