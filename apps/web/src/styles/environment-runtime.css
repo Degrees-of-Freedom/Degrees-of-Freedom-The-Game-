@@ -774,7 +774,8 @@ body,
   border-radius: 8px;
 }
 .environment[data-style="kit"] .scene [aria-label="Camera controls"] {
-  bottom: 205px !important;
+  /* Leave room for the stacked brand and statistics below the camera bar. */
+  bottom: 260px !important;
   background: var(--slate);
   color: var(--cream);
 }
@@ -855,7 +856,7 @@ body,
   font: 750 12px var(--font);
 }
 .environment[data-style="kit"] .scene-axes {
-  bottom: 270px;
+  bottom: 325px;
   color: var(--cream);
 }
 .environment[data-style="levels"] .scene-axes {
