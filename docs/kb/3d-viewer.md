@@ -21,7 +21,7 @@ The game is envisioned on a 3D grid and aims to make structural behavior visible
 
 The project owner has identified WebGL as the intended rendering platform. Three.js and React Three Fiber are under consideration for the eventual viewer; their selection for the game is not yet settled.
 
-The separate Voxel Struct prototype uses Three.js for an interactive 3D grid and groups its existing editing tools and items into provisional libraries. Its catalog is not the final game element selection; see its README for the prototype's capabilities and limitations.
+The separate Voxel Struct prototype uses Three.js for an interactive 3D grid and groups editing tools and items into provisional libraries. New beam choices are steel, cables have their own group, and a disabled spring entry indicates planned work. Legacy saved models and examples can still contain timber. Six independent connection restraints are not implemented. Its catalog is not the final game element selection; see its README for the prototype's capabilities and limitations.
 
 ## Open questions
 

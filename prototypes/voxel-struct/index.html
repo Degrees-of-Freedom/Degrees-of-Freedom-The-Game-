@@ -39,6 +39,7 @@ h3:first-child{margin-top:0}
 .tool:hover{background:#202b38}
 .tool.on{border-color:var(--accent);background:#2a2418}
 .tool.empty{opacity:.42}
+.tool:disabled{opacity:.65;cursor:not-allowed}
 .tool .k{width:18px;height:18px;border-radius:4px;background:#0e141a;color:var(--muted);font-size:11px;display:grid;place-items:center;flex:none}
 .tool .sw{width:14px;height:14px;border-radius:3px;flex:none;border:1px solid rgba(255,255,255,.25)}
 .tool .nm{flex:1;line-height:1.2}
@@ -135,7 +136,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid 
 <aside id="left">
   <h3>Build workspace <span class="muted"> / prototype</span></h3>
   <h2 class="panel-heading">Your library</h2>
-  <p class="panel-intro">Choose a tool or an element, then build on the grid. Catalog items are placeholders for our future library.</p>
+  <p class="panel-intro">Choose a tool or an element, then build on the grid. Steel sections are provisional prototype choices.</p>
   <div id="palette"></div>
   <details><summary>Challenge &amp; controls</summary>
   <h3>Challenge</h3><div id="levelInfo"></div>
@@ -168,7 +169,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid 
     <h2>Voxel Struct — build, analyse, design</h2>
     <p class="desc">Space is a 3D voxel grid with 2 m cells. Members connect voxel corners. Every challenge has a limited supply of parts.</p>
     <ul class="desc">
-      <li><b>Beams</b> (steel tube, glulam timber, IPE, HEB) carry axial force, shear and bending. Max 3 cells per axis.</li>
+      <li><b>Beams</b> (steel tube, IPE, HEB) carry axial force, shear and bending. Max 3 cells per axis. Older examples and saved models may contain legacy glulam.</li>
       <li><b>Cables</b> are tension-only and go slack under compression. Max 8 cells per axis.</li>
       <li><b>Joints are pinned</b> by default. A <b>Moment connection</b> makes every member end at that node rigid and raises joint capacity.</li>
       <li><b>Foundations</b> fix a node to solid ground (not water).</li>
@@ -222,7 +223,9 @@ const TOOLS = {
   swap:   { kind:'tool', label:'Swap', sub:'Replace a member with another type', color:'#b48cff' },
   ...ITEMS
 };
-const BEAM_TYPES = ['shs','glulam','ipe','heb'];
+// The selectable palette is steel-only. Keep legacy glulam data so saved models
+// and inherited examples can still be opened and analysed without conversion.
+const BEAM_TYPES = ['shs','ipe','heb'];
 const MEMBER_TYPES = [...BEAM_TYPES,'cable'];
 const JOINT_CAP = { pinF:350, rigidF:700, rigidM:220 };   // kN, kNm
 const FOUND_CAP = { Nc:1500, Nt:250, H:350, M:300 };       // kN, kNm
@@ -1278,7 +1281,7 @@ addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.upd
 
 function setWorkK(k){ workK=Math.max(0,Math.min(LV.nz,k)); $('#planeVal').textContent=workK*S+' m'; updateHover(); }
 function setTool(t){ tool=t; chainStart=null; renderPalette(); updateHover(); }
-function toolList(){ return ['inspect','delete','swap','shs','glulam','ipe','heb','cable','joint','found',...(LV.type==='sandbox'?['load']:[])]; }
+function toolList(){ return ['inspect','delete','swap','shs','ipe','heb','cable','joint','found',...(LV.type==='sandbox'?['load']:[])]; }
 
 let toastT=0;
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600); }
@@ -1289,10 +1292,10 @@ function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('sh
 function renderPalette(){
   const list=toolList();
   // Group the existing prototype items without changing their solver identities or shortcuts.
-  const groups=[['Edit',['inspect','delete','swap']],['Members',['shs','glulam','ipe','heb','cable']],['Connections & supports',['joint','found']],['Loads',['load']]];
+  const groups=[['Edit',['inspect','delete','swap']],['Steel members',['shs','ipe','heb']],['Cables',['cable']],['Connections & supports',['joint','found']],['Loads',['load']]];
   $('#palette').innerHTML=groups.map(([name, ids])=>{
     const visible=ids.filter(t=>list.includes(t)); if(!visible.length) return '';
-    return `<section class="library-group"><h3>${name}<span>${name==='Members'?'Prototype catalog':''}</span></h3>${visible.map(t=>{
+    return `<section class="library-group"><h3>${name}<span>${name==='Steel members'?'Prototype sections':''}</span></h3>${visible.map(t=>{
     const n=list.indexOf(t);
     const it=TOOLS[t], item=ITEMS[t];
     let cnt='';
@@ -1307,7 +1310,7 @@ function renderPalette(){
       <div class="muted">Click a member to swap it · Shift+click swaps all of that type</div></div>` : '';
     return btn+picker;
   }).join('')}</section>`;
-  }).join('');
+  }).join('') + `<section class="library-group"><h3>Springs <span>Planned</span></h3><button class="tool" disabled><span class="nm">Spring<small>Stiffness options and behavior are not implemented yet</small></span></button></section><p class="panel-intro">Connections currently use the prototype's pinned or moment behavior. Individual restraints for all six degrees of freedom are planned.</p>`;
   $('#palette').querySelectorAll('.tool').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
   $('#palette').querySelectorAll('[data-swap]').forEach(b=>b.onclick=()=>{ swapTarget=b.dataset.swap; renderPalette(); updateHover(); });
   const mt=isMemberTool();
@@ -1387,7 +1390,8 @@ function selectionHTML(){
       }
     } else h+='</div>';
     // swap / remove controls (all member types; options blocked by supply or length are disabled)
-    h+=`<div class="row"><label>Swap to</label><select id="secSel">${MEMBER_TYPES.map(t=>{ const iss=t===m.type?null:swapIssue(m,t);
+    const swapOptions=MEMBER_TYPES.includes(m.type)?MEMBER_TYPES:[m.type,...MEMBER_TYPES];
+    h+=`<div class="row"><label>Swap to</label><select id="secSel">${swapOptions.map(t=>{ const iss=t===m.type?null:swapIssue(m,t);
       return `<option value="${t}" ${t===m.type?'selected':''} ${iss?'disabled':''}>${ITEMS[t].label} (${total(t)===Infinity?'∞':remaining(t)} left)${iss&&!iss.startsWith('No ')?' – too long':''}</option>`; }).join('')}</select></div>
       <div class="btnrow"><button class="btn danger" id="rmBtn" title="Delete / Backspace">Remove member</button></div>`;
     return h+'</div>';
