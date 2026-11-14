@@ -1,5 +1,5 @@
-import type { GridPoint } from '../game/model';
-import type { VoxelAnalysis } from '../solver/voxel';
+import type { GridPoint } from "../game/model";
+import type { VoxelAnalysis } from "../solver/voxel";
 export interface SceneView {
   result: VoxelAnalysis | null;
   combo: number;

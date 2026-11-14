@@ -1,5 +1,5 @@
-import * as THREE from 'three';
-import { useGameStore } from '../game/store';
+import * as THREE from "three";
+import { useGameStore } from "../game/store";
 import {
   allNodeKeys,
   CELL_SIZE,
@@ -8,29 +8,39 @@ import {
   type MemberType,
   type NodeItem,
   type Tool,
-} from '../game/model';
-import { groundK } from '../game/terrain';
-import { bayBraceCandidates } from '../game/bayBrace';
-import { sceneLevel } from './sceneLevel';
-import { MEMBER_TYPES, remaining } from '../game/inventory';
-import { memberIssue, nodeItemIssue } from '../game/placementRules';
-import { basePoint } from './sceneResults';
-import type { BuildPlane } from './sceneGeometry';
+} from "../game/model";
+import { groundK } from "../game/terrain";
+import { bayBraceCandidates } from "../game/bayBrace";
+import { sceneLevel } from "./sceneLevel";
+import { MEMBER_TYPES, remaining } from "../game/inventory";
+import { memberIssue, nodeItemIssue } from "../game/placementRules";
+import { basePoint } from "./sceneResults";
+import type { BuildPlane } from "./sceneGeometry";
 
-import { DEFAULT_BAY_SIZE, pickBayFace, previewBay, type BayHit } from './bayPreview';
-import { GROWTH_ROLE_INDEX, growthTargets } from './growthTargets';
-import { isGrowthStyle, SCENE_STYLES } from './sceneStyle';
-import { memberEndPosition } from './turnGuides';
-import { selectedTurnCard, turnConnectionTargets, turnPointIssue, type ConnectionTarget } from './turnPicking';
-import type { SceneView } from './sceneView';
+import {
+  DEFAULT_BAY_SIZE,
+  pickBayFace,
+  previewBay,
+  type BayHit,
+} from "./bayPreview";
+import { GROWTH_ROLE_INDEX, growthTargets } from "./growthTargets";
+import { isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
+import { memberEndPosition } from "./turnGuides";
+import {
+  selectedTurnCard,
+  turnConnectionTargets,
+  turnPointIssue,
+  type ConnectionTarget,
+} from "./turnPicking";
+import type { SceneView } from "./sceneView";
 
 type Hit =
   | BayHit
-  | { kind: 'brace'; a: GridPoint; b: GridPoint; issue: string | null }
-  | ({ kind: 'connection' } & ConnectionTarget)
-  | { kind: 'point'; p: GridPoint; issue: string | null }
-  | { kind: 'member'; id: number }
-  | { kind: 'node'; key: string }
+  | { kind: "brace"; a: GridPoint; b: GridPoint; issue: string | null }
+  | ({ kind: "connection" } & ConnectionTarget)
+  | { kind: "point"; p: GridPoint; issue: string | null }
+  | { kind: "member"; id: number }
+  | { kind: "node"; key: string }
   | null;
 export function createPicker(
   canvas: HTMLCanvasElement,
@@ -49,7 +59,15 @@ export function createPicker(
       level = sceneLevel(s),
       camera = getCamera(),
       card = selectedTurnCard(s),
-      tool = toolOverride ?? (card?.kind === 'element' ? card.type : card?.kind === 'load' ? 'load' : s.mode === 'multiplayer' ? 'inspect' : s.tool),
+      tool =
+        toolOverride ??
+        (card?.kind === "element"
+          ? card.type
+          : card?.kind === "load"
+            ? "load"
+            : s.mode === "multiplayer"
+              ? "inspect"
+              : s.tool),
       rect = canvas.getBoundingClientRect(),
       x = e.clientX - rect.left,
       y = e.clientY - rect.top;
@@ -92,7 +110,7 @@ export function createPicker(
     let hit: Hit = null;
     ghost.visible = false;
     preview.visible = false;
-    if (card?.kind === 'connection') {
+    if (card?.kind === "connection") {
       let closest = 19;
       for (const target of turnConnectionTargets(s)) {
         const member = s.model.members.find(({ id }) => id === target.memberId);
@@ -102,56 +120,65 @@ export function createPicker(
         const [sx, sy, depth] = screen(endpoint);
         const distance = Math.hypot(sx - x, sy - y);
         if (depth >= -1 && depth < 1 && distance < closest) {
-          hit = { kind: 'connection', ...target };
+          hit = { kind: "connection", ...target };
           closest = distance;
           ghost.position.copy(endpoint);
         }
       }
       if (hit) {
-        ghost.material.color.set('#f6ad49');
+        ghost.material.color.set("#f6ad49");
         ghost.visible = true;
       }
-    } else if (tool === 'brace') {
+    } else if (tool === "brace") {
       let closest = 16;
-      for (const [a, b] of bayBraceCandidates(s.model, getView().baySize ?? DEFAULT_BAY_SIZE)) {
+      for (const [a, b] of bayBraceCandidates(
+        s.model,
+        getView().baySize ?? DEFAULT_BAY_SIZE,
+      )) {
         const from = new THREE.Vector3(...a).multiplyScalar(CELL_SIZE);
         const to = new THREE.Vector3(...b).multiplyScalar(CELL_SIZE);
         const [ax, ay, az] = screen(from);
         const [bx, by, bz] = screen(to);
-        const dx = bx - ax, dy = by - ay;
-        const t = THREE.MathUtils.clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1), 0.12, 0.88);
+        const dx = bx - ax,
+          dy = by - ay;
+        const t = THREE.MathUtils.clamp(
+          ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1),
+          0.12,
+          0.88,
+        );
         const distance = Math.hypot(ax + t * dx - x, ay + t * dy - y);
-        if (az < -1 || az >= 1 || bz < -1 || bz >= 1 || distance >= closest) continue;
+        if (az < -1 || az >= 1 || bz < -1 || bz >= 1 || distance >= closest)
+          continue;
         closest = distance;
-        const issue = memberIssue(level, s.model, a, b, 'shs');
-        hit = { kind: 'brace', a, b, issue };
+        const issue = memberIssue(level, s.model, a, b, "shs");
+        hit = { kind: "brace", a, b, issue };
         preview.geometry.dispose();
         preview.geometry = new THREE.BufferGeometry().setFromPoints([from, to]);
-        preview.material.color.set(issue ? '#e75151' : '#5578c2');
+        preview.material.color.set(issue ? "#e75151" : "#5578c2");
         preview.visible = true;
       }
-    } else if (tool === 'inspect' || tool === 'delete' || tool === 'swap') {
+    } else if (tool === "inspect" || tool === "delete" || tool === "swap") {
       if (
         nearNode &&
-        tool !== 'swap' &&
-        (tool === 'inspect' ||
+        tool !== "swap" &&
+        (tool === "inspect" ||
           !!(
             s.model.attrs[nearNode]?.found ||
             s.model.attrs[nearNode]?.joint ||
             s.model.attrs[nearNode]?.load
           ))
       )
-        hit = { kind: 'node', key: nearNode };
-      else if (nearMember !== null) hit = { kind: 'member', id: nearMember };
+        hit = { kind: "node", key: nearNode };
+      else if (nearMember !== null) hit = { kind: "member", id: nearMember };
     } else {
       ndc.set((x / rect.width) * 2 - 1, (-y / rect.height) * 2 + 1);
       ray.setFromCamera(ndc, camera);
       const start = s.chainStart ? parseNodeKey(s.chainStart) : null,
         plane = buildPlane();
       const normal =
-        plane.axis === 'x'
+        plane.axis === "x"
           ? new THREE.Vector3(1, 0, 0)
-          : plane.axis === 'y'
+          : plane.axis === "y"
             ? new THREE.Vector3(0, 1, 0)
             : new THREE.Vector3(0, 0, 1);
       const isMember = MEMBER_TYPES.includes(tool as MemberType);
@@ -160,7 +187,7 @@ export function createPicker(
         new THREE.Vector3(),
       );
       // Before starting a chain, pick the closest terrain top as in the prototype.
-      if (!start && s.style !== 'levels' && s.style !== 'blocks') {
+      if (!start && s.style !== "levels" && s.style !== "blocks") {
         const terrainHit = ray
           .intersectObjects(terrain.children)
           .find(
@@ -180,43 +207,80 @@ export function createPicker(
       }
       const isGrowing = !!start && isMember && !card && isGrowthStyle(s.style);
       const reachable = isGrowing ? closestGrowthTarget() : null;
-      if (!card && s.style === 'blocks' && isMember && intersection) {
+      if (!card && s.style === "blocks" && isMember && intersection) {
         const baySize = getView().baySize ?? DEFAULT_BAY_SIZE;
         const face = pickBayFace(s, ray.ray, baySize);
-        hit = previewBay(s, intersection, baySize, tool as MemberType, preview, face);
+        hit = previewBay(
+          s,
+          intersection,
+          baySize,
+          tool as MemberType,
+          preview,
+          face,
+        );
       } else if (reachable || (!isGrowing && (intersection || nearNode))) {
-        const useExisting = nearNode && nearNode !== s.chainStart && (
-          s.style !== 'levels' || parseNodeKey(nearNode)[2] === plane.value
-        ) ? nearNode : null;
-        const p: GridPoint | null = card?.kind === 'load'
-          ? nearNode ? parseNodeKey(nearNode) : null
-          : reachable
-          ? reachable.point
-          : useExisting
-            ? parseNodeKey(useExisting)
-            : intersection
-              ? [
-                  Math.max(0, Math.min(level.nx, Math.round(intersection.x / CELL_SIZE))),
-                  Math.max(0, Math.min(level.ny, Math.round(intersection.y / CELL_SIZE))),
-                  Math.max(0, Math.min(level.nz, Math.round(intersection.z / CELL_SIZE))),
-                ]
-              : null;
+        const useExisting =
+          nearNode &&
+          nearNode !== s.chainStart &&
+          (s.style !== "levels" || parseNodeKey(nearNode)[2] === plane.value)
+            ? nearNode
+            : null;
+        const p: GridPoint | null =
+          card?.kind === "load"
+            ? nearNode
+              ? parseNodeKey(nearNode)
+              : null
+            : reachable
+              ? reachable.point
+              : useExisting
+                ? parseNodeKey(useExisting)
+                : intersection
+                  ? [
+                      Math.max(
+                        0,
+                        Math.min(
+                          level.nx,
+                          Math.round(intersection.x / CELL_SIZE),
+                        ),
+                      ),
+                      Math.max(
+                        0,
+                        Math.min(
+                          level.ny,
+                          Math.round(intersection.y / CELL_SIZE),
+                        ),
+                      ),
+                      Math.max(
+                        0,
+                        Math.min(
+                          level.nz,
+                          Math.round(intersection.z / CELL_SIZE),
+                        ),
+                      ),
+                    ]
+                  : null;
         if (p) {
           // Levels preserves the active slice. Invalid underground picks show
           // the same rule feedback as the committed edit.
-          if (s.style !== 'levels') p[2] = Math.max(p[2], groundK(level, p[0], p[1]));
-          const issue = card ? turnPointIssue(s, p) : isMember
-            ? start
-              ? memberIssue(level, s.model, start, p, tool as MemberType)
-              : remaining(level, s.model, tool as MemberType) <= 0
-                ? 'No items left in supply'
-                : null
-            : nodeItemIssue(level, s.model, p, tool as NodeItem);
-          hit = { kind: 'point', p, issue };
+          if (s.style !== "levels")
+            p[2] = Math.max(p[2], groundK(level, p[0], p[1]));
+          const issue = card
+            ? turnPointIssue(s, p)
+            : isMember
+              ? start
+                ? memberIssue(level, s.model, start, p, tool as MemberType)
+                : remaining(level, s.model, tool as MemberType) <= 0
+                  ? "No items left in supply"
+                  : null
+              : nodeItemIssue(level, s.model, p, tool as NodeItem);
+          hit = { kind: "point", p, issue };
           ghost.position.set(...p).multiplyScalar(CELL_SIZE);
           const roles = SCENE_STYLES[s.style].roles;
-          const roleColor = reachable && roles ? roles[GROWTH_ROLE_INDEX[reachable.role]] : '#31aa78';
-          ghost.material.color.set(issue ? '#e75151' : roleColor);
+          const roleColor =
+            reachable && roles
+              ? roles[GROWTH_ROLE_INDEX[reachable.role]]
+              : "#31aa78";
+          ghost.material.color.set(issue ? "#e75151" : roleColor);
           ghost.visible = true;
           if (start && isMember) {
             preview.geometry.dispose();
@@ -224,10 +288,17 @@ export function createPicker(
               new THREE.Vector3(...start).multiplyScalar(CELL_SIZE),
               ghost.position,
             ];
-            if (s.style === 'levels' && start[2] !== p[2]) {
-              segments.push(segments[0], new THREE.Vector3(start[0], start[1], p[2]).multiplyScalar(CELL_SIZE));
+            if (s.style === "levels" && start[2] !== p[2]) {
+              segments.push(
+                segments[0],
+                new THREE.Vector3(start[0], start[1], p[2]).multiplyScalar(
+                  CELL_SIZE,
+                ),
+              );
             }
-            preview.geometry = new THREE.BufferGeometry().setFromPoints(segments);
+            preview.geometry = new THREE.BufferGeometry().setFromPoints(
+              segments,
+            );
             preview.material.color.copy(ghost.material.color);
             preview.visible = true;
           }
@@ -247,18 +318,33 @@ export function createPicker(
       }
       return closest;
     }
+    function memberTitle(id: number) {
+      const results = getView().result;
+      const demand = results?.error || results?.mechanism ? undefined : results?.members[id];
+      if (!demand) return ['Member', id].join(' ');
+      return [
+        'Member ' + id,
+        (demand.util * 100).toFixed(0) + '% utilization',
+        demand.gov,
+      ].filter(Boolean).join(' · ');
+    }
     canvas.title =
-      hit?.kind === 'point' || hit?.kind === 'bay'
-        ? hit.issue || `${hit.p.map((v) => v * CELL_SIZE).join(', ')} m`
-        : hit?.kind === 'member'
-          ? `Member ${hit.id}`
-          : hit?.kind === 'node'
+      hit?.kind === "point" || hit?.kind === "bay"
+        ? hit.issue || `${hit.p.map((v) => v * CELL_SIZE).join(", ")} m`
+        : hit?.kind === "member"
+          ? memberTitle(hit.id)
+          : hit?.kind === "node"
             ? `Node ${hit.key}`
-            : hit?.kind === 'brace'
-              ? hit.issue ?? 'Place panel brace'
-              : hit?.kind === 'connection'
-              ? ["Connect member", hit.memberId, "end", hit.end.toUpperCase()].join(" ")
-              : '';
+            : hit?.kind === "brace"
+              ? (hit.issue ?? "Place panel brace")
+              : hit?.kind === "connection"
+                ? [
+                    "Connect member",
+                    hit.memberId,
+                    "end",
+                    hit.end.toUpperCase(),
+                  ].join(" ")
+                : "";
     return hit;
   };
 }

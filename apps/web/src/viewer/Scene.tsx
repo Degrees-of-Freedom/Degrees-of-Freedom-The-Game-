@@ -1,18 +1,18 @@
-import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { useGameStore } from '../game/store';
-import { allNodeKeys, CELL_SIZE } from '../game/model';
-import { buildGuides, buildTerrain, disposeGroup } from './sceneGeometry';
-import { addResultArrows, displayPoint } from './sceneResults';
-import { createFlowParticles } from './flowParticles';
-import { buildStructure } from './structureMeshes';
-import { bindSceneInteraction } from './sceneInteraction';
-import { sceneLevel } from './sceneLevel';
-import type { SceneView } from './sceneView';
-import { createSky, SCENE_STYLES } from './sceneStyle';
-import { buildTurnGuides } from './turnGuides';
-import { buildGrowthGuides } from './growthGuides';
+import { useEffect, useRef } from "react";
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { useGameStore } from "../game/store";
+import { allNodeKeys, CELL_SIZE } from "../game/model";
+import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
+import { addResultArrows, displayPoint } from "./sceneResults";
+import { createFlowParticles } from "./flowParticles";
+import { buildStructure } from "./structureMeshes";
+import { bindSceneInteraction } from "./sceneInteraction";
+import { sceneLevel } from "./sceneLevel";
+import type { SceneView } from "./sceneView";
+import { createSky, SCENE_STYLES } from "./sceneStyle";
+import { buildTurnGuides } from "./turnGuides";
+import { buildGrowthGuides } from "./growthGuides";
 /** Three.js owns only presentation and picking; the game store owns the model and rules. */
 export function Scene({
   result,
@@ -57,7 +57,11 @@ export function Scene({
   const workK = useGameStore((state) => state.workK);
   const style = useGameStore((state) => state.style);
   const host = useRef<HTMLDivElement>(null);
-  const cameraActions = useRef({ fit: () => {}, orbit: (_step: number) => {}, tilt: () => {} });
+  const cameraActions = useRef({
+    fit: () => {},
+    orbit: (_step: number) => {},
+    tilt: () => {},
+  });
   useEffect(() => {
     const element = host.current;
     if (!element) return;
@@ -65,8 +69,16 @@ export function Scene({
     const sky = createSky();
     scene.add(sky);
     const perspective = new THREE.PerspectiveCamera(42, 1, 0.1, 300);
-    const orthographic = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 300);
-    let camera: THREE.PerspectiveCamera | THREE.OrthographicCamera = perspective;
+    const orthographic = new THREE.OrthographicCamera(
+      -20,
+      20,
+      20,
+      -20,
+      0.1,
+      300,
+    );
+    let camera: THREE.PerspectiveCamera | THREE.OrthographicCamera =
+      perspective;
     orthographic.up.set(0, 0, 1);
     camera.up.set(0, 0, 1);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -104,9 +116,16 @@ export function Scene({
     );
     const stickGhost = new THREE.Mesh(
       new THREE.CapsuleGeometry(0.055 * CELL_SIZE, 1, 6, 12),
-      new THREE.MeshLambertMaterial({ color: '#31aa78', transparent: true, opacity: 0.58, depthWrite: false }),
+      new THREE.MeshLambertMaterial({
+        color: "#31aa78",
+        transparent: true,
+        opacity: 0.58,
+        depthWrite: false,
+      }),
     );
-    const ghostStart = new THREE.Vector3(), ghostEnd = new THREE.Vector3(), ghostDelta = new THREE.Vector3();
+    const ghostStart = new THREE.Vector3(),
+      ghostEnd = new THREE.Vector3(),
+      ghostDelta = new THREE.Vector3();
     const up = new THREE.Vector3(0, 1, 0);
     stickGhost.visible = false;
     stickGhost.renderOrder = 24;
@@ -114,7 +133,7 @@ export function Scene({
     preview.visible = false;
     const point = (key: string) => displayPoint(key, view.current);
     const particles = createFlowParticles(scene, point);
-    let currentEnvironment = '';
+    let currentEnvironment = "";
     let orthoSpan = 20;
     let previousTurn: number | undefined;
     let cameraSwing = 0;
@@ -134,41 +153,74 @@ export function Scene({
       const state = useGameStore.getState();
       const level = sceneLevel(state);
       const palette = SCENE_STYLES[state.style];
-      const turnIndex = state.mode === 'multiplayer' ? state.turn?.playerIndex : undefined;
-      const environment = [state.mode, state.levelId, state.style].join(':');
+      const turnIndex =
+        state.mode === "multiplayer" ? state.turn?.playerIndex : undefined;
+      const environment = [state.mode, state.levelId, state.style].join(":");
       if (currentEnvironment !== environment) {
         currentEnvironment = environment;
         previousTurn = turnIndex;
         cameraSwing = 0;
-        camera = state.style === 'levels' ? orthographic : perspective;
+        camera = state.style === "levels" ? orthographic : perspective;
         controls.object = camera;
-        controls.minPolarAngle = state.style === 'kit' ? kitHigh ? 0.84 : 1.25 : 0;
-        controls.maxPolarAngle = state.style === 'kit' ? kitHigh ? 0.84 : 1.25 : Math.PI * 0.495;
+        controls.minPolarAngle =
+          state.style === "kit" ? (kitHigh ? 0.84 : 1.25) : 0;
+        controls.maxPolarAngle =
+          state.style === "kit" ? (kitHigh ? 0.84 : 1.25) : Math.PI * 0.495;
         camera.zoom = 1;
         orthoSpan = Math.max(level.nx, level.ny, level.nz) * CELL_SIZE * 0.86;
         sky.material.uniforms.top.value.set(palette.sky);
         sky.material.uniforms.horizon.value.set(palette.horizon);
-        const isDusk = state.style === 'grow-dusk' || state.style === 'kit';
-        sky.material.uniforms.mid.value.set(isDusk ? '#7f8fa6' : state.style === 'blocks' ? '#f7d9c4' : palette.horizon);
-        sky.material.uniforms.band.value.set(...(isDusk
-          ? [0, 0.113, 0.087, 0.259] as const
-          : state.style === 'blocks' ? [0, 0.024, 0.012, 0.11] as const : [0, 0.06, -0.04, 0.42] as const));
-        scene.fog = palette.fog ? new THREE.FogExp2(palette.horizon, palette.fog) : null;
+        const isDusk = state.style === "grow-dusk" || state.style === "kit";
+        sky.material.uniforms.mid.value.set(
+          isDusk
+            ? "#7f8fa6"
+            : state.style === "blocks"
+              ? "#f7d9c4"
+              : palette.horizon,
+        );
+        sky.material.uniforms.band.value.set(
+          ...(isDusk
+            ? ([0, 0.113, 0.087, 0.259] as const)
+            : state.style === "blocks"
+              ? ([0, 0.024, 0.012, 0.11] as const)
+              : ([0, 0.06, -0.04, 0.42] as const)),
+        );
+        scene.fog = palette.fog
+          ? new THREE.FogExp2(palette.horizon, palette.fog)
+          : null;
         fill.color.set(palette.fill);
         fill.groundColor.set(palette.ground);
         sun.color.set(palette.sun);
         sun.intensity = palette.intensity;
         buildTerrain(terrain, level, camera, controls, palette, state.style);
-        sun.castShadow = state.style !== 'engineering';
+        sun.castShadow = state.style !== "engineering";
         const span = Math.max(level.nx, level.ny) * CELL_SIZE * 0.86;
-        sun.target.position.set(level.nx * CELL_SIZE / 2, level.ny * CELL_SIZE / 2, 0);
-        sun.position.copy(sun.target.position).add(new THREE.Vector3(-span, -span * 0.52, span * 1.24));
-        Object.assign(sun.shadow.camera, { left: -span, right: span, top: span, bottom: -span, near: 0.3, far: span * 5 });
+        sun.target.position.set(
+          (level.nx * CELL_SIZE) / 2,
+          (level.ny * CELL_SIZE) / 2,
+          0,
+        );
+        sun.position
+          .copy(sun.target.position)
+          .add(new THREE.Vector3(-span, -span * 0.52, span * 1.24));
+        Object.assign(sun.shadow.camera, {
+          left: -span,
+          right: span,
+          top: span,
+          bottom: -span,
+          near: 0.3,
+          far: span * 5,
+        });
         sun.shadow.camera.updateProjectionMatrix();
         orthoSpan = span * 0.72;
         resize();
       }
-      if (state.style === 'kit' && turnIndex !== undefined && previousTurn !== undefined && turnIndex !== previousTurn) {
+      if (
+        state.style === "kit" &&
+        turnIndex !== undefined &&
+        previousTurn !== undefined &&
+        turnIndex !== previousTurn
+      ) {
         cameraSwing = Math.PI;
       }
       previousTurn = turnIndex;
@@ -177,8 +229,14 @@ export function Scene({
       disposeGroup(guides);
       particles.reset();
       buildStructure(structure, state, view.current, point, particles.add);
-      addResultArrows(structure, view.current, point);
-      buildGuides(guides, level, interaction.buildPlane(), palette, state.style);
+      addResultArrows(structure, view.current, point, state.style !== 'engineering');
+      buildGuides(
+        guides,
+        level,
+        interaction.buildPlane(),
+        palette,
+        state.style,
+      );
       buildGrowthGuides(guides, state, palette);
       buildTurnGuides(guides, state, point);
     }
@@ -187,7 +245,7 @@ export function Scene({
     const cameraChanged = () => {
       if (useGameStore.getState().chainStart) rebuild();
     };
-    controls.addEventListener('end', cameraChanged);
+    controls.addEventListener("end", cameraChanged);
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = element;
       if (w && h) {
@@ -204,23 +262,38 @@ export function Scene({
     };
     cameraActions.current = {
       fit() {
-        currentEnvironment = '';
+        currentEnvironment = "";
         rebuild();
         const state = useGameStore.getState();
         const points = allNodeKeys(state.model).map(point);
-        if (!points.length || state.mode === 'multiplayer') return;
+        if (!points.length || state.mode === "multiplayer") return;
         const bounds = new THREE.Box3().setFromPoints(points);
         const focus = bounds.getCenter(new THREE.Vector3());
-        const radius = Math.max(CELL_SIZE * 2.5, bounds.getSize(new THREE.Vector3()).length() * 0.65);
+        const radius = Math.max(
+          CELL_SIZE * 2.5,
+          bounds.getSize(new THREE.Vector3()).length() * 0.65,
+        );
         const offset = camera.position.clone().sub(controls.target).normalize();
         controls.target.copy(focus);
         if (camera instanceof THREE.PerspectiveCamera) {
           const vertical = THREE.MathUtils.degToRad(camera.fov / 2);
           const horizontal = Math.atan(Math.tan(vertical) * camera.aspect);
-          camera.position.copy(focus).addScaledVector(offset, radius / Math.sin(Math.min(vertical, horizontal)));
+          camera.position
+            .copy(focus)
+            .addScaledVector(
+              offset,
+              radius / Math.sin(Math.min(vertical, horizontal)),
+            );
         } else {
-          orthoSpan = radius / Math.min(1, element.clientWidth / Math.max(1, element.clientHeight));
-          camera.position.copy(focus).addScaledVector(offset, Math.max(10, radius * 2));
+          orthoSpan =
+            radius /
+            Math.min(
+              1,
+              element.clientWidth / Math.max(1, element.clientHeight),
+            );
+          camera.position
+            .copy(focus)
+            .addScaledVector(offset, Math.max(10, radius * 2));
           resize();
         }
         controls.update();
@@ -233,7 +306,7 @@ export function Scene({
       },
       orbit(step) {
         const offset = camera.position.clone().sub(controls.target);
-        offset.applyAxisAngle(camera.up, step * Math.PI / 2);
+        offset.applyAxisAngle(camera.up, (step * Math.PI) / 2);
         camera.position.copy(controls.target).add(offset);
         controls.update();
         rebuild();
@@ -253,27 +326,39 @@ export function Scene({
       controls.update();
       particles.tick(time);
       const state = useGameStore.getState();
-      const line = preview.geometry.getAttribute('position');
-      stickGhost.visible = preview.visible && !!line && state.style !== 'engineering' &&
-        (ghost.visible || state.tool === 'brace');
+      const line = preview.geometry.getAttribute("position");
+      stickGhost.visible =
+        preview.visible &&
+        !!line &&
+        state.style !== "engineering" &&
+        (ghost.visible || state.tool === "brace");
       if (stickGhost.visible) {
         ghostStart.fromBufferAttribute(line, 0);
         ghostEnd.fromBufferAttribute(line, 1);
         ghostDelta.subVectors(ghostEnd, ghostStart);
-        stickGhost.scale.y = Math.max(0.001, ghostDelta.length() / (1 + 0.11 * CELL_SIZE));
+        stickGhost.scale.y = Math.max(
+          0.001,
+          ghostDelta.length() / (1 + 0.11 * CELL_SIZE),
+        );
         stickGhost.position.copy(ghostStart).lerp(ghostEnd, 0.5);
         stickGhost.quaternion.setFromUnitVectors(up, ghostDelta.normalize());
         stickGhost.material.color.copy(preview.material.color);
       }
       for (const object of terrain.children) object.userData.animate?.(time);
       for (const guide of guides.children) {
-        if (typeof guide.userData.growFrom !== 'number') continue;
-        const progress = THREE.MathUtils.clamp((performance.now() - guide.userData.growFrom) / 155, 0, 1);
+        if (typeof guide.userData.growFrom !== "number") continue;
+        const progress = THREE.MathUtils.clamp(
+          (performance.now() - guide.userData.growFrom) / 155,
+          0,
+          1,
+        );
         guide.scale.setScalar(1 - 0.35 * (1 - progress) ** 3);
       }
       sky.position.copy(camera.position);
-      sky.material.uniforms.rimDip.value = state.style === 'grow-dusk' || state.style === 'kit'
-        ? Math.atan2(Math.max(0, camera.position.z + CELL_SIZE), 145) : 0;
+      sky.material.uniforms.rimDip.value =
+        state.style === "grow-dusk" || state.style === "kit"
+          ? Math.atan2(Math.max(0, camera.position.z + CELL_SIZE), 145)
+          : 0;
       renderer.render(scene, camera);
     });
     return () => {
@@ -282,7 +367,7 @@ export function Scene({
       observer.disconnect();
       renderer.setAnimationLoop(null);
       interaction.dispose();
-      controls.removeEventListener('end', cameraChanged);
+      controls.removeEventListener("end", cameraChanged);
       controls.dispose();
       [terrain, structure, guides].forEach(disposeGroup);
       particles.dispose();
@@ -302,16 +387,72 @@ export function Scene({
     <div className="scene">
       <div
         ref={host}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'auto' }}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "auto",
+        }}
         aria-label="3D workspace. Drag to orbit, scroll to zoom, and click to build."
       />
-      <div role="group" aria-label="Camera controls" style={{ position: 'absolute', left: 12, bottom: 12, display: 'flex', gap: 5, zIndex: 2, pointerEvents: 'auto' }}>
-        <button type="button" title="Fit view (F)" onClick={() => cameraActions.current.fit()}>Fit</button>
-        <button type="button" title="Rotate left (Q)" aria-label="Rotate left" onClick={() => cameraActions.current.orbit(-1)}>↶</button>
-        <button type="button" title="Rotate right (E)" aria-label="Rotate right" onClick={() => cameraActions.current.orbit(1)}>↷</button>
-        {style === 'kit' && <button type="button" onClick={() => cameraActions.current.tilt()}>View</button>}
-        <button type="button" title="Lower working plane (Page Down)" aria-label="Lower working plane" onClick={() => useGameStore.getState().setWorkK(workK - 1)}>−</button>
-        <button type="button" title="Raise working plane (Page Up)" aria-label="Raise working plane" onClick={() => useGameStore.getState().setWorkK(workK + 1)}>+</button>
+      <div
+        role="group"
+        aria-label="Camera controls"
+        style={{
+          position: "absolute",
+          left: 12,
+          bottom: 12,
+          display: "flex",
+          gap: 5,
+          zIndex: 2,
+          pointerEvents: "auto",
+        }}
+      >
+        <button
+          type="button"
+          title="Fit view (F)"
+          onClick={() => cameraActions.current.fit()}
+        >
+          Fit
+        </button>
+        <button
+          type="button"
+          title="Rotate left (Q)"
+          aria-label="Rotate left"
+          onClick={() => cameraActions.current.orbit(-1)}
+        >
+          ↶
+        </button>
+        <button
+          type="button"
+          title="Rotate right (E)"
+          aria-label="Rotate right"
+          onClick={() => cameraActions.current.orbit(1)}
+        >
+          ↷
+        </button>
+        {style === "kit" && (
+          <button type="button" onClick={() => cameraActions.current.tilt()}>
+            View
+          </button>
+        )}
+        <button
+          type="button"
+          title="Lower working plane (Page Down)"
+          aria-label="Lower working plane"
+          onClick={() => useGameStore.getState().setWorkK(workK - 1)}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          title="Raise working plane (Page Up)"
+          aria-label="Raise working plane"
+          onClick={() => useGameStore.getState().setWorkK(workK + 1)}
+        >
+          +
+        </button>
       </div>
     </div>
   );

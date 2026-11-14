@@ -1,8 +1,8 @@
-import * as THREE from 'three';
-import { CELL_SIZE, parseNodeKey } from '../game/model';
-import type { useGameStore } from '../game/store';
-import { GROWTH_ROLE_INDEX, growthTargets } from './growthTargets';
-import type { ScenePalette } from './sceneStyle';
+import * as THREE from "three";
+import { CELL_SIZE, parseNodeKey } from "../game/model";
+import type { useGameStore } from "../game/store";
+import { GROWTH_ROLE_INDEX, growthTargets } from "./growthTargets";
+import type { ScenePalette } from "./sceneStyle";
 
 export function buildGrowthGuides(
   group: THREE.Group,
@@ -11,7 +11,9 @@ export function buildGrowthGuides(
 ) {
   const targets = growthTargets(state);
   if (!targets.length || !state.chainStart || !palette.roles) return;
-  const origin = new THREE.Vector3(...parseNodeKey(state.chainStart)).multiplyScalar(CELL_SIZE);
+  const origin = new THREE.Vector3(
+    ...parseNodeKey(state.chainStart),
+  ).multiplyScalar(CELL_SIZE);
   const bloom = new THREE.Group();
   bloom.position.copy(origin);
   bloom.scale.setScalar(0.65);
@@ -21,17 +23,34 @@ export function buildGrowthGuides(
   const markerColors: number[] = [];
   const spokes: THREE.Vector3[] = [];
   for (const target of targets) {
-    const end = new THREE.Vector3(...target.point).multiplyScalar(CELL_SIZE).sub(origin);
+    const end = new THREE.Vector3(...target.point)
+      .multiplyScalar(CELL_SIZE)
+      .sub(origin);
     markerPositions.push(...end.toArray());
-    markerColors.push(...new THREE.Color(palette.roles[GROWTH_ROLE_INDEX[target.role]]).toArray());
+    markerColors.push(
+      ...new THREE.Color(
+        palette.roles[GROWTH_ROLE_INDEX[target.role]],
+      ).toArray(),
+    );
     spokes.push(new THREE.Vector3(), end.clone().multiplyScalar(0.28));
   }
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(markerPositions, 3));
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(markerColors, 3));
-  bloom.add(new THREE.Points(geometry, new THREE.ShaderMaterial({
-    uniforms: { diameter: { value: 8 * Math.min(window.devicePixelRatio, 2) } },
-    vertexShader: `
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(markerPositions, 3),
+  );
+  geometry.setAttribute(
+    "color",
+    new THREE.Float32BufferAttribute(markerColors, 3),
+  );
+  bloom.add(
+    new THREE.Points(
+      geometry,
+      new THREE.ShaderMaterial({
+        uniforms: {
+          diameter: { value: 8 * Math.min(window.devicePixelRatio, 2) },
+        },
+        vertexShader: `
       attribute vec3 color;
       varying vec3 tint;
       uniform float diameter;
@@ -41,7 +60,7 @@ export function buildGrowthGuides(
         gl_PointSize = diameter;
       }
     `,
-    fragmentShader: `
+        fragmentShader: `
       varying vec3 tint;
       void main() {
         float distance = length(gl_PointCoord - vec2(0.5));
@@ -52,11 +71,20 @@ export function buildGrowthGuides(
         #include <colorspace_fragment>
       }
     `,
-    transparent: true,
-    depthWrite: false,
-  })));
-  bloom.add(new THREE.LineSegments(
-    new THREE.BufferGeometry().setFromPoints(spokes),
-    new THREE.LineBasicMaterial({ color: palette.grid, transparent: true, opacity: 0.18, depthWrite: false }),
-  ));
+        transparent: true,
+        depthWrite: false,
+      }),
+    ),
+  );
+  bloom.add(
+    new THREE.LineSegments(
+      new THREE.BufferGeometry().setFromPoints(spokes),
+      new THREE.LineBasicMaterial({
+        color: palette.grid,
+        transparent: true,
+        opacity: 0.18,
+        depthWrite: false,
+      }),
+    ),
+  );
 }
