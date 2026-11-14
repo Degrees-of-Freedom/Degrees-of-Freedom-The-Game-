@@ -4,6 +4,8 @@ import { LEVELS } from "../game/levels";
 import { useGameStore } from "../game/store";
 import { analyzeGame } from "../game/analysis";
 import { analyzeTurn } from "../game/turnAnalysis";
+import { useStabilityCheck } from "../game/useStabilityCheck";
+import { StabilityCheckPanel } from "../components/StabilityCheckPanel";
 import { modeProgress } from "../game/modes";
 import { environmentExample } from "../game/environmentExamples";
 import { useEditorSound } from "../game/useEditorSound";
@@ -33,6 +35,10 @@ type Drawer = "analysis" | "model" | "build" | "turn" | null;
 /** The environment variants compose the same store, scene and analysis boundary. */
 export function Workspace() {
   const game = useGameStore();
+  const stability = useStabilityCheck(game.model);
+  // The contract adapter currently supports the legacy node connection model.
+  const contractCompatible = game.mode !== "multiplayer" &&
+    !Object.values(game.model.attrs).some(a => a.restraint || (a.loadDirection && a.loadDirection !== "-Z"));
   const [analysis, setAnalysis] = useState<{
     model: typeof game.model;
     result: VoxelAnalysis;
@@ -56,6 +62,7 @@ export function Workspace() {
   const progress = result ? modeProgress(game.mode, result) : null;
 
   function run() {
+    if (contractCompatible) void stability.run(game.model);
     try {
       setCombo(0);
       setAnalysis({
@@ -451,6 +458,7 @@ export function Workspace() {
                       game.setSelected({ type: "node", key })
                     }
                   />
+                  {contractCompatible && <StabilityCheckPanel check={stability.check} />}
                 </>
               )}
               {drawer === "model" && (

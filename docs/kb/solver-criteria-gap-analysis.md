@@ -16,6 +16,9 @@ validated_against:
   - apps/web/src/game/analysis.ts
   - apps/web/src/game/analysis.test.ts
   - apps/web/src/game/store.ts
+  - services/opensees/README.md
+  - services/opensees/src/dof_opensees
+  - services/opensees/tests
 owner: unknown
 status: partial
 ---
@@ -33,6 +36,27 @@ There are two distinct interfaces: `packages/solver-contract/src/index.ts` is a 
 The coverage table below is a historical review against the stated `b01a30e` baseline, not a fresh audit of later refactoring. Since that review, the owner confirmed the [turn rules](turn-criteria.md#1-status-and-confirmed-rules): two draws per deck, optional 1-element/1-load/2-connection plays, per-end attachments, shared access without editing placed connections, starting foundations only, persistent gravity loads and a 1-point deduction once per turn for verified new/worsened issues. Unchanged issues and unresolved results do not trigger deductions. These decisions supersede the earlier statement that all other gameplay defaults are unconfirmed; they do not complete any solver milestone.
 
 See [open turn decisions](turn-criteria.md#9-questions-still-to-resolve) for remaining policy choices and [structural solver](structural-solver.md) for current implementation context.
+
+## OpenSees service addendum
+
+The coverage table below was written against the baseline above, before the OpenSees service in `services/opensees` and the extended shared contract were merged. Where the table says the shared contract has only displacements and a placeholder, read it together with this addendum. The service was built before the criteria were recorded and was not designed against them. It does not complete any milestone.
+
+| Criteria | What the OpenSees service provides | What is still missing or differs |
+| --- | --- | --- |
+| M01 | Six DOFs per node; rotations of pure pin joints are left out of the system; genuine mechanisms are kept and reported. | Activation follows member end fixity only. |
+| M02, M04 | Each member end is independently `fixed` or `pinned`. | No separation of coincidence from connectivity, no per-axis free, rigid or elastic laws, no semi-rigid or partial releases, no connection axes. |
+| M03 | Beam-column and axial truss elements. | No tension-only cable; the game translation sends cables as two-way ties. |
+| M05 | Pinned beam ends use exact equal-displacement constraints, not large stiffness. | No detection of redundant or incompatible constraints. Unloaded spin modes are held by soft artificial springs. |
+| M06 | Six signed reaction components per supported node id. | No foundation objects distinct from nodes. |
+| M07, M08 | Nodal forces and moments in SI units. | No self-weight. One hard-coded steel section instead of card-defined properties. |
+| A01 | Linear elastic solution with closed-form tests for axial, bending, torsion, truss and propped-beam cases. | Parallel-spring, shared-frame, reordering and rotation-invariance fixtures are not written. |
+| A02 | Nothing. | All nonlinear analysis, P-Delta, buckling and cable activation. |
+| A03, A04 | Mechanisms found from the constrained, diagonally scaled stiffness matrix, with mode shapes and the nodes involved; translational mechanisms are unstable whether loaded or not. | Unloaded pure-rotation mechanisms are reported but tolerated, which may not satisfy A03 as written. No near-mechanism grading, no distinction between disconnected components and internal mechanisms, no stress stiffening. |
+| A06 | Nothing. | One unstable component makes the whole result `unstable`. |
+| A07 | A test checks global force and moment balance of reactions; spring forces are excluded from reported reactions. | No runtime residual check or validity flag in the result. |
+| A08 | Semantic errors, schema rejection and size limits return explicit results. | No timeout, no reason codes; an unexpected solver exception returns HTTP 500, which the web adapter reports as an error result. |
+| Section 5 | Displacements, reactions, member force magnitudes, stability counts and modes. | Model version, fidelity, residuals, runtime, component scope, utilization, connection forces, and explicit unavailable markers. |
+| Section 6 | Single timings in the service README: about 70 ms at 600 free DOFs and 1.7 s at 2,688. | Not a benchmark; dense matrix extraction scales with the cube of the DOF count and misses the proposed stress target. |
 
 ## Requirement coverage
 

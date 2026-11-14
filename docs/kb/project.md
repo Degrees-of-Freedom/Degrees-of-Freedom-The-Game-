@@ -7,6 +7,7 @@ validated_against:
   - package.json
   - apps/web/package.json
   - apps/web/src
+  - services/opensees/README.md
   - prototypes/voxel-struct/README.md
 owner: unknown
 status: partial
@@ -16,7 +17,7 @@ status: partial
 
 Degrees of Freedom is conceived as a turn-based structural engineering game on a 3D grid. Players are intended to build and test structures to explore force paths and stability. The prototype includes local goal-based modes and a card playtest as documented in the [unified runtime](unified-runtime.md).
 
-An early TypeScript web scaffold now exists, with React, a Zustand store, React Router, and a Three.js viewer. The workspace now includes experimental voxel building tools, challenge rules, and approximate analysis. The [turn criteria](turn-criteria.md) record confirmed core rules, proposed connection profiles and remaining decisions. The turn system remains unimplemented. See [architecture](architecture.md) and [development and testing](development-and-testing.md).
+An early TypeScript web scaffold now exists, with React, a Zustand store, React Router, and a Three.js viewer. The workspace now includes experimental voxel building tools, challenge rules, and approximate analysis. An OpenSees-backed service provides a second, independent check of stability and degrees of freedom through the shared solver contract. The [turn criteria](turn-criteria.md) record confirmed core rules, proposed connection profiles and remaining decisions. The turn system remains unimplemented. See [architecture](architecture.md), [structural solver](structural-solver.md), and [development and testing](development-and-testing.md).
 
 Ownership, solver details, distribution, and precise game rules remain open.
 

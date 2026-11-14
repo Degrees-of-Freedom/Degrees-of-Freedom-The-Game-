@@ -20,7 +20,7 @@ status: partial
 
 ## Purpose and status
 
-This is the canonical entry point for durable project knowledge. The early web prototype presents five environments in one application, with voxel editing, challenges, approximate numerical analysis and a local Shared table card playtest. Shared table turns commit with experimental applied-load results where available. Distinguish documented intent and proposed experiments from implemented behavior and decisions.
+This is the canonical entry point for durable project knowledge. The early web prototype presents five environments in one application, with voxel editing, challenges, approximate numerical analysis, and a local Shared table card playtest. Shared table turns commit with experimental applied-load results where available. The OpenSees service implements the shared solver adapter for stability and degree-of-freedom checks. Distinguish implemented behavior from proposed experiments and future decisions.
 
 ## Pages
 
@@ -30,7 +30,7 @@ This is the canonical entry point for durable project knowledge. The early web p
 | [project.md](project.md) | Understanding the concept, status, and repository. |
 | [architecture.md](architecture.md) | Understanding the three intended areas, current frameworks, and modular boundaries. |
 | [code-standards.md](code-standards.md) | Applying TypeScript, folder structure, modularity, React, Zustand, and routing standards. |
-| [structural-solver.md](structural-solver.md) | Working on the model, solver candidates, adapter boundaries, or proposed validation options. |
+| [structural-solver.md](structural-solver.md) | Working on the model, the OpenSees service, stability assessment, adapter boundaries, or solver tests. |
 | [structural-state.md](structural-state.md) | Browser saves, experimental solver snapshots, and proposed general state and fixture design. |
 | [solver-criteria.md](solver-criteria.md) | Reading the owner-supplied proposed solver requirements, acceptance gates, implementation order, and open gameplay decisions. |
 | [solver-criteria-gap-analysis.md](solver-criteria-gap-analysis.md) | Comparing current code and tests with the criteria and planning implementation milestones. |
