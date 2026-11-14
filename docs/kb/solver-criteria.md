@@ -2,7 +2,9 @@
 title: "Solver Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/element-representation-criteria.md
   - docs/kb/turn-criteria.md
+  - docs/kb/joint-dof-criteria.md
   - "Project owner supplied Solver Criteria, 2026-11-14"
 owner: project owner
 status: needs-review
@@ -13,6 +15,8 @@ status: needs-review
 **Status:** Proposed implementation requirements. Review against the current repository before starting work. The confirmed model uses a 3D grid and six potential degrees of freedom per node. Other gameplay defaults below are proposals, not established rules.
 
 > **Later gameplay decisions — 2026-11-14:** Read [turn criteria](turn-criteria.md#1-status-and-confirmed-rules) for confirmed draw/play limits, per-end connections, shared access, immutable placed connectors, setup-only foundations, gravity-only persistent loads and the 1-point per-turn issue penalty. These later decisions supersede earlier gameplay proposals in this supplied document. Its numerical requirements remain proposed; this note does not claim implementation.
+
+> **Later joint decision — 2026-11-14:** all member ends intentionally attached to one shared joint must use the same connection freedoms, superseding independent release-profile choices at that joint. End interfaces remain distinct and intentional; different joints may have different profiles. Foundations are fully fixed by default. See [joint DOF criteria](joint-dof-criteria.md) for physical-axis compatibility, separate permission/instability overlays and unresolved elastic/migration details. This revises requirements, not implemented solver behavior.
 
 ## 1. Objective
 
@@ -27,9 +31,9 @@ The solver evaluates physics; the game engine determines legal moves, scoring an
 | M01 | Use 3D geometry and six potential DOFs per node (UX, UY, UZ, RX, RY, RZ). Activate only physically relevant DOFs; preserve genuine mechanisms. |
 | M02 | Separate geometric coincidence from connectivity. Members transfer forces only through intentional connections or explicitly continuous member segments. Each member end has an independently connectable interface. |
 | M03 | Support 3D beam-column elements (axial, shear, biaxial bending, torsion), axial braces and tension-only cables. Beams and columns share a formulation. |
-| M04 | Represent connection behavior independently in each of six local DOFs: free, rigid or elastic. Include pinned, moment, partial-release and semi-rigid connections as parameter combinations, not separate solvers. Define connection axes and rotation conventions explicitly. |
+| M04 | Represent connection behavior per component of six connection DOFs: free, rigid or elastic. All end attachments at a shared joint must have matching freedoms in physical axes; retain distinct attachment identities and allow different profiles at different joints. Include pinned, moment, partial-release and semi-rigid connections as parameter combinations. Define canonical joint/member transforms and rotation conventions explicitly; elastic-value matching remains a policy decision. |
 | M05 | Apply exact rigid constraints rather than artificially large stiffness. Detect redundant or incompatible constraints. |
-| M06 | Support configurable restraints at foundations; return all six reaction components with foundation IDs. |
+| M06 | Foundations have all six ground restraints locked by confirmed default. Retain explicit configurable restraints for supported non-default models; return all six reaction components with foundation IDs. Ground restraints and incoming connector laws are separate. |
 | M07 | Support persistent nodal forces/moments and optional member self-weight. Convert loads consistently without double-counting. |
 | M08 | Use card-defined properties (geometry, E, G, A, Iy, Iz, J, relevant capacities, cable rest length or initial strain). Use one documented unit system, coordinate convention and force sign convention. |
 | M09 | Use stable IDs for members, connection interfaces, loads and foundations. If interior member attachment is allowed, subdivide the analytical member while preserving continuity, properties, loads and parent card identity. |
@@ -111,4 +115,8 @@ Before implementation, read AGENTS.md and docs/kb/README.md, inspect current cod
 
 ## 9. Gameplay decisions to confirm
 
-Defaults unless the project owner directs otherwise: fixed foundations; cross-player connections allowed; persistent gravity loads; full reanalysis; unstable geometry remains on grid; no automatic collapse. Confirm interior attachment rules, self-weight and uplift scoring, instability penalties, permanent failure/repair, and whether deformed geometry can become permanent. Keep these options outside the physics kernel; document unresolved choices rather than silently inventing final rules.
+Confirmed defaults include fully fixed foundations, shared access, persistent gravity loads and matching freedoms for all ends at one shared joint; see the later turn and joint decisions above. Full reanalysis, retaining unstable geometry on the grid and no automatic collapse remain proposed policies. Confirm interior attachment rules, self-weight and uplift scoring, remaining issue/penalty thresholds, permanent failure/repair, and whether deformed geometry can become permanent. Keep these options outside the physics kernel; document unresolved choices rather than silently inventing final rules.
+
+## 10. Later element representation requirements
+
+The owner’s [element representation criteria](element-representation-criteria.md) extend the required visual catalogue with column sections, standalone axial helical springs, planar two-chord trusses, triangular three-chord trusses, wide flanges, HSS and round HSS, plus cable geometry. This does not assert that new numerical formulations or deck rules are implemented. Any solver integration must explicitly define spring laws and assembly connectivity/sections/load/result mapping, validate supported formulations and report unsupported analysis. Display enlargement/LOD must not alter physical properties or replace the acceptance gates above.

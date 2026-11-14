@@ -425,6 +425,24 @@ export function EnvironmentTray({ style }: Props) {
                   ? "Joints"
                   : "Weights"}
             </h4>
+            {!cards.some((card) => card.kind === kind) && (
+              <p className="tray-empty" role="status">
+                {kind === "element"
+                  ? game.turn!.draft.members.length
+                    ? "Stick placed this turn."
+                    : "No stick cards in hand."
+                  : kind === "connection"
+                    ? game.turn!.draft.connections.length
+                      ? "Joint cards placed."
+                      : "No joint cards in hand."
+                    : game.turn!.draft.loads.length
+                      ? "Weight placed this turn."
+                      : "No weight cards in hand."}
+                {kind === "element" && game.turn!.draft.members.length > 0 && (
+                  <small>To take it back, open Turn details → Cancel draft.</small>
+                )}
+              </p>
+            )}
             {cards
               .filter((card) => card.kind === kind)
               .map((card) => (

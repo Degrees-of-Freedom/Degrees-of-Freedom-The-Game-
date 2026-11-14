@@ -8,13 +8,16 @@ validated_against:
   - docs/kb/unified-runtime.md
   - docs/kb/code-standards.md
   - docs/kb/structural-solver.md
+  - docs/kb/element-representation-criteria.md
   - docs/kb/solver-criteria.md
   - docs/kb/turn-criteria.md
+  - docs/kb/joint-dof-criteria.md
   - docs/kb/animation-criteria.md
   - docs/kb/avatar-criteria.md
   - prototypes/timburr-companion/README.md
   - docs/kb/solver-criteria-gap-analysis.md
   - docs/kb/development-and-testing.md
+  - docs/kb/visualization-solver.md
 owner: unknown
 status: partial
 ---
@@ -33,7 +36,8 @@ This is the canonical entry point for durable project knowledge. The early web p
 | [project.md](project.md) | Understanding the concept, status, and repository. |
 | [architecture.md](architecture.md) | Understanding the three intended areas, current frameworks, and modular boundaries. |
 | [code-standards.md](code-standards.md) | Applying TypeScript, folder structure, modularity, React, Zustand, and routing standards. |
-| [structural-solver.md](structural-solver.md) | Working on the model, the OpenSees service, stability assessment, adapter boundaries, or solver tests. |
+| [structural-solver.md](structural-solver.md) | Working on the model, required element catalogue, the OpenSees service, stability assessment, adapter boundaries, or solver tests. |
+| [element-representation-criteria.md](element-representation-criteria.md) | Generating lightweight column, spring, planar/trichord truss, wide-flange, HSS and cable geometry, with readable and true-scale views. |
 | [structural-state.md](structural-state.md) | Browser saves, experimental solver snapshots, and proposed general state and fixture design. |
 | [solver-criteria.md](solver-criteria.md) | Reading the owner-supplied proposed solver requirements, acceptance gates, implementation order, and open gameplay decisions. |
 | [solver-criteria-gap-analysis.md](solver-criteria-gap-analysis.md) | Comparing current code and tests with the criteria and planning implementation milestones. |
@@ -41,6 +45,7 @@ This is the canonical entry point for durable project knowledge. The early web p
 | [game-dynamics.md](game-dynamics.md) | Working on game state, turns, rules, or modes. |
 | [avatar-criteria.md](avatar-criteria.md) | Defining Timburr’s personality, compact presence, reactions, Conkeldurr transformation, model sources and deferred implementation handoff. |
 | [animation-criteria.md](animation-criteria.md) | Defining all-action animation and sound requirements, optional structural glow/pulse, accessibility, timing and acceptance scenarios. |
+| [joint-dof-criteria.md](joint-dof-criteria.md) | Defining translation/twist glyphs, global/local views, shared-joint freedoms, foundation defaults and the separate instability overlay. |
 | [3d-viewer.md](3d-viewer.md) | Working on the 3D grid, interaction, or visual feedback. |
 | [development-and-testing.md](development-and-testing.md) | Finding current setup, commands, and test coverage. |
 
@@ -57,6 +62,14 @@ The confirmed decisions are distinct from the proposed connection presets and un
 ## Avatar direction and deferred prototype
 
 [Timburr avatar criteria](avatar-criteria.md) are the source of truth for the owner’s criteria-first avatar work: a small companion across screens, expanding for important reactions, with a proposed temporary Conkeldurr foreman mode. The avatar is not implemented in the active app. [Prototype handoff](../../prototypes/timburr-companion/README.md) preserves an unapplied code/asset patch and its known gaps for a future Codex/Claude run. Review the criteria before reusing it; experimental analysis must not trigger a verified-failure reaction.
+
+## Joint freedoms and graphical representation
+
+[Joint DOF criteria](joint-dof-criteria.md) record the owner-confirmed Selected joint / All joints / Off display (Selected default), global axes with local detail, brief optional demonstrations and a distinct solver-instability layer. All ends intentionally attached at one shared joint must now use matching freedoms, replacing earlier differing end-release choices there; foundations are fully fixed by default. Turn and solver criteria reflect the revision. Overlay rendering, rule enforcement and legacy migration are future implementation work.
+
+## Structural element representation
+
+[Element representation criteria](element-representation-criteria.md) require recognizable section/assembly geometry for the catalogue recorded in [structural solver](structural-solver.md#required-element-catalogue-and-geometry-direction). The owner confirmed planar two-chord trusses, triangular three-chord trusses, axial helical springs and slightly enlarged sections with true-scale inspection. Procedural geometry, LOD, numerical accuracy boundaries and acceptance fixtures are specified for future implementation; visual inclusion does not add playable cards or solver capabilities.
 
 ## Maintenance
 

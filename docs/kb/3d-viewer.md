@@ -2,6 +2,8 @@
 title: "3D Viewer"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/element-representation-criteria.md
+  - docs/kb/joint-dof-criteria.md
   - docs/kb/avatar-criteria.md
   - prototypes/timburr-companion/README.md
   - docs/kb/animation-criteria.md
@@ -26,3 +28,11 @@ See [animation and sound criteria](animation-criteria.md) for the owner-confirme
 ## Deferred Timburr companion
 
 [Avatar criteria](avatar-criteria.md) define a compact Timburr companion across screens and a proposed temporary Conkeldurr reaction. Live models, pose approval and fallback behavior remain future implementation work. The [prototype handoff](../../prototypes/timburr-companion/README.md) preserves candidate assets and unfinished code in an unapplied patch; it is not part of the current viewer. The available desktop browser could not create a WebGL context, so live character rendering has not been visually validated.
+
+## Joint DOF visualization requirements
+
+[Joint DOF criteria](joint-dof-criteria.md) specify a Selected joint / All joints / Off permissions overlay, global axes by default with a selectable local view, still translation/rotation glyphs with brief demonstrations, and a separate solver-instability overlay. All attached ends at a shared joint must use matching freedoms; foundations are fully fixed by default. These are new criteria, not current viewer or game-rule enforcement. Connection locks describe relative motion, not absolute stability. The current viewer does not establish compliance with this specification.
+
+## Structural element geometry requirements
+
+[Element representation criteria](element-representation-criteria.md) specify recognizable column/section geometry, axial helical springs, planar two-chord and triangular three-chord trusses, wide flanges, square/rectangular HSS, round HSS and cables. Default sections are slightly enlarged for readability with true-scale inspection. The current renderer primarily uses capsules/boxes with style-dependent widths; it does not meet the full profile/assembly criteria. Procedural shared meshes, LOD, section roll, exposed hollow ends, assembly identity and truthful deformation are future requirements, not shipped behavior.
