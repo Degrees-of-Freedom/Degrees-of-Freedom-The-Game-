@@ -168,3 +168,16 @@
   cursor: pointer;
   font-size: 11px;
 }
+.stability-check .verdict.unknown {
+  color: #9a6a1c;
+}
+.stability-check .component-list {
+  margin: 8px 0;
+  padding-left: 0;
+  list-style: none;
+  font-size: 11px;
+}
+.stability-check .component-list small {
+  display: block;
+  color: #788a7e;
+}
