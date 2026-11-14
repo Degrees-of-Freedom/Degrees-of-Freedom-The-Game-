@@ -2,17 +2,18 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { VoxelAnalysis } from '../solver/voxel';
+import { computeLoadPath, traceToGround } from '../solver/loadPath';
 import { useGameStore } from '../game/store';
 import { allNodeKeys, CELL_SIZE, groundK, ITEMS, LEVELS, MEMBER_TYPES, memberIssue, nodeItemIssue, nodeKey, remaining, parseNodeKey, terrainCell, type GridPoint, type MemberType, type NodeItem, type Tool } from '../game/model';
 
-export interface SceneView { result: VoxelAnalysis | null; combo: number; deformed: boolean; scale: number; utilization: boolean; loads: boolean; onMessage?: (message: string) => void }
+export interface SceneView { result: VoxelAnalysis | null; combo: number; deformed: boolean; scale: number; utilization: boolean; loads: boolean; loadPath: boolean; onToggleLoadPath?: () => void; onMessage?: (message: string) => void }
 
 /** Three.js owns only presentation and picking; the game store owns the model and rules. */
-export function Scene({ result, combo, deformed, scale, utilization, loads, onMessage }: SceneView) {
-  const view = useRef<SceneView>({ result, combo, deformed, scale, utilization, loads, onMessage });
-  view.current = { result, combo, deformed, scale, utilization, loads, onMessage };
+export function Scene({ result, combo, deformed, scale, utilization, loads, loadPath, onToggleLoadPath, onMessage }: SceneView) {
+  const view = useRef<SceneView>({ result, combo, deformed, scale, utilization, loads, loadPath, onToggleLoadPath, onMessage });
+  view.current = { result, combo, deformed, scale, utilization, loads, loadPath, onToggleLoadPath, onMessage };
   const refresh = useRef<() => void>(() => {});
-  useEffect(() => { refresh.current(); }, [result, combo, deformed, scale, utilization, loads]);
+  useEffect(() => { refresh.current(); }, [result, combo, deformed, scale, utilization, loads, loadPath]);
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const element = host.current;
@@ -24,9 +25,13 @@ export function Scene({ result, combo, deformed, scale, utilization, loads, onMe
     scene.add(new THREE.HemisphereLight(0xffffff, 0x62604d, 2));
     const sun = new THREE.DirectionalLight(0xffffff, 2); sun.position.set(-20, -20, 40); scene.add(sun);
     const terrain = new THREE.Group(), structure = new THREE.Group(), guides = new THREE.Group(); scene.add(terrain, structure, guides);
+    const particles = new THREE.InstancedMesh(new THREE.SphereGeometry(.11, 8, 6), new THREE.MeshBasicMaterial({color: 0xffffff}), 2500);
+    particles.frustumCulled = false; particles.count = 0; scene.add(particles);
+    let flowing: {a:string; b:string; direction:number; phase:number; speed:number; size:number; color:string}[] = [];
+    const particleMatrix = new THREE.Matrix4(), particlePosition = new THREE.Vector3(); let lastFrame = 0;
     const ghost = new THREE.Mesh(new THREE.SphereGeometry(.22, 12, 8), new THREE.MeshBasicMaterial({ color: 0x31aa78, depthTest: false })); scene.add(ghost); ghost.visible = false;
     const preview = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x31aa78, depthTest: false })); scene.add(preview); preview.visible = false;
-    const dispose = (group: THREE.Group) => { group.traverse(o => { if (o instanceof THREE.Mesh || o instanceof THREE.Line) { o.geometry.dispose(); const materials = Array.isArray(o.material) ? o.material : [o.material]; materials.forEach(m => m.dispose()); } }); group.clear(); };
+    const dispose = (group: THREE.Group) => { group.traverse(o => { if (o instanceof THREE.Sprite) { o.material.map?.dispose(); o.material.dispose(); } else if (o instanceof THREE.Mesh || o instanceof THREE.Line) { o.geometry.dispose(); const materials = Array.isArray(o.material) ? o.material : [o.material]; materials.forEach(m => m.dispose()); } }); group.clear(); };
     type VisualResult = VoxelAnalysis & { ctx?: { keys:string[]; idx:Map<string,number>; act:number[]; aid:number[] }; combos: { fail?:boolean; u?:Float64Array; maxD?:number; vis?:{a:number;v:number[];kind:string}[]; reac?:Record<string,Float64Array> }[] };
     const basePoint = (key: string) => new THREE.Vector3(...parseNodeKey(key).map(v => v * CELL_SIZE) as GridPoint);
     const point = (key: string) => {
@@ -59,19 +64,31 @@ export function Scene({ result, combo, deformed, scale, utilization, loads, onMe
       }
       dispose(structure); dispose(guides);
       const v = view.current, result = v.result as VisualResult | null, resultCombo = result?.combos[v.combo];
+      const path = v.loadPath && result ? computeLoadPath(result, v.combo) : null;
+      const trace = path && s.selected?.type === 'node' ? traceToGround(path, s.selected.key) : null;
+      flowing = [];
       for (const member of s.model.members) {
         const a = point(member.a), b = point(member.b), direction = b.clone().sub(a), length = direction.length();
-        const width = member.type === 'cable' ? .06 : member.type === 'shs' ? .12 : member.type === 'glulam' ? .25 : .3;
-        const u = result?.members[member.id]?.util; const color = v.utilization && result && !result.error ? (result.mechanism ? '#9b6bff' : u === undefined ? '#777777' : u > 1 ? '#ed4545' : u > .6 ? '#e5a33f' : '#4cae77') : ITEMS[member.type].color;
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, length, width), new THREE.MeshStandardMaterial({ color, emissive: s.selected?.type === 'member' && s.selected.id === member.id ? 0x536b54 : 0x000000 }));
+        const flow = path?.members.get(member.id), relative = flow && path ? flow.force / path.maxForce : 0;
+        const width = path ? (relative < .01 ? .05 : .05 + .42 * Math.sqrt(relative)) : member.type === 'cable' ? .06 : member.type === 'shs' ? .12 : member.type === 'glulam' ? .25 : .3;
+        if (flow && relative >= .03 && flow.direction) { const count = Math.max(1, Math.round(flow.length / 1.4 * (.4 + relative))); for (let i=0; i<count && flowing.length<2500; i++) flowing.push({ a:flow.a,b:flow.b,direction:flow.direction,phase:i/count,speed:(.8+2.6*relative)/flow.length,size:.6+.8*Math.sqrt(relative),color:flow.mode === 'tension' ? '#93ceff' : flow.mode === 'compression' ? '#ffab98' : '#e1c0ff' }); }
+        const u = result?.members[member.id]?.util; let color = v.utilization && result && !result.error ? (result.mechanism ? '#9b6bff' : u === undefined ? '#777777' : u > 1 ? '#ed4545' : u > .6 ? '#e5a33f' : '#4cae77') : ITEMS[member.type].color;
+        if (path) color = relative < .01 ? '#5a6370' : flow?.mode === 'tension' ? '#4da3ff' : flow?.mode === 'compression' ? '#ff6b4a' : flow?.mode === 'bending' ? '#c58cff' : '#5a6370';
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, length, width), new THREE.MeshStandardMaterial({ color, emissive: trace?.members.has(member.id) ? 0x555555 : s.selected?.type === 'member' && s.selected.id === member.id ? 0x536b54 : 0x000000 }));
         mesh.position.copy(a).add(b).multiplyScalar(.5); mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize()); structure.add(mesh);
       }
       for (const key of allNodeKeys(s.model)) {
         const p = point(key), attrs = s.model.attrs[key] || {};
-        const node = new THREE.Mesh(new THREE.SphereGeometry(.16, 12, 8), new THREE.MeshStandardMaterial({ color: s.selected?.type === 'node' && s.selected.key === key ? '#f0b84b' : '#edf1ed' })); node.position.copy(p); structure.add(node);
+        const node = new THREE.Mesh(new THREE.SphereGeometry(trace?.nodes.has(key) ? .26 : .16, 12, 8), new THREE.MeshStandardMaterial({ color: s.selected?.type === 'node' && s.selected.key === key ? '#f0b84b' : '#edf1ed' })); node.position.copy(p); structure.add(node);
         if (attrs.joint) { const joint = new THREE.Mesh(new THREE.BoxGeometry(.42, .42, .42), new THREE.MeshStandardMaterial({ color: '#f39c34' })); joint.position.copy(p); structure.add(joint); }
         if (attrs.found) { const foundation = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, .6), new THREE.MeshStandardMaterial({ color: attrs.locked ? '#777771' : '#bdb8ae' })); foundation.position.copy(p).add(new THREE.Vector3(0, 0, -.3)); structure.add(foundation); }
-        if (attrs.load) structure.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), p.clone().add(new THREE.Vector3(0, 0, 2)), 1.8, 0xe74e50, .5, .3));
+        if (attrs.target) {
+          const rope = new THREE.Mesh(new THREE.BoxGeometry(.04,.04,.5),new THREE.MeshBasicMaterial({color:0x2b2f36})); rope.position.copy(p).add(new THREE.Vector3(0,0,-.25)); structure.add(rope);
+          const color = !result || result.error ? '#e0a030' : result.floating.includes(key) ? '#ff5a5f' : '#3ecf8e';
+          const crate = new THREE.Mesh(new THREE.BoxGeometry(1.1,1.1,.9),new THREE.MeshStandardMaterial({color,roughness:.7})); crate.position.copy(p).add(new THREE.Vector3(0,0,-.95)); structure.add(crate);
+          const canvas = document.createElement('canvas'); canvas.width=256; canvas.height=80; const ctx=canvas.getContext('2d');
+          if (ctx) { ctx.fillStyle='#17251e'; ctx.fillRect(0,0,256,80); ctx.fillStyle='#ffffff'; ctx.font='bold 40px sans-serif'; ctx.textAlign='center'; ctx.fillText(`${attrs.load} kN`,128,54); const texture=new THREE.CanvasTexture(canvas); const label=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthTest:false})); label.position.copy(p).add(new THREE.Vector3(0,0,-1.6)); label.scale.set(1.6,.5,1); structure.add(label); }
+        } else if (attrs.load) structure.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), p.clone().add(new THREE.Vector3(0, 0, 2)), 1.8, 0xe74e50, .5, .3));
       }
       if (v.loads && result?.ctx && resultCombo && !resultCombo.fail) {
         const ctx = result.ctx;
@@ -133,7 +150,7 @@ export function Scene({ result, combo, deformed, scale, utilization, loads, onMe
       const button = down.button; down = null; const s = useGameStore.getState();
       if (button === 2) { s.setChainStart(null); return; } if (button !== 0) return; pick(e);
       if (s.tool === 'inspect') s.setSelected(hit?.kind === 'member' ? { type:'member', id:hit.id } : hit?.kind === 'node' ? { type:'node', key:hit.key } : null);
-      else if (s.tool === 'delete') { if (hit?.kind === 'member') { s.removeMember(hit.id); view.current.onMessage?.(''); } else if (hit?.kind === 'node') { if (s.model.attrs[hit.key]?.locked) view.current.onMessage?.('Abutment bearings cannot be removed.'); else { s.removeNodeAttrs(hit.key); view.current.onMessage?.(''); } } }
+      else if (s.tool === 'delete') { if (hit?.kind === 'member') { s.removeMember(hit.id); view.current.onMessage?.(''); } else if (hit?.kind === 'node') { if (s.model.attrs[hit.key]?.locked && !s.model.attrs[hit.key]?.joint) view.current.onMessage?.(s.model.attrs[hit.key]?.target ? 'Challenge weights cannot be removed.' : 'Abutment bearings cannot be removed.'); else { s.removeNodeAttrs(hit.key); view.current.onMessage?.(''); } } }
       else if (s.tool === 'swap' && hit?.kind === 'member') { const member = s.model.members.find(m => m.id === (hit as {kind: 'member'; id: number}).id); if (member) { if (e.shiftKey) { const count = s.swapAllOfType(member.type, s.swapTarget); view.current.onMessage?.(count ? `Swapped ${count} member${count === 1 ? '' : 's'}.` : 'No members could be swapped; check the target section and supply.'); } else view.current.onMessage?.(s.swapMember(hit.id,s.swapTarget) ?? ''); } }
       else if (hit?.kind === 'point' && hit.issue) view.current.onMessage?.(hit.issue);
       else if (hit?.kind === 'point' && !hit.issue) { if (MEMBER_TYPES.includes(s.tool as MemberType)) { if (!s.chainStart || !s.addMember(parseNodeKey(s.chainStart),hit.p,s.tool as MemberType)) s.setChainStart(nodeKey(...hit.p)); } else view.current.onMessage?.(s.toggleAttr(hit.p,s.tool as NodeItem) ?? ''); }
@@ -142,13 +159,13 @@ export function Scene({ result, combo, deformed, scale, utilization, loads, onMe
     const pointerDown = (e: PointerEvent) => { down = { x:e.clientX, y:e.clientY, button:e.button }; };
     const leave = () => { ghost.visible = false; preview.visible = false; };
     const context = (e: Event) => e.preventDefault();
-    const keydown = (e: KeyboardEvent) => { if (e.key === 'Shift' && !shiftDown) { shiftDown = true; rebuild(); } if ((e.target as HTMLElement)?.matches('input, select, textarea')) return; const s=useGameStore.getState(); if(e.key==='Escape') s.setChainStart(null); else if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey) { const tools: Tool[] = ['inspect','delete','swap','shs','glulam','ipe','heb','cable','joint','found']; const tool = tools[(Number(e.key)+9)%10]; if (tool) s.setTool(tool); } else if(e.key==='[') s.setWorkK(s.workK-1); else if(e.key===']') s.setWorkK(s.workK+1); else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='z') { e.preventDefault(); s.undo(); } else if ((e.key==='Delete'||e.key==='Backspace') && s.selected?.type==='member') { e.preventDefault(); s.removeMember(s.selected.id); } };
+    const keydown = (e: KeyboardEvent) => { if (e.key === 'Shift' && !shiftDown) { shiftDown = true; rebuild(); } if ((e.target as HTMLElement)?.matches('input, select, textarea')) return; const s=useGameStore.getState(); if(e.key.toLowerCase()==='l' && !e.ctrlKey && !e.metaKey) view.current.onToggleLoadPath?.(); else if(e.key==='Escape') s.setChainStart(null); else if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey) { const tools: Tool[] = ['inspect','delete','swap','shs','glulam','ipe','heb','cable','joint','found']; const tool = tools[(Number(e.key)+9)%10]; if (tool) s.setTool(tool); } else if(e.key==='[') s.setWorkK(s.workK-1); else if(e.key===']') s.setWorkK(s.workK+1); else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='z') { e.preventDefault(); s.undo(); } else if ((e.key==='Delete'||e.key==='Backspace') && s.selected?.type==='member') { e.preventDefault(); s.removeMember(s.selected.id); } };
     const keyup = (e: KeyboardEvent) => { if (e.key === 'Shift') { shiftDown = false; rebuild(); } };
     const cameraChanged = () => { if (useGameStore.getState().chainStart) rebuild(); };
     controls.addEventListener('end', cameraChanged); window.addEventListener('keyup', keyup);
     renderer.domElement.addEventListener('pointerdown', pointerDown); renderer.domElement.addEventListener('pointermove', move); renderer.domElement.addEventListener('pointerup', up); renderer.domElement.addEventListener('pointerleave', leave); renderer.domElement.addEventListener('contextmenu', context); window.addEventListener('keydown', keydown);
-    const resize = () => { const {clientWidth:w,clientHeight:h}=element; if(w && h) { camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h); } }; const observer = new ResizeObserver(resize); observer.observe(element); resize(); renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene,camera); });
-    return () => { refresh.current = () => {}; unsubscribe(); observer.disconnect(); renderer.setAnimationLoop(null); controls.dispose(); renderer.domElement.removeEventListener('pointerdown',pointerDown); renderer.domElement.removeEventListener('pointermove',move); renderer.domElement.removeEventListener('pointerup',up); renderer.domElement.removeEventListener('pointerleave',leave); renderer.domElement.removeEventListener('contextmenu',context); window.removeEventListener('keydown',keydown); window.removeEventListener('keyup',keyup); controls.removeEventListener('end',cameraChanged); dispose(terrain); dispose(structure); dispose(guides); ghost.geometry.dispose(); ghost.material.dispose(); preview.geometry.dispose(); preview.material.dispose(); renderer.dispose(); renderer.domElement.remove(); };
+    const resize = () => { const {clientWidth:w,clientHeight:h}=element; if(w && h) { camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h); } }; const observer = new ResizeObserver(resize); observer.observe(element); resize(); renderer.setAnimationLoop((time) => { controls.update(); const dt = lastFrame ? Math.min((time-lastFrame)/1000,.1) : 0; lastFrame = time; particles.count = flowing.length; flowing.forEach((f,i) => { f.phase = (f.phase+f.speed*dt)%1; particlePosition.lerpVectors(point(f.a),point(f.b),f.direction>0?f.phase:1-f.phase); particleMatrix.makeScale(f.size,f.size,f.size).setPosition(particlePosition); particles.setMatrixAt(i,particleMatrix); particles.setColorAt(i,new THREE.Color(f.color)); }); if (flowing.length) { particles.instanceMatrix.needsUpdate = true; if (particles.instanceColor) particles.instanceColor.needsUpdate = true; } renderer.render(scene,camera); });
+    return () => { refresh.current = () => {}; unsubscribe(); observer.disconnect(); renderer.setAnimationLoop(null); controls.dispose(); renderer.domElement.removeEventListener('pointerdown',pointerDown); renderer.domElement.removeEventListener('pointermove',move); renderer.domElement.removeEventListener('pointerup',up); renderer.domElement.removeEventListener('pointerleave',leave); renderer.domElement.removeEventListener('contextmenu',context); window.removeEventListener('keydown',keydown); window.removeEventListener('keyup',keyup); controls.removeEventListener('end',cameraChanged); dispose(terrain); dispose(structure); dispose(guides); particles.geometry.dispose(); particles.material.dispose(); ghost.geometry.dispose(); ghost.material.dispose(); preview.geometry.dispose(); preview.material.dispose(); renderer.dispose(); renderer.domElement.remove(); };
   }, []);
   return <div className="scene" ref={host} aria-label="3D workspace. Drag to orbit, scroll to zoom, and click to build." />;
 }
