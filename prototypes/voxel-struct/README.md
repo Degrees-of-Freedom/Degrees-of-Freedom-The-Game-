@@ -36,6 +36,14 @@ Then open `http://localhost:8765`. Three.js 0.160.0 is loaded from the jsDelivr 
 - Member design (simplified Eurocode-style): strength (N + My + Mz interaction), shear, flexural buckling (χ from imperfection curves, effective length 1.0/0.85/0.7 by end fixity), slenderness (λ ≤ 200 compression, 300 tension), SLS deflection L/250, connection capacity (pinned 350 kN; rigid 700 kN and 220 kNm). Foundations: bearing 1500 kN, uplift 250 kN, shear 350 kN, moment 300 kNm (abutment bearings 3×).
 - Level checks: tower top drift ≤ H/200 (SLS); continuous deck beams at deck level and deck deflection ≤ span/400 (SLS) for bridges.
 - **Load path view** (L, or the Load path card): members are drawn with thickness ∝ √(transferred force) and coloured by how they carry it: compression, tension, or bending/shear (|N| < 0.7 of the end-force resultant). Members under 1 % of the peak force fade out, and dots flow along loaded members towards the supports. The flow direction comes from a Dijkstra "distance to ground" from the foundations, where an edge costs L·Fmax/(F + 0.02·Fmax), so heavily loaded members form the routes. Inspecting a node traces its main route to a support. The card lists each support's share of the vertical load. This is a visual reading of the analysis forces for the selected load case, not an extra structural check.
+- **Degrees-of-freedom view** (F, or the Degrees of freedom card) shows, for the selected load case, the six DOFs of every solved node (translations X, Y, Z, then rotations X, Y, Z; colours red, green, blue):
+  - translations are glowing arrows along ±axis, with length and opacity ∝ √(|u|/max|u|), so idle DOFs fade to a faint shadow;
+  - DOFs locked by a foundation are solid grey stubs with end plates (translation) or solid grey rings (rotation);
+  - rotations at nodes with at least one rigid member end (moment connection or continuous member) are coloured arcs whose sweep ∝ √(|θ|/max|θ|); rotations at nodes where every member is pinned are dashed hinge rings;
+  - each node's dominant DOF is drawn at full strength, and nodes of a mechanism turn violet;
+  - the structure "breathes" between its undeformed and deformed shape, leaving four fading ghost copies of the deformed shape; members turn translucent and joint cubes and node spheres are hidden, so the glyphs read clearly.
+
+  Glyphs scale with the model size. The card counts solved, locked, free and hinged DOFs, lists the most mobile nodes, and gives a six-row readout (mm, mrad) for an inspected node. Pass-through nodes inside a member have no DOFs of their own and are shown by interpolation. The DOF view and the load path view are mutually exclusive.
 - Auto-design picks the cheapest beam section in remaining supply with utilisation ≤ 95% using current forces, then re-analyses (up to 4 rounds).
 
 ## Known simplifications
