@@ -9,3 +9,5 @@ Install Node.js and npm, then run `npm install` and `npm run dev`. Run `npm run 
 The repository contains the web app in `apps/web`, the preliminary shared solver contract in `packages/solver-contract`, and a reserved OpenSees service location in `services/opensees`. See [the knowledge base](docs/kb/README.md) for architecture and project status.
 
 The current app is a foundation with an orbitable 3D grid. Building tools, gameplay, and structural analysis are not implemented.
+
+A standalone, playable build-and-analyse prototype lives in [prototypes/voxel-struct](prototypes/voxel-struct/README.md); it is separate from the scaffold.
