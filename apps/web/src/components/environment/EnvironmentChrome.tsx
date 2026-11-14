@@ -154,11 +154,7 @@ export function EnvironmentStepper() {
   );
 }
 
-export function TurnBanner({
-  onMessage,
-}: {
-  onMessage: (message: string) => void;
-}) {
+export function TurnBanner({ onEndTurn }: { onEndTurn: () => void }) {
   const game = useGameStore(),
     turn = game.turn;
   if (game.mode !== "multiplayer" || !turn) return null;
@@ -180,9 +176,7 @@ export function TurnBanner({
       <button
         className="btn"
         disabled={turn.finished}
-        onClick={() =>
-          onMessage(game.endTurn() ?? "Turn committed · pass the table")
-        }
+        onClick={onEndTurn}
       >
         End turn
       </button>

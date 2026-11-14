@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { Scene } from "../viewer/Scene";
 import { LEVELS } from "../game/levels";
 import { useGameStore } from "../game/store";
@@ -16,6 +17,7 @@ import { AnalysisPanel } from "../components/AnalysisPanel";
 import { ConnectivityPanel } from "../components/ConnectivityPanel";
 import { CoordinateEditor, ModelIO } from "../components/RuntimeControls";
 import { TurnPanel } from "../components/TurnPanel";
+import { SharedTableHandoff } from "../components/SharedTableHandoff";
 import {
   EnvironmentTools,
   EnvironmentTray,
@@ -51,6 +53,12 @@ export function Workspace() {
   const [message, setMessage] = useState("");
   const [help, setHelp] = useState(() => getSettings().showHelpOnStart);
   const [paused, setPaused] = useState(false);
+  // A committed board is immutable through staging and cancel. Each advance,
+  // new match or restore produces a new board, even for the same seed/seat.
+  const [readyBoard, setReadyBoard] = useState<NonNullable<typeof game.turn>["board"] | null>(null);
+  const privateTurn = game.mode === "multiplayer" && !game.turn?.finished ? game.turn : null;
+  const privateMatchActive = privateTurn !== null;
+  const covered = !!privateTurn && readyBoard !== privateTurn.board;
   const [combo, setCombo] = useState(0);
   const [deformed, setDeformed] = useState(false);
   const [scale, setScale] = useState(1);
@@ -67,6 +75,39 @@ export function Workspace() {
   const isBlocks = style === "blocks";
   const progress = result ? modeProgress(game.mode, result) : null;
 
+  function endPrivateTurn() {
+    const current = useGameStore.getState();
+    // A queued click from the previous render cannot pass the new player's turn.
+    if (current.mode !== "multiplayer" || !current.turn || current.turn.finished ||
+        current.turn.board !== readyBoard || paused || document.hidden) return;
+    const error = current.endTurn();
+    if (error) { setMessage(error); return; }
+    setReadyBoard(null);
+    setDrawer(null);
+    setMessage("");
+  }
+  function pause() {
+    setReadyBoard(null);
+    setPaused(true);
+  }
+  useLayoutEffect(() => {
+    if (!privateMatchActive) return;
+    // Conceal before the browser snapshots a backgrounded page. The turn and
+    // its reserved cards stay in the store; readiness exists only in this tab.
+    const conceal = () => flushSync(() => {
+      setReadyBoard(null);
+      setMessage("");
+    });
+    const visibilityChanged = () => { if (document.hidden) conceal(); };
+    window.addEventListener("blur", conceal);
+    window.addEventListener("pagehide", conceal);
+    document.addEventListener("visibilitychange", visibilityChanged);
+    return () => {
+      window.removeEventListener("blur", conceal);
+      window.removeEventListener("pagehide", conceal);
+      document.removeEventListener("visibilitychange", visibilityChanged);
+    };
+  }, [privateMatchActive]);
   function run() {
     if (contractCompatible) void stability.run(game.model);
     try {
@@ -119,6 +160,7 @@ export function Workspace() {
   useEffect(() => {
     const keys = (event: KeyboardEvent) => {
       if (
+        covered || paused || event.defaultPrevented ||
         (event.target as HTMLElement)?.matches(
           "input, textarea, select, button",
         ) ||
@@ -135,8 +177,10 @@ export function Workspace() {
         setDrawer(null);
         game.setSelected(null);
       }
-      if (event.key === "Enter" && game.mode === "multiplayer")
-        setMessage(game.endTurn() ?? "Turn committed");
+      if (event.key === "Enter" && !event.repeat && privateTurn) {
+        event.preventDefault();
+        endPrivateTurn();
+      }
     };
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
@@ -217,10 +261,22 @@ export function Workspace() {
         className="btn"
         title="Menu (P)"
         aria-haspopup="dialog"
-        onClick={() => setPaused(true)}
+        onClick={pause}
       >
         Menu
       </button>
+    </>
+  );
+  const pauseMenu = (
+    <PauseMenu open={paused} onOpen={pause} onClose={() => setPaused(false)}
+      escapeBusy={!covered && drawer !== null} onMessage={setMessage} />
+  );
+  if (covered && privateTurn) return (
+    <>
+      <SharedTableHandoff player={privateTurn.playerIndex + 1} onReady={() => {
+        if (!paused && !document.hidden) setReadyBoard(privateTurn.board);
+      }} />
+      {pauseMenu}
     </>
   );
   return (
@@ -248,7 +304,7 @@ export function Workspace() {
           <>
             <div id="top-left">{historyActions}</div>
             <div id="top-right">{analysisActions}</div>
-            <TurnBanner onMessage={setMessage} />
+            <TurnBanner onEndTurn={endPrivateTurn} />
             <div id="corner">
               <EnvironmentBrand />
               <EnvironmentStats />
@@ -282,7 +338,7 @@ export function Workspace() {
           <>
             <div id="topleft">
               <EnvironmentBrand />
-              {!isLevels && <TurnBanner onMessage={setMessage} />}
+              {!isLevels && <TurnBanner onEndTurn={endPrivateTurn} />}
             </div>
             <div
               id={isBlocks ? "top-right" : "actions"}
@@ -339,13 +395,7 @@ export function Workspace() {
             </button>
           )}
         </div>
-        <PauseMenu
-          open={paused}
-          onOpen={() => setPaused(true)}
-          onClose={() => setPaused(false)}
-          escapeBusy={drawer !== null}
-          onMessage={setMessage}
-        />
+        {pauseMenu}
         {message && (
           <div id="toast" className="chip show" role="status">
             {message}
@@ -552,7 +602,7 @@ export function Workspace() {
                 </>
               )}
               {drawer === "turn" && (
-                <TurnPanel game={game} onMessage={setMessage} />
+                <TurnPanel game={game} onMessage={setMessage} onEndTurn={endPrivateTurn} />
               )}
             </div>
           </aside>

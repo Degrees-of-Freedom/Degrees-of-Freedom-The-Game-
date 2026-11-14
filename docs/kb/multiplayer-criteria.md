@@ -29,6 +29,8 @@ Do not leak private cards through tooltips, DOM accessible names, background ren
 
 ## 3. Handoff state machine
 
+Shared table now waits on a neutral Ready screen before showing the incoming player's board and hand. Reload, pause and losing tab visibility conceal the private view and preserve the draft. On the accepted desktop fixture, holding Enter and repeated clicks did not reveal or commit the next player's turn. [Browser walkthrough and screenshots](criteria-ledger.md)
+
 1. Resolve and atomically commit the outgoing player's turn under the rules; finish public outcome presentation or allow its safe skip.
 2. Hide the outgoing hand, private tooltips/dialogs and focused private labels **before** revealing the incoming hand or allowing input. The privacy cover appears immediately; animation does not delay concealment.
 3. Show a neutral public cover naming only the next player and a deliberate “Ready / Reveal my hand” action. Proposed keyboard/touch support must not allow the same click/key that ended the last turn to reveal the next hand.

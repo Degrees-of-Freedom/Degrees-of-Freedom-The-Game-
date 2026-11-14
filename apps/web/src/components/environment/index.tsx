@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useGameStore } from "../../game/store";
 import {
   parseNodeKey,
@@ -383,7 +382,6 @@ export function EnvironmentTools({ style }: Props) {
 /** Physical piece palette, or the active player's actual card hand in Kit. */
 export function EnvironmentTray({ style }: Props) {
   const game = useGameStore();
-  const [revealedTurn, setRevealedTurn] = useState<string | null>(null);
   if (style !== "kit" && style !== "blocks") return null;
   if (game.mode === "multiplayer" && game.turn) {
     if (game.turn.finished)
@@ -393,21 +391,6 @@ export function EnvironmentTray({ style }: Props) {
             <h4>Match complete</h4>
             <button className="token" onClick={() => game.newMatch()}>
               <small>New match</small>
-            </button>
-          </div>
-        </div>
-      );
-    const handKey = `${game.turn.seed}:${game.turn.turn}`;
-    if (revealedTurn !== handKey)
-      return (
-        <div className="env-tray panel">
-          <div className="well">
-            <h4>Player {game.turn.playerIndex + 1}</h4>
-            <button
-              className="token"
-              onClick={() => setRevealedTurn(handKey)}
-            >
-              <small>Reveal hand</small>
             </button>
           </div>
         </div>

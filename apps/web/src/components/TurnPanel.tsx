@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useGameStore } from "../game/store";
 import { activeTurnHand, KIT_PLAYTEST } from "../game/turns";
 
@@ -6,12 +5,13 @@ type Game = ReturnType<typeof useGameStore.getState>;
 export function TurnPanel({
   game,
   onMessage,
+  onEndTurn,
 }: {
   game: Game;
   onMessage: (message: string) => void;
+  onEndTurn: () => void;
 }) {
   const turn = game.turn;
-  const [revealedTurn, setRevealedTurn] = useState<string | null>(null);
   if (game.mode !== "multiplayer" || !turn) return null;
   const player = turn.players[turn.playerIndex];
   const hand = activeTurnHand(turn);
@@ -19,8 +19,6 @@ export function TurnPanel({
   const members = [...turn.board.members, ...turn.draft.members];
   const connections = [...turn.board.connections, ...turn.draft.connections];
   const report = turn.reports.at(-1);
-  const handKey = `${turn.seed}:${turn.turn}`;
-  const revealed = revealedTurn === handKey;
   return (
     <section className="turn-panel" aria-label="Shared-table turn">
       <h2>
@@ -43,7 +41,6 @@ export function TurnPanel({
           className="primary-action"
           onClick={() => {
             const issue = game.newMatch();
-            if (!issue) setRevealedTurn(null);
             onMessage(
               issue ?? "New match started. Pass the table to Player 1.",
             );
@@ -52,15 +49,7 @@ export function TurnPanel({
           Start another match
         </button>
       )}
-      {!turn.finished && !revealed && (
-        <button
-          className="resume-link"
-          onClick={() => setRevealedTurn(handKey)}
-        >
-          Reveal Player {turn.playerIndex + 1}’s hand
-        </button>
-      )}
-      {!turn.finished && revealed && (
+      {!turn.finished && (
         <>
           <div className="turn-cards" aria-label={`${player.id} hand`}>
             {hand.map((card) => (
@@ -130,12 +119,7 @@ export function TurnPanel({
             </button>
             <button
               className="primary-action"
-              onClick={() => {
-                const issue = game.endTurn();
-                onMessage(
-                  issue ?? "Turn committed. Pass the table to the next player.",
-                );
-              }}
+              onClick={onEndTurn}
             >
               End turn / pass
             </button>
