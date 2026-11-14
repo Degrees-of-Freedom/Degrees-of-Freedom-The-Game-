@@ -7,6 +7,7 @@ import {
   updateSettings,
   useSettings,
   type Settings,
+  type ToggleSetting,
 } from "../menu/settings";
 
 const HOW_TOOLS = [
@@ -155,7 +156,7 @@ export function HowToPlay() {
   );
 }
 
-const TOGGLES: { key: keyof Settings; title: string; text: string }[] = [
+const TOGGLES: { key: ToggleSetting; title: string; text: string }[] = [
   {
     key: "sound",
     title: "Sound",

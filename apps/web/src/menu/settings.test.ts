@@ -38,7 +38,7 @@ describe("menu settings", () => {
 
   it("round-trips through storage under dof.settings", () => {
     const storage = fakeStorage();
-    const settings = { sound: true, reducedMotion: true, showHelpOnStart: true };
+    const settings = { sound: true, reducedMotion: true, showHelpOnStart: true, primarySolver: "opensees-linear" };
     expect(writeSettings(settings, storage)).toBe(true);
     expect(JSON.parse(storage.raw!)).toEqual(settings);
     expect(readSettings(storage)).toEqual(settings);
@@ -57,5 +57,14 @@ describe("menu settings", () => {
     expect(writeSettings(DEFAULT_SETTINGS, broken)).toBe(false);
     expect(readSettings(null)).toEqual(DEFAULT_SETTINGS);
     expect(writeSettings(DEFAULT_SETTINGS, null)).toBe(false);
+  });
+});
+
+describe("primary solver setting", () => {
+  it("defaults to voxel and keeps a stored solver id", () => {
+    expect(parseSettings(null).primarySolver).toBe("voxel");
+    expect(parseSettings(JSON.stringify({ primarySolver: "opensees-linear" })).primarySolver).toBe("opensees-linear");
+    expect(parseSettings(JSON.stringify({ primarySolver: 3 })).primarySolver).toBe("voxel");
+    expect(parseSettings(JSON.stringify({ primarySolver: "" })).primarySolver).toBe("voxel");
   });
 });

@@ -4,13 +4,15 @@ import { LEVELS } from "../game/levels";
 import { useGameStore } from "../game/store";
 import { analyzeGame } from "../game/analysis";
 import { analyzeTurn } from "../game/turnAnalysis";
-import { useStabilityCheck } from "../game/useStabilityCheck";
+import { stabilityCheckOf, useSolverRuns } from "../game/useSolverRuns";
+import { createSolvers, type RunContext } from "../game/solvers";
+import { defaultSolver } from "../solver";
 import { StabilityCheckPanel } from "../components/StabilityCheckPanel";
+import { SolverRunsPanel } from "../components/SolverRunsPanel";
 import { modeProgress } from "../game/modes";
 import { environmentExample } from "../game/environmentExamples";
 import { useEditorSound } from "../game/useEditorSound";
 import { createGameSave } from "../game/structuralState";
-import type { VoxelAnalysis } from "../solver/voxel";
 import { AnalysisPanel } from "../components/AnalysisPanel";
 import { ConnectivityPanel } from "../components/ConnectivityPanel";
 import { CoordinateEditor, ModelIO } from "../components/RuntimeControls";
@@ -29,21 +31,38 @@ import {
 import { EngineeringOptions } from "../components/environment/EngineeringOptions";
 import { SceneBoundary } from "../components/environment/SceneBoundary";
 import { PauseMenu } from "../components/PauseMenu";
-import { getSettings } from "../menu/settings";
+import { getSettings, updateSettings, useSettings } from "../menu/settings";
 import { StructureLibrary } from "../components/StructureLibrary";
+
+const SOLVERS = createSolvers(defaultSolver);
+/** The contract solver whose result the stability panel shows when voxel is the primary solver. */
+const DEFAULT_CHECK_ID = "opensees-nonlinear";
 
 type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 
 /** The environment variants compose the same store, scene and analysis boundary. */
 export function Workspace() {
   const game = useGameStore();
-  const stability = useStabilityCheck(game.model);
+  const solverRuns = useSolverRuns(game.model, SOLVERS);
   // Multiplayer uses independent member-end connections, not the node model.
   const contractCompatible = game.mode !== "multiplayer";
-  const [analysis, setAnalysis] = useState<{
-    model: typeof game.model;
-    result: VoxelAnalysis;
-  } | null>(null);
+  const runContext: RunContext = {
+    model: game.model,
+    level: LEVELS[game.levelId],
+    contractCompatible,
+    analyzeVoxel: () =>
+      game.mode === "multiplayer" && game.turn
+        ? analyzeTurn(game.turn)
+        : analyzeGame(game.model, LEVELS[game.levelId]),
+  };
+  const reasons = Object.fromEntries(
+    SOLVERS.map((solver) => [solver.id, solver.unavailableReason(runContext)]),
+  );
+  const stored = useSettings().primarySolver;
+  // A stored id that no longer exists or cannot run here falls back to voxel.
+  const primary = SOLVERS.some((solver) => solver.id === stored && !reasons[solver.id])
+    ? stored
+    : "voxel";
   const [drawer, setDrawer] = useState<Drawer>(() =>
     new URLSearchParams(window.location.search).has("library") ? "library" : null,
   );
@@ -59,7 +78,14 @@ export function Workspace() {
   const [exampleIndex, setExampleIndex] = useState(0);
   const [libraryIndex, setLibraryIndex] = useState(0);
   const sound = useEditorSound(game.model);
-  const result = analysis?.model === game.model ? analysis.result : null;
+  const voxelState = solverRuns.runs.voxel;
+  const voxelNative = voxelState?.phase === "done" ? voxelState.run.native : null;
+  const result = voxelNative?.kind === "voxel" ? voxelNative.result : null;
+  const voxelFailure =
+    voxelState?.phase === "done" && !voxelNative ? voxelState.run.message : "";
+  const checkId = SOLVERS.find((solver) => solver.id === primary)?.remote
+    ? primary
+    : DEFAULT_CHECK_ID;
   const style = game.style === "engineering" ? "levels" : game.style;
   const isKit = style === "kit";
   const isLevels = style === "levels";
@@ -67,23 +93,28 @@ export function Workspace() {
   const progress = result ? modeProgress(game.mode, result) : null;
 
   function run() {
-    if (contractCompatible) void stability.run(game.model);
-    try {
-      setCombo(0);
-      setAnalysis({
-        model: game.model,
-        result:
-          game.mode === "multiplayer" && game.turn
-            ? analyzeTurn(game.turn)
-            : analyzeGame(game.model, LEVELS[game.levelId]),
-      });
-      setDrawer("analysis");
-      setMessage("Experimental analysis · results for the current model");
-    } catch (error) {
-      setAnalysis(null);
-      setMessage(error instanceof Error ? error.message : "Analysis failed");
-      setDrawer("analysis");
-    }
+    // Voxel keeps its companion OpenSees check; another primary solver runs alone.
+    const ids =
+      primary === "voxel"
+        ? ["voxel", ...(reasons[DEFAULT_CHECK_ID] ? [] : [DEFAULT_CHECK_ID])]
+        : [primary];
+    setCombo(0);
+    void solverRuns.run(ids, runContext);
+    setDrawer("analysis");
+    setMessage(
+      primary === "voxel"
+        ? "Experimental analysis · results for the current model"
+        : "Showing the selected solver only · the 3D results come from the voxel solver",
+    );
+  }
+  function compare() {
+    setCombo(0);
+    void solverRuns.run(
+      SOLVERS.filter((solver) => !reasons[solver.id]).map((solver) => solver.id),
+      runContext,
+    );
+    setDrawer("analysis");
+    setMessage("Running every available solver, one after another");
   }
   function example() {
     if (game.mode === "creative") {
@@ -180,8 +211,25 @@ export function Workspace() {
   );
   const analysisActions = (
     <>
+      <select
+        className="solver-select"
+        aria-label="Solver"
+        title="Solver for Run simulation. Voxel also runs the OpenSees check when a service is available."
+        value={primary}
+        onChange={(event) => updateSettings({ primarySolver: event.target.value })}
+      >
+        {SOLVERS.map((solver) => (
+          <option key={solver.id} value={solver.id} disabled={!!reasons[solver.id]}>
+            {solver.label}
+            {reasons[solver.id] ? " (unavailable)" : ""}
+          </option>
+        ))}
+      </select>
       <button className={`btn${result ? " on" : ""}`} onClick={run}>
         Run simulation
+      </button>
+      <button className="btn" disabled={solverRuns.busy} onClick={compare}>
+        Compare solvers
       </button>
       {result && (
         <button className="btn" onClick={() => setDrawer("analysis")}>
@@ -450,7 +498,7 @@ export function Workspace() {
                   </p>
                   <AnalysisPanel
                     result={result}
-                    message={message}
+                    message={voxelFailure || message}
                     combo={combo}
                     setCombo={setCombo}
                     deformed={deformed}
@@ -477,7 +525,10 @@ export function Workspace() {
                       game.setSelected({ type: "node", key })
                     }
                   />
-                  {contractCompatible && <StabilityCheckPanel check={stability.check} />}
+                  {contractCompatible && (
+                    <StabilityCheckPanel check={stabilityCheckOf(solverRuns.runs[checkId])} />
+                  )}
+                  <SolverRunsPanel solvers={SOLVERS} runs={solverRuns.runs} reasons={reasons} />
                 </>
               )}
               {drawer === "model" && (

@@ -1,5 +1,5 @@
 import type { AnalysisResult, ComponentResult } from '@dof/solver-contract';
-import type { StabilityCheck } from '../game/useStabilityCheck';
+import type { StabilityCheck } from '../game/useSolverRuns';
 import { describeComponentState, describeReasonCode } from '../solver/reasonCodes';
 
 const pad = (count: number) => String(count).padStart(2, '0');

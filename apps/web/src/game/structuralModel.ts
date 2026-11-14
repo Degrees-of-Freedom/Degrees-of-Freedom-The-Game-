@@ -1,4 +1,5 @@
 import type {
+  AnalysisFidelity,
   MemberEndConnection,
   MemberProperties,
   StructuralMember,
@@ -88,6 +89,11 @@ function voxelLocalY(a: Vector3, b: Vector3): Vector3 {
   return [-d[1], d[0], 0];
 }
 
+export interface TranslationOptions {
+  /** Contract analysis fidelity, always written to the model. Defaults to `nonlinear`. */
+  fidelity?: AnalysisFidelity;
+}
+
 /**
  * Translate the voxel game model to the shared solver contract.
  *
@@ -107,11 +113,14 @@ function voxelLocalY(a: Vector3, b: Vector3): Vector3 {
  *   explicit restraint mask, which is passed through unchanged.
  * - Point loads act along their selected axis, -Z when none is selected.
  *
- * Analysis options are left at the contract defaults (nonlinear, no
- * self-weight). The model carries no `version`: the game has no model
+ * `analysis.fidelity` is always set explicitly (nonlinear unless the caller
+ * asks for linear); self-weight stays off. The model carries no `version`: the game has no model
  * revision at this layer.
  */
-export function toStructuralModel(game: GameModel): StructuralModelTranslation {
+export function toStructuralModel(
+  game: GameModel,
+  options: TranslationOptions = {},
+): StructuralModelTranslation {
   const positions = new Map<string, Vector3>();
   const nodes = allNodeKeys(game).map((key) => {
     const [i, j, k] = parseNodeKey(key);
@@ -152,6 +161,7 @@ export function toStructuralModel(game: GameModel): StructuralModelTranslation {
     members: game.members.map(translateMember),
     supports: [],
     loads: [],
+    analysis: { fidelity: options.fidelity ?? 'nonlinear' },
   };
   for (const [key, attrs] of Object.entries(game.attrs)) {
     if (attrs.found)

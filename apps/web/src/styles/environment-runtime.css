@@ -1030,3 +1030,45 @@ body,
   display: block;
   opacity: 0.75;
 }
+
+/* Solver selector and comparison table. */
+.environment .solver-select {
+  height: 34px;
+  max-width: 180px;
+  padding: 0 8px;
+  border-radius: 10px;
+  border: 1px solid #d9d2c3;
+  background: inherit;
+  color: inherit;
+  font: inherit;
+}
+.solver-runs table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.solver-runs th,
+.solver-runs td {
+  padding: 6px 4px;
+  border-bottom: 1px solid #d9d2c3;
+  text-align: left;
+  vertical-align: top;
+}
+.solver-runs th:nth-child(n + 3),
+.solver-runs td:nth-child(n + 3):not([colspan]) {
+  text-align: right;
+}
+.solver-runs td small {
+  display: block;
+  opacity: 0.75;
+}
+.solver-runs .verdict-stable {
+  color: #3f7a4f;
+}
+.solver-runs .verdict-unstable {
+  color: #b5473c;
+}
+.solver-runs .verdict-unresolved,
+.solver-runs .verdict-unavailable {
+  color: #9a6a1c;
+}

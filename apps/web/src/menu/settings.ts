@@ -9,12 +9,19 @@ import { useSyncExternalStore } from "react";
  * - `sound` is stored only: the editor sound (`game/useEditorSound`) keeps its
  *   own in-component state and exposes no external mute hook, so nothing reads
  *   this value yet.
+ * - `primarySolver` is the id of the solver whose result Run simulation shows
+ *   (see `game/solvers`). The workspace falls back to voxel when the id is
+ *   unknown or the solver cannot run on the current game.
  */
 export interface Settings {
   sound: boolean;
   reducedMotion: boolean;
   showHelpOnStart: boolean;
+  primarySolver: string;
 }
+
+/** The settings that are on/off switches. */
+export type ToggleSetting = "sound" | "reducedMotion" | "showHelpOnStart";
 
 export const SETTINGS_KEY = "dof.settings";
 
@@ -22,6 +29,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   sound: false,
   reducedMotion: false,
   showHelpOnStart: false,
+  primarySolver: "voxel",
 };
 
 export interface SettingsStorage {
@@ -39,7 +47,7 @@ export function parseSettings(raw: string | null): Settings {
   }
   const record =
     value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-  const pick = (key: keyof Settings) =>
+  const pick = (key: ToggleSetting) =>
     typeof record[key] === "boolean"
       ? (record[key] as boolean)
       : DEFAULT_SETTINGS[key];
@@ -47,6 +55,10 @@ export function parseSettings(raw: string | null): Settings {
     sound: pick("sound"),
     reducedMotion: pick("reducedMotion"),
     showHelpOnStart: pick("showHelpOnStart"),
+    primarySolver:
+      typeof record.primarySolver === "string" && record.primarySolver
+        ? record.primarySolver
+        : DEFAULT_SETTINGS.primarySolver,
   };
 }
 

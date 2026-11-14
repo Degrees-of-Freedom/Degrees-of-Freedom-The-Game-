@@ -69,7 +69,8 @@ describe('game model to solver contract', () => {
   it('says what it does not carry', () => {
     expect(notes).toHaveLength(1);
     expect(notes[0]).toContain('self-weight');
-    expect(model.analysis).toBeUndefined();
+    expect(model.analysis).toEqual({ fidelity: 'nonlinear' });
+    expect(toStructuralModel(frame, { fidelity: 'linear' }).model.analysis).toEqual({ fidelity: 'linear' });
   });
 
   it('preserves partial restraint masks and directional loads in SI units', () => {
