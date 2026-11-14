@@ -87,6 +87,14 @@ function cleanup(model: GameModel) {
 }
 /** Pure game state and validated, undoable edits; renderer and solver are independent. */
 export const useGameStore = create<GameState>((set, get) => {
+  const saveModel = (levelId: LevelId, model: GameModel, mode: GameMode) => {
+    if (mode === 'forensics') {
+      const stored = loadMode(levelId, mode);
+      if (stored.status === 'found' && !hasForensicsFixture(stored.model))
+        return { ok: false as const, message: 'Saved repair fixture is incompatible.' };
+    }
+    return save(levelId, model, mode);
+  };
   const saveSession = (session: Session) => {
     try { return writeSession(localStorage, session); } catch { return false; }
   };
@@ -100,7 +108,7 @@ export const useGameStore = create<GameState>((set, get) => {
   };
   const commit = (model: GameModel) =>
     set((s) => {
-      const persisted = save(s.levelId, model, s.mode);
+      const persisted = saveModel(s.levelId, model, s.mode);
       return { model, persistenceError: persisted.ok ? null : 'Changes could not be saved. Existing stored data was preserved.', history: [...s.history.slice(-199), clone(s.model)], future: [] };
     });
   const startLevel = savedLevel();
@@ -114,13 +122,14 @@ export const useGameStore = create<GameState>((set, get) => {
   } catch { /* Storage is optional. */ }
   const setup = modeSetup(session.mode);
   const other = session.mode === 'challenge' || session.mode === 'multiplayer' ? null : loadMode(setup.levelId, session.mode);
+  const validOther = other?.status === 'found' && (session.mode !== 'forensics' || hasForensicsFixture(other.model));
   const levelId = session.mode === 'challenge' ? startLevel : setup.levelId;
   const initialModelValue = session.mode === 'multiplayer' && session.turn ? projectTurnModel(session.turn)
-    : session.mode === 'challenge' ? initial.model : other?.status === 'found' ? other.model : setup.model;
+    : session.mode === 'challenge' ? initial.model : validOther && other?.status === 'found' ? other.model : setup.model;
   return {
     levelId,
     model: initialModelValue,
-    persistenceError: sessionError ?? (other?.status === 'error' ? 'Saved state could not be read; existing data was preserved.' : initial.error),
+    persistenceError: sessionError ?? (other?.status === 'error' || (other?.status === 'found' && !validOther) ? 'Saved state could not be read; existing data was preserved.' : initial.error),
     swapTarget: 'ipe',
     setSwapTarget: (swapTarget) => set({ swapTarget }),
     history: [],
@@ -142,6 +151,11 @@ export const useGameStore = create<GameState>((set, get) => {
       const s = get();
       return s.mode === 'multiplayer' && s.turn ? turnTransition(endTurn(s.turn)) : 'No multiplayer game is active';
     },
+    newMatch: () => {
+      const s = get();
+      if (s.mode !== 'multiplayer' || !s.turn?.finished) return 'Finish the current match before starting another.';
+      return turnTransition({ ok: true, state: createTurnGame(s.turn.seed + 1) });
+    },
     setMode: (mode) => {
       if (mode === get().mode) return;
       const prior = get();
@@ -153,10 +167,11 @@ export const useGameStore = create<GameState>((set, get) => {
         return;
       }
       const setup = modeSetup(mode), loaded = loadMode(setup.levelId, mode);
+      const validLoaded = loaded.status === 'found' && (mode !== 'forensics' || hasForensicsFixture(loaded.model));
       const turn = mode === 'multiplayer' ? prior.turn ?? createTurnGame() : prior.turn;
       const saved = saveSession({ mode, style: prior.style, turn });
-      set({ mode, turn, selectedCardId: null, levelId: setup.levelId, model: mode === 'multiplayer' && turn ? projectTurnModel(turn) : loaded.status === 'found' ? loaded.model : setup.model,
-        persistenceError: !saved || loaded.status === 'error' ? 'Saved state could not be read or saved; existing data was preserved.' : null,
+      set({ mode, turn, selectedCardId: null, levelId: setup.levelId, model: mode === 'multiplayer' && turn ? projectTurnModel(turn) : validLoaded && loaded.status === 'found' ? loaded.model : setup.model,
+        persistenceError: !saved || loaded.status === 'error' || (loaded.status === 'found' && !validLoaded) ? 'Saved state could not be read or saved; existing data was preserved.' : null,
         history: [], future: [], workK: LEVELS[setup.levelId].cliffH ?? 0, chainStart: null, selected: null });
     },
     setStyle: (style) => {
@@ -166,6 +181,7 @@ export const useGameStore = create<GameState>((set, get) => {
     exportModel: () => createGameSave(get().levelId, get().model),
     importModel: (value) => {
       if (get().mode === 'multiplayer') return 'Model import is unavailable during a multiplayer game';
+      if (get().mode === 'forensics') return 'Model import is unavailable during a repair exercise';
       try {
         const model = readGameSave(value, get().levelId).save.model;
         const s = get(), level = LEVELS[s.levelId];
@@ -198,7 +214,7 @@ export const useGameStore = create<GameState>((set, get) => {
     redo: () => set((s) => {
       if (s.mode === 'multiplayer' || !s.future.length) return {};
       const model = s.future[s.future.length - 1];
-      const persisted = save(s.levelId, model, s.mode);
+      const persisted = saveModel(s.levelId, model, s.mode);
       return { model, history: [...s.history.slice(-199), clone(s.model)], future: s.future.slice(0, -1), persistenceError: persisted.ok ? null : 'Changes could not be saved. Existing stored data was preserved.', chainStart: null, selected: null };
     }),
     tool: 'shs',
@@ -227,6 +243,11 @@ export const useGameStore = create<GameState>((set, get) => {
     reset: () => {
       const s = get();
       if (s.mode === 'multiplayer') return;
+      if (s.mode === 'forensics') {
+        commit(modeSetup('forensics').model);
+        set({ chainStart: null, selected: null });
+        return;
+      }
       if (!s.model.members.length && !Object.keys(s.model.attrs).length) return;
       const attrs: GameModel['attrs'] = {};
       for (const [key, a] of Object.entries(s.model.attrs))
@@ -241,7 +262,7 @@ export const useGameStore = create<GameState>((set, get) => {
       set({ chainStart: null, selected: null });
     },
     loadExample: () => {
-      if (get().mode === 'multiplayer') return false;
+      if (get().mode === 'multiplayer' || get().mode === 'forensics') return false;
       const model = exampleModel(get().levelId);
       if (!model) return false;
       commit(model);
@@ -250,7 +271,7 @@ export const useGameStore = create<GameState>((set, get) => {
     },
     newLayout: () => {
       const s = get();
-      if (s.mode === 'multiplayer') return false;
+      if (s.mode === 'multiplayer' || s.mode === 'forensics') return false;
       if (!LEVELS[s.levelId].random) return false;
       commit(initialModel(LEVELS[s.levelId]));
       set({ chainStart: null, selected: null });
@@ -258,7 +279,7 @@ export const useGameStore = create<GameState>((set, get) => {
     },
     // A design is valid only for the exact model from which it was computed.
     applyAutoDesign: (model, sourceModel) => {
-      if (get().mode === 'multiplayer' || get().model !== sourceModel) return false;
+      if (get().mode === 'multiplayer' || get().mode === 'forensics' || get().model !== sourceModel) return false;
       commit(clone(model));
       return true;
     },
@@ -266,7 +287,7 @@ export const useGameStore = create<GameState>((set, get) => {
       set((s) => {
         if (s.mode === 'multiplayer' || !s.history.length) return {};
         const model = s.history[s.history.length - 1];
-        const persisted = save(s.levelId, model, s.mode);
+        const persisted = saveModel(s.levelId, model, s.mode);
         return {
           model,
           persistenceError: persisted.ok ? null : 'Changes could not be saved. Existing stored data was preserved.',
@@ -307,6 +328,7 @@ export const useGameStore = create<GameState>((set, get) => {
     removeMember: (id) => {
       const s = get();
       if (s.mode === 'multiplayer') return;
+      if (s.mode === 'forensics' && modeSetup('forensics').model.members.some((m) => m.id === id)) return;
       if (!s.model.members.some((m) => m.id === id)) return;
       const model = clone(s.model);
       model.members = model.members.filter((m) => m.id !== id);
@@ -319,6 +341,7 @@ export const useGameStore = create<GameState>((set, get) => {
       const s = get(),
         m = s.model.members.find((m) => m.id === id);
       if (s.mode === 'multiplayer') return 'Members cannot be changed during a multiplayer turn';
+      if (s.mode === 'forensics' && modeSetup('forensics').model.members.some((member) => member.id === id)) return 'The repair fixture cannot be changed';
       if (!m) return 'Member not found';
       const issue = swapIssue(LEVELS[s.levelId], s.model, m, type);
       if (issue) return issue;
@@ -333,7 +356,7 @@ export const useGameStore = create<GameState>((set, get) => {
       if (s.mode === 'multiplayer') return 0;
       let count = 0;
       for (const m of model.members)
-        if (m.type === from && !swapIssue(LEVELS[s.levelId], model, m, to)) {
+        if (!(s.mode === 'forensics' && modeSetup('forensics').model.members.some((fixture) => fixture.id === m.id)) && m.type === from && !swapIssue(LEVELS[s.levelId], model, m, to)) {
           m.type = to;
           count++;
         }
@@ -348,6 +371,7 @@ export const useGameStore = create<GameState>((set, get) => {
         if (!card || card.kind !== 'load') return 'Select a load card first';
         return turnTransition(stageLoad(s.turn, card.id, nodeKey(...p)));
       }
+      if (s.mode === 'forensics' && modeSetup('forensics').model.attrs[nodeKey(...p)]) return 'The repair fixture cannot be changed';
       const
         issue = nodeItemIssue(LEVELS[s.levelId], s.model, p, type);
       if (issue) return issue;
@@ -375,6 +399,7 @@ export const useGameStore = create<GameState>((set, get) => {
       const s = get(),
         a = s.model.attrs[key];
       if (s.mode === 'multiplayer') return;
+      if (s.mode === 'forensics' && modeSetup('forensics').model.attrs[key]) return;
       if (!a || (a.locked && !a.joint) || (!a.load && !a.joint && !a.found))
         return;
       const model = clone(s.model),

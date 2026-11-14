@@ -56,4 +56,15 @@ describe('shared editor runtime', () => {
     expect({ mechanism: after.mechanism, floating: after.floating, error: after.error }).toEqual({ mechanism: false, floating: [], error: undefined });
     expect(modeProgress('forensics', after)).toBe('complete');
   });
+  it('preserves the repair fixture and restarts it on reset', () => {
+    const store = useGameStore.getState();
+    store.setMode('forensics');
+    store.removeMember(2);
+    expect(useGameStore.getState().model.members).toHaveLength(2);
+    expect(store.toggleAttr([4, 4, 0], 'found')).toContain('fixture');
+    expect(store.addMember([2, 4, 3], [4, 4, 3], 'shs')).toBeNull();
+    store.reset();
+    expect(useGameStore.getState().model.members).toHaveLength(2);
+    store.setMode('challenge');
+  });
 });
