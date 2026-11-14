@@ -21,6 +21,8 @@ Proposed initial preset is two local players; 2–4-player support remains to va
 
 ## 2. Public and private information
 
+The ordinary Shared table Solver input drawer now projects committed public board fields and turn reports. On seed 23 the drawer hid both hands, the future deck, seed and a staged gravity load. See the [runtime ledger and browser evidence](criteria-ledger.md). This check covers the drawer.
+
 Proposed information policy: structure, intentional connections/profiles, loads, foundation ownership, committed turns, public issue reports and penalty/score breakdowns are public. Active players can inspect their own hand; opponent card faces, hand identities, future draw order and hidden seeds/deck state are not public UI information. Whether hand counts and discard identities are public must be declared in the release policy.
 
 Do not leak private cards through tooltips, DOM accessible names, background rendered layers, audio cues, avatar remarks, image alt text, debug panels or replay views intended to be public. Separate full local saves/debug exports from redacted public/share exports. A local device owner can inspect local files/developer state: hot-seat privacy protects normal play, not a hostile administrator. Do not describe client-side hiding as cryptographic secrecy or online anti-cheat.

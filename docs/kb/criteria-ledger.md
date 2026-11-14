@@ -40,7 +40,7 @@ Source and acceptance references are [solver](solver-criteria.md) §§2–7, [ca
 | A07 | requested numerical / G14 | partially meets | test_engine.py includes force/moment balance. No per-component runtime acceptance gate in voxel.ts. | Verify force, moment, compatibility and supported constitutive laws before scoring each component. |
 | A08 | requested numerical | partially meets | Schema rejects nonfinite data and adapter supports abort. Extreme input and active-state bounds lack stress evidence. | Run invalid and legal seeded states, check finite reported fields and absence of false valid outputs. |
 | CAP | requested numerical / G10 | partially meets | voxelDesignChecks.ts checks design combinations only. Turn analysis lacks validated member or connector capacities. | Run overload and remote redistribution fixtures under reviewed catalogue. |
-| BENCH-10K | explicit acceptance | unverified | No maintained 10,000-state structural benchmark at baseline. | Seed, run and retain failure counts separately from turn lifecycle stress. |
+| BENCH-10K | explicit acceptance | partially meets | test_seeded_states.py exercised 10,000 linear service entry-point states. | Seeds 0–9999, 6,000 oblique subdivided cantilevers, 2,000 mechanisms/floating, 2,000 invalid. All classifications passed. Nonlinear families still need their own fixtures. |
 | SURROGATE | deferred proposal | unverified | No learned surrogate on the active solver path. | Optional preview only. No reference validation credit. |
 
 ## Cards, placement, match and recovery
@@ -61,7 +61,7 @@ Sources and executable scenarios are [turn](turn-criteria.md) §§1–8, [placem
 | G01 | confirmed | partially meets | No per-turn attraction accrual. Final award absent. | Award attraction exactly once after final pass. |
 | G02 | confirmed | meets | Eight completed two-player rounds end the current preset. | Seed 23 stops after 16 reports with no available hand. |
 | G03 | confirmed | missing | TurnPlayer.score stays zero in a loaded finished match. | 60% share minus two historical penalties gives 58. Save and recover same winners. |
-| G04-PUBLIC | confirmed | missing | Workspace Model drawer serializes the full turn, including both hands and future draws. | Dedicated private_projection. Inspect ordinary drawer throughout handoffs. |
+| G04-PUBLIC | confirmed | meets | Workspace uses publicTurnModel to allowlist committed fields. | Independent Chrome 157 drawer check, seed 23, turn 2 with uncommitted load-20. Both hands, plan, deck and seed absent. [Before](../evidence/privacy/before.png) · [After](../evidence/privacy/after.png). |
 | G04-HANDOFF | confirmed | partially meets | Two independent reveal toggles. Workspace Enter can pass before readiness. | Fresh Ready after switch, resume and hidden tab. Held Enter must not advance. |
 | G05 | confirmed | partially meets | stageElement checks grid bounds and per-axis steps. Card length convention ambiguous for diagonals. | Test exact printed reach, invalid nonfinite and too-long diagonal, preserve cards on rejection. |
 | G06 | confirmed | missing | turnPicking and turn model only accept endpoints and integer coordinates. | Original diagonal ¼, ½, ¾ selectable on repeated reload. Reject recursive fractions. |

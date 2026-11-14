@@ -10,6 +10,7 @@ import { modeProgress } from "../game/modes";
 import { environmentExample } from "../game/environmentExamples";
 import { useEditorSound } from "../game/useEditorSound";
 import { createGameSave } from "../game/structuralState";
+import { publicTurnModel } from "../game/publicTurnModel";
 import type { VoxelAnalysis } from "../solver/voxel";
 import { AnalysisPanel } from "../components/AnalysisPanel";
 import { ConnectivityPanel } from "../components/ConnectivityPanel";
@@ -485,14 +486,14 @@ export function Workspace() {
                   <p>
                     Versioned shared model ·{" "}
                     {game.mode === "multiplayer"
-                      ? "the turn log retains individual end connections"
+                      ? "public view of the committed board and its end connections"
                       : "grid coordinates are converted at the analysis boundary"}
                     .
                   </p>
                   <pre>
                     {JSON.stringify(
                       game.mode === "multiplayer"
-                        ? game.turn
+                        ? game.turn && publicTurnModel(game.turn)
                         : game.exportModel(),
                       null,
                       2,
