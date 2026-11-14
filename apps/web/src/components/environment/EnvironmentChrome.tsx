@@ -42,8 +42,8 @@ export function EnvironmentBrand() {
     <div id="brand" className="chip card">
       <Link
         to="/"
-        title="Choose a mode or environment"
-        aria-label="All environments"
+        title="Main menu"
+        aria-label="Main menu"
       >
         <EnvironmentMark style={game.style} />
       </Link>

@@ -4,6 +4,9 @@ last_validated: 2026-11-14
 validated_against:
   - "origin/ftroshani at 93851e99692255cd64c2f9f23a64da417e82c782, prototypes/game-environment"
   - "Owner direction to use the prototype branch for visual layouts, styles, and graphics"
+  - apps/web/src/pages/Home.tsx
+  - apps/web/src/pages/ModeSetup.tsx
+  - apps/web/src/components/PauseMenu.tsx
   - apps/web/src/pages/MainMenu.tsx
   - apps/web/src/pages/Workspace.tsx
   - apps/web/src/components/environment
@@ -21,7 +24,10 @@ The visual references are the five standalone environments from the [prototype b
 
 ## Entry points and boundaries
 
-- `/` presents the environment launcher. Grow Dusk is the primary launcher entry. It opens Creative, as do Grow, Levels and Blocks. Kit opens the local Shared table. The launcher also offers the five game modes. `/play` opens the current workspace.
+- `/` is the title screen (Play, How to play, Settings, About, and a Continue link to `/play`). Play leads to `/modes`, five mode cards from `MODE_CATALOG`, then `/setup/:mode`, which applies the choice with existing store actions (`setStyle("grow-dusk")`, `setMode`, `setLevel`, `reset`, `newMatch`, `importModel`; see `menu/startPlan.ts`) and opens `/play`. Setup names saved progress that Start would resume or overwrite. Shared table setup shows the playtest's fixed values and its rules, taken from the [confirmed turn rules](turn-criteria.md#1-status-and-confirmed-rules); the shared-joint matching rule is shown as confirmed but not yet enforced. `/how`, `/settings` and `/about` are information pages. Settings (`sound`, `reducedMotion`, `showHelpOnStart`) are kept in `localStorage["dof.settings"]`; sound is stored only because the editor sound has no external mute hook. `/play` opens the current workspace and always switches it to Grow Dusk.
+- The workspace has a Menu button and the `P` key (and `Esc` when nothing else uses it) for a pause overlay: Resume, Restart (`reset`, or `newMatch` once a Shared table match has finished), How to play, Settings and Quit to menu. While it is open the app root is inert and keys are not passed to the scene.
+- Grow Dusk is the only environment offered. Grow, Levels, Blocks, Kit and Engineering styles, their CSS, the store's style support and the old launcher (`pages/MainMenu.tsx`, no longer routed) stay in the codebase but cannot be reached from the UI. Grow Dusk shows the Shared table card tray itself (`environment-grow-dusk-hand.css`).
+- Growing a member offers every lattice point within the section's per-axis `maxCells`. Targets that overlap on screen are chosen nearest the camera first; the wheel or `[` and `]` step through them (`viewer/growthStack.ts`).
 - A game mode defines a rules context; an environment changes presentation and placement interaction. Switching the environment preserves the structure. Engineering challenges use tower, bridge, and pickup levels; Creative permits open editing; Forensics starts from a prepared repair fixture; Load in space starts with a suspended load target; Shared table uses cards.
 - `store.ts` coordinates editor state, history, and persistence. `turns.ts` owns the Shared table rules. `session.ts` validates and reconstructs a turn session from versioned deterministic events. `connectivity.ts` reports foundation reachability independently of numerical analysis.
 - `Scene.tsx` and its viewer modules share one renderer, with camera, guides, geometry, picking, and palette selected by the environment. `components/environment` and the scoped `environment-*.css` files provide the chrome, trays, and controls. Build options exposes precise coordinate entry.
