@@ -1,32 +1,60 @@
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useGameStore } from '../game/store';
 import type { PresentationStyle } from '../game/modes';
-import { MODE_CATALOG, STYLE_CATALOG } from '../components/runtimeCatalog';
+import { MODE_CATALOG } from '../components/runtimeCatalog';
+import './launcher.css';
 
-/** Modes configure rules; styles configure the single shared scene. */
+const environments = [
+  { style: 'grow', name: 'Grow', tagline: 'Pull members out of joints', text: 'Click a joint and the points it can reach bloom around it. Click one and a member pops in. Free 3D camera.', gives: 'Build between reachable lattice points in three dimensions.', costs: 'Depth is judged by eye, with many targets on screen at once.', alt: 'A braced frame on a cream quay over pale water' },
+  { style: 'levels', name: 'Levels', tagline: 'Draw one level at a time', text: 'An isometric board with one highlighted working level. Step through levels like floors and draw on the active one.', gives: 'Exact picking, quarter-turn views, and a board that reads like a plan.', costs: 'Vertical building takes extra level changes.', alt: 'An isometric paper model with a highlighted working level' },
+  { style: 'blocks', name: 'Blocks', tagline: 'Stack bays, the frame appears', text: 'Click to stack bays. Columns and beams appear along their edges. Then brace panels, pin joints and drop loads.', gives: 'A frame in seconds, built a bay at a time.', costs: 'Bay dimensions set the lengths of the generated members.', alt: 'Stacked frame bays in evening light over teal water' },
+  { style: 'kit', name: 'Kit', tagline: 'Take turns playing pieces from a tray', text: 'A board game. Each turn a player takes members, connections and loads from cards and plays them onto a shared structure.', gives: 'A local two-player game with individual end connections and persistent gravity loads.', costs: 'Turn analysis remains unresolved until the solver can verify end connections.', alt: 'A two-colour structure on a turntable at dusk' },
+  { style: 'grow-dusk', name: 'Grow Dusk', tagline: 'Build in evening light', text: 'The Grow environment rebuilt in midnight blue and warm amber, with the same joint-to-joint construction.', gives: 'The same free 3D camera and lattice reach as Grow.', costs: 'Depth still depends on the viewing angle.', alt: 'A blue frame on a dusk quay over dark water' },
+] satisfies { style: PresentationStyle; name: string; tagline: string; text: string; gives: string; costs: string; alt: string }[];
+
 export function MainMenu() {
   const navigate = useNavigate();
-  const [style, setStyle] = useState<PresentationStyle | null>(null);
-  return <main className="main-menu">
-    <section className="menu-intro">
-      <div><p className="eyebrow">THE STRUCTURAL PLAYGROUND</p>
-        <h1>A little structure.<br /><em>A world of possibilities.</em></h1>
-        <p>Grow a frame. Follow a force. Find the connection that changes everything.</p>
-        <Link className="resume-link" to="/play">Continue in the workspace →</Link>
+  const select = (style: PresentationStyle) => {
+    const game = useGameStore.getState();
+    game.setMode(style === 'kit' ? 'multiplayer' : 'creative');
+    game.setStyle(style);
+    navigate('/play');
+  };
+
+  return <div className="launcher">
+    <main>
+      <header className="launcher-intro">
+        <p className="launcher-eyebrow">Degrees of Freedom: The Game</p>
+        <h1>Five ways to build a structure</h1>
+        <p>Explore members, connections and loads in five building environments. Each uses the same structural workspace.</p>
+        <Link to="/play">Continue in the workspace</Link>
+      </header>
+      <div className="launcher-grid">
+        {environments.map((item) => <article key={item.style} className={`launcher-card launcher-${item.style}`}>
+          <Link to="/play" className="launcher-shot" onClick={(event) => { event.preventDefault(); select(item.style); }}>
+            <img src={`${import.meta.env.BASE_URL}environments/${item.style}.png`} alt={item.alt} loading={item.style === 'grow' ? 'eager' : 'lazy'} />
+          </Link>
+          <div className="launcher-body">
+            <div className="launcher-name"><span className="launcher-dot" aria-hidden="true" /><h2>{item.name}</h2><span>{item.tagline}</span></div>
+            <p>{item.text}</p>
+            <dl><dt>Gives</dt><dd>{item.gives}</dd><dt>Costs</dt><dd>{item.costs}</dd></dl>
+            <button className="launcher-open" onClick={() => select(item.style)}>Open {item.name}</button>
+          </div>
+        </article>)}
       </div>
-      <div className="menu-sculpture" aria-hidden="true"><span /><span /><span /><span /><span /><i>✳</i></div>
-    </section>
-    <section aria-labelledby="mode-heading">
-      <div className="section-heading"><div><p className="eyebrow">01 / CHOOSE YOUR CHALLENGE</p><h2 id="mode-heading">How will you play?</h2></div><p>One structure. Many ways to discover it.</p></div>
-      <div className="mode-grid">{MODE_CATALOG.map((mode, index) => <button key={mode.id} className={`mode-card mode-${mode.id}`} onClick={() => {
-        const game = useGameStore.getState();
-        game.setMode(mode.id);
-        game.setStyle(style ?? mode.style);
-        navigate('/play');
-      }}><span className="mode-number">0{index + 1} ↗</span><small>{mode.subtitle}</small><h3>{mode.title}</h3><p>{mode.description}</p><span className="mode-start">Enter workspace →</span></button>)}</div>
-    </section>
-    <section className="style-section" aria-labelledby="style-heading"><p className="eyebrow">02 / MAKE IT YOUR OWN</p><h2 id="style-heading">Choose a building style</h2><p>Switch styles any time without losing your structure.</p><div className="style-grid">{STYLE_CATALOG.map((item) => <button key={item.id} className={`style-card style-${item.id}`} aria-pressed={style === item.id} onClick={() => setStyle(style === item.id ? null : item.id)}><span className="style-swatch" /><strong>{item.title}</strong><small>{item.description}</small></button>)}</div></section>
-    <footer>DEGREES OF FREEDOM <span>BUILD · CONNECT · DISCOVER</span></footer>
-  </main>;
+      <section className="launcher-shared">
+        <h2>Play a game mode</h2>
+        <p>Choose a goal and use its default building environment. You can change environments in the workspace.</p>
+        <ul>{MODE_CATALOG.map((mode) => <li key={mode.id}><button className="launcher-mode" onClick={() => {
+          const game = useGameStore.getState();
+          game.setMode(mode.id);
+          game.setStyle(mode.style === 'engineering' ? 'levels' : mode.style);
+          navigate('/play');
+        }}>{mode.title}</button> · {mode.description}</li>)}</ul>
+        <h2>What the environments share</h2>
+        <ul><li>A single structural editor and a versioned model export.</li><li>Support reachability based on the model’s connections. Stability requires separate analysis.</li><li>Experimental analysis where the current model supports it.</li></ul>
+      </section>
+    </main>
+  </div>;
 }
+
