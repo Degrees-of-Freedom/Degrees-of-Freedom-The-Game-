@@ -11,7 +11,7 @@ export function TurnPanel({
   onMessage: (message: string) => void;
 }) {
   const turn = game.turn;
-  const [revealedTurn, setRevealedTurn] = useState<number | null>(null);
+  const [revealedTurn, setRevealedTurn] = useState<string | null>(null);
   if (game.mode !== "multiplayer" || !turn) return null;
   const player = turn.players[turn.playerIndex];
   const hand = activeTurnHand(turn);
@@ -19,7 +19,8 @@ export function TurnPanel({
   const members = [...turn.board.members, ...turn.draft.members];
   const connections = [...turn.board.connections, ...turn.draft.connections];
   const report = turn.reports.at(-1);
-  const revealed = revealedTurn === turn.turn;
+  const handKey = `${turn.seed}:${turn.turn}`;
+  const revealed = revealedTurn === handKey;
   return (
     <section className="turn-panel" aria-label="Shared-table turn">
       <h2>
@@ -54,7 +55,7 @@ export function TurnPanel({
       {!turn.finished && !revealed && (
         <button
           className="resume-link"
-          onClick={() => setRevealedTurn(turn.turn)}
+          onClick={() => setRevealedTurn(handKey)}
         >
           Reveal Player {turn.playerIndex + 1}’s hand
         </button>

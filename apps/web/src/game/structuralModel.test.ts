@@ -38,9 +38,9 @@ describe('game model to solver contract', () => {
 
   it('pins cables even at a moment connection and says what that loses', () => {
     expect(model.members[2]).toMatchObject({ startFixity: 'pinned', endFixity: 'pinned' });
-    expect(notes).toHaveLength(1);
-    expect(notes[0]).toContain('Cables');
-    expect(toStructuralModel({ ...frame, members: frame.members.slice(0, 2) }).notes).toEqual([]);
+    expect(notes.some((note) => note.includes('Cables'))).toBe(true);
+    expect(notes.some((note) => note.includes('self-weight'))).toBe(true);
+    expect(toStructuralModel({ ...frame, members: frame.members.slice(0, 2) }).notes.some((note) => note.includes('Cables'))).toBe(false);
   });
 
   it('fixes foundations and applies point loads downwards in newtons', () => {
@@ -50,6 +50,21 @@ describe('game model to solver contract', () => {
     expect(model.loads).toEqual([
       { nodeId: '1,0,2', force: [0, 0, -50_000], moment: [0, 0, 0] },
     ]);
+  });
+
+  it('preserves partial restraint masks and directional loads in SI units', () => {
+    const translated = toStructuralModel({ ...frame, attrs: {
+      ...frame.attrs,
+      '0,0,0': { found: true, restraint: [true, false, true, false, false, true] },
+      '1,0,2': { load: 12, loadDirection: '-Y', joint: true },
+    } }).model;
+    expect(translated.supports).toEqual([{ nodeId: '0,0,0', restrained: [true, false, true, false, false, true] }]);
+    expect(translated.loads).toEqual([{ nodeId: '1,0,2', force: [0, -12000, 0], moment: [0, 0, 0] }]);
+  });
+
+  it('discloses the axial-only approximation for a beam pinned at both ends', () => {
+    const game: GameModel = { members: [{ id: 1, a: '0,0,0', b: '0,0,2', type: 'shs' }], attrs: { '0,0,0': { found: true } }, nextId: 2 };
+    expect(toStructuralModel(game).notes.some((note) => note.includes('axial-only'))).toBe(true);
   });
 
   it('refers only to nodes it defines, for every reference example', () => {

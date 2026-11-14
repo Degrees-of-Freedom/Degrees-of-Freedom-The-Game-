@@ -36,9 +36,8 @@ type Drawer = "analysis" | "model" | "build" | "turn" | null;
 export function Workspace() {
   const game = useGameStore();
   const stability = useStabilityCheck(game.model);
-  // The contract adapter currently supports the legacy node connection model.
-  const contractCompatible = game.mode !== "multiplayer" &&
-    !Object.values(game.model.attrs).some(a => a.restraint || (a.loadDirection && a.loadDirection !== "-Z"));
+  // Multiplayer uses independent member-end connections, not the node model.
+  const contractCompatible = game.mode !== "multiplayer";
   const [analysis, setAnalysis] = useState<{
     model: typeof game.model;
     result: VoxelAnalysis;

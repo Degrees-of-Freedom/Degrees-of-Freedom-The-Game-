@@ -23,8 +23,9 @@ export interface StructuralModelTranslation {
  *   with Z vertical.
  * - A member end is rigid where its node has a moment connection (`joint`)
  *   and pinned elsewhere. Cables are pinned at both ends.
- * - A foundation restrains all six degrees of freedom.
- * - Point loads placed on nodes act downwards.
+ * - Explicit support masks preserve all six degrees of freedom; a legacy
+ *   foundation without a mask restrains all six.
+ * - Point loads preserve their selected axis direction.
  *
  * It does not carry member sections, self-weight, wind, or the tower and
  * bridge level loads that the voxel analysis generates, and the contract has
@@ -32,6 +33,7 @@ export interface StructuralModelTranslation {
  * stability and determinacy check, not a replacement for the voxel analysis.
  */
 export function toStructuralModel(game: GameModel): StructuralModelTranslation {
+  const directions = { '-Z': [0, 0, -1], '+Z': [0, 0, 1], '+X': [1, 0, 0], '-X': [-1, 0, 0], '+Y': [0, 1, 0], '-Y': [0, -1, 0] } as const;
   const fixityAt = (key: string, cable: boolean): MemberEndFixity =>
     !cable && game.attrs[key]?.joint ? 'fixed' : 'pinned';
 
@@ -61,17 +63,21 @@ export function toStructuralModel(game: GameModel): StructuralModelTranslation {
     if (attrs.found)
       model.supports.push({
         nodeId: key,
-        restrained: [true, true, true, true, true, true],
+        restrained: attrs.restraint ? [...attrs.restraint] : [true, true, true, true, true, true],
       });
-    if (attrs.load)
+    if (attrs.load) {
+      const [x, y, z] = directions[attrs.loadDirection ?? '-Z'];
       model.loads.push({
         nodeId: key,
-        force: [0, 0, -attrs.load * NEWTONS_PER_KILONEWTON],
+        force: [x * attrs.load * NEWTONS_PER_KILONEWTON, y * attrs.load * NEWTONS_PER_KILONEWTON, z * attrs.load * NEWTONS_PER_KILONEWTON],
         moment: [0, 0, 0],
       });
+    }
   }
 
-  const notes: string[] = [];
+  const notes: string[] = ['The contract check uses point loads only; it does not include self-weight, wind, or voxel member sections.'];
+  if (game.members.some((member) => member.type !== 'cable' && !game.attrs[member.a]?.joint && !game.attrs[member.b]?.joint))
+    notes.push('The contract solver models members pinned at both ends as axial-only ties, so their bending and torsion differ from the voxel frame model.');
   if (game.members.some((member) => member.type === 'cable'))
     notes.push(
       'Cables are treated as two-way ties here, so a cable that would go slack still counts as a restraint.',
