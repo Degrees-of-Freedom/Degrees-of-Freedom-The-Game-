@@ -12,6 +12,7 @@ import type { SceneView } from "./sceneView";
 import type { BuildPlane } from "./sceneGeometry";
 import { createPicker } from "./scenePicking";
 import { selectedTurnCard } from "./turnPicking";
+import { isGrowthStyle } from "./sceneStyle";
 export function bindSceneInteraction(
   canvas: HTMLCanvasElement,
   getCamera: () => THREE.Camera,
@@ -48,16 +49,25 @@ export function bindSceneInteraction(
     buildPlane,
     getView,
   );
-  let down: { x: number; y: number; button: number } | null = null;
-  const move = (e: PointerEvent) => pick(e);
-  const up = (e: PointerEvent) => {
-    if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) {
-      down = null;
-      return;
+  let down: { x: number; y: number; button: number; pointerId: number; anchor?: string; started: boolean } | null = null;
+  const moved = (e: PointerEvent, gesture: NonNullable<typeof down>) =>
+    Math.hypot(e.clientX - gesture.x, e.clientY - gesture.y) > 5;
+  const move = (e: PointerEvent) => {
+    if (down?.pointerId === e.pointerId && down.anchor && !down.started && moved(e, down)) {
+      down.started = true;
+      useGameStore.getState().setChainStart(down.anchor);
     }
-    const button = down.button;
+    pick(e);
+  };
+  const up = (e: PointerEvent) => {
+    const gesture = down;
+    if (!gesture || gesture.pointerId !== e.pointerId) return;
     down = null;
+    const dragged = moved(e, gesture) || gesture.started;
+    if (dragged && !gesture.anchor) return;
     const s = useGameStore.getState();
+    if (dragged && gesture.anchor && !gesture.started) s.setChainStart(gesture.anchor);
+    const button = gesture.button;
     if (button === 2) {
       if (s.chainStart || s.mode === "multiplayer") s.setChainStart(null);
       else {
@@ -76,6 +86,25 @@ export function bindSceneInteraction(
     if (button !== 0) return;
     const hit = pick(e);
     const card = selectedTurnCard(s);
+    const buildingMember = MEMBER_TYPES.includes(s.tool as MemberType);
+    if (s.mode !== "multiplayer" && buildingMember && s.style === "levels" && e.shiftKey && hit?.kind === "point") {
+      const [i, j, k] = hit.p;
+      const issue = k === 0
+        ? "There is no level below the board."
+        : s.addMember(hit.p, [i, j, k - 1], s.tool as MemberType);
+      getView().onMessage?.(issue ?? "");
+      pick(e);
+      return;
+    }
+    if (s.mode !== "multiplayer" && buildingMember && (isGrowthStyle(s.style) || s.style === "levels")) {
+      const start = useGameStore.getState().chainStart;
+      if (!hit || (hit.kind === "point" && start === nodeKey(...hit.p))) {
+        s.setChainStart(null);
+        pick(e);
+        return;
+      }
+      if (dragged && hit.kind !== "point") return;
+    }
     if (s.mode === "multiplayer") {
       let issue: string | null = null;
       if (card?.kind === "connection" && hit?.kind === "connection")
@@ -158,8 +187,9 @@ export function bindSceneInteraction(
       getView().onMessage?.(hit.issue);
     else if (hit?.kind === "point" && !hit.issue) {
       if (MEMBER_TYPES.includes(s.tool as MemberType)) {
-        const issue = s.chainStart
-          ? s.addMember(parseNodeKey(s.chainStart), hit.p, s.tool as MemberType)
+        const start = useGameStore.getState().chainStart;
+        const issue = start
+          ? s.addMember(parseNodeKey(start), hit.p, s.tool as MemberType)
           : null;
         getView().onMessage?.(issue ?? "");
         if (!issue) s.setChainStart(nodeKey(...hit.p));
@@ -173,7 +203,28 @@ export function bindSceneInteraction(
     pick(e);
   };
   const pointerDown = (e: PointerEvent) => {
-    down = { x: e.clientX, y: e.clientY, button: e.button };
+    if (down) return;
+    down = { x: e.clientX, y: e.clientY, button: e.button, pointerId: e.pointerId, started: false };
+    const s = useGameStore.getState();
+    if (e.button !== 0 || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || s.mode === "multiplayer" ||
+      !isGrowthStyle(s.style) || !MEMBER_TYPES.includes(s.tool as MemberType)) return;
+    const hit = pick(e);
+    if (hit?.kind !== "point" || hit.issue && !s.chainStart) return;
+    const rect = canvas.getBoundingClientRect();
+    const projected = new THREE.Vector3().copy(point(nodeKey(...hit.p))).project(getCamera());
+    const px = rect.left + (projected.x + 1) * rect.width / 2;
+    const py = rect.top + (1 - projected.y) * rect.height / 2;
+    if (Math.hypot(e.clientX - px, e.clientY - py) > 15) return;
+    down.anchor = s.chainStart ?? nodeKey(...hit.p);
+    canvas.setPointerCapture(e.pointerId);
+    // Reserve anchor drags for building. Empty-space and secondary drags
+    // continue to reach OrbitControls.
+    e.stopImmediatePropagation();
+  };
+  const cancelPointer = (e: PointerEvent) => {
+    if (down?.pointerId !== e.pointerId) return;
+    if (down.started) useGameStore.getState().setChainStart(null);
+    down = null;
   };
   const leave = () => {
     ghost.visible = false;
@@ -248,9 +299,10 @@ export function bindSceneInteraction(
     }
   };
   window.addEventListener("keyup", keyup);
-  canvas.addEventListener("pointerdown", pointerDown);
+  canvas.addEventListener("pointerdown", pointerDown, true);
   canvas.addEventListener("pointermove", move);
   canvas.addEventListener("pointerup", up);
+  canvas.addEventListener("pointercancel", cancelPointer);
   canvas.addEventListener("pointerleave", leave);
   canvas.addEventListener("contextmenu", context);
   window.addEventListener("keydown", keydown);
@@ -258,9 +310,10 @@ export function bindSceneInteraction(
     buildPlane,
     clearPreview: leave,
     dispose() {
-      canvas.removeEventListener("pointerdown", pointerDown);
+      canvas.removeEventListener("pointerdown", pointerDown, true);
       canvas.removeEventListener("pointermove", move);
       canvas.removeEventListener("pointerup", up);
+      canvas.removeEventListener("pointercancel", cancelPointer);
       canvas.removeEventListener("pointerleave", leave);
       canvas.removeEventListener("contextmenu", context);
       window.removeEventListener("keydown", keydown);
