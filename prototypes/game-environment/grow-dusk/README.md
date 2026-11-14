@@ -31,6 +31,21 @@ provisional: no cards, action limits or scoring.
 
 Example: `index.html?mode=multiplayer&players=3&names=Ana,Ben,Cy`
 
+## Members between any two grid points
+
+Members can run between any two grid points up to 4 steps apart (the model is
+created with `directions: 'any'`). Click a joint and the reachable points
+bloom: points on the 26 principal directions (axis and 45 degree lines) stay
+slightly more prominent on faint spokes; off-angle points appear only near the
+pointer, and the hot target swells with its drop line and ground dot. The
+ghost label shows the real length and the target's `[i, j, k]`.
+
+Where several reachable points overlap on screen, the one nearest the camera is
+chosen by default. The mouse wheel (over such a stack) or `[` (shallower) and
+`]` (deeper) step to the next candidate; the wheel zooms as usual everywhere
+else. Roles still come from the core: vertical column, horizontal beam,
+inclined brace.
+
 ## Menu
 
 The **Menu** button (top right), `Esc` (when nothing else is in progress:
