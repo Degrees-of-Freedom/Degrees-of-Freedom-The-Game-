@@ -8,6 +8,7 @@ validated_against:
   - docs/kb/code-standards.md
   - docs/kb/structural-solver.md
   - docs/kb/solver-criteria.md
+  - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria-gap-analysis.md
   - docs/kb/development-and-testing.md
 owner: unknown
@@ -31,6 +32,7 @@ This is the canonical entry point for durable project knowledge. The game remain
 | [structural-state.md](structural-state.md) | Browser saves, experimental solver snapshots, and proposed general state and fixture design. |
 | [solver-criteria.md](solver-criteria.md) | Reading the owner-supplied proposed solver requirements, acceptance gates, implementation order, and open gameplay decisions. |
 | [solver-criteria-gap-analysis.md](solver-criteria-gap-analysis.md) | Comparing current code and tests with the criteria and planning implementation milestones. |
+| [turn-criteria.md](turn-criteria.md) | Defining the two decks, turn phases, six-DOF connection cards, issue assessment and penalty decisions. |
 | [game-dynamics.md](game-dynamics.md) | Working on game state, turns, rules, or modes. |
 | [3d-viewer.md](3d-viewer.md) | Working on the 3D grid, interaction, or visual feedback. |
 | [development-and-testing.md](development-and-testing.md) | Finding current setup, commands, and test coverage. |
