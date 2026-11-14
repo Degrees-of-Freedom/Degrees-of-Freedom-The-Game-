@@ -900,13 +900,13 @@ body,
   min-width: 57px;
 }
 @media (max-width: 600px) {
-  .environment #topleft {
+  .environment[data-style] #topleft {
     top: max(8px, env(safe-area-inset-top));
     left: 8px;
     z-index: 6;
   }
-  .environment #actions,
-  .environment #top-right {
+  .environment[data-style] #actions,
+  .environment[data-style] #top-right {
     top: 53px;
     gap: 3px;
   }
@@ -919,21 +919,21 @@ body,
   .environment[data-style="kit"] #top-right {
     top: 51px;
   }
-  .environment #dock,
+  .environment[data-style] #dock,
   .environment[data-style="kit"] #dock {
     bottom: max(8px, env(safe-area-inset-bottom));
     width: min(calc(100% - 12px), 460px);
   }
-  .environment #hint {
+  .environment[data-style] #hint {
     max-width: calc(100vw - 20px);
     text-align: center;
     white-space: normal;
   }
-  .environment #cornerleft {
+  .environment[data-style] #cornerleft {
     left: 8px;
     bottom: 138px;
   }
-  .environment .environment-switch {
+  .environment[data-style] .environment-switch {
     right: 8px;
     bottom: 138px;
   }

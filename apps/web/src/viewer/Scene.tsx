@@ -247,6 +247,9 @@ export function Scene({
       );
       buildGrowthGuides(guides, state, palette);
       buildTurnGuides(guides, state, point);
+      // Publish the new environment even while background tabs throttle animation frames.
+      sky.position.copy(camera.position);
+      renderer.render(scene, camera);
     }
     refresh.current = rebuild;
     const unsubscribe = useGameStore.subscribe(rebuild);
@@ -259,14 +262,14 @@ export function Scene({
       if (w && h) {
         if (camera instanceof THREE.PerspectiveCamera) {
           camera.aspect = w / h;
-          const next = Math.max(1, 0.78 / camera.aspect);
+          const next = Math.max(1, 0.92 / camera.aspect);
           const offset = camera.position.clone().sub(controls.target).multiplyScalar(next / aspectCompensation);
           camera.position.copy(controls.target).add(offset);
           aspectCompensation = next;
           controls.update();
         }
         else {
-          const span = orthoSpan * Math.max(1, 0.76 / (w / h));
+          const span = orthoSpan * Math.max(1, 0.92 / (w / h));
           camera.left = -span * (w / h);
           camera.right = span * (w / h);
           camera.top = span;
@@ -411,7 +414,7 @@ export function Scene({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, []);
+  }, [style]);
   return (
     <div className="scene">
       <div
