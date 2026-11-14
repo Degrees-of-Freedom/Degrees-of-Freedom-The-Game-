@@ -48,8 +48,11 @@ built.
    when they attach to the same node through a connection that is not all
    free. A member end that is all free does not join its node. Nodes with a
    load or a support but no attached member end form their own component.
-   Nodes with nothing at all are left out, with a warning.
-   The component id is the lexicographically smallest node id in it.
+   Nodes with nothing at all are left out, with a warning. A support that
+   restrains nothing and a load of zero count as nothing.
+   The component id is the lexicographically smallest node id in it. A
+   member attached at neither end is a component with no nodes; its id is
+   `member:<member id>`.
 
 ## Connection capability (M02, M04, M05)
 
@@ -81,15 +84,23 @@ adds no stiffness.
   no rotational stiffness. Its three rotations are removed from the system
   with `fix`, unless a moment load acts on it, in which case they stay and
   appear as a loaded rotational mechanism.
+- When attached ends hold the joint's rotation about some global axes only,
+  the remaining global axes are removed the same way. When a single member
+  end is the joint's only rotational attachment, with no rotational support
+  restraint and no moment load, it can transmit no moment: its rotational
+  laws are treated as free and the joint rotations removed. A joint held
+  about skew directions only is `unsupported`.
+- Twist anchoring prefers the end whose joint cannot rotate about the member
+  axis, so the spin is not simply moved into the joint. A member attached to
+  nothing is not anchored: its spin is part of its rigid-body motion.
 - No soft springs, no diagonal regularisation. The previous "spin spring"
   mechanism is removed.
 
 ## Elements (M03, M08)
 
-- `beam`: `elasticBeamColumn`, or another elastic beam-column formulation if
-  it meets the gates with fewer degrees of freedom, with member properties
-  and local axes from the contract. Under nonlinear fidelity each beam is
-  subdivided so member buckling and P-delta are captured (A02).
+- `beam`: `elasticBeamColumn` with member properties and local axes from
+  the contract. Under nonlinear fidelity beams are subdivided so member
+  buckling and P-delta are captured (A02); see "Beam subdivision".
 - `brace`: axial element, two-way.
 - `cable`: axial element with a tension-only material; never carries
   compression, at either fidelity. `initialStrain` on braces and cables is
@@ -100,6 +111,36 @@ adds no stiffness.
   not the joint), so nothing is counted twice and an unattached end still
   carries its share.
 
+## Beam subdivision (A02)
+
+Measured on this formulation (`elasticBeamColumn` with the corotational
+transformation): the critical load of a member is overestimated by about
+`0.83 * rho / n^2`, where `n` is the number of segments and
+`rho = N L^2 / (pi^2 E I)` is the member's compression relative to its own
+pin-ended Euler load. A fixed-fixed member buckles at `rho = 4`, so it needs
+16 segments for 1.3% and more for margin. Other elastic formulations in
+OpenSeesPy 3.8 give the same numbers, except `forceBeamColumnCBDI`, which is
+accurate with two segments but crashes the process under line search and has
+no end releases. It is not used.
+
+Subdividing every beam finely is unaffordable, and unnecessary: only members
+in significant compression need it. So:
+
+1. The linear solve of the component runs first. Each beam gets
+   `n = clamp(ceil(29 * sqrt(rho)), 1, 32)` from its largest compressive
+   axial force at full load, and 1 if it is in tension. The constant 29
+   makes `0.83 * rho / n^2 <= 0.1%`. That is tighter than the 2% buckling
+   gate because deflections near a critical load are amplified by
+   `1 / (1 - P/Pcr)`, so a 0.3% error in `Pcr` already costs more than 1% at
+   three quarters of the critical load.
+2. With no linear result to go on, every beam gets 4 segments.
+3. After a stable nonlinear solve the counts are recomputed from the actual
+   axial forces. If a beam needed more than it had, the component is rebuilt
+   and solved once more. If it is still short, the result stands with a
+   warning naming the members.
+
+Braces and cables are always single elements.
+
 ## Analysis per component
 
 Every component is analysed separately and gets its own verdict (A06).
@@ -109,7 +150,10 @@ Every component is analysed separately and gets its own verdict (A06).
 Build the component. If it has zero free DOFs, nothing can move: it is
 `stable` and each support reacts its own load. Otherwise read the tangent at
 the reference state (zero external load, initial strains present) and
-classify it with `stability.assess`:
+classify it with `stability.assess`. The reference classification always
+uses one element per beam: mechanisms are a kinematic property that
+subdivision does not change, and taking `near_mechanism` from the coarse
+model keeps it independent of the engine's own mesh.
 
 - Mechanism present (any null vector, translational or rotational, loaded or
   not): go to recovery under nonlinear fidelity; under linear fidelity the
@@ -136,8 +180,14 @@ adaptive incremental-iterative scheme:
 1. Take a load step with Newton iterations (with line search or an
    equivalent safeguard). If it does not converge, cut the step and retry,
    down to a minimum step.
-2. After each converged step, read the tangent and classify it. If it is
-   still positive definite, accept and continue.
+2. After each converged step, test the tangent. If it is still positive
+   definite, accept and continue. Along the load path this uses a banded
+   Cholesky factorisation (`tangent.is_positive_definite`), which fails
+   exactly when a direction of negative stiffness has appeared and costs
+   tens of milliseconds where a dense read costs seconds. The dense spectrum
+   is read once, at the first unstable state, to report the buckling shape,
+   and only when the system is small enough; otherwise the result carries a
+   warning that the shape was not computed.
 3. If the tangent has a negative direction, the equilibrium path has passed
    a critical point (a bifurcation of a perfect structure shows up this way,
    because Newton happily follows the unstable primary path). Bracket the
@@ -149,6 +199,12 @@ adaptive incremental-iterative scheme:
    good state is positive definite, that is a limit point or a failure of
    the iteration. Without evidence which, the component is `unknown`,
    `not_converged`, with `loadFactor` = the last verified factor.
+   Load control can also jump across a limit point to a far-away
+   equilibrium (a shallow truss snapping through to its inverted shape) and
+   report convergence. Every step is therefore checked for reversibility:
+   it is undone by the same increment and must return to where it started.
+   A step that does not is rejected and the load path replayed with smaller
+   steps, which ends in `not_converged` just below the limit load.
 5. If the deadline passes: `unknown`, `timeout`.
 
 At full load with a positive definite tangent the component is `stable`
@@ -189,19 +245,26 @@ Before any component's results are marked valid:
 
 - All numbers are finite. Otherwise `unknown`, `non_finite_result`.
 - Global equilibrium of the component: applied loads plus reactions sum to
-  zero in force, and in moment about the origin taken at deformed positions
-  under nonlinear fidelity. The residual, normalised by the larger of the
-  total applied load and total reaction magnitude (moments additionally by
-  the component's bounding size), must be at most 1e-5. Otherwise `unknown`,
-  `equilibrium_not_verified`.
+  zero in force, and in moment about the component centroid taken at
+  deformed positions under nonlinear fidelity. The residual, normalised by
+  the largest of the total applied load, total reaction and member force
+  magnitudes (moments additionally by the component's bounding size), must
+  be at most 1e-5. Otherwise `unknown`, `equilibrium_not_verified`. The
+  member force scale is there so that a self-equilibrated prestressed
+  component, with no load and no reaction, is not judged against rounding
+  noise.
 - Every cable has non-negative axial force, and a slack cable has zero.
 
 `resultsValid` is true only for `stable` and `marginal` components. Results
 of other components are omitted, not zeroed.
 
 No exception may escape `engine.analyze` for any schema-valid input. An
-unexpected internal failure becomes `unknown` for that component, or an
-`error` result if it cannot be attributed to one.
+unexpected internal failure becomes `unknown` with `solver_error` for that
+component, or an `error` result if it cannot be attributed to one.
+
+A cable that is pushed instead of pulled leaves its node with no stiffness.
+Under linear fidelity the iteration then fails and the component is
+`unknown`, `not_converged`: there is no verified conclusion to report.
 
 ## Result assembly (`results.py`)
 
@@ -224,7 +287,7 @@ unexpected internal failure becomes `unknown` for that component, or an
 | Name | Value | Status |
 | --- | --- | --- |
 | Default fidelity | `nonlinear` | Decision: the owner wants a nonlinear solution. |
-| Beam subdivision under nonlinear fidelity | Smallest count that meets the 2% buckling gate | To be fixed by the nonlinear driver work. |
+| Beam subdivision under nonlinear fidelity | `clamp(ceil(29 * sqrt(rho)), 1, 32)`, 4 without a linear result | Measured; see "Beam subdivision". |
 | Default time budget | 2000 ms per request | From criteria section 6. |
 | `RECOVERY_DISPLACEMENT_LIMIT` | 0.1 x shortest member | Provisional. |
 | `NEAR_MECHANISM` | 1e-8 scaled | Provisional. |

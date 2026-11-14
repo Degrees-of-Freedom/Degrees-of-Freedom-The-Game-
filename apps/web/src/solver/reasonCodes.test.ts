@@ -7,7 +7,7 @@ describe('reason code wording', () => {
     const codes: ReasonCode[] = [
       'unsupported_component', 'rigid_body_mechanism', 'internal_mechanism', 'near_mechanism',
       'load_induced_instability', 'geometrically_stiffened', 'excessive_deformation', 'cable_slack',
-      'not_converged', 'timeout', 'equilibrium_not_verified', 'non_finite_result',
+      'not_converged', 'timeout', 'equilibrium_not_verified', 'non_finite_result', 'solver_error',
     ];
     const texts = codes.map(describeReasonCode);
     expect(new Set(texts).size).toBe(codes.length);

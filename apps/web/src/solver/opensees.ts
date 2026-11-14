@@ -13,7 +13,7 @@ const FIDELITIES = ['linear', 'nonlinear'];
 const REASON_CODES = [
   'unsupported_component', 'rigid_body_mechanism', 'internal_mechanism', 'near_mechanism',
   'load_induced_instability', 'geometrically_stiffened', 'excessive_deformation', 'cable_slack',
-  'not_converged', 'timeout', 'equilibrium_not_verified', 'non_finite_result',
+  'not_converged', 'timeout', 'equilibrium_not_verified', 'non_finite_result', 'solver_error',
 ];
 
 const isReasonCodes = (value: unknown): boolean =>

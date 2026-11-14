@@ -63,7 +63,22 @@ def assert_stable_part_is_exact(r: dict, fidelity: str) -> None:
     c = comp(r, "a")
     assert c["state"] == "stable" and c["resultsValid"] is True, f"stable component lost its verdict: {c['state']} {c['reasonCodes']}"
     assert sorted(c["nodeIds"]) == ["a", "b"] and c["memberIds"] == ["ab"], f"component membership leaked: {c['nodeIds']} {c['memberIds']}"
-    check_vec("tip deflection", disp(r, "b")[:3], ref["tip_u"], rel=rel, abs_tol=1e-6 * P * L**3 / (3 * EI))
+    delta = P * L**3 / (3 * EI)
+    tip_u = np.array(ref["tip_u"], float)
+    if fidelity == "linear":
+        # Small-displacement theory: no axial motion of the tip.
+        check_vec("tip deflection", disp(r, "b")[:3], tip_u, rel=rel, abs_tol=1e-6 * delta)
+    else:
+        # Geometrically nonlinear: the tip moves inward as the beam deflects. With the cubic
+        # shape w = delta (3 xi^2 - xi^3)/2, w' = (3 delta/2L)(2 xi - xi^2), the shortening is
+        # int_0^L w'^2/2 dx = (9 delta^2/8L) int_0^1 (2xi - xi^2)^2 dxi = (9 delta^2/8L)(8/15)
+        # = 3 delta^2 / (5 L)  (1.7e-5 m here). The load also keeps its fixed direction while the
+        # beam tilts by ~0.007 rad, adding an axial tension of about P*theta (<1% of the shortening),
+        # so the axial value is gated at 3% instead of 0.1%; the other components keep REL_NL.
+        shortening = 3 * delta**2 / (5 * L)
+        u = disp(r, "b")
+        check_vec("tip deflection (transverse)", u[1:3], tip_u[1:], rel=rel, abs_tol=1e-6 * delta)
+        check("tip axial inward shift 3 delta^2/(5L)", u[0], -shortening, rel=0.03)
     check_vec("root reaction force", reac(r, "a")[:3], ref["reaction_force"], rel=rel, abs_tol=1e-6 * P)
     check_vec("root reaction moment", reac(r, "a")[3:], ref["reaction_moment"], rel=rel, abs_tol=1e-6 * P * L)
     check("root moment", forces(r, "ab")["momentStart"], P * L, rel=rel)

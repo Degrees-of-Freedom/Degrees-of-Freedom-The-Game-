@@ -220,7 +220,9 @@ export type ReasonCode =
   /** A solution was found but failed the equilibrium check. */
   | 'equilibrium_not_verified'
   /** The solver produced a non-finite number. */
-  | 'non_finite_result';
+  | 'non_finite_result'
+  /** The solver failed unexpectedly while analysing this component. */
+  | 'solver_error';
 
 export interface ComponentResult {
   /** Stable identifier: the lexicographically smallest node id in the component. */

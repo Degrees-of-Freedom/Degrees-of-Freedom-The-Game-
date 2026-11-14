@@ -56,6 +56,7 @@ REASON_CODES = {
     "timeout",
     "equilibrium_not_verified",
     "non_finite_result",
+    "solver_error",
 }
 BODY_KEYS = ("analysis", "components", "displacements", "reactions", "memberForces", "stability", "warnings")
 RESIDUAL_LIMIT = 1e-5

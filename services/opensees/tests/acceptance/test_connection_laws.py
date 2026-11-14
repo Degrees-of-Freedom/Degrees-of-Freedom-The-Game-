@@ -294,6 +294,9 @@ def test_ball_joint_arm_transmits_force_not_moment(arm_start):
 K_ROT = (8.0e6, 2.0e7, 4.0e7)  # RX, RY, RZ spring stiffness in local axes, N m/rad
 
 
+# NOTE: the builders below take CANONICAL loads (member along +X, axes X/Y/Z) and rotate the whole
+# model, loads included, with transform_model(m, Q). Expected values in the tests use the rotated
+# directions Q @ axis. (Round one passed the rotated vectors in, rotating the load twice.)
 def _semi_rigid_model(Q, force=(0, 0, 0), moment=(0, 0, 0)):
     m = build(
         {"j": (0, 0, 0), "t": (L, 0, 0)},
@@ -315,7 +318,7 @@ def test_semi_rigid_joint_bending(axis_name, frame):
     axis, k = (Z_AXIS, K_ROT[1]) if axis_name == "Z" else (Y_AXIS, K_ROT[2])
     load = 1.0e4
     n, t = Q @ axis, Q @ X_AXIS
-    r = require_success(solve(_semi_rigid_model(Q, force=tuple(load * n))), f"semi-rigid {axis_name}/{frame}")
+    r = require_success(solve(_semi_rigid_model(Q, force=tuple(load * axis))), f"semi-rigid {axis_name}/{frame}")
     d = load * L**3 / (3 * EI) + load * L**2 / k
     theta = load * L**2 / (2 * EI) + load * L / k
     check_vec("tip deflection", disp(r, "t")[:3], d * n, abs_tol=1e-6 * d)
@@ -333,7 +336,7 @@ def test_semi_rigid_joint_torsion(frame):
     # Torque T about the member axis passes through the RX spring: twist = T L/GJ + T/k_x.
     Q = FRAMES[frame]
     torque, t = 2.0e3, Q @ X_AXIS
-    r = require_success(solve(_semi_rigid_model(Q, moment=tuple(torque * t))), f"semi-rigid torsion/{frame}")
+    r = require_success(solve(_semi_rigid_model(Q, moment=tuple(torque * X_AXIS))), f"semi-rigid torsion/{frame}")
     twist = torque * L / GJ + torque / K_ROT[0]
     check_vec("tip rotation", disp(r, "t")[3:], twist * t, abs_tol=1e-6 * twist)
     check("torsion", forces(r, "jt")["torsion"], torque)
@@ -345,7 +348,7 @@ def test_semi_rigid_joint_axial_load_is_rigid(frame):
     # Translations are locked (exact), so an axial load stretches only the member: F L/EA.
     Q = FRAMES[frame]
     load, t = 3.0e4, Q @ X_AXIS
-    r = require_success(solve(_semi_rigid_model(Q, force=tuple(load * t))), "semi-rigid axial")
+    r = require_success(solve(_semi_rigid_model(Q, force=tuple(load * X_AXIS))), "semi-rigid axial")
     check_vec("tip translation", disp(r, "t")[:3], load * L / EA * t, abs_tol=1e-6 * load * L / EA)
     check("axial force", forces(r, "jt")["axial"], load)
 
@@ -370,7 +373,7 @@ def test_elastic_coupler_axial_series(frame):
     # Spring k_x in series with the bar: u = F/k_x + F L/EA; the spring force and member axial force are F.
     Q = FRAMES[frame]
     load, t = 2.0e4, Q @ X_AXIS
-    r = require_success(solve(_coupler_model(Q, force=tuple(load * t))), "coupler axial")
+    r = require_success(solve(_coupler_model(Q, force=tuple(load * X_AXIS))), "coupler axial")
     u = load / K_ALL[0] + load * L / EA
     check_vec("tip translation", disp(r, "t")[:3], u * t, abs_tol=1e-6 * u)
     check("axial force through the coupler", forces(r, "jt")["axial"], load)
@@ -388,7 +391,7 @@ def test_elastic_coupler_transverse_series(axis_name, frame):
     axis, kt, kr = (Z_AXIS, K_ALL[2], K_ALL[4]) if axis_name == "Z" else (Y_AXIS, K_ALL[1], K_ALL[5])
     load = 1.0e4
     n, t = Q @ axis, Q @ X_AXIS
-    r = require_success(solve(_coupler_model(Q, force=tuple(load * n))), f"coupler {axis_name}/{frame}")
+    r = require_success(solve(_coupler_model(Q, force=tuple(load * axis))), f"coupler {axis_name}/{frame}")
     d = load * L**3 / (3 * EI) + load / kt + load * L**2 / kr
     theta = load * L**2 / (2 * EI) + load * L / kr
     check_vec("tip deflection", disp(r, "t")[:3], d * n, abs_tol=1e-6 * d)
@@ -403,7 +406,7 @@ def test_elastic_coupler_torsion_series(frame):
     # twist = T L/GJ + T/k_rx
     Q = FRAMES[frame]
     torque, t = 2.0e3, Q @ X_AXIS
-    r = require_success(solve(_coupler_model(Q, moment=tuple(torque * t))), "coupler torsion")
+    r = require_success(solve(_coupler_model(Q, moment=tuple(torque * X_AXIS))), "coupler torsion")
     twist = torque * L / GJ + torque / K_ALL[3]
     check_vec("tip rotation", disp(r, "t")[3:], twist * t, abs_tol=1e-6 * twist)
     check("torsion", forces(r, "jt")["torsion"], torque)

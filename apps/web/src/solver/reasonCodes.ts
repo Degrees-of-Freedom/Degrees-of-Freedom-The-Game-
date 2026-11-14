@@ -13,6 +13,7 @@ const REASON_TEXT: Record<ReasonCode, string> = {
   timeout: 'the solver ran out of time',
   equilibrium_not_verified: 'a solution was found but failed the equilibrium check',
   non_finite_result: 'the solver produced an invalid number',
+  solver_error: 'the solver failed unexpectedly',
 };
 
 const STATE_TEXT: Record<ComponentState, string> = {
