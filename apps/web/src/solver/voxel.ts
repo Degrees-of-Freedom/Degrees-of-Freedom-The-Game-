@@ -3,7 +3,7 @@ type BeamType = Exclude<VoxelMemberType, 'cable'>;
 type Section = typeof ITEMS[VoxelMemberType];
 type BeamSection = typeof ITEMS[BeamType];
 type Element = { m: VoxelMember; it: Section; L: number; R: number[][]; ex: number[]; a: number; b: number; k: Float64Array; rel: number[]; kgl: Float64Array; dofs: number[]; cable: boolean; rigidA: boolean; rigidB: boolean };
-type Context = { keys: string[]; pos: number[][]; act: number[]; NA: number; eq: Int32Array; nf: number; els: Element[]; bw: number };
+type Context = { keys: string[]; pos: number[][]; act: number[]; NA: number; eq: Int32Array; nf: number; els: Element[]; bw: number; isF: boolean[] };
 type Demand = { Nt: number; Nc: number; Vy: number; Vz: number; My: number; Mz: number; endF: number[]; endM: number[]; dEIy: number; dEIz: number; dmax: number };
 type ElementForce = { f: Float64Array; ul: Float64Array; slack?: boolean };
 type Solved = { u: Float64Array; K0: Float64Array; active: Map<Element, boolean>; ef: Map<Element, ElementForce> };
@@ -346,7 +346,12 @@ function analyze(){
 
   // ---- objectives
   const O=out.objectives, add=(ok: boolean,label: string,detail: string,warn?: boolean)=>O.push({ok,label,detail,warn});
-  add(out.floating.length===0,'All parts connected to a foundation', out.floating.length?`${out.floating.length} floating node(s) ignored`:'');
+  const targets=keys.filter(k=>model.attrs[k]?.target), loose=out.floating.filter(k=>!model.attrs[k]?.target);
+  if(targets.length){
+    const got=targets.filter(k=>!out.floating.includes(k)).length;
+    add(got===targets.length,`Pick up all weights (${got}/${targets.length})`, got<targets.length?'red weights are not yet connected to a foundation':'');
+  }
+  add(loose.length===0,'All parts connected to a foundation', loose.length?`${loose.length} floating node(s) ignored`:'');
   add(!out.mechanism,'Stable — no mechanism', out.mechanism?'Structure moves freely: add bracing (triangles) or moment connections':'');
   if(!out.mechanism){
     const aTxt=aMin===Infinity?'no compression':`α<sub>cr</sub> = ${aMin>=128?'>128':aMin.toFixed(2)}`;
@@ -374,6 +379,13 @@ function analyze(){
       const lim=(LV.cliffR!-LV.cliffL!)*S/400;
       add(dz<=lim,'Deck deflection ≤ span/400 (SLS)', `${(dz*1000).toFixed(0)} mm (limit ${(lim*1000).toFixed(0)} mm)`);
     }
+  }
+  if(LV.type==='pickup' && !out.mechanism){
+    let worst=0, txt='';
+    for(const k of targets){ const n=idx.get(k)!; if(!sup[n]) continue; const a=aid[n], [, , kk]=parse(k), lim=Math.max(1,kk-(LV.groundHeights?.[k] ?? 0))*S/250;
+      for(const c of out.combos){ if(c.fail||c.combo.type!=='SLS') continue; const d=Math.hypot(c.u![a*6],c.u![a*6+1],c.u![a*6+2]);
+        if(d/lim>worst){ worst=d/lim; txt=`${(d*1000).toFixed(0)} mm at the ${model.attrs[k].load} kN weight (limit ${(lim*1000).toFixed(0)} mm)`; } } }
+    if(targets.some(k=>sup[idx.get(k)!])) add(worst<=1,'Weights move ≤ height/250 (SLS)', txt);
   }
   out.success = O.every(o=>o.ok) && LV.type!=='sandbox' ? true : (LV.type==='sandbox' && O.every(o=>o.ok));
   out.cost=costOf(); out.mass=massOf();
