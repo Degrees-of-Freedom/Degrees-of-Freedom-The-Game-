@@ -56,6 +56,7 @@ This is the canonical entry point for durable project knowledge. The early web p
 | [avatar-criteria.md](avatar-criteria.md) | Defining Timburr’s personality, compact presence, reactions, Conkeldurr transformation, model sources and deferred implementation handoff. |
 | [animation-criteria.md](animation-criteria.md) | Defining all-action animation and sound requirements, optional structural glow/pulse, accessibility, timing and acceptance scenarios. |
 | [joint-dof-criteria.md](joint-dof-criteria.md) | Defining translation/twist glyphs, global/local views, shared-joint freedoms, foundation defaults and the separate instability overlay. |
+| [visualization-criteria.md](visualization-criteria.md) | Defining calculated deflected shape, load-path overlays, contours, force inspection and result validity. |
 | [3d-viewer.md](3d-viewer.md) | Working on the 3D grid, interaction, or visual feedback. |
 | [development-and-testing.md](development-and-testing.md) | Finding current setup, commands, and test coverage. |
 
@@ -85,13 +86,13 @@ The confirmed decisions are distinct from the proposed connection presets and un
 
 [Element representation criteria](element-representation-criteria.md) require recognizable section/assembly geometry for the catalogue recorded in [structural solver](structural-solver.md#required-element-catalogue-and-geometry-direction). The owner confirmed planar two-chord trusses, triangular three-chord trusses, axial helical springs and slightly enlarged sections with true-scale inspection. Procedural geometry, LOD, numerical accuracy boundaries and acceptance fixtures are specified for future implementation; visual inclusion does not add playable cards or solver capabilities.
 
+## Automatic correction and final fallback
+
+Later owner decisions confirm historical penalties remain after repair, matching freedom states/physical axes may have different elastic stiffnesses, and final attraction awards use verified components against total applied gravity with zero award for unknown contributions. Player moves are retained while the program applies recorded game-owned repairs for instability and overload, explained by Timburr. See [issue correction](failure-repair-criteria.md#6-automatic-correction-transaction) and the [decision register](game-completion-criteria.md#2-owner-confirmed-decision-register). The owner confirmed permanent neutral scaffolding/ground anchors with no player attraction award and local direct intervention; whole-structure effects are still reanalyzed. See the [local repair policy](failure-repair-criteria.md#7-permanent-neutral-repairs-with-local-intervention). These are requirements, not implemented correction or a promise of stable equilibrium for every arbitrary input.
+
 ## Maintenance
 
 - Validate facts against current code, configuration, tests, or explicitly identified project decisions; list sources in front matter.
 - Update affected pages in the same change as durable behavior or decisions. Keep `last_validated` and `status` accurate.
 - Use `current`, `partial`, `needs-review`, or `deprecated` for status. Record unanswered questions rather than guessing.
 - Treat design intent as intent, not shipped functionality. Existing non-KB documents are context unless explicitly cited and validated.
-
-## Automatic correction and final fallback
-
-Later owner decisions confirm historical penalties remain after repair, matching freedom states/physical axes may have different elastic stiffnesses, and final attraction awards use verified components against total applied gravity with zero award for unknown contributions. Player moves are retained while the program applies recorded game-owned repairs for instability and overload, explained by Timburr. See [issue correction](failure-repair-criteria.md#6-automatic-correction-transaction) and the [decision register](game-completion-criteria.md#2-owner-confirmed-decision-register). The owner confirmed permanent neutral scaffolding/ground anchors with no player attraction award and local direct intervention; whole-structure effects are still reanalyzed. See the [local repair policy](failure-repair-criteria.md#7-permanent-neutral-repairs-with-local-intervention). These are requirements, not implemented correction or a promise of stable equilibrium for every arbitrary input.

@@ -34,7 +34,7 @@ This is the entry point for the eight completion criteria requested after the in
 | Complete saved match | [Persistence](saved-match-criteria.md) | Atomic/recoverable full state, deterministic replay, validation and migration. |
 | Integrated acceptance | [Release gates](release-acceptance-criteria.md) | One complete-match acceptance matrix and supported-scope/evidence declaration. |
 
-[Turn criteria](turn-criteria.md) remain the source for the confirmed draw/play limits and per-end connection cards. [Solver criteria](solver-criteria.md) govern numerical verification. [Joint DOFs](joint-dof-criteria.md), [element geometry](element-representation-criteria.md), [animation](animation-criteria.md) and [avatar](avatar-criteria.md) remain presentation specifications; they do not decide legal actions or fabricate physical evidence.
+[Turn criteria](turn-criteria.md) remain the source for the confirmed draw/play limits and per-end connection cards. [Solver criteria](solver-criteria.md) govern numerical verification; [visualization criteria](visualization-criteria.md) govern the calculated deflected shape and explanatory load-path displays, with the confirmed score/neutral-support policies kept separate from raw physical quantities. [Joint DOFs](joint-dof-criteria.md), [element geometry](element-representation-criteria.md), [animation](animation-criteria.md) and [avatar](avatar-criteria.md) remain presentation specifications; they do not decide legal actions or fabricate physical evidence.
 
 ## 2. Owner-confirmed decision register
 

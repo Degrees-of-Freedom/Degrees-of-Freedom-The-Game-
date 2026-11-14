@@ -58,7 +58,7 @@ The initial proposed deck 1 catalogue below reflects the existing experimental f
 | Axial brace | Required by solver criteria M03 but absent from the voxel catalog. Section, material and capacities need definition. |
 | Tension-only cable | Cable Ø24 is the current example. Each card defines rest length or initial strain and pretension; do not silently apply the prototype's 25 kN pretension to every cable. |
 | Load | Point load 50 kN is the current example. Confirmed base deck uses persistent downward gravity point loads with printed magnitudes. Lateral-force and moment cards are excluded from the base game. |
-| Foundation / support | Setup-only by owner decision. Not included in either deck; no turn play adds a foundation. |
+| Player foundation / support | Setup-only and not included in either deck. No player card play adds a foundation. Permanent unscored neutral repair anchors are a separate system-only exception. |
 
 An ordinary element card places one member. By later owner decision, a planar/trichord assembly card places one complete authored assembly using one element play; each external attachment still needs its own connection card, within the two-connection-per-turn maximum. Internal authored parts/continuity do not consume extra player cards. No element card places a foundation. Each member definition specifies lengths, orientation/section roll, E, G, A, Iy, Iz, J where relevant, capacities and self-weight policy. Player choices must stay within printed options. One load card uses one load allowance even if its defined load has several vector components.
 

@@ -80,3 +80,11 @@ The follow-up criteria record retained historical penalties, unequal elastic sti
 ## Permanent local neutral repair validation scope
 
 The owner confirmed neutral system scaffolding/ground anchors, no player attraction award, permanent in-match lifetime and local direct intervention. Criteria checks must distinguish local edits from indirect global redistribution and independently measure verified neutral share versus unverified/unawarded scope. Future tests must verify whole-structure equilibrium/capacities, persistent repair IDs after reinforcement/reload, unchanged player cards and one historical penalty event. Only documentation was changed; no automatic repair, physical locality guarantee or numerical validation is implemented here.
+
+## Core-game criteria merge review — 2026-11-14
+
+Reviewed the completion criteria against latest main baseline `5013ff6`, preserving the separately contributed visualization specification. Confirmed all eight completion pages are reachable from the KB index and decision hub, and the register has 17 unique confirmed decisions. Corrected older text that still treated assembly-card economy/scoring as undecided, described the local turn system as absent, or omitted the neutral-system exception to player setup-only foundations.
+
+Validated 224 relative documentation links/anchors across the root README and all 27 KB pages, plus whitespace checks. Cross-checked final-only adjusted scoring, unequal elastic stiffnesses, original-quarter attachments, assembly plays, retained historical penalties, permanent neutral local repairs, and separate verified-neutral versus unavailable reaction scope. Existing visualization art/overlay decisions were preserved and linked to the confirmed scoring/repair policy. Remaining numerical, balance, physical-catalogue and device parameters stay explicitly proposed/open.
+
+The merge changes documentation only; application, shared-contract, service and archived-prototype bytes are unchanged from the latest main baseline. Runtime/numerical/browser tests were not rerun for this documentation-only review, and no implementation, solver correctness or performance acceptance is claimed. Future release evidence must follow [whole-game acceptance](release-acceptance-criteria.md).

@@ -24,7 +24,7 @@ Criteria only; no new placement, clash, assembly or quarter-subdivision behavior
 - Unconnected elements are permitted, but **physical clashes are not**.
 - One planar-truss or trichord assembly card places one complete assembly using one element play; each external attachment requires its own connection card. This explicitly supersedes the earlier one-member-only prohibition for those assembly cards.
 
-Existing shared access, immutable placed connectors, same connection freedoms at a joint, setup-only fixed foundations and independent 1/1/2 play maxima remain in force. A legal structure may be unsupported, unstable or overloaded; physical adversity is not placement illegality. New numerical interpretations must satisfy [solver criteria](solver-criteria.md).
+Existing shared access, immutable placed connectors, same connection freedoms at a joint, setup-only fixed player foundations (with the explicit neutral-system repair exception) and independent 1/1/2 play maxima remain in force. A legal structure may be unsupported, unstable or overloaded; physical adversity is not placement illegality. New numerical interpretations must satisfy [solver criteria](solver-criteria.md).
 
 ## 2. Reference geometry and target identity
 
@@ -67,7 +67,7 @@ Preview card ownership, allowed target/port, endpoint, physical orientation, com
 
 An incoming connection cannot edit/reorient/upgrade older placed connectors. A first-attachment profile-establishment workflow remains proposed until specified; all accepted connections must meet the latest matching policy. A connection attaches one external end/port; one card never joins every assembly end. Internal assembly joints authored in its definition do not consume new player connector cards. More than two newly played external connectors requires a later turn; incomplete staged/committed connectivity is allowed if all other rules are met.
 
-Shared access permits targeting opponents' eligible joints/quarter ports. It does not permit moving their objects, changing foundation ownership, replacing connectors, editing printed definitions or removing persistent loads. Foundations remain setup-only. Distinguish stale drafts, invalid geometry and forbidden actions from verified physical issues; invalid actions do not receive physical penalties.
+Shared access permits targeting opponents' eligible joints/quarter ports. It does not permit moving their objects, changing foundation ownership, replacing connectors, editing printed definitions or removing persistent loads. Player foundations remain setup-only; the separate system-only neutral repair-anchor exception is defined in section 7. Distinguish stale drafts, invalid geometry and forbidden actions from verified physical issues; invalid actions do not receive physical penalties.
 
 ## 6. Acceptance and open parameters
 
