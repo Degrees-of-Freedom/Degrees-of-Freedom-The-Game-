@@ -45,6 +45,9 @@ export function assessTurn(turn: TurnState): 'stable' | 'unstable' | 'partial' |
   try {
     const result = analyzeTurn(turn);
     if (result.error || !result.combos.length) return 'unresolved';
+    const scopes = result.combos[0].components ?? [];
+    if (scopes.some(s => s.status === 'computed') && scopes.some(s => s.status !== 'computed')) return 'partial';
+    if (result.unresolved) return 'unresolved';
     if (result.mechanism) return 'unstable';
     return result.floating.length ? 'partial' : 'stable';
   } catch {

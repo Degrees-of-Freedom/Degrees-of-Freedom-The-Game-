@@ -125,7 +125,7 @@ export function checkDesign(
   model: VoxelModel,
   ctx: Context,
   out: VoxelAnalysis,
-  amp: number,
+  alphas: ReadonlyMap<number, number>,
 ) {
   const { els, NA, isF, act, keys } = ctx;
   // ---- member design envelope
@@ -135,6 +135,10 @@ export function checkDesign(
     failing = 0,
     connMax = 0;
   for (const e of els) {
+    if (!out.combos.some(c => c.ef?.has(e))) continue;
+    const complete = out.combos.every(c => c.ef?.has(e));
+    const alpha = alphas.get(e.m.id) ?? Infinity;
+    const amp = alpha > 1 && alpha < 10 ? 1 / (1 - 1 / alpha) : 1;
     const d = {
       Nt: 0,
       Nc: 0,
@@ -150,8 +154,8 @@ export function checkDesign(
     };
     let slack = false;
     for (const c of out.combos) {
-      if (c.fail) continue;
-      const r = c.ef!.get(e)!;
+      const r = c.ef?.get(e);
+      if (!r) continue;
       if (c.combo.type === 'ULS') {
         if (r.slack) slack = true;
         const x = memberDemandULS(e, r, amp);
@@ -170,7 +174,7 @@ export function checkDesign(
         d.dmax = Math.max(d.dmax, x.dy || 0, x.dz || 0);
       }
     }
-    const checks = out.mechanism || !out.designChecksAvailable
+    const checks = !complete || !out.designChecksAvailable
       ? {}
       : checkMember(e.it, d, e.L, e.rigidA, e.rigidB);
     const g = govern(checks);
@@ -179,10 +183,10 @@ export function checkDesign(
       demand: d,
       checks,
       util: g.util,
-      gov: out.designChecksAvailable ? g.gov : 'Not assessed',
+      gov: complete && out.designChecksAvailable ? g.gov : 'Not assessed',
       slack,
     };
-    if (!out.mechanism && out.designChecksAvailable) {
+    if (complete && out.designChecksAvailable) {
       maxU = Math.max(maxU, g.util);
       if (g.util > 1) failing++;
       if (checks.connection) connMax = Math.max(connMax, checks.connection);
@@ -192,7 +196,7 @@ export function checkDesign(
       }
     }
   }
-  if (out.designChecksAvailable) {
+  if (out.designChecksAvailable && !out.mechanism && !out.unresolved) {
     out.maxU = maxU;
     out.avgU = nB ? sumU / nB : 0;
     out.failing = failing;
@@ -210,7 +214,8 @@ export function checkDesign(
       worst: Float64Array | null = null;
     for (const c of out.combos) {
       if (c.fail || c.combo.type !== 'ULS') continue;
-      const r = c.reac![a];
+      const r = c.reac?.[a];
+      if (!r) continue;
       const uu = Math.max(
         r[2] > 0 ? r[2] / (FOUND_CAP.Nc * f) : -r[2] / (FOUND_CAP.Nt * f),
         Math.hypot(r[0], r[1]) / (FOUND_CAP.H * f),
@@ -224,6 +229,6 @@ export function checkDesign(
     out.found[k] = { util: u, r: worst, locked };
     foundMax = Math.max(foundMax, u);
   }
-  if (out.designChecksAvailable) out.foundMax = foundMax;
+  if (out.designChecksAvailable && !out.mechanism && !out.unresolved) out.foundMax = foundMax;
   return { maxU, failing, connMax, foundMax };
 }

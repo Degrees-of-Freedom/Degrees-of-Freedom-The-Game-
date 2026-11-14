@@ -29,6 +29,16 @@ export type Context = {
   idx: Map<string, number>;
   aid: Int32Array;
 };
+export type FrameSystem = Pick<Context, 'nf' | 'NA' | 'eq' | 'els'>;
+export interface ComponentResponse {
+  /** Analytical identities. Coincident loose ends can belong to different components. */
+  nodes: string[];
+  memberIds: number[];
+  /** Computed identifies an experimental response. A physical verification policy
+   * must independently accept this scope before it is eligible for game scoring. */
+  status: 'computed' | 'unsupported' | 'mechanism' | 'unresolved' | 'excessive-displacement';
+  reason?: string;
+}
 export type Demand = {
   Nt: number;
   Nc: number;
@@ -66,16 +76,26 @@ export type Combo = {
   vis: { a: number; v: number[]; kind: string }[];
   fail?: boolean;
   u?: Float64Array;
+  /** Populated only for partial solutions. An absent node has no computed displacement. */
+  partialDisplacements?: Map<number, Float64Array>;
+  components?: ComponentResponse[];
   ef?: Map<Element, ElementForce>;
   active?: Map<Element, boolean>;
   reac?: Record<number, Float64Array>;
   maxD?: number;
-  sol?: Solved;
 };
+/** Six global components (m, rad) in the active-node numbering of the analysis. */
+export function displacementAt(combo: Combo | undefined, active: number): Float64Array | undefined {
+  if (!combo || active < 0) return undefined;
+  if (combo.u && 6 * active < combo.u.length) return combo.u.subarray(6 * active, 6 * active + 6);
+  return combo.partialDisplacements?.get(active);
+}
 /** Prototype analysis in kN and metres. Results are approximate and not engineering design. */
 export interface VoxelAnalysis {
   error?: string;
   mechanism: boolean;
+  /** A supported component exceeded the numerical solver's available scope. */
+  unresolved?: boolean;
   /** Strength and stability checks require the factored design combinations. */
   designChecksAvailable?: boolean;
   floating: string[];

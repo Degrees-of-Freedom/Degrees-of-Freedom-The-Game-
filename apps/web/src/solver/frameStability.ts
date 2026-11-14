@@ -1,8 +1,8 @@
-import type { Context, Solved } from './voxelResults';
+import type { FrameSystem, Solved } from './voxelResults';
 import { toGlobal, cholesky } from './frameMath';
 
 /** Estimate the first global buckling factor from geometric stiffness. */
-export function alphaCr(ctx: Context, sol: Solved) {
+export function alphaCr(ctx: FrameSystem, sol: Solved) {
   const { nf, els } = ctx;
   if (nf === 0) return Infinity;
   if (nf > 2400) return null;

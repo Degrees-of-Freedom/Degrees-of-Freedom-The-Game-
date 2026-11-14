@@ -30,6 +30,8 @@ status: partial
 
 # Structural Solver
 
+The active voxel analysis now solves independent supported components separately. Each load combination identifies component node/member IDs, computed, unsupported, singular, excessive-displacement or unresolved scope. A stable neighbor retains its computed forces, reactions and displacements when a supported mechanism or oversized subsystem cannot be solved. The independent service has its own result contract. Experimental component response needs additional verification for scored play. See the [criteria ledger](criteria-ledger.md).
+
 The game intends to communicate load paths, instability, member or connection failure, and structural complexity. The workspace includes an experimental voxel-specific numerical analysis extracted from the standalone prototype. It uses metres and kN internally, frame and cable elements, multiple load combinations, regularization and simplified stability and design checks. It has not been independently validated and is not suitable for engineering design. It is not a shared `SolverAdapter`.
 
 One backend does implement the shared contract: an OpenSees service in `services/opensees`, reached through `createOpenSeesSolver` in the web app. The workspace uses it for a stability and degree-of-freedom check that runs beside the voxel analysis. A development build calls the service on `http://localhost:8000`; `VITE_OPENSEES_URL` overrides that address; a production build without it falls back to the placeholder adapter, which returns `unsupported`, because no deployed service exists.

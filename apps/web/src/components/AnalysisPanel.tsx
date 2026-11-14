@@ -35,6 +35,8 @@ export function AnalysisPanel({
   selectMember,
 }: AnalysisPanelProps) {
   const path = result && loadPath ? computeLoadPath(result, combo) : null;
+  const scopes = result?.combos[combo]?.components ?? [];
+  const partial = scopes.some(s => s.status === "computed") && scopes.some(s => s.status !== "computed");
   return (
     <div className="analysis">
       <div className="panel-title">03 &nbsp; ANALYSIS</div>
@@ -49,7 +51,7 @@ export function AnalysisPanel({
       ) : (
         <>
           <h3>
-            {result.mechanism
+            {partial ? "Partial component results" : result.unresolved ? "Analysis unresolved" : result.mechanism
               ? "Unstable structure"
               : result.floating.length
                 ? "Disconnected structure"
@@ -58,9 +60,11 @@ export function AnalysisPanel({
                   : "Simulation complete · review checks"}{" "}
             {result.stars ? "★".repeat(result.stars) : ""}
           </h3>
-          {(result.mechanism || result.floating.length > 0) && (
+          {(result.mechanism || result.unresolved || result.floating.length > 0) && (
             <p role="status">
-              {result.mechanism
+              {partial || result.unresolved
+                ? scopes.filter(s => s.status !== "computed").map(s => `${s.memberIds.length ? "Members " + s.memberIds.join(", ") : "Nodes " + s.nodes.join(", ")} — ${s.reason}`).join(" ")
+                : result.mechanism
                 ? "The model has a movement that is not resisted. Add a support, brace, or connection before interpreting force results."
                 : `${result.floating.length} node(s) have no connection to a support.`}
             </p>
@@ -78,9 +82,9 @@ export function AnalysisPanel({
             <b>{result.mass?.toFixed(2)} t</b>
           </div>
           <div className="stat">
-            <span>Maximum displacement</span>
+            <span>{partial ? "Maximum computed displacement" : "Maximum displacement"}</span>
             <b>
-              {result.mechanism || result.combos[combo]?.maxD === undefined
+              {result.combos[combo]?.maxD === undefined
                 ? "—"
                 : `${(result.combos[combo].maxD! * 1000).toFixed(2)} mm`}
             </b>
@@ -100,7 +104,7 @@ export function AnalysisPanel({
                 <div className="stat" key={key}>
                   <span>{key}</span>
                   <b>
-                    {reaction && !result.mechanism
+                    {reaction
                       ? `${reaction[0].toFixed(2)}, ${reaction[1].toFixed(2)}, ${reaction[2].toFixed(2)} kN`
                       : "Unavailable"}
                   </b>
@@ -143,14 +147,14 @@ export function AnalysisPanel({
                   {result.designChecksAvailable === false ? (
                     (() => {
                       const force = result.combos[combo]?.ef?.get(member.e)?.f;
-                      return force && !result.mechanism
+                      return force
                         ? `#${id} · |N| ${Math.max(Math.abs(force[0]), Math.abs(force[6])).toFixed(1)} kN · |V| ${Math.max(...[1, 2, 7, 8].map((i) => Math.abs(force[i]))).toFixed(1)} kN · |M| ${Math.max(...[4, 5, 10, 11].map((i) => Math.abs(force[i]))).toFixed(1)} kNm`
                         : `#${id} · Forces unavailable`;
                     })()
                   ) : (
                     <>
                       #{id} · {member.gov}{" "}
-                      <b>{(member.util * 100).toFixed(0)}%</b>
+                      {member.gov !== "Not assessed" && <b>{(member.util * 100).toFixed(0)}%</b>}
                     </>
                   )}
                 </button>

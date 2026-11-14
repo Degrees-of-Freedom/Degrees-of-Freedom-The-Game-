@@ -29,6 +29,7 @@ export function computeLoadPath(
   if (
     result.error ||
     result.mechanism ||
+    result.unresolved ||
     !ctx ||
     !c ||
     c.fail ||

@@ -356,7 +356,7 @@ export function createPicker(
       const view = getView();
       const result = view.result;
       const label = "Member " + id;
-      if (!result || result.error || result.mechanism) return label;
+      if (!result || result.error) return label;
       const member = result.members[id];
       if (!member) return label;
       if (result.designChecksAvailable === false) {
@@ -365,6 +365,7 @@ export function createPicker(
         const axial = Math.max(Math.abs(force[0]), Math.abs(force[6]));
         return [label, "|N| " + axial.toFixed(1) + " kN"].join(" · ");
       }
+      if (member.gov === "Not assessed") return label;
       return [label, (member.util * 100).toFixed(0) + "% utilization", member.gov]
         .filter(Boolean).join(" · ");
     }

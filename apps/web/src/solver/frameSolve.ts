@@ -1,8 +1,8 @@
 import { ITEMS } from './voxelSections';
-import type { Context, Element, ElementForce, Solved } from './voxelResults';
+import type { FrameSystem, Element, ElementForce, Solved } from './voxelResults';
 import { recover } from './frameElement';
 import { cholesky, cholSolve } from './frameMath';
-function assemble(ctx: Context, active: Map<Element, boolean>) {
+function assemble(ctx: FrameSystem, active: Map<Element, boolean>) {
   const { nf, els } = ctx,
     K = new Float64Array(nf * nf);
   for (const e of els) {
@@ -21,7 +21,7 @@ function assemble(ctx: Context, active: Map<Element, boolean>) {
   return K;
 }
 export function solveCombo(
-  ctx: Context,
+  ctx: FrameSystem,
   F: Float64Array,
 ): { fail: true; reason?: string } | Solved {
   const { nf, eq, els, NA } = ctx;

@@ -2,10 +2,8 @@ import type { VoxelLevel, VoxelModel } from './voxelInput';
 import type { VoxelAnalysis } from './voxelResults';
 import { S } from './voxelSections';
 import { parse } from './voxelCoordinates';
-import { vecToGlobal } from './frameMath';
 import { makeElement } from './frameElement';
-import { solveCombo } from './frameSolve';
-import { alphaCr } from './frameStability';
+import { componentSystems, findComponents, solveComponents } from './voxelComponents';
 import { buildLoads, COMBOS } from './voxelLoads';
 import { checkDesign } from './voxelDesignChecks';
 import { evaluateObjectives } from './voxelObjectives';
@@ -47,29 +45,8 @@ export function analyzeVoxel(
   const idx = new Map(keys.map((k, n) => [k, n]));
   const pos = keys.map((k) => (model.positions?.[k] ?? parse(k)).map((v) => v * S));
   const isF = keys.map((k) => !!model.attrs[k]?.found);
-  const adj: number[][] = keys.map(() => []);
-  for (const m of model.members) {
-    const a = idx.get(m.a)!,
-      b = idx.get(m.b)!;
-    adj[a].push(b);
-    adj[b].push(a);
-  }
-  const sup = new Uint8Array(keys.length),
-    st: number[] = [];
-  isF.forEach((f, n) => {
-    if (f) {
-      sup[n] = 1;
-      st.push(n);
-    }
-  });
-  while (st.length) {
-    const n = st.pop()!;
-    for (const o of adj[n])
-      if (!sup[o]) {
-        sup[o] = 1;
-        st.push(o);
-      }
-  }
+  const { components, labels } = findComponents(keys, idx, model.members, isF);
+  const sup = keys.map((_, n) => components[labels[n]].supported);
   out.floating = keys.filter((k, n) => !sup[n]);
   if (!isF.some(Boolean)) {
     out.error = 'No foundation — place at least one foundation on the ground.';
@@ -115,79 +92,34 @@ export function analyzeVoxel(
   }
   const ctx = { keys, idx, pos, act, aid, NA, eq, nf, els, isF, bw };
   out.ctx = ctx;
-  if (nf > 2400) {
-    out.error = 'Model too large to analyse in the browser (>400 free nodes).';
-    return out;
-  }
-
   // ---- load combinations
   const combos = level.loadCase === 'applied'
     ? [{ name: 'Applied loads + self-weight', short: 'Applied loads + self-weight', type: 'SLS' as const, dir: [0, 0, 0] }]
     : COMBOS;
+  const systems = componentSystems(ctx, components, labels);
+  const alphas = new Map<number, number>();
+  out.alpha = [];
   for (const combo of combos) {
     const { F, vis } = buildLoads(model, level, ctx, combo);
-    const sol = solveCombo(ctx, F);
-    if ('fail' in sol) {
-      if (sol.reason) {
-        out.error = sol.reason;
-        return out;
+    const { result, alpha, componentAlpha } = solveComponents(ctx, systems, components, combo, F, vis);
+    if (combo.type === 'ULS') out.alpha.push(alpha);
+    for (const [id, factor] of componentAlpha) alphas.set(id, Math.min(alphas.get(id) ?? Infinity, factor));
+    for (const scope of result.components!) {
+      if (scope.status === 'mechanism' || scope.status === 'excessive-displacement') {
+        out.mechanism = true;
+        for (const key of scope.nodes) out.unstable.add(key);
       }
-      out.mechanism = true;
-      out.combos.push({ combo, F, vis, fail: true });
-      continue;
+      if (scope.status === 'unresolved') out.unresolved = true;
     }
-    let maxD = 0;
-    for (let a = 0; a < NA; a++) {
-      const d = Math.hypot(sol.u[a * 6], sol.u[a * 6 + 1], sol.u[a * 6 + 2]);
-      maxD = Math.max(maxD, d);
-      if (d > 0.5) out.unstable.add(keys[act[a]]);
-    }
-    if (maxD > 2) out.mechanism = true;
-    // reactions
-    const reac: Record<number, Float64Array> = {};
-    for (let a = 0; a < NA; a++)
-      if (isF[act[a]]) {
-        const r = new Float64Array(6);
-        for (let q = 0; q < 6; q++) r[q] = -F[a * 6 + q];
-        reac[a] = r;
-      }
-    for (const e of els) {
-      const fg = vecToGlobal(sol.ef.get(e)!.f, e.R);
-      if (reac[e.a]) for (let q = 0; q < 6; q++) reac[e.a][q] += fg[q];
-      if (reac[e.b]) for (let q = 0; q < 6; q++) reac[e.b][q] += fg[6 + q];
-    }
-    // Free axes are not support reactions even at a partially restrained node.
-    for (const [a, reaction] of Object.entries(reac))
-      for (let q = 0; q < 6; q++) if (eq[Number(a) * 6 + q] >= 0) reaction[q] = 0;
-    out.combos.push({
-      combo,
-      F,
-      vis,
-      u: sol.u,
-      ef: sol.ef,
-      active: sol.active,
-      reac,
-      maxD,
-      sol,
-    });
-  }
-  if (!out.mechanism) out.unstable.clear();
-
-  // ---- global buckling (ULS combos)
-  out.alpha = [];
-  if (!out.mechanism) {
-    out.combos.forEach((c, i) => {
-      if (c.combo.type === 'ULS') out.alpha!.push(alphaCr(ctx, c.sol!));
-    });
+    out.combos.push(result);
   }
   const aMin = out.alpha.length
     ? Math.min(...out.alpha.map((a) => (a === null ? Infinity : a)))
     : Infinity;
-  if (out.designChecksAvailable) out.alphaMin = aMin;
+  if (out.designChecksAvailable && !out.mechanism && !out.unresolved) out.alphaMin = aMin;
   const amp = aMin > 1 && aMin < 10 ? 1 / (1 - 1 / aMin) : 1;
-  if (out.designChecksAvailable) out.amp = amp;
-  for (const c of out.combos) delete c.sol; // free memory
-  const design = checkDesign(model, ctx, out, amp);
+  if (out.designChecksAvailable && !out.mechanism && !out.unresolved) out.amp = amp;
+  const design = checkDesign(model, ctx, out, alphas);
   evaluateObjectives(model, level, ctx, out, aMin, amp, design);
   out.time = performance.now() - t0;
   return out;
