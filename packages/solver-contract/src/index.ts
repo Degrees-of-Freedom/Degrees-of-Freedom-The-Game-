@@ -114,3 +114,4 @@ export * from './structural-state-service.js';
 
 export * from './analysis-result.js';
 export * from './analysis-results-store.js';
+export * from './stored-analysis.js';
