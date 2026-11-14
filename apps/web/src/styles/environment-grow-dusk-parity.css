@@ -1,0 +1,282 @@
+/* Grow Dusk: closing the gap to the standalone prototype
+   (prototypes/game-environment/grow-dusk/index.html).
+
+   environment-grow-dusk.css carries the prototype's own rules.
+   environment-runtime.css then applies shared defaults (cream panels, raised
+   corners, a fixed card position) that suited the other environments. This
+   file is imported last and restores the prototype's dusk panels and places
+   for Grow Dusk, and styles the few controls the app adds. Presentation only. */
+
+/* ---- dock: slate toolbar at the bottom centre ---- */
+.environment[data-style="grow-dusk"] #dock {
+  bottom: 14px;
+}
+.environment[data-style="grow-dusk"] .env-tools {
+  background: var(--slate);
+  box-shadow: var(--shadow);
+  align-items: center;
+}
+.environment[data-style="grow-dusk"] .env-tools .tool kbd {
+  background: rgba(243, 234, 216, 0.12);
+  color: var(--cream);
+}
+.environment[data-style="grow-dusk"] .env-tools .tool.on kbd {
+  background: transparent;
+  color: var(--ink);
+  border-color: rgba(34, 49, 63, 0.45);
+}
+.environment[data-style="grow-dusk"] .env-tools .sep {
+  height: 30px;
+}
+/* Erase and Inspect: compact additions beside the prototype's three tools. */
+.environment[data-style="grow-dusk"] .env-tools .tool.mini {
+  min-width: 0;
+  width: 46px;
+  padding: 0;
+  justify-content: center;
+}
+.environment[data-style="grow-dusk"] .env-tools .tool.mini svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ---- load pad ---- */
+.environment[data-style="grow-dusk"] .env-pad .dir:disabled,
+.environment[data-style="grow-dusk"] .env-pad .amt:disabled {
+  opacity: 0.55;
+}
+
+/* ---- corners ---- */
+/* The axes disc is drawn by the scene; the stats chip sits to its right. */
+.environment[data-style="grow-dusk"] .scene-axes {
+  left: 14px;
+  bottom: 105px;
+  width: 76px;
+  height: 76px;
+  font: 700 12px var(--font);
+}
+.environment[data-style="grow-dusk"] #cornerleft {
+  left: 100px;
+  bottom: 105px;
+}
+.environment[data-style="grow-dusk"] #cornerright {
+  bottom: 105px;
+}
+.environment[data-style="grow-dusk"] .scene [aria-label="Camera controls"] {
+  left: 14px !important;
+  bottom: 190px !important;
+  gap: 2px !important;
+  padding: 4px;
+  background: var(--slate);
+  color: var(--cream);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+}
+.environment[data-style="grow-dusk"]
+  .scene
+  [aria-label="Camera controls"]
+  button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 9px;
+  color: var(--cream);
+  font-weight: 600;
+}
+.environment[data-style="grow-dusk"]
+  .scene
+  [aria-label="Camera controls"]
+  button:hover {
+  background: var(--slate-hover);
+}
+/* With room beside the dock, the corners drop to the prototype's bottom edge. */
+@media (min-width: 1280px) {
+  .environment[data-style="grow-dusk"] .scene-axes,
+  .environment[data-style="grow-dusk"] #cornerleft,
+  .environment[data-style="grow-dusk"] #cornerright {
+    bottom: 14px;
+  }
+  .environment[data-style="grow-dusk"] .scene [aria-label="Camera controls"] {
+    bottom: 100px !important;
+  }
+}
+@media (max-width: 700px) {
+  .environment[data-style="grow-dusk"] .scene-axes {
+    display: none;
+  }
+  .environment[data-style="grow-dusk"] #cornerleft {
+    left: 8px;
+    bottom: 138px;
+  }
+  .environment[data-style="grow-dusk"] #cornerright {
+    right: 8px;
+    bottom: 138px;
+  }
+  .environment[data-style="grow-dusk"] .scene [aria-label="Camera controls"] {
+    left: 8px !important;
+    bottom: 196px !important;
+  }
+}
+.environment[data-style="grow-dusk"] #stats .fl i {
+  margin-right: 5px;
+}
+.environment[data-style="grow-dusk"] #cornerright .secondary {
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.environment[data-style="grow-dusk"] #legend .swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 6px 0 2px;
+  font-size: 12px;
+  color: var(--cream-dim);
+}
+.environment[data-style="grow-dusk"] #legend .swatches i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+/* ---- brand and turn chips ---- */
+.environment[data-style="grow-dusk"] #brand #mode-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+}
+.environment[data-style="grow-dusk"] #brand #mode-row b {
+  display: inline;
+  font-size: 13px;
+  color: var(--amber);
+}
+.environment[data-style="grow-dusk"] #brand #mode-level {
+  margin-top: 1px;
+}
+.environment[data-style="grow-dusk"] #turn-text {
+  max-width: 210px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: bottom;
+}
+.environment[data-style="grow-dusk"] #turn .turn-pips {
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cream-dim);
+}
+
+/* ---- Shared table hand in the dock ---- */
+.environment[data-style="grow-dusk"] .shared-hand.docked {
+  position: static;
+  transform: none;
+}
+
+/* ---- joint card: slate, beside its joint ---- */
+.environment[data-style="grow-dusk"] .env-card {
+  right: auto;
+  color: var(--cream);
+  max-height: calc(100vh - 190px);
+  /* Resting place until the render loop puts the card beside its joint. */
+  transform: translate(calc(100vw - 290px), 70px);
+}
+/* The member card has no joint to follow, so it stays under the top bar. */
+.environment[data-style="grow-dusk"] .env-card.docked {
+  left: auto;
+  right: 14px;
+  top: 66px;
+  transform: none;
+}
+.environment[data-style="grow-dusk"] .env-card .dc-sub,
+.environment[data-style="grow-dusk"] .env-card .dc-note {
+  color: var(--ink-soft);
+}
+.environment[data-style="grow-dusk"] .env-card .dc-close {
+  color: var(--cream);
+  border-radius: 8px;
+}
+.environment[data-style="grow-dusk"] .env-card .dc-close:hover {
+  background: var(--slate-hover);
+}
+.environment[data-style="grow-dusk"] .env-card .btn.small {
+  height: 30px;
+  background: rgba(224, 86, 108, 0.22);
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+.environment[data-style="grow-dusk"] .env-card .btn.small:hover {
+  background: var(--danger);
+  color: #fff;
+}
+/* Read-only modes keep the tiles legible. */
+.environment[data-style="grow-dusk"] .env-card .dof:disabled,
+.environment[data-style="grow-dusk"] .env-card .seg button:disabled {
+  opacity: 0.8;
+}
+/* Glyphs rest by default and move only for a brief demonstration when the
+   card opens or a lock changes (docs/kb/joint-dof-criteria.md). */
+.environment[data-style="grow-dusk"] .env-card .dof.free svg {
+  animation-iteration-count: 4;
+}
+
+/* ---- drawer contents on the slate drawer ---- */
+.environment[data-style="grow-dusk"] .drawer-heading {
+  border-bottom-color: var(--cream-faint);
+}
+.environment[data-style="grow-dusk"] .drawer-content button {
+  background: rgba(243, 234, 216, 0.1);
+  color: var(--cream);
+  box-shadow: inset 0 0 0 1px var(--warm-line);
+}
+.environment[data-style="grow-dusk"] .drawer-content button:hover {
+  background: rgba(243, 234, 216, 0.2);
+}
+.environment[data-style="grow-dusk"] .drawer-content pre {
+  background: rgba(10, 16, 23, 0.55);
+  color: #e9e0cd;
+}
+.environment[data-style="grow-dusk"] .drawer-content .member-result {
+  border-color: #768998;
+  background: #334958;
+  color: var(--cream);
+}
+.environment[data-style="grow-dusk"] .drawer-content .member-result:hover {
+  background: #425d70;
+}
+.environment[data-style="grow-dusk"] .drawer-content .stat {
+  border-bottom-color: var(--cream-faint);
+}
+.environment[data-style="grow-dusk"] .drawer-content .view-options {
+  border-top-color: var(--cream-faint);
+}
+.environment[data-style="grow-dusk"] .drawer-content select,
+.environment[data-style="grow-dusk"] .drawer-content input,
+.environment[data-style="grow-dusk"] .drawer-content textarea {
+  background: rgba(10, 16, 23, 0.55);
+  color: var(--cream);
+  border-color: var(--cream-faint);
+}
+.environment[data-style="grow-dusk"] .drawer-content .analysis-notice {
+  color: var(--amber);
+}
+/* The structure library keeps its own light card. */
+.environment[data-style="grow-dusk"] .drawer-content .structure-library button,
+.environment[data-style="grow-dusk"] .drawer-content .structure-library select {
+  background: #e1e8e1;
+  color: #233d4d;
+  box-shadow: none;
+  border-color: #a8b9ac;
+}
+
+/* ---- Reduced motion setting (menu Settings), as the prototype's html.rm ---- */
+.environment.rm *,
+.environment.rm *::before,
+.environment.rm *::after {
+  animation: none !important;
+  transition-duration: 0.01ms !important;
+}
