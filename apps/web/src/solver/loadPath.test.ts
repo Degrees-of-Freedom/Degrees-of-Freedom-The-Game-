@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeGame } from '../game/analysis';
 import { exampleModel } from '../game/examples';
-import { LEVELS } from '../game/model';
+import { LEVELS } from '../game/levels';
 import { computeLoadPath, traceToGround } from './loadPath';
 
 describe('force-weighted load path', () => {
