@@ -12,7 +12,7 @@ The workspace includes an experimental voxel building and analysis loop with tow
 
 ## The in-browser solver
 
-Run analysis in the workspace also shows a stability check: free degrees of freedom, mechanisms, and redundancy. It is computed in the browser by the Rust solver in `crates/dof-solver`, compiled to WebAssembly. The compiled module is committed, so nothing extra is needed to run the app.
+Run analysis in the workspace also shows a structural check: a geometrically nonlinear analysis of the model with each member's card section, tension-only cables and self-weight, under the level's gravity loads only (no wind, no load combinations). The panel reports a verdict, the reasons, mechanisms, redundancy, the largest movement, the highest utilisation, slack cables and the reaction at each foundation. It is computed in the browser by the Rust solver in `crates/dof-solver`, compiled to WebAssembly. The compiled module is committed, so nothing extra is needed to run the app.
 
 To work on the solver, install [Rust](https://rustup.rs) and run `rustup target add wasm32-unknown-unknown`. Then `npm run test:solver` runs its tests, `npm run build:solver` rebuilds the module into the web app, and `npm run bench:solver` times it. See [its README](crates/dof-solver/README.md) and the [Rust solver page](docs/kb/rust-solver.md).
 

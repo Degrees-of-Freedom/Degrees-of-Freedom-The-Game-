@@ -8,6 +8,12 @@ validated_against:
   - packages/solver-contract/src/analysis.ts
   - apps/web/src/solver/wasm
   - apps/web/src/solver/index.ts
+  - apps/web/src/game/analysisModel.ts
+  - apps/web/src/game/structuralSummary.ts
+  - apps/web/src/game/useStabilityCheck.ts
+  - apps/web/src/components/StabilityCheckPanel.tsx
+  - apps/web/src/game/analysisModel.test.ts
+  - apps/web/src/solver/voxelSections.ts
   - scripts/build-solver-wasm.mjs
   - scripts/bench-solver.mjs
   - docs/kb/solver-criteria.md
@@ -21,7 +27,7 @@ status: partial
 
 The crate [README](../../crates/dof-solver/README.md) is the reference for building, calling, conventions, the algorithm and tolerances. This page records how the solver stands against the criteria, the evidence, and the choices that still need an owner decision.
 
-Status in one paragraph: the solver implements the model, connection, stability, nonlinear and result requirements of criteria sections 2, 3 and 5 and has a passing test for every row of the section 7 acceptance table. It has not been accepted by the project owner, it has not been checked against an independent nonlinear program, and the game does not yet send it the detailed model. Turn handling and the surrogate (sections 4 and 6) are outside it. No criteria milestone is accepted as complete.
+Status in one paragraph: the solver implements the model, connection, stability, nonlinear and result requirements of criteria sections 2, 3 and 5 and has a passing test for every row of the section 7 acceptance table. It has not been accepted by the project owner, it has not been checked against an independent nonlinear program, and the game's use of it is limited: the workspace sends the detailed model with gravity loads only, no wind and no load combinations, the result panel has not been checked by hand in a browser, and the 3D viewer does not use the result. Turn handling and the surrogate (sections 4 and 6) are outside it. No criteria milestone is accepted as complete.
 
 ## What exists
 
@@ -30,10 +36,34 @@ Status in one paragraph: the solver implements the model, connection, stability,
 | Solver | `crates/dof-solver` | Implemented, 53 tests passing. No third-party dependencies. |
 | Detailed contract types | `packages/solver-contract/src/analysis.ts` | `AnalysisModel`, `AnalysisOptions`, `DetailedAnalysisResult`, `DetailedSolver`. |
 | Browser adapter | `apps/web/src/solver/wasm/wasmSolver.ts` | Serves the detailed contract and the original `StructuralModel` contract. |
-| Compiled module | `apps/web/src/solver/wasm/dof_solver.wasm` | Committed build artefact, 526 kB (191 kB gzipped in the production bundle). Rebuild with `npm run build:solver`. |
-| Game integration | `apps/web/src/solver/index.ts` | Default solver for the stability check, through the original contract only. |
+| Compiled module | `apps/web/src/solver/wasm/dof_solver.wasm` | Committed build artefact, 704 kB (231 kB gzipped in the production bundle). Rebuild with `npm run build:solver`. |
+| Game integration | `apps/web/src/solver/index.ts`, `apps/web/src/game/analysisModel.ts`, `apps/web/src/game/useStabilityCheck.ts` | Default solver for the workspace check, which sends the detailed model. See [Game integration](#game-integration). |
 
-The game translation in `game/structuralModel.ts` still produces the original contract, which has no sections, no cables and no self-weight. So the app does not yet use cables as tension-only members, card properties, capacities, nonlinear analysis or component results, although the solver supports them. Sending the detailed model from the game is the next integration step and needs decisions on card properties.
+The workspace now sends the detailed model: `game/analysisModel.ts` translates the game to it, and `game/useStabilityCheck.ts` uses the detailed contract whenever the selected solver implements it. The original-contract translation in `game/structuralModel.ts` remains for the OpenSees service.
+
+## Game integration
+
+With the Rust solver, Run analysis in the workspace runs a geometrically nonlinear analysis of the detailed model, in addition to the voxel analysis. `toAnalysisModel(game, level)` makes the model as follows.
+
+- **Sections.** Each member type in use gets its own section from the card data in `apps/web/src/solver/voxelSections.ts`, converted to SI. Capacities are axial from area times strength, bending from section modulus times strength, shear from the smaller shear area times shear strength, and, for a cable, its design resistance `NRd`. Density is derived from the card's self-weight per metre, so the solver's self-weight reproduces the card weight.
+- **Cables** are tension-only members with the card pretension `P0` as initial strain.
+- **Beam ends** are rigid at a node with a moment connection ("joint"). Elsewhere they are released in bending (local rotations y and z free, torsion held).
+- **Foundations** restrain all six DOFs. Gravity is 9.81 m/s² along -Z, so self-weight is included.
+- **Bending includes shear deformation**, from the cards' shear areas. The voxel analysis does not include it, so short, deep members, glulam most of all, are softer here.
+- **Loads.** A tower level puts the payload on its highest nodes. A bridge level spreads traffic times span over the deck nodes between the cliffs. Other levels use the point loads placed on nodes. As in the voxel analysis, only nodes joined to a foundation through members are considered, so a loose member cannot attract the payload.
+- **Unconnected things.** Every member is sent, so a part with no foundation is reported as unsupported, under its own weight only. Nodes with no member are not sent: a foundation nothing stands on, or a weight nothing is attached to, does not appear, and a note counts the placed loads left out.
+
+What the translation leaves out: loads are unfactored, there is no wind, and there are no load combinations. The voxel analysis uses four ultimate and serviceability combinations with wind and notional loads, and this check does not reproduce them, so its numbers are not comparable one to one with the voxel analysis. Utilisation is section strength only: there is no buckling reduction factor (buckling shows as instability in the nonlinear analysis instead), no deflection limit, and no joint or foundation capacity, all of which the voxel analysis checks. Shear is checked as the resultant against the smaller shear area, which is conservative. The translation returns notes saying what is left out.
+
+The panel ("Structural check", `components/StabilityCheckPanel.tsx`, with the reduction in `game/structuralSummary.ts`) shows the overall verdict, which is the worst component status (stable, marginal, unstable or unresolved) and is not shown as a pass when a member or connection is overstressed, reasons in plain language from the solver's reason codes, the number of separate parts, free DOFs, mechanisms, redundancy, the largest movement, the highest utilisation with its member id and limit state, the number of slack cables, and the vertical reaction at each foundation in kN, marked "up" or "uplift". Values the solver did not verify show as "unavailable", never as zero. With the OpenSees service selected (`VITE_OPENSEES_URL` or `VITE_SOLVER=opensees`), the original contract and the "Degrees of freedom" panel are used unchanged.
+
+On the three reference examples (Tower I, Bridge I, Pickup I) the check reports one stable, verified part with highest utilisation of 3 %, 16 % and 8 %, in roughly 10 to 90 ms each in Node on the development machine. These structures have no moment connections, so every beam end is released; the solver differentiates such elements in fewer variables since this integration, which cut the Bridge I time from about 320 ms.
+
+The check can report things the voxel analysis does not model. A test frame of two HEB 300 members with a 500 kN eccentric load is reported as buckling at about three quarters of that load: a lateral-torsional instability that follows from the card's small torsion constant, and agrees in size with a hand estimate.
+
+Because the analysis is 3D and connections are pinned unless a moment connection is placed, a structure that the linear original-contract check called stable can now be reported as a mechanism or as overstressed. That is the solver reporting the model as translated, not a validated engineering verdict.
+
+Not done: the 3D viewer does not use the detailed result (no highlighting of unstable nodes, mode shapes, slack cables or utilisation colours from this solver); there is no turn system; scoring and load shares are not computed; the panel was not checked by hand in a browser, and is covered by type checking and the `summarizeAnalysis` tests; and the results have no independent nonlinear cross-check.
 
 ## Coverage of the criteria
 
@@ -121,4 +151,5 @@ These are implementation choices, not owner decisions. Each is a default that th
 - A perfectly straight column past its buckling load is reported unstable; the post-buckled shape is not traced.
 - Self-weight on a slack cable is still carried to its end nodes.
 - The solver cannot be cancelled mid-analysis, and its time limit is an iteration count.
-- The original-contract path in the web app is linear and uses one steel section, like the OpenSees service.
+- The workspace check uses gravity loads only, with no wind and no load combinations, so it is not the voxel analysis's load cases.
+- The original-contract path, used only when the OpenSees service is selected, is linear and uses one steel section.

@@ -14,6 +14,11 @@ validated_against:
   - apps/web/src/solver/opensees.ts
   - apps/web/src/solver/index.ts
   - apps/web/src/game/structuralModel.ts
+  - apps/web/src/game/analysisModel.ts
+  - apps/web/src/game/structuralSummary.ts
+  - apps/web/src/game/useStabilityCheck.ts
+  - apps/web/src/components/StabilityCheckPanel.tsx
+  - apps/web/src/game/analysisModel.test.ts
   - services/opensees/README.md
   - services/opensees/src/dof_opensees
   - services/opensees/tests
@@ -27,7 +32,7 @@ status: partial
 
 The game intends to communicate load paths, instability, member or connection failure, and structural complexity. The workspace includes an experimental voxel-specific numerical analysis extracted from the standalone prototype. It uses metres and kN internally, frame and cable elements, multiple load combinations, regularization and simplified stability and design checks. It has not been independently validated and is not suitable for engineering design. It is not a shared `SolverAdapter`.
 
-Two backends implement the shared contract, and the workspace uses one of them for a stability and degree-of-freedom check that runs beside the voxel analysis:
+Two backends implement the shared contract, and the workspace uses one of them for a structural check that runs beside the voxel analysis. `useStabilityCheck` picks the contract by what the solver implements: the detailed contract through `toAnalysisModel` when the solver offers it (the Rust solver), and the original contract through `toStructuralModel` otherwise (the OpenSees service):
 
 - A Rust solver in `crates/dof-solver`, compiled to WebAssembly and run in the browser through `createWasmSolver`. It is the default in development and production builds, because it needs no service. See [Rust solver](rust-solver.md).
 - An OpenSees service in `services/opensees`, reached through `createOpenSeesSolver`. `VITE_OPENSEES_URL` selects a service by address, and `VITE_SOLVER=opensees` selects the local one on `http://localhost:8000`.
@@ -46,7 +51,7 @@ A result has one of four statuses. `success` contains six displacement values pe
 
 The project owner decided that a node has six potential degrees of freedom, in global translation X, Y, Z then rotation X, Y, Z order. Constraints may restrain them; this does not mean every element resists all six. The original contract does not define element properties, per-axis or elastic connection behavior, tension-only members, load cases, or failure criteria, and it falls well short of the result contract proposed in the criteria.
 
-A second, detailed contract in `packages/solver-contract/src/analysis.ts` does define them: sections with properties and capacities, beam, brace and cable members, six connection laws per member end, foundations and loads with ids, analysis options, and a result with per-component status, validity, reason codes, modes, signed reactions, member and connection forces, utilisation and explicit `null` for unavailable values. Only the Rust solver implements it, and the game does not produce it yet. It is a proposal that follows the criteria, not an agreed final interface.
+A second, detailed contract in `packages/solver-contract/src/analysis.ts` does define them: sections with properties and capacities, beam, brace and cable members, six connection laws per member end, foundations and loads with ids, analysis options, and a result with per-component status, validity, reason codes, modes, signed reactions, member and connection forces, utilisation and explicit `null` for unavailable values. Only the Rust solver implements it, and the workspace now produces it with `toAnalysisModel` in `apps/web/src/game/analysisModel.ts`; see [Game integration](rust-solver.md#game-integration) for what that translation carries and omits. It is a proposal that follows the criteria, not an agreed final interface.
 
 ## Rust solver
 
@@ -55,6 +60,7 @@ A second, detailed contract in `packages/solver-contract/src/analysis.ts` does d
 - It analyses beam-columns, braces and tension-only cables with linear or geometrically nonlinear statics, member self-weight, and six independent connection laws per member end, applied as exact constraints.
 - Each connected part of the structure is analysed separately and gets its own status: `stable`, `marginal`, `unstable` or `unknown`. A result is marked valid only after the residual and the global force and moment balance pass a gate.
 - Mechanisms are found from null pivots of the scaled stiffness, and load-induced instability from negative pivots of the tangent at the solution. Nothing is stabilised with artificial springs.
+- In the workspace it receives the detailed model, with card sections, tension-only cables, self-weight and nonlinear analysis, but with gravity loads only: no wind and no load combinations. The 3D viewer does not use its result yet.
 - Through the original contract it makes the same modelling choices as the OpenSees service (one steel section, linear analysis, pinned ends release all rotations), so the two can be compared. A test does that when the service is running, and they agree.
 
 The differences that matter when reading a result from the original contract: the Rust solver counts free DOFs and spin modes over its own internal variables, so `freeDofs` and `rotationalMechanisms` can differ from the OpenSees numbers for the same model, while `translationalMechanisms`, `staticIndeterminacy`, displacements, reactions and member forces agree.
@@ -71,7 +77,7 @@ The differences that matter when reading a result from the original contract: th
 - Static indeterminacy is computed as internal force unknowns minus free DOFs plus mechanisms.
 - The whole model is one system: an unstable part makes the whole result `unstable`. Components are not isolated.
 
-The workspace reaches the service through `toStructuralModel` in `apps/web/src/game/structuralModel.ts`. That translation follows the voxel rules for connectivity: a member end is rigid where its node has a moment connection and pinned elsewhere, cables are pinned, and foundations restrain all six DOFs. It carries placed point loads but not sections, self-weight, wind, or generated tower and bridge loads, and it sends cables as two-way ties because the contract has no tension-only member. The check therefore reports kinematic stability and determinacy only, and the panel says so.
+The workspace reaches the service through the original contract, using `toStructuralModel` in `apps/web/src/game/structuralModel.ts`. That translation follows the voxel rules for connectivity: a member end is rigid where its node has a moment connection and pinned elsewhere, cables are pinned, and foundations restrain all six DOFs. It carries placed point loads but not sections, self-weight, wind, or generated tower and bridge loads, and it sends cables as two-way ties because the contract has no tension-only member. The check therefore reports kinematic stability and determinacy only, and the panel says so.
 
 The OpenSees work predates the [solver criteria](solver-criteria.md) and was not designed against them. The single steel section, the `fixed` default for an unspecified member end, the absence of self-weight, and the tolerance of unloaded spin mechanisms are implementation choices, not owner decisions. The [gap analysis](solver-criteria-gap-analysis.md#opensees-service-addendum) records how the service compares with the criteria.
 

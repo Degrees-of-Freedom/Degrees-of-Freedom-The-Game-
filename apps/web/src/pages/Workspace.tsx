@@ -30,7 +30,7 @@ export function Workspace() {
     analysis?.model === game.model && analysis.level === game.levelId
       ? analysis.result
       : null;
-  const stability = useStabilityCheck(game.model);
+  const stability = useStabilityCheck(game.model, level);
   function run() {
     // The contract-solver stability check runs alongside the voxel analysis and
     // reports on its own, so a solver failure never blocks the voxel result.

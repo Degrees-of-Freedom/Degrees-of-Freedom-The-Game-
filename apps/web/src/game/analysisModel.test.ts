@@ -44,6 +44,16 @@ describe('game model to detailed solver contract', () => {
     expect(sectionFor('cable').G).toBeUndefined();
   });
 
+  it('keeps the strong and weak axes of an unsymmetric section apart', () => {
+    // IPE 300: strong about y, weak about z, web shear area along z.
+    const ipe = sectionFor('ipe');
+    expect(ipe).toMatchObject({ Iy: 8.356e-5, Iz: 6.04e-6, shearAreaY: 3.2e-3, shearAreaZ: 2.57e-3 });
+    expect(ipe.capacity?.momentY).toBeCloseTo(355e6 * 5.57e-4, 3);
+    expect(ipe.capacity?.momentZ).toBeCloseTo(355e6 * 8.05e-5, 3);
+    expect(ipe.capacity?.compression).toBeCloseTo(355e6 * 5.38e-3, 3);
+    expect(ipe.capacity?.shear).toBeCloseTo(205e6 * 2.57e-3, 3);
+  });
+
   it('sends only the sections in use, and places nodes on the 2 m grid', () => {
     expect(model.sections.map((section) => section.id)).toEqual(['cable', 'heb']);
     expect(model.nodes).toContainEqual({ id: '1,0,2', position: [2, 0, 4] });
@@ -88,6 +98,32 @@ describe('game model to detailed solver contract', () => {
     const level = LEVELS.bridge1;
     const bridge = toAnalysisModel(exampleModel('bridge1')!, level).model;
     expect(total(bridge.loads)).toBeCloseTo(level.traffic! * (level.cliffR! - level.cliffL!) * 2 * 1e3, 6);
+    expect(bridge.loads.length).toBeGreaterThan(0);
+    for (const load of bridge.loads) {
+      const [i, , k] = load.nodeId.split(',').map(Number);
+      expect(k).toBe(level.cliffH);
+      expect(i).toBeGreaterThan(level.cliffL!);
+      expect(i).toBeLessThan(level.cliffR!);
+    }
+  });
+
+  it('keeps the payload on the supported tower when a loose member sits higher', () => {
+    const game = exampleModel('tower1')!;
+    const before = toAnalysisModel(game, LEVELS.tower1).model.loads;
+    const stray: GameModel = { ...game, nextId: game.nextId + 1, members: [...game.members, { id: game.nextId, a: '0,0,9', b: '1,0,9', type: 'shs' }] };
+    const after = toAnalysisModel(stray, LEVELS.tower1).model;
+    expect(after.loads).toEqual(before);
+    // The loose member is still sent, so the solver can report it.
+    expect(after.members).toHaveLength(game.members.length + 1);
+  });
+
+  it('leaves out foundations and weights that nothing is attached to, and says so', () => {
+    const game: GameModel = { ...frame, attrs: { ...frame.attrs, '7,7,0': { found: true }, '6,6,2': { load: 20 } } };
+    const translated = toAnalysisModel(game, sandbox);
+    expect(translated.model.nodes.map((node) => node.id)).not.toContain('7,7,0');
+    expect(translated.model.foundations.map((f) => f.nodeId)).toEqual(['0,0,0', '2,0,0']);
+    expect(translated.model.loads.map((load) => load.nodeId)).toEqual(['1,0,2']);
+    expect(translated.notes.join(' ')).toContain('1 placed load(s) are not connected');
   });
 });
 
@@ -101,7 +137,10 @@ describe('detailed check of game models on the WebAssembly solver', () => {
       expect(result.analysis.status, `${id}: ${JSON.stringify(result.analysis.diagnostics)}`).toBe('ok');
       expect(result.components.length).toBeGreaterThan(0);
       const summary = summarizeAnalysis(result);
-      expect(['stable', 'marginal', 'unstable', 'unknown']).toContain(summary.verdict);
+      // The reference structures are sound: one part, verified, not overstressed.
+      expect(summary, id).toMatchObject({ verdict: 'stable', components: 1, strengthExceeded: false });
+      expect(result.components.every((component) => component.resultsValid)).toBe(true);
+      expect(summary.reactions.length).toBeGreaterThan(0);
       for (const component of result.components) {
         if (!component.resultsValid) continue;
         // Verified reactions carry exactly the weight and load on that part.
@@ -152,6 +191,32 @@ describe('detailed check of game models on the WebAssembly solver', () => {
     expect(lost.verdict).toBe('unstable');
     expect(lost.maxDisplacement).toBeNull();
     expect(lost.governing).toBeNull();
+  });
+
+  it('flags an overstressed structure even though it is in stable equilibrium', async () => {
+    const { model, options } = toAnalysisModel(frame, sandbox);
+    // A tenth of the real bending strength, so the same stable frame is overloaded.
+    const heb = model.sections.find((section) => section.id === 'heb')!;
+    heb.capacity = { ...heb.capacity, momentY: heb.capacity!.momentY! / 10 };
+    const summary = summarizeAnalysis(await solver.analyzeDetailed(model, options));
+    expect(summary.verdict).toBe('stable');
+    expect(summary.strengthExceeded).toBe(true);
+    expect(summary.governing!.utilization).toBeGreaterThan(1);
+    expect(summary.reasons).toContain('A member or connection is loaded beyond its capacity.');
+  });
+
+  it('reports buckling of the frame under a much larger load, with no results to show', async () => {
+    const heavy: GameModel = { ...frame, attrs: { ...frame.attrs, '1,0,2': { load: 500 } } };
+    const { model, options } = toAnalysisModel(heavy, sandbox);
+    const result = await solver.analyzeDetailed(model, options);
+    const summary = summarizeAnalysis(result);
+    expect(summary.verdict).toBe('unstable');
+    expect(summary.reasons).toContain('The structure buckles under its load.');
+    // The solver brackets the load at which it happens: below the 500 kN applied.
+    expect(result.components[0].criticalLoadFactor).toBeGreaterThan(0.5);
+    expect(result.components[0].criticalLoadFactor).toBeLessThan(1);
+    expect(summary.governing).toBeNull();
+    expect(summary.reactions.every((reaction) => reaction.vertical === null)).toBe(true);
   });
 
   it('summarises a rejected model and an empty one', async () => {

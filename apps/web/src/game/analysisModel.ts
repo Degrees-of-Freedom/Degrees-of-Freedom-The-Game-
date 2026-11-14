@@ -7,7 +7,6 @@ import type {
 } from '@dof/solver-contract';
 import { ITEMS } from '../solver/voxelSections';
 import {
-  allNodeKeys,
   CELL_SIZE,
   parseNodeKey,
   type GameModel,
@@ -73,12 +72,32 @@ export function sectionFor(type: MemberType): AnalysisSection {
   };
 }
 
+/** Nodes joined to a foundation through members, found by walking outwards from the foundations. */
+function supportedNodes(game: GameModel): Set<string> {
+  const neighbours = new Map<string, string[]>();
+  for (const { a, b } of game.members) {
+    neighbours.set(a, [...(neighbours.get(a) ?? []), b]);
+    neighbours.set(b, [...(neighbours.get(b) ?? []), a]);
+  }
+  const reached = new Set(Object.keys(game.attrs).filter((key) => game.attrs[key].found && neighbours.has(key)));
+  const queue = [...reached];
+  for (let next = queue.pop(); next !== undefined; next = queue.pop())
+    for (const neighbour of neighbours.get(next) ?? [])
+      if (!reached.has(neighbour)) {
+        reached.add(neighbour);
+        queue.push(neighbour);
+      }
+  return reached;
+}
+
 /**
  * Downward loads the level puts on the structure, in kN per node key.
  *
  * These follow the voxel analysis: a tower carries its payload on its
  * highest nodes, a bridge carries its traffic on the deck nodes between the
- * cliffs, and other levels carry the point loads placed on nodes.
+ * cliffs, and other levels carry the point loads placed on nodes. Like the
+ * voxel analysis, only nodes connected to a foundation are considered, so a
+ * loose member cannot attract the payload away from the structure.
  */
 function levelLoads(game: GameModel, level: Level, keys: string[]): Map<string, number> {
   const loads = new Map<string, number>();
@@ -114,18 +133,27 @@ function levelLoads(game: GameModel, level: Level, keys: string[]): Map<string, 
  *   elsewhere;
  * - a foundation restrains all six degrees of freedom;
  * - the level's gravity loads are applied (tower payload, bridge traffic,
- *   placed point loads).
+ *   placed point loads) to the parts that reach a foundation.
+ *
+ * Every member is sent, so a part with no foundation is reported by the
+ * solver as unsupported, under its own weight only. Nodes without a member
+ * are not sent: a foundation nothing stands on has no reaction to report,
+ * and a weight nothing is attached to is not yet part of the structure.
+ *
+ * Bending includes shear deformation, from the cards' shear areas. The voxel
+ * analysis does not include it, so short deep members are softer here.
  *
  * Loads are unfactored and there is no wind: the solver analyses one load
  * case, and the voxel analysis's four load combinations are not reproduced.
  * The analysis is geometrically nonlinear.
  */
 export function toAnalysisModel(game: GameModel, level: Level): AnalysisModelTranslation {
-  const keys = allNodeKeys(game).sort();
+  const keys = [...new Set(game.members.flatMap((member) => [member.a, member.b]))].sort();
+  const supported = supportedNodes(game);
   const types = [...new Set(game.members.map((member) => member.type))].sort();
 
   const loads: AnalysisLoad[] = [];
-  for (const [key, kilonewtons] of levelLoads(game, level, keys))
+  for (const [key, kilonewtons] of levelLoads(game, level, keys.filter((key) => supported.has(key))))
     loads.push({ id: `load:${key}`, nodeId: key, force: [0, 0, -kilonewtons * SI_PER_KILO] });
 
   const model: AnalysisModel = {
@@ -154,9 +182,12 @@ export function toAnalysisModel(game: GameModel, level: Level): AnalysisModelTra
     loads,
   };
 
-  return {
-    model,
-    options: { fidelity: 'nonlinear', gravity: [0, 0, -GRAVITY] },
-    notes: ['Self-weight and the level loads, unfactored. Wind and load combinations are not included.'],
-  };
+  const notes = [
+    'Self-weight and the level loads, unfactored. Wind and load combinations are not included.',
+    'Utilisation is section strength only. Buckling shows as instability, not as a reduced capacity; deflection limits and joint and foundation capacities are not checked.',
+  ];
+  const looseLoads = Object.entries(game.attrs).filter(([key, attrs]) => attrs.load && !supported.has(key)).length;
+  if (looseLoads && level.type !== 'tower' && level.type !== 'bridge')
+    notes.push(`${looseLoads} placed load(s) are not connected to a foundation and were left out.`);
+  return { model, options: { fidelity: 'nonlinear', gravity: [0, 0, -GRAVITY] }, notes };
 }

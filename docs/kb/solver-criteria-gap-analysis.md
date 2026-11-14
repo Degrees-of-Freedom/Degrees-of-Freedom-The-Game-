@@ -61,7 +61,7 @@ After the OpenSees service, a Rust solver was added in `crates/dof-solver`, writ
 - It implements M01 to M04, M06 to M08, A01 to A07 and the section 5 result contract, with a passing test for every row of the section 7 acceptance table, including 10,000 seeded states.
 - M05, M09 and A08 are partly met: there are no general constraints to detect incompatibility in, interior attachment is left to the game, and the time limit is an iteration count with no mid-analysis cancellation.
 - Turn resolution (section 4) and the surrogate (section 6) are outside it. Timings exist for one synthetic frame on one machine.
-- The game still sends the original contract, so in the app the solver is used only for the linear stability check.
+- The game now sends the detailed contract to it, with gravity loads only: no wind and no load combinations. The workspace panel shows the result, but it has not been checked in a browser and the 3D viewer does not use it. See [Game integration](rust-solver.md#game-integration).
 
 The coverage table below describes the voxel experiment and the original contract. It was not rewritten for the Rust solver; read the two together. The milestone table has a column for it.
 

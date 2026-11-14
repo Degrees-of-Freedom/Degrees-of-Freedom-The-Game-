@@ -18,6 +18,8 @@ export interface StructuralSummary {
   /** Most utilised member or connection among verified results. */
   governing: { memberId: string; utilization: number; limitState: string } | null;
   slackCables: number;
+  /** A member or connection in a verified part is loaded beyond its capacity. */
+  strengthExceeded: boolean;
   /** Vertical reaction per foundation in kN, positive upward; `null` when unverified. */
   reactions: { foundationId: string; nodeId: string; vertical: number | null }[];
   /** Plain-language reasons behind the statuses, without repeats. */
@@ -69,6 +71,7 @@ export function summarizeAnalysis(result: DetailedAnalysisResult): StructuralSum
     maxDisplacement: null,
     governing: null,
     slackCables: 0,
+    strengthExceeded: false,
     reactions: [],
     reasons: [],
     runtimeMs: result.analysis.runtimeMs ?? null,
@@ -87,6 +90,7 @@ export function summarizeAnalysis(result: DetailedAnalysisResult): StructuralSum
     summary.freeDofs += component.counts.freeDofs;
     summary.mechanisms += component.counts.mechanisms;
     summary.staticIndeterminacy += component.counts.staticIndeterminacy;
+    summary.strengthExceeded ||= component.flags.strengthExceeded;
     if (component.maxDisplacement !== null)
       summary.maxDisplacement = Math.max(summary.maxDisplacement ?? 0, component.maxDisplacement);
     for (const code of component.reasonCodes) codes.add(code);

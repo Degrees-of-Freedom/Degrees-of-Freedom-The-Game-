@@ -32,13 +32,16 @@ const MAX_REACTIONS = 8;
  */
 function DetailedCheck({ result, notes, solverName }: { result: DetailedAnalysisResult; notes: string[]; solverName: string }) {
   const summary = summarizeAnalysis(result);
-  const good = summary.verdict === 'stable';
+  // Strength does not change the solver's stability status, but a structure
+  // with an overloaded member must not be presented as a pass.
+  const good = summary.verdict === 'stable' && !summary.strengthExceeded;
   const shown = summary.reactions.slice(0, MAX_REACTIONS);
   return (
     <div className="analysis stability-check">
       <h3>Structural check</h3>
       <p className={good ? 'verdict good' : 'verdict bad'}>
         {VERDICT_TEXT[summary.verdict]}
+        {summary.verdict === 'stable' && summary.strengthExceeded && ', but overstressed'}
         {summary.message && `. ${summary.message}`}
         {summary.components > 1 && summary.failingComponents > 0 &&
           ` (${summary.failingComponents} of ${summary.components} separate parts)`}

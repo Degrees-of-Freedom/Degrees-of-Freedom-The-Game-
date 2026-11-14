@@ -27,16 +27,19 @@ const isDetailedSolver = (solver: SolverAdapter): solver is SolverAdapter & Deta
 /**
  * Run the shared-contract solver on a game model, alongside the voxel analysis.
  *
- * The returned check always belongs to `model`: editing the model returns the
- * check to idle, and starting a new run cancels the previous one, so a slow
+ * The returned check always belongs to `model` and `level`, because the level
+ * decides the loads: editing the model or changing level returns the check
+ * to idle, and starting a new run cancels the previous one, so a slow
  * response can never be shown against a structure it does not describe.
  */
 export function useStabilityCheck(
   model: GameModel,
+  level: Level,
   solver: SolverAdapter = defaultSolver,
 ) {
   const [state, setState] = useState<{
     model: GameModel;
+    level: Level;
     check: StabilityCheck;
   } | null>(null);
   const inFlight = useRef<AbortController | null>(null);
@@ -48,7 +51,7 @@ export function useStabilityCheck(
       inFlight.current?.abort();
       const controller = new AbortController();
       inFlight.current = controller;
-      setState({ model: target, check: { phase: 'running' } });
+      setState({ model: target, level, check: { phase: 'running' } });
 
       let check: StabilityCheck;
       try {
@@ -66,13 +69,13 @@ export function useStabilityCheck(
         check = { phase: 'done', result: { status: 'error', message }, notes: [] };
       }
       if (controller.signal.aborted) return;
-      setState({ model: target, check });
+      setState({ model: target, level, check });
     },
     [solver],
   );
 
   return {
-    check: state?.model === model ? state.check : IDLE,
+    check: state?.model === model && state.level === level ? state.check : IDLE,
     run,
     /** Display name of the solver that produces the check. */
     solverName: solver.name,

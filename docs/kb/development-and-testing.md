@@ -10,6 +10,9 @@ validated_against:
   - apps/web/src/solver/loadPath.test.ts
   - apps/web/src/solver/opensees.test.ts
   - apps/web/src/game/structuralModel.test.ts
+  - apps/web/src/game/analysisModel.test.ts
+  - apps/web/src/game/analysisModel.ts
+  - apps/web/src/game/structuralSummary.ts
   - services/opensees/pyproject.toml
   - services/opensees/tests
   - prototypes/voxel-struct/README.md
@@ -32,7 +35,7 @@ Vitest covers voxel editing rules, undo, examples, persistence behavior and sele
 
 Vitest also covers the OpenSees adapter against a stubbed `fetch`, solver selection, and the translation from the game model to the shared contract. Further tests run only when `VITE_OPENSEES_URL` points at a running service: two send a cantilever and the reference examples through it, and three compare its answers with the Rust solver's.
 
-Vitest runs the Rust solver as the real WebAssembly module, loaded from `apps/web/src/solver/wasm/dof_solver.wasm`. That file is a committed build artefact, so `npm install`, `npm test` and `npm run build` need no Rust toolchain. They test whatever module is committed: after changing `crates/dof-solver`, run `npm run build:solver` or the web tests will exercise the old build.
+`analysisModel.test.ts` covers the translation of the game to the detailed contract (SI sections and capacities, pinned and rigid ends, cables, foundations, level loads) and runs the three reference examples and small frames through the real WebAssembly module, including the reduction of the result for the panel. Vitest runs the Rust solver as the real WebAssembly module, loaded from `apps/web/src/solver/wasm/dof_solver.wasm`. That file is a committed build artefact, so `npm install`, `npm test` and `npm run build` need no Rust toolchain. They test whatever module is committed: after changing `crates/dof-solver`, run `npm run build:solver` or the web tests will exercise the old build.
 
 ## Rust solver
 
@@ -74,12 +77,12 @@ Run on Windows 11 with Rust 1.100.0 and Node 24.16.0, on the branch that adds `c
 | Check | Result |
 | --- | --- |
 | `npm run test:solver` | Pass: 53 tests, 1 ignored timing harness. Includes 10,000 seeded random states with no unhandled failure. |
-| `npm test` | Pass: 8 test files and 50 tests; 1 file and 5 tests are skipped without an OpenSees service. The adapter tests run the committed WebAssembly module. |
-| `VITE_OPENSEES_URL=http://127.0.0.1:8000 npm test` with the service running | Pass: 9 test files, 55 tests. The Rust solver and OpenSees agree on a space frame, a mechanism and the three reference examples. |
+| `npm test` | Pass: 9 test files and 65 tests; 1 file and 5 tests are skipped without an OpenSees service. The adapter and game-translation tests run the committed WebAssembly module. |
+| `VITE_OPENSEES_URL=http://127.0.0.1:8000 npm test` with the service running | Pass: 9 test files, 55 tests, before the game-translation tests were added; not re-run with them. The Rust solver and OpenSees agree on a space frame, a mechanism and the three reference examples. |
 | `npm run typecheck` | Pass. |
-| `npm run build` | Pass. The bundle includes `dof_solver.wasm` (526 kB, 191 kB gzipped). The existing chunk-size warning remains. |
+| `npm run build` | Pass. The bundle includes `dof_solver.wasm` (704 kB, 231 kB gzipped). The existing chunk-size warning remains. |
 | Module served by the Vite dev server | Pass: served as `application/wasm` and gives the closed-form cantilever deflection when loaded from the dev server and from the production bundle. |
-| Stability panel in a browser | Not checked. The browser pane was not visible during this work, so the page could not be driven; the panel's use of the solver name is covered by type checking only. |
+| Structural check panel in a browser | Not checked. The browser pane was not visible during this work, so the page could not be driven. The panel is covered by type checking, and what it shows by the `summarizeAnalysis` tests. |
 | `npm run bench:solver` | Timings recorded on the [Rust solver page](rust-solver.md#timings). |
 
 Measured errors, the outcome counts of the random states and the limits of this evidence are on the [Rust solver page](rust-solver.md). The evidence shows that the solver's tests pass. It does not show owner acceptance of any criteria milestone, and it includes no comparison with an independent nonlinear program.
