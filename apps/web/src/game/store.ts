@@ -34,7 +34,7 @@ import {
 import { missingBayEdges, bayIssue } from "./bay";
 import { cycleBayBrace, type BayFace } from "./bayBrace";
 import { nodeValid } from "./terrain";
-import { readSession, writeSession, type Session } from "./session";
+import { openSessionWriter, sessionLocks, SESSION_CONFLICT, SESSION_KEY, SESSION_UNSAVED, type Session } from "./session";
 import {
   activeTurnHand,
   cancelTurnDraft,
@@ -54,6 +54,7 @@ interface GameState {
   levelId: LevelId;
   model: GameModel;
   persistenceError: string | null;
+  sessionConflict: boolean;
   history: GameModel[];
   future: GameModel[];
   mode: GameMode;
@@ -159,13 +160,8 @@ export const useGameStore = create<GameState>((set, get) => {
     }
     return save(levelId, model, mode);
   };
-  const saveSession = (session: Session) => {
-    try {
-      return writeSession(localStorage, session);
-    } catch {
-      return false;
-    }
-  };
+  let writer: ReturnType<typeof openSessionWriter> | undefined;
+  const saveSession = (session: Session) => writer?.save(session) ?? "failed";
   const turnTransition = (
     result: ReturnType<typeof stageElement>,
   ): string | null => {
@@ -173,15 +169,14 @@ export const useGameStore = create<GameState>((set, get) => {
     const s = get(),
       turn = result.state;
     const saved = saveSession({ mode: s.mode, style: s.style, turn });
+    if (saved === "conflict") return SESSION_CONFLICT;
     set({
       turn,
       model: projectTurnModel(turn),
       selectedCardId: null,
       chainStart: null,
       selected: null,
-      persistenceError: saved
-        ? null
-        : "Session could not be saved; existing stored data was preserved.",
+      persistenceError: saved === "failed" ? SESSION_UNSAVED : null,
     });
     return null;
   };
@@ -206,12 +201,30 @@ export const useGameStore = create<GameState>((set, get) => {
   };
   let sessionError: string | null = null;
   try {
-    const loaded = readSession(localStorage);
+    writer = openSessionWriter(localStorage, sessionLocks(), (status, lastSaved) => {
+      if (status === "conflict") {
+        // Never reveal the other tab's state. A reload reconstructs the newer
+        // revision and goes through the regular private handoff.
+        const turn = lastSaved?.turn ?? null;
+        set({ sessionConflict: true, persistenceError: SESSION_CONFLICT, turn,
+          ...(get().mode === "multiplayer" && turn ? { model: projectTurnModel(turn) } : {}),
+          selected: null, chainStart: null, selectedCardId: null });
+      } else if (status === "failed") set({ persistenceError: SESSION_UNSAVED });
+      else if (status === "saved" && get().persistenceError === SESSION_UNSAVED) set({ persistenceError: null });
+    });
+    const loaded = writer.initial;
     if (loaded.status === "found") session = loaded.session;
     else if (loaded.status === "invalid")
       sessionError = loaded.reason
         ? `Saved match could not be restored. ${loaded.reason} Existing stored data was preserved.`
         : "Session could not be read; existing stored data was preserved.";
+    if (typeof window !== "undefined") {
+      const changed = (event: StorageEvent) => {
+        if (event.storageArea === localStorage && (event.key === SESSION_KEY || event.key === null)) writer?.current();
+      };
+      window.addEventListener("storage", changed);
+      import.meta.hot?.dispose(() => window.removeEventListener("storage", changed));
+    }
   } catch {
     /* Storage is optional. */
   }
@@ -235,6 +248,7 @@ export const useGameStore = create<GameState>((set, get) => {
   return {
     levelId,
     model: initialModelValue,
+    sessionConflict: false,
     persistenceError:
       sessionError ??
       (other?.status === "error" || (other?.status === "found" && !validOther)
@@ -312,14 +326,15 @@ export const useGameStore = create<GameState>((set, get) => {
       if (mode === get().mode) return;
       const prior = get();
       if (mode === "challenge") {
-        set({ mode });
-        get().setLevel(savedLevel());
         const saved = saveSession({
           mode,
           style: prior.style,
           turn: prior.turn,
         });
-        if (!saved)
+        if (saved === "conflict") return;
+        set({ mode });
+        get().setLevel(savedLevel());
+        if (saved === "failed")
           set({
             persistenceError:
               "Session could not be saved; existing stored data was preserved.",
@@ -334,6 +349,7 @@ export const useGameStore = create<GameState>((set, get) => {
       const turn =
         mode === "multiplayer" ? (prior.turn ?? createTurnGame(1, SCORED_CATALOGUE)) : prior.turn;
       const saved = saveSession({ mode, style: prior.style, turn });
+      if (saved === "conflict") return;
       set({
         mode,
         turn,
@@ -346,7 +362,7 @@ export const useGameStore = create<GameState>((set, get) => {
               ? loaded.model
               : setup.model,
         persistenceError:
-          !saved ||
+          saved === "failed" ||
           loaded.status === "error" ||
           (loaded.status === "found" && !validLoaded)
             ? "Saved state could not be read or saved; existing data was preserved."
@@ -361,12 +377,13 @@ export const useGameStore = create<GameState>((set, get) => {
     setStyle: (style) => {
       const s = get(),
         saved = saveSession({ mode: s.mode, style, turn: s.turn });
+      if (saved === "conflict") return;
       set({
         style,
         ...((style === 'levels' || style === 'engineering') && s.style !== 'levels' && s.style !== 'engineering' ? { workK: initialWorkK(style, s.levelId, s.model) } : {}),
         chainStart: null,
         selected: null,
-        ...(saved
+        ...(saved !== "failed"
           ? {}
           : {
               persistenceError: sessionError ??

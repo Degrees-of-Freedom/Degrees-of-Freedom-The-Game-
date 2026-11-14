@@ -59,7 +59,7 @@ export function Workspace() {
   const [readyBoard, setReadyBoard] = useState<NonNullable<typeof game.turn>["board"] | null>(null);
   const privateTurn = game.mode === "multiplayer" && !game.turn?.finished ? game.turn : null;
   const privateMatchActive = privateTurn !== null;
-  const covered = !!privateTurn && readyBoard !== privateTurn.board;
+  const covered = game.sessionConflict || (!!privateTurn && readyBoard !== privateTurn.board);
   const [combo, setCombo] = useState(0);
   const [deformed, setDeformed] = useState(false);
   const [scale, setScale] = useState(1);
@@ -272,6 +272,7 @@ export function Workspace() {
     <PauseMenu open={paused} onOpen={pause} onClose={() => setPaused(false)}
       escapeBusy={!covered && drawer !== null} onMessage={setMessage} />
   );
+  if (game.sessionConflict) return <SharedTableHandoff player={1} conflict onReady={() => window.location.reload()} />;
   if (covered && privateTurn) return (
     <>
       <SharedTableHandoff player={privateTurn.playerIndex + 1} onReady={() => {
