@@ -50,4 +50,4 @@ See [structural solver](structural-solver.md) for the backend capabilities and a
 
 The voxel game uses versioned browser saves and an experimental analysis snapshot; see [structural state](structural-state.md) for validation, replay limits, and the proposed solver-neutral model.
 
-The shared contract also defines a versioned solver-neutral structural snapshot and immutable revision service. The existing voxel game and OpenSees adapter are not yet wired to that model; see [structural state](structural-state.md).
+The shared contract also defines a versioned solver-neutral structural snapshot and immutable revision service. The voxel game and legacy OpenSees check do not use that model. A separate manual workspace flow can run a narrow shared-snapshot subset through OpenSees and store unverified results; see [structural state](structural-state.md) and [analysis results](analysis-results.md).

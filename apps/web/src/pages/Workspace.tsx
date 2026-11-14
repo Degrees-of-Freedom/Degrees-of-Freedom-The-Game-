@@ -31,6 +31,7 @@ import { SceneBoundary } from "../components/environment/SceneBoundary";
 import { PauseMenu } from "../components/PauseMenu";
 import { getSettings } from "../menu/settings";
 import { StructureLibrary } from "../components/StructureLibrary";
+import { StoredAnalysisPanel } from "../components/StoredAnalysisPanel";
 
 type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 
@@ -499,6 +500,7 @@ export function Workspace() {
                     )}
                   </pre>
                   <ModelIO game={game} onMessage={setMessage} />
+                  <StoredAnalysisPanel />
                 </>
               )}
               {drawer === "build" && (
