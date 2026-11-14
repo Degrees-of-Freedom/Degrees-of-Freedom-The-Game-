@@ -22,7 +22,7 @@ export const useGameStore=create<GameState>((set,get)=>{
  const startLevel=savedLevel();
  return {
  levelId:startLevel,model:load(startLevel),swapTarget:'ipe',setSwapTarget:(swapTarget)=>set({swapTarget}),history:[],tool:'shs',workK:LEVELS[startLevel].cliffH ?? 0,chainStart:null,selected:null,
- setLevel:(levelId)=>{try { localStorage.setItem('voxstruct:level',levelId); } catch { /* optional persistence */ } set({levelId,model:load(levelId),history:[],workK:LEVELS[levelId].cliffH ?? 0,chainStart:null,selected:null});},
+ setLevel:(levelId)=>{try { localStorage.setItem('voxstruct:level',levelId); } catch { /* optional persistence */ } set(s=>({levelId,model:load(levelId),history:[],workK:LEVELS[levelId].cliffH ?? 0,chainStart:null,selected:null,tool:s.tool==='load' && LEVELS[levelId].type!=='sandbox' ? 'shs' : s.tool}));},
  reset:()=>{const s=get(); if(!s.model.members.length && !Object.keys(s.model.attrs).length) return; commit(initialModel(LEVELS[s.levelId])); set({chainStart:null,selected:null});},
  loadExample:()=>{const model=exampleModel(get().levelId); if(!model) return false; commit(model); set({chainStart:null,selected:null}); return true;},
  // A design is valid only for the exact model from which it was computed.
@@ -37,6 +37,7 @@ export const useGameStore=create<GameState>((set,get)=>{
  removeNodeAttrs:(key)=>{const s=get(), a=s.model.attrs[key]; if(!a||a.locked||(!a.load&&!a.joint&&!a.found)) return; const model=clone(s.model), next=model.attrs[key]; if(next.load) delete next.load; else if(next.joint) delete next.joint; else delete next.found; cleanup(model); commit(model);},
  };
 });
+
 
 
 
