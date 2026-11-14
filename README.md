@@ -8,7 +8,7 @@ Install Node.js and npm, then run `npm install` and `npm run dev`. Run `npm run 
 
 The repository contains the web app in `apps/web`, the shared solver contract in `packages/solver-contract`, and an OpenSees analysis service in `services/opensees`. See [the knowledge base](docs/kb/README.md) for architecture and project status.
 
-The [unified runtime](docs/kb/unified-runtime.md) opens five prototype environments in one application. Grow Dusk is the primary launcher entry and opens in Creative. It includes Engineering challenges, Creative, Forensics, Load in space and a local Shared table card playtest. **Run simulation** is available in every mode, with **Results** for the current model after a run. The approximate voxel analysis lacks independent validation for engineering design. Shared table uses an experimental applied-load solve with individual member-end connections and reports unresolved cases when a solve is unavailable.
+The [unified runtime](docs/kb/unified-runtime.md) opens in one application with a title screen, mode select and per-mode setup, then the Grow Dusk workspace (the other four environments remain in the codebase but are not offered). Creative is the default mode. It includes Engineering challenges, Creative, Forensics, Load in space and a local Shared table card playtest. **Run simulation** is available in every mode, with **Results** for the current model after a run. The approximate voxel analysis lacks independent validation for engineering design. Shared table uses an experimental applied-load solve with individual member-end connections and reports unresolved cases when a solve is unavailable.
 
 ## Run the analysis service
 
