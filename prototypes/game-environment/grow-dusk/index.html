@@ -212,6 +212,46 @@
   #boot b { color: var(--amber); }
   #boot code { color: var(--cream); }
   @media (max-width: 1340px) { .hide-narrow { display: none; } }
+
+  /* ---- launch mode chip (inside the brand chip) ---- */
+  #brand #mode-row { display: flex; align-items: center; gap: 7px; margin-top: 2px; }
+  #brand #mode-row b { display: inline; font-size: 13px; color: var(--amber); }
+  #brand #mode-row .tag { display: inline-block; font-size: 11px; padding: 0 5px; cursor: help; }
+  #brand #mode-level { margin-top: 1px; }
+  #turn-text { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
+  [hidden] { display: none !important; }
+
+  /* ---- pause menu ---- */
+  #menu { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: rgba(10, 18, 26, 0.58); backdrop-filter: blur(3px); }
+  #menu-panel { width: min(380px, 92vw); max-height: 92vh; overflow: auto; padding: 18px 18px 16px; background: rgba(31, 45, 58, 0.97); }
+  #menu h2 { margin: 0 0 2px; font-size: 20px; }
+  #menu .msub { margin: 0 0 12px; font-size: 12px; color: var(--ink-soft); line-height: 1.4; }
+  #menu .mlist { display: flex; flex-direction: column; gap: 6px; }
+  #menu .mbtn { height: 42px; width: 100%; justify-content: flex-start; padding: 0 14px; font-size: 14px; background: rgba(243, 234, 216, 0.08); box-shadow: inset 0 0 0 1px var(--cream-faint); }
+  #menu .mbtn:hover { background: rgba(243, 234, 216, 0.18); }
+  #menu .mbtn.primary { background: var(--amber); color: var(--ink); box-shadow: none; }
+  #menu .mbtn.primary:hover { background: #f7c75c; }
+  #menu .mbtn.danger { box-shadow: inset 0 0 0 1px var(--danger); }
+  #menu .mbtn.danger:hover { background: var(--danger); color: #fff; }
+  #menu .mrow { display: flex; gap: 6px; margin-top: 12px; }
+  #menu .mrow .mbtn { justify-content: center; }
+  #menu .msep { height: 1px; background: var(--cream-faint); margin: 6px 0; }
+  #menu :focus-visible { outline: 2px solid var(--cream); outline-offset: 2px; }
+  #menu .srow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 2px; border-bottom: 1px solid var(--cream-faint); font-weight: 600; font-size: 14px; }
+  #menu .srow small { display: block; font-weight: 500; font-size: 12px; color: var(--ink-soft); }
+  #menu .sw { flex: none; width: 46px; height: 26px; border-radius: 13px; background: rgba(243, 234, 216, 0.22); position: relative; transition: background .15s; }
+  #menu .sw::after { content: ""; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--cream); transition: transform .15s; }
+  #menu .sw[aria-checked="true"] { background: var(--amber); }
+  #menu .sw[aria-checked="true"]::after { transform: translateX(20px); background: var(--ink); }
+  #menu dl { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 5px 14px; font-size: 14px; }
+  #menu dt { color: var(--cream-dim); }
+  #menu dd { margin: 0; font-weight: 700; text-align: right; }
+  #menu .sumh { margin: 12px 0 5px; font-size: 12px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em; }
+  #menu .noscore { margin: 12px 0 0; padding: 8px 10px; border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--amber); border: 1px dashed rgba(242, 177, 52, 0.6); }
+  #menu .ask { margin: 8px 0 0; font-size: 14px; line-height: 1.45; }
+
+  /* ---- reduced motion setting: stops the page's CSS animations and transitions ---- */
+  html.rm *, html.rm *::before, html.rm *::after { animation: none !important; transition-duration: 0.01ms !important; }
 </style>
 </head>
 <body>
@@ -226,7 +266,9 @@
   <div id="topleft">
     <div id="brand" class="chip">
       <svg width="30" height="30" viewBox="0 0 30 30"><path d="M7 23 L15 7 L23 23" fill="none" stroke="#8cc7b5" stroke-width="3.4" stroke-linecap="round"/><path d="M7 23 H23" stroke="#6a9bd8" stroke-width="3.4" stroke-linecap="round"/><circle cx="15" cy="7" r="3.6" fill="#f3ead8" stroke="#22313f" stroke-width="2"/><circle cx="7" cy="23" r="3" fill="#f2b134"/><circle cx="23" cy="23" r="3" fill="#f2b134"/></svg>
-      <div><b>Degrees of Freedom</b><span>Grow &middot; Dusk &middot; environment prototype</span></div>
+      <div><b>Degrees of Freedom</b><span>Grow &middot; Dusk &middot; environment prototype</span>
+        <span id="mode-row" hidden><b id="mode-name"></b><span class="tag" id="mode-tag" tabindex="0" title="You are in the standalone environment prototype and can build freely. This mode's rules, simulation and results run in the team's main app.">Prototype preview</span></span>
+        <span id="mode-level" hidden></span></div>
     </div>
     <div id="turn" class="chip" title="Turn rules are not decided yet. This only counts turns and records who placed what.">
       <span class="who"><span class="dot" id="turn-dot"></span><span id="turn-text">Player 1 &middot; turn 1</span></span>
@@ -247,6 +289,8 @@
     <span class="sep"></span>
     <button class="btn icon" id="b-sound" title="Sound on/off"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8v4h3l4 3V5L6 8H3z" fill="currentColor"/><path class="waves" d="M13 7.5a3.5 3.5 0 0 1 0 5M15.5 5a7 7 0 0 1 0 10"/><path class="cross" d="m13 8 4 4m0-4-4 4" style="display:none"/></svg></button>
     <button class="btn icon" id="b-help" title="Controls (H or ?)"><b style="font-size:16px">?</b></button>
+    <span class="sep"></span>
+    <button class="btn" id="b-menu" title="Menu (Esc or P)">Menu</button>
   </div>
 
   <div id="demo">Demo data - no solver connected</div>
@@ -316,6 +360,45 @@
     </header>
     <pre id="drawer-json"></pre>
   </aside>
+</div>
+
+<div id="menu" role="dialog" aria-modal="true" aria-labelledby="menu-title" hidden>
+  <div id="menu-panel" class="chip">
+    <section data-view="main">
+      <h2 id="menu-title">Paused</h2>
+      <p class="msub" id="menu-sub">Building environment</p>
+      <div class="mlist">
+        <button class="btn mbtn primary" id="m-resume">Resume</button>
+        <button class="btn mbtn" id="m-restart">Restart</button>
+        <button class="btn mbtn" id="m-help">How to play</button>
+        <button class="btn mbtn" id="m-settings">Settings</button>
+        <button class="btn mbtn" id="m-finish" title="Placeholder: shows real counts only, no score">Finish and see summary</button>
+        <div class="msep"></div>
+        <button class="btn mbtn danger" id="m-quit">Quit to menu</button>
+      </div>
+    </section>
+    <section data-view="settings" hidden>
+      <h2>Settings</h2>
+      <p class="msub">Saved on this device.</p>
+      <div class="srow"><span id="l-sound">Sound</span><button class="sw" id="s-sound" role="switch" aria-labelledby="l-sound"></button></div>
+      <div class="srow"><span id="l-rm">Reduced motion<small>Stops decorative animation</small></span><button class="sw" id="s-rm" role="switch" aria-labelledby="l-rm"></button></div>
+      <div class="srow"><span id="l-help">Show controls at start<small>Opens the help panel on load</small></span><button class="sw" id="s-help" role="switch" aria-labelledby="l-help"></button></div>
+      <div class="mrow"><button class="btn mbtn" id="m-settings-back">Back</button></div>
+    </section>
+    <section data-view="confirm" hidden>
+      <h2 id="confirm-title">Are you sure?</h2>
+      <p class="ask" id="confirm-text"></p>
+      <div class="mrow"><button class="btn mbtn" id="m-confirm-no">Cancel</button><button class="btn mbtn danger" id="m-confirm-yes">Confirm</button></div>
+    </section>
+    <section data-view="summary" hidden>
+      <h2>Summary</h2>
+      <p class="msub">Real counts from the building environment.</p>
+      <dl id="sum-list"></dl>
+      <div id="sum-players" hidden><div class="sumh">Members per player</div><dl id="sum-players-list"></dl></div>
+      <p class="noscore">No score: results need a simulation, which is not connected in this prototype.</p>
+      <div class="mrow"><button class="btn mbtn primary" id="m-keep">Keep building</button><button class="btn mbtn" id="m-quit2">Quit to menu</button></div>
+    </section>
+  </div>
 </div>
 
 <div id="boot"><div id="boot-msg">Loading the quay&hellip;</div></div>
@@ -401,9 +484,48 @@ function main() {
   const roleOf = (p, q) => (p[0] === q[0] && p[1] === q[1] ? 'column' : p[2] === q[2] ? 'beam' : 'brace');
 
   // ========================================================== 2. model
-  const core = DOF.createModel({ directions: '26', maxSteps: 4 });
-  const B = core.options.bounds;
   const params = new URLSearchParams(location.search);
+
+  // ---- launch parameters (all optional; none means the page behaves as it always did)
+  const MODE_NAMES = { creative: 'Creative', challenge: 'Engineering challenges', forensics: 'Forensics', 'load-space': 'Load in space', multiplayer: 'Shared table' };
+  const modeParam = (params.get('mode') || '').trim().toLowerCase();
+  const mode = Object.prototype.hasOwnProperty.call(MODE_NAMES, modeParam) ? modeParam : null;
+  const startParam = (params.get('start') || '').toLowerCase();
+  const startEmpty = params.get('empty') === '1' || startParam === 'empty';
+  const levelRaw = params.get('level') || '';
+  const levelId = ['challenge', 'forensics', 'load-space'].includes(mode) && /^[\w.\-]{1,40}$/.test(levelRaw) ? levelRaw : null;
+  let playerCount = 2;
+  if (mode === 'multiplayer') {
+    const n = parseInt(params.get('players'), 10);
+    if (n >= 2 && n <= 4) playerCount = n;
+  }
+  const PLAYER_COLORS = ['#e9806e', '#6a9bd8', '#d9a53a', '#8cc7b5'];
+  const playerNames = [];
+  if (mode === 'multiplayer') {
+    // names are comma-separated and each one URI-encoded, so split the raw query before decoding
+    const m = /[?&]names=([^&#]*)/.exec(location.search);
+    const raw = m ? m[1].split(',') : [];
+    for (let i = 0; i < playerCount; i++) {
+      let name = '';
+      try { name = decodeURIComponent((raw[i] || '').replace(/\+/g, ' ')).trim().slice(0, 24); } catch (error) { name = ''; }
+      playerNames.push(name || 'Player ' + (i + 1));
+    }
+  }
+  const playerName = (n) => playerNames[n - 1] || 'Player ' + n;
+
+  // ---- settings (localStorage "dof.settings")
+  const SETTINGS_KEY = 'dof.settings';
+  const settings = { sound: true, reducedMotion: false, showHelpOnStart: true };
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
+    if (saved && typeof saved === 'object') for (const k in settings) if (typeof saved[k] === 'boolean') settings[k] = saved[k];
+    if (!(saved && typeof saved.sound === 'boolean') && localStorage.getItem('dof-grow-muted') === '1') settings.sound = false;
+  } catch (error) { /* storage may be blocked */ }
+  function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (error) { /* fine */ } }
+  document.documentElement.classList.toggle('rm', settings.reducedMotion);
+
+  const core = DOF.createModel({ directions: '26', maxSteps: 4, players: playerCount });
+  const B = core.options.bounds;
 
   // ================================================ 3. renderer, camera
   const canvas = $('view');
@@ -1800,6 +1922,7 @@ function main() {
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Alt') { e.preventDefault(); return; }
     const k = e.key.toLowerCase();
+    if (menuOpen) { menuKey(e, k); return; }
     if (e.ctrlKey || e.metaKey) {
       if (k === 'z') { e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); }
       else if (k === 'y') { e.preventDefault(); doRedo(); }
@@ -1810,13 +1933,17 @@ function main() {
     else if (k === '2') setTool('connection');
     else if (k === '3') setTool('load');
     else if (k === 'escape') {
+      // Cancelling something in progress takes priority; with nothing to cancel, Esc opens the menu.
+      const busy = $('drawer').classList.contains('show') || mt.armed || sel || lt.sel || (gesture && gesture.mode === 'member');
       if (gesture && gesture.mode === 'member') gesture.mode = 'cancelled';
       if ($('drawer').classList.contains('show')) toggleDrawer(false);
       else if (mt.armed) disarm();
       else if (sel) selectNode(null);
       else if (lt.sel) { lt.sel = null; updatePad(); }
       computeHover();
-    } else if (k === 'f') reframe(true);
+      if (!busy) openMenu();
+    } else if (k === 'p') openMenu();
+    else if (k === 'f') reframe(true);
     else if (k === 'h' || k === '?') toggleHelp();
     else if (k === 'delete' || k === 'backspace') { e.preventDefault(); secondary(); computeHover(); }
   });
@@ -1889,6 +2016,133 @@ function main() {
   }
   document.querySelectorAll('#ui .btn').forEach((b) => b.addEventListener('click', () => b.blur()));
 
+  // ================================================== 11b. menu layer
+  const QUIT_URL = '../../game-interface/index.html#modes';
+  const menuEl = $('menu'), menuPanel = $('menu-panel');
+  let menuOpen = false, menuReady = false, menuView = 'main', menuReturn = null, confirmYes = null;
+  /** The part of the game state that counts as "changed since launch". */
+  function stateKey() {
+    const s = core.snapshot();
+    return JSON.stringify({ nodes: s.nodes, members: s.members, loads: s.loads, turn: s.turn });
+  }
+  const modelChanged = () => stateKey() !== launchState;
+  function initMenu() {
+    if (mode) {
+      $('mode-row').hidden = false;
+      $('mode-name').textContent = MODE_NAMES[mode];
+      if (levelId) { $('mode-level').hidden = false; $('mode-level').textContent = 'Level: ' + levelId; }
+      $('menu-sub').textContent = MODE_NAMES[mode] + ' · prototype preview' + (levelId ? ' · Level: ' + levelId : '');
+    }
+    menuReady = true;
+    showSettings();
+  }
+  function setMenuView(name) {
+    menuView = name;
+    menuPanel.querySelectorAll('section').forEach((s) => { s.hidden = s.dataset.view !== name; });
+    const first = menuPanel.querySelector(`section[data-view="${name}"] button`);
+    const target = name === 'confirm' ? $('m-confirm-no') : name === 'main' ? $('m-resume') : first;
+    if (target) target.focus();
+  }
+  function openMenu() {
+    if (menuOpen || !booted) return;
+    menuOpen = true;
+    // let go of anything in progress on the scene side without changing the model
+    gesture = null;
+    ptr.inside = false;
+    clearHover();
+    menuEl.hidden = false;
+    setMenuView('main');
+    sfx('click');
+  }
+  function closeMenu() {
+    if (!menuOpen) return;
+    menuOpen = false;
+    menuEl.hidden = true;
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    hoverDirty = true;
+  }
+  function menuKey(e, k) {
+    if (k === 'escape' || (k === 'p' && !e.ctrlKey && !e.metaKey && !e.altKey)) { e.preventDefault(); closeMenu(); return; }
+    if (k !== 'tab') return;
+    const items = [...menuPanel.querySelectorAll('section:not([hidden]) button')].filter((b) => !b.disabled);
+    if (!items.length) return;
+    const at = items.indexOf(document.activeElement);
+    e.preventDefault();
+    items[(at + (e.shiftKey ? -1 : 1) + items.length) % items.length].focus();
+  }
+  function askConfirm(title, text, yesLabel, onYes) {
+    $('confirm-title').textContent = title;
+    $('confirm-text').textContent = text;
+    $('m-confirm-yes').textContent = yesLabel;
+    confirmYes = onYes;
+    setMenuView('confirm');
+  }
+  function restartToLaunch() {
+    disarm();
+    selectNode(null);
+    lt.sel = null;
+    core.restore(launchSnapshot);
+    setTool('member');
+    reframe(true);
+    refreshUI();
+    closeMenu();
+    toast('Restarted from the launch state');
+  }
+  function quitToMenu() { location.assign(QUIT_URL); }
+  function requestQuit() {
+    if (modelChanged()) askConfirm('Quit to menu?', 'You have changed the structure since you started. Leaving now throws it away.', 'Quit to menu', quitToMenu);
+    else quitToMenu();
+  }
+  function showSettings() {
+    const rows = [['s-sound', settings.sound], ['s-rm', settings.reducedMotion], ['s-help', settings.showHelpOnStart]];
+    for (const [id, on] of rows) { $(id).setAttribute('aria-checked', on ? 'true' : 'false'); $(id).title = on ? 'On' : 'Off'; }
+  }
+  function showSummary() {
+    const s = core.stats(), conn = core.connectivity();
+    const unconnected = conn.floatingMembers.length + conn.floatingNodes.filter((id) => !core.membersAt(id).length).length;
+    const rows = [['Members', s.members], ['Total length', s.totalLength.toFixed(1) + ' m'], ['Total load', s.totalLoad + ' kN'], ['Supports', s.supports], ['Not connected to a support', unconnected]];
+    const dl = $('sum-list');
+    dl.textContent = '';
+    for (const [label, value] of rows) {
+      const dt = document.createElement('dt'), dd = document.createElement('dd');
+      dt.textContent = label; dd.textContent = String(value);
+      dd.dataset.key = label; dl.append(dt, dd);
+    }
+    $('sum-players').hidden = mode !== 'multiplayer';
+    if (mode === 'multiplayer') {
+      const pl = $('sum-players-list');
+      pl.textContent = '';
+      const counts = {};
+      for (const m of core.members) counts[m.player] = (counts[m.player] || 0) + 1;
+      for (let p = 1; p <= playerCount; p++) {
+        const dt = document.createElement('dt'), dd = document.createElement('dd');
+        dt.textContent = playerName(p); dd.textContent = String(counts[p] || 0);
+        pl.append(dt, dd);
+      }
+    }
+    setMenuView('summary');
+  }
+  $('b-menu').addEventListener('click', openMenu);
+  $('m-resume').onclick = closeMenu;
+  $('m-keep').onclick = closeMenu;
+  $('m-restart').onclick = () => askConfirm('Restart?', 'Put everything back to how it was when you launched this page. You can still undo it.', 'Restart', restartToLaunch);
+  $('m-help').onclick = () => { closeMenu(); toggleHelp(true); };
+  $('m-settings').onclick = () => { showSettings(); setMenuView('settings'); };
+  $('m-settings-back').onclick = () => setMenuView('main');
+  $('m-finish').onclick = showSummary;
+  $('m-quit').onclick = requestQuit;
+  $('m-quit2').onclick = requestQuit;
+  $('m-confirm-no').onclick = () => setMenuView('main');
+  $('m-confirm-yes').onclick = () => { if (confirmYes) confirmYes(); };
+  $('s-sound').onclick = () => setSound(!settings.sound);
+  $('s-rm').onclick = () => {
+    settings.reducedMotion = !settings.reducedMotion;
+    document.documentElement.classList.toggle('rm', settings.reducedMotion);
+    saveSettings(); showSettings();
+  };
+  $('s-help').onclick = () => { settings.showHelpOnStart = !settings.showHelpOnStart; saveSettings(); showSettings(); };
+  menuEl.addEventListener('pointerdown', (e) => { if (e.target === menuEl) e.stopPropagation(); });
+
   function refreshUI() {
     const s = core.stats();
     $('stats-line').textContent = `${s.members} member${s.members === 1 ? '' : 's'} · ${s.totalLength.toFixed(1)} m · ${s.totalLoad} kN`;
@@ -1896,8 +2150,9 @@ function main() {
     $('stats-float').classList.toggle('show', nf > 0);
     $('stats-float-text').textContent = `${nf} not connected to a support`;
     const turn = core.turn;
-    $('turn-text').textContent = `Player ${turn.player} · turn ${turn.number}`;
-    $('turn-dot').style.background = turn.player === 1 ? COL.column : COL.brace;
+    $('turn-text').textContent = `${playerName(turn.player)} · turn ${turn.number}`;
+    $('turn-text').title = $('turn-text').textContent;
+    $('turn-dot').style.background = mode === 'multiplayer' ? PLAYER_COLORS[(turn.player - 1) % 4] : turn.player === 1 ? COL.column : COL.brace;
     $('b-undo').disabled = !canUndo();
     $('b-redo').disabled = !core.canRedo;
     refreshDrawer();
@@ -1928,8 +2183,7 @@ function main() {
   });
 
   // ============================================================ 12. sound
-  let actx = null, muted = false;
-  try { muted = localStorage.getItem('dof-grow-muted') === '1'; } catch (error) { /* storage may be blocked */ }
+  let actx = null, muted = !settings.sound;
   function audioWake() {
     if (muted || actx) { if (actx && actx.state === 'suspended') actx.resume().catch(() => {}); return; }
     try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (error) { actx = null; }
@@ -1958,12 +2212,16 @@ function main() {
     $('b-sound').querySelector('.cross').style.display = muted ? '' : 'none';
     $('b-sound').title = muted ? 'Sound is off' : 'Sound is on';
   }
-  $('b-sound').onclick = () => {
-    muted = !muted;
+  function setSound(on) {
+    muted = !on;
+    settings.sound = on;
+    saveSettings();
     try { localStorage.setItem('dof-grow-muted', muted ? '1' : '0'); } catch (error) { /* fine */ }
     showMute();
+    if (menuReady) showSettings();
     if (!muted) { audioWake(); sfx('click'); }
-  };
+  }
+  $('b-sound').onclick = () => setSound(muted);
   showMute();
 
   // =========================================================== 13. camera
@@ -2110,9 +2368,11 @@ function main() {
 
   // ============================================================ 15. start
   resize();
-  if (params.get('empty') !== '1') core.loadExample('tower');
+  if (!startEmpty) core.loadExample('tower');
   else sync({ reset: true, added: { nodes: [], members: [], loads: [] }, removed: { nodes: [], members: [], loads: [] } });
   baseDepth = depth;
+  const launchState = stateKey();
+  const launchSnapshot = core.snapshot();
   // three-quarter view from the front right, then ease in a little
   applyCam({ t: new V3(4.6, 4, 1.8), r: 18, az: -1.02, el: 0.47 });
   controls.update();
@@ -2122,12 +2382,11 @@ function main() {
     const to = { t: controls.target.clone(), r: _off.length(), az: Math.atan2(_off.y, _off.x), el: Math.asin(_off.z / _off.length()) };
     const from = { t: to.t.clone(), r: to.r * 1.16, az: to.az - 0.16, el: to.el };
     applyCam(from);
-    cam.tween = { t0: now, dur: 800, from, to };
+    if (settings.reducedMotion) applyCam(to); else { applyCam(from); cam.tween = { t0: now, dur: 800, from, to }; }
     cam.wantDist = to.r;
   }
-  let helpOpen = true;
-  try { helpOpen = localStorage.getItem('dof-grow-help') !== '0'; } catch (error) { /* storage may be blocked */ }
-  toggleHelp(helpOpen && window.innerHeight >= 800 && window.innerWidth >= 1400);
+  toggleHelp(settings.showHelpOnStart && window.innerHeight >= 800 && window.innerWidth >= 1400);
+  initMenu();
   setTool('member');
   refreshUI();
   booted = true;
@@ -2140,6 +2399,12 @@ function main() {
       ready: true,
       option: 'grow-dusk',
       core,
+      mode,
+      players: playerCount,
+      playerNames: playerNames.slice(),
+      openMenu,
+      closeMenu,
+      get menuOpen() { return menuOpen; },
       tools: ['member', 'connection', 'load'],
       get tool() { return tool; },
       setTool,
