@@ -63,6 +63,9 @@ describe('analysis result storage', () => {
     const db = memory(), states = createStructuralStateService(db), store = createAnalysisResultsStore(db);
     states.write(snapshot);
     const partial = { ...run, runId: 'partial', status: 'unresolved', reasonCodes: ['timeout'], components: [{ id: 'component', jointIds: ['j'], endpointIds: ['a', 'b'], memberIds: ['beam'], classification: 'unknown', validity: 'unavailable', reasonCodes: ['timeout'] }], joints: [], endpoints: [], foundations: [{ foundationId: 'f', componentId: 'component', reaction: { validity: 'unavailable', reason: 'timeout' } }], members: [], connections: [], modes: [] };
+    const mixed = { ...run, runId: 'mixed', status: 'unresolved', reasonCodes: ['timeout'], components: [...run.components, { id: 'unknown', jointIds: [], endpointIds: [], memberIds: [], classification: 'unknown', validity: 'unavailable', reasonCodes: ['timeout'] }] };
+    expect(store.write(mixed)).toEqual({ status: 'saved' });
+    expect(store.readRun('m', 'mixed')).toMatchObject({ status: 'found', result: { foundations: [{ reaction: { validity: 'verified' } }] } });
     expect(store.write(partial)).toEqual({ status: 'saved' });
     expect(store.readRun('m', 'partial')).toMatchObject({ status: 'found', result: { foundations: [{ reaction: { validity: 'unavailable' } }] } });
     const key = 'dof:analysis-results:v1:m';
