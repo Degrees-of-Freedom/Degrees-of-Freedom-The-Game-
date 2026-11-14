@@ -57,6 +57,7 @@ export function Scene({
   const workK = useGameStore((state) => state.workK);
   const style = useGameStore((state) => state.style);
   const host = useRef<HTMLDivElement>(null);
+  const axisHost = useRef<SVGSVGElement>(null);
   const cameraActions = useRef({
     fit: () => {},
     orbit: (_step: number) => {},
@@ -137,6 +138,7 @@ export function Scene({
     let orthoSpan = 20;
     let previousTurn: number | undefined;
     let cameraSwing = 0;
+    let aspectCompensation = 1;
     let kitHigh = false;
     const interaction = bindSceneInteraction(
       renderer.domElement,
@@ -192,7 +194,13 @@ export function Scene({
         fill.groundColor.set(palette.ground);
         sun.color.set(palette.sun);
         sun.intensity = palette.intensity;
+        aspectCompensation = 1;
         buildTerrain(terrain, level, camera, controls, palette, state.style);
+        if (state.style === "kit") {
+          const offset = camera.position.clone().sub(controls.target).multiplyScalar(0.8);
+          camera.position.copy(controls.target).add(offset);
+          controls.update();
+        }
         sun.castShadow = state.style !== "engineering";
         const span = Math.max(level.nx, level.ny) * CELL_SIZE * 0.86;
         sun.target.position.set(
@@ -249,12 +257,20 @@ export function Scene({
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = element;
       if (w && h) {
-        if (camera instanceof THREE.PerspectiveCamera) camera.aspect = w / h;
+        if (camera instanceof THREE.PerspectiveCamera) {
+          camera.aspect = w / h;
+          const next = Math.max(1, 0.78 / camera.aspect);
+          const offset = camera.position.clone().sub(controls.target).multiplyScalar(next / aspectCompensation);
+          camera.position.copy(controls.target).add(offset);
+          aspectCompensation = next;
+          controls.update();
+        }
         else {
-          camera.left = -orthoSpan * (w / h);
-          camera.right = orthoSpan * (w / h);
-          camera.top = orthoSpan;
-          camera.bottom = -orthoSpan;
+          const span = orthoSpan * Math.max(1, 0.76 / (w / h));
+          camera.left = -span * (w / h);
+          camera.right = span * (w / h);
+          camera.top = span;
+          camera.bottom = -span;
         }
         camera.updateProjectionMatrix();
         renderer.setSize(w, h);
@@ -354,6 +370,19 @@ export function Scene({
         );
         guide.scale.setScalar(1 - 0.35 * (1 - progress) ** 3);
       }
+      if (axisHost.current) {
+        const toCamera = camera.quaternion.clone().invert();
+        for (let axis = 0; axis < 3; axis++) {
+          const p = new THREE.Vector3().setComponent(axis, 1).applyQuaternion(toCamera);
+          const x = p.x * 21, y = -p.y * 21;
+          const line = axisHost.current.querySelector('line[data-axis="' + axis + '"]');
+          const label = axisHost.current.querySelector('text[data-axis="' + axis + '"]');
+          line?.setAttribute("x2", String(x));
+          line?.setAttribute("y2", String(y));
+          label?.setAttribute("x", String(x * 1.33));
+          label?.setAttribute("y", String(y * 1.33));
+        }
+      }
       sky.position.copy(camera.position);
       sky.material.uniforms.rimDip.value =
         state.style === "grow-dusk" || state.style === "kit"
@@ -396,6 +425,18 @@ export function Scene({
         }}
         aria-label="3D workspace. Drag to orbit, scroll to zoom, and click to build."
       />
+      {["levels", "blocks", "kit"].includes(style) && (
+        <svg ref={axisHost} className="scene-axes" viewBox="-34 -34 68 68" role="img" aria-label="Model axes">
+          {["X", "Y", "Z"].map((axis, i) => {
+            const paint = ["#d9604e", "#5fa36a", "#4d86c4"][i];
+            return <g key={axis}>
+              <line data-axis={i} stroke={paint} strokeWidth="2.4" strokeLinecap="round" />
+              <text data-axis={i} fill={paint} textAnchor="middle" dominantBaseline="central">{axis}</text>
+            </g>;
+          })}
+          <circle r="2.6" fill="currentColor" />
+        </svg>
+      )}
       <div
         role="group"
         aria-label="Camera controls"

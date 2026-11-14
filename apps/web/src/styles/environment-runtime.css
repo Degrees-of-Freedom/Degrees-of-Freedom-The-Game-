@@ -842,3 +842,151 @@ body,
 .environment[data-style="kit"] #corner #stats {
   position: static;
 }
+
+.environment .scene-axes {
+  position: absolute;
+  z-index: 2;
+  left: 20px;
+  bottom: 215px;
+  width: 68px;
+  height: 68px;
+  color: var(--ink);
+  pointer-events: none;
+  font: 750 12px var(--font);
+}
+.environment[data-style="kit"] .scene-axes {
+  bottom: 270px;
+  color: var(--cream);
+}
+.environment[data-style="levels"] .scene-axes {
+  left: auto;
+  right: 24px;
+  bottom: 150px;
+}
+@media (max-width: 700px) {
+  .environment .scene-axes {
+    width: 52px;
+    height: 52px;
+    left: 8px;
+  }
+  .environment[data-style="levels"] .scene-axes {
+    left: auto;
+    right: 8px;
+  }
+}
+
+.environment[data-style="kit"] #corner {
+  bottom: 150px;
+  gap: 6px;
+}
+.environment[data-style="kit"] #corner #brand,
+.environment[data-style="kit"] #corner #stats {
+  position: static;
+}
+.environment[data-style="kit"] .env-tray {
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+}
+.environment[data-style="kit"] .env-tray .well {
+  flex: 0 0 auto;
+  min-width: 106px;
+  align-items: flex-start;
+}
+.environment[data-style="kit"] .env-tray .well h4 {
+  flex-basis: 100%;
+}
+.environment[data-style="kit"] .env-tray .token {
+  flex-shrink: 0;
+  min-width: 57px;
+}
+@media (max-width: 600px) {
+  .environment #topleft {
+    top: max(8px, env(safe-area-inset-top));
+    left: 8px;
+    z-index: 6;
+  }
+  .environment #actions,
+  .environment #top-right {
+    top: 53px;
+    gap: 3px;
+  }
+  .environment[data-style="kit"] #top-left {
+    top: max(8px, env(safe-area-inset-top));
+    left: 8px;
+    right: 8px;
+    justify-content: center;
+  }
+  .environment[data-style="kit"] #top-right {
+    top: 51px;
+  }
+  .environment #dock,
+  .environment[data-style="kit"] #dock {
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: min(calc(100% - 12px), 460px);
+  }
+  .environment #hint {
+    max-width: calc(100vw - 20px);
+    text-align: center;
+    white-space: normal;
+  }
+  .environment #cornerleft {
+    left: 8px;
+    bottom: 138px;
+  }
+  .environment .environment-switch {
+    right: 8px;
+    bottom: 138px;
+  }
+  .environment[data-style="kit"] #corner,
+  .environment[data-style="kit"] .environment-switch {
+    bottom: 176px;
+  }
+  .environment[data-style="kit"] #corner #brand {
+    display: none;
+  }
+  .environment[data-style="kit"] .env-tray {
+    max-width: 100%;
+    max-height: none;
+    width: max-content;
+    justify-content: flex-start;
+    overscroll-behavior-inline: contain;
+  }
+  .environment[data-style="kit"] .env-tray .token small {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .environment[data-style="kit"] .scene-axes,
+  .environment[data-style="blocks"] .scene-axes {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .environment[data-style="levels"] #hint {
+    position: fixed;
+    top: auto;
+    bottom: 58px;
+    left: 50%;
+    right: auto;
+    width: max-content;
+    max-width: calc(100vw - 26px);
+    transform: translateX(-50%);
+  }
+  .environment[data-style="levels"] #actions {
+    top: 55px;
+  }
+  .environment[data-style="levels"] .env-tools {
+    top: 142px;
+    padding: 3px;
+  }
+  .environment[data-style="levels"] .env-tools .tool {
+    width: 49px;
+    height: 48px;
+  }
+  .environment[data-style="levels"] .env-tools .tool span {
+    font-size: 9px;
+  }
+  .environment[data-style="levels"] #stepper {
+    top: 142px;
+  }
+}
