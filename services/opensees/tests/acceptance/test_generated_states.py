@@ -15,6 +15,7 @@ Environment:
 
 from __future__ import annotations
 
+import copy
 import json
 import math
 import os
@@ -40,6 +41,7 @@ N_STATES = int(os.environ.get("DOF_GENERATED_STATES", "300"))
 BASE_SEED = int(os.environ.get("DOF_GENERATED_BASE_SEED", "0"))
 ONE_SEED = os.environ.get("DOF_GENERATED_SEED")
 DETERMINISM_EVERY = 10
+DETERMINISM_TIMEOUT_MS = 60000.0
 
 STATUSES = {"success", "unstable", "unresolved", "unsupported", "error"}
 STATES = {"stable", "marginal", "unstable", "unknown"}
@@ -222,12 +224,16 @@ def check_state(seed: int) -> list[str]:
         return [problem]
     problems = check_result(model, result)
     analysis = model.get("analysis") or {}
-    if seed % DETERMINISM_EVERY == 0 and "timeoutMs" not in analysis and not problems:
-        again, problem = _run(model)
-        if problem:
-            problems.append(f"second run: {problem}")
-        elif _strip_runtime(again) != _strip_runtime(result):
-            problems.append("two runs of the same model gave different results")
+    if seed % DETERMINISM_EVERY == 0 and not problems:
+        # Compare two runs under a generous budget so the wall clock cannot decide the result.
+        relaxed = copy.deepcopy(model)
+        relaxed.setdefault("analysis", {})["timeoutMs"] = DETERMINISM_TIMEOUT_MS
+        first, problem = _run(relaxed)
+        second, problem2 = _run(relaxed)
+        if problem or problem2:
+            problems.append(f"determinism runs: {problem or problem2}")
+        elif _strip_runtime(first) != _strip_runtime(second):
+            problems.append("two runs of the same model (timeoutMs 60000) gave different results")
     return problems
 
 

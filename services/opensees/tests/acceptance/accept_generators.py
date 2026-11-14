@@ -47,7 +47,15 @@ PRESETS: dict[str, list[str]] = {
     "planar_bearing": [F, F, L, L, L, F],
     "semi_rigid": [L, L, L, E, E, E],
     "elastic_coupler": [E, E, E, E, E, E],
+    # Torsion-locked hinges the service supports on any member (DESIGN.md, Connection capability).
+    "twist_locked_ball": [L, L, L, L, F, F],
+    "hinge_ry": [L, L, L, L, F, L],
+    "hinge_rz": [L, L, L, L, L, F],
 }
+# Presets supported on skew members, or members whose local axes are not global axes.
+SKEW_SAFE_PRESETS = (
+    "fixed", "ball", "semi_rigid", "elastic_coupler", "twist_locked_ball", "hinge_ry", "hinge_rz",
+)
 
 
 def _log_uniform(rng: random.Random, low: float, high: float) -> float:
@@ -74,8 +82,14 @@ def _connection(rng: random.Random, laws: list[str]) -> dict[str, Any]:
     return conn
 
 
-def _end_spec(rng: random.Random, kind: str, prefix: str) -> dict[str, Any]:
-    """Fields describing one member end: shorthand, full connection, or default."""
+def _end_spec(rng: random.Random, kind: str, prefix: str, axis_aligned: bool, probe: bool) -> dict[str, Any]:
+    """Fields describing one member end: shorthand, full connection, or default.
+
+    ``axis_aligned``: the member's local axes are all parallel to global axes, so
+    any law pattern is representable. Otherwise (and unless ``probe``) only
+    patterns the service supports on skew members are drawn. ``probe`` members
+    deliberately draw from everything, to exercise refusals.
+    """
     roll = rng.random()
     pinned_bias = 0.35 if kind in ("brace", "cable") else 0.0
     if roll < 0.28 - pinned_bias * 0.5:
@@ -86,12 +100,18 @@ def _end_spec(rng: random.Random, kind: str, prefix: str) -> dict[str, Any]:
         return {f"{prefix}Fixity": "pinned"}
     if roll < 0.70 + pinned_bias:
         return {f"{prefix}Fixity": "free"} if rng.random() < 0.3 else {f"{prefix}Fixity": "pinned"}
+    open_patterns = axis_aligned or probe
     if roll < 0.95:
-        name = rng.choice(list(PRESETS))
+        if open_patterns and rng.random() < (0.5 if axis_aligned else 1.0):
+            name = rng.choice(list(PRESETS))
+        else:
+            name = rng.choice(SKEW_SAFE_PRESETS)
         return {f"{prefix}Connection": _connection(rng, PRESETS[name])}
-    # Deliberately odd: arbitrary law combinations (a solver may call these unsupported).
-    laws = [rng.choice((L, F, E)) for _ in range(6)]
-    return {f"{prefix}Connection": _connection(rng, laws)}
+    if open_patterns:
+        # Arbitrary law combinations (supported on axis-aligned members, refused on skew ones).
+        laws = [rng.choice((L, F, E)) for _ in range(6)]
+        return {f"{prefix}Connection": _connection(rng, laws)}
+    return {f"{prefix}Connection": _connection(rng, PRESETS[rng.choice(SKEW_SAFE_PRESETS)])}
 
 
 def _properties(rng: random.Random) -> dict[str, Any]:
@@ -231,23 +251,31 @@ def generate_state(seed: int) -> dict[str, Any]:
                 edges.append((did, neighbour))
 
     members: list[dict[str, Any]] = []
+    probe_state = rng.random() < 0.10
+    position_of = {n["id"]: n["position"] for n in node_list}
     for index, (a, b) in enumerate(edges):
         kind = rng.choices(("beam", "brace", "cable"), (55, 30, 15))[0]
         member: dict[str, Any] = {"id": f"m{index}", "startNodeId": a, "endNodeId": b}
         if kind != "beam" or rng.random() < 0.3:
             member["kind"] = kind
-        member.update(_end_spec(rng, kind, "start"))
-        member.update(_end_spec(rng, kind, "end"))
-        if kind == "cable" and rng.random() < 0.4:
-            member["initialStrain"] = rng.choice((1.0, 1.0, 1.0, -0.2)) * _log_uniform(rng, 1e-5, 1e-2)
-        elif rng.random() < 0.03:
-            member["initialStrain"] = rng.uniform(-1e-3, 1e-3)
-        if rng.random() < 0.12:
-            member["properties"] = _properties(rng)
+        # About 10% of states deliberately probe what the service refuses; there, some members do.
+        probe = probe_state and rng.random() < 0.25
         if rng.random() < 0.10:
             member["orientation"] = [rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1)]
             if not any(member["orientation"]):
                 member["orientation"] = [0.0, 0.0, 1.0]
+        differing = sum(1 for u, v in zip(position_of[a], position_of[b]) if u != v)
+        axis_aligned = differing == 1 and "orientation" not in member
+        member.update(_end_spec(rng, kind, "start", axis_aligned, probe))
+        member.update(_end_spec(rng, kind, "end", axis_aligned, probe))
+        if kind == "cable" and rng.random() < 0.4:
+            member["initialStrain"] = rng.choice((1.0, 1.0, 1.0, -0.2)) * _log_uniform(rng, 1e-5, 1e-2)
+        elif kind == "brace" and rng.random() < 0.10:
+            member["initialStrain"] = rng.uniform(-1e-3, 1e-3)
+        elif kind == "beam" and probe and rng.random() < 0.5:
+            member["initialStrain"] = rng.uniform(-1e-3, 1e-3)  # refused: strain is for braces and cables
+        if rng.random() < 0.12:
+            member["properties"] = _properties(rng)
         members.append(member)
 
     supports = [{"nodeId": fid, "restrained": list(FIXED_SUPPORT)} for fid in foundation_ids]

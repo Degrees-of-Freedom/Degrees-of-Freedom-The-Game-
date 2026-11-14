@@ -34,6 +34,8 @@ from accept_generators import CELL, FIXED_SUPPORT, generate_state  # noqa: E402
 from dof_opensees.engine import analyze  # noqa: E402
 from dof_opensees.schema import StructuralModel  # noqa: E402
 
+ANALYSED_STATUSES = ("success", "unstable", "unresolved")
+
 TARGETS_MS = {
     "ordinary_linear": ("preview p95 <= 50 ms", 50.0, "p95"),
     "ordinary_nonlinear": ("ordinary nonlinear turn <= 250 ms", 250.0, "p95"),
@@ -113,6 +115,7 @@ def time_models(models: list[dict], warmup: int, repeats: int = 1) -> dict[str, 
     for model in parsed[:warmup] if len(parsed) > warmup else parsed[:1]:
         analyze(model)  # warmup, excluded
     timings: list[float] = []
+    analysed_timings: list[float] = []
     statuses: dict[str, int] = {}
     raised = 0
     for _ in range(repeats):
@@ -124,9 +127,21 @@ def time_models(models: list[dict], warmup: int, repeats: int = 1) -> dict[str, 
             except Exception:
                 raised += 1
                 status = "raised"
-            timings.append((time.perf_counter() - start) * 1000.0)
+            elapsed = (time.perf_counter() - start) * 1000.0
+            timings.append(elapsed)
+            if status in ANALYSED_STATUSES:
+                analysed_timings.append(elapsed)
             statuses[status] = statuses.get(status, 0) + 1
+    analysed: dict[str, Any] = {"count": len(analysed_timings)}
+    if analysed_timings:
+        analysed.update(
+            p50_ms=percentile(analysed_timings, 0.5),
+            p95_ms=percentile(analysed_timings, 0.95),
+            max_ms=max(analysed_timings),
+            mean_ms=statistics.fmean(analysed_timings),
+        )
     return {
+        "analysed": analysed,
         "count": len(timings),
         "p50_ms": percentile(timings, 0.5),
         "p95_ms": percentile(timings, 0.95),
@@ -208,6 +223,17 @@ def main() -> int:
             f"{target[0]:<48}{entry['statuses']}{extra}"
         )
         entry["target"] = {"description": target[0], "limit_ms": target[1], "statistic": target[2]}
+    print()
+    print("Analysed states only (status success, unstable or unresolved; refusals excluded):")
+    print(f"{'group':<22}{'count':>6}{'p50 ms':>10}{'p95 ms':>10}{'max ms':>10}")
+    for name, entry in groups.items():
+        if not name.startswith("ordinary"):
+            continue
+        a = entry["analysed"]
+        if a["count"]:
+            print(f"{name:<22}{a['count']:>6}{a['p50_ms']:>10.1f}{a['p95_ms']:>10.1f}{a['max_ms']:>10.1f}")
+        else:
+            print(f"{name:<22}{0:>6}{'-':>10}{'-':>10}{'-':>10}")
     if args.output:
         out = Path(args.output)
         out.parent.mkdir(parents=True, exist_ok=True)

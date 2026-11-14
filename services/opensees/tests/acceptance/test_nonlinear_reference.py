@@ -21,6 +21,7 @@ reference positions.
 from __future__ import annotations
 
 import copy
+import math
 import sys
 from pathlib import Path
 
@@ -39,6 +40,9 @@ from accept_nonlinear_models import (  # noqa: E402
     bowed_column_reference,
     cable_pair_model,
     cable_pair_reference,
+    ELASTICA_LENGTH,
+    elastica_model,
+    elastica_reference,
     column_buckling_model,
     euler_load,
     independent_cantilever,
@@ -58,11 +62,8 @@ LINEAR_GATE = 0.001
 RESIDUAL_GATE = 1e-5
 MECHANISM_CODES = {"internal_mechanism", "rigid_body_mechanism", "unsupported_component"}
 
-# Recovery from a singular reference state is the hardest case; it gets a
-# larger budget than the 2 s service default (criteria section 6 allows
-# "difficult states <= 2 s or explicit unresolved", but the gate here is
-# correctness, not speed).
-HARD_CASE_TIMEOUT_MS = 10_000
+# Every case runs under the service's default 2 s budget: measured on a quiet
+# machine the slowest takes about 0.4 s, so no case needs a larger timeoutMs.
 
 
 # --- helpers ---------------------------------------------------------------------
@@ -172,11 +173,14 @@ def check_equilibrium(model_dict: dict, result: dict, comp: dict, deformed: bool
             moment += np.cross(position[nid], f) + m
             reaction_scale += np.linalg.norm(f)
             moment_extra += np.linalg.norm(m)
-    scale = max(force_scale, reaction_scale)
-    if scale == 0:
-        return
     coords = np.array([position[n] for n in nodes])
     size = float(np.linalg.norm(coords.max(axis=0) - coords.min(axis=0))) or 1.0
+    # Characteristic force: applied or reacted force, or, for a component
+    # loaded only by couples, the force pair M / size equivalent to them
+    # (otherwise round-off in near-zero reaction forces divides by ~0).
+    scale = max(force_scale, reaction_scale, moment_extra / size)
+    if scale == 0:
+        return
     force_error = float(np.linalg.norm(force)) / scale
     moment_error = float(np.linalg.norm(moment)) / (scale * size + moment_extra)
     assert force_error <= RESIDUAL_GATE, (
@@ -226,6 +230,27 @@ def test_references_are_self_consistent():
         gate(2 * ref["T"] * ref["d"] / ref["l"], p, 1e-9, "cable pair vertical equilibrium")
         gate(ref["T"], ea * (eps0 + (ref["l"] - 5.0) / 5.0), 1e-12, "cable pair constitutive law")
     assert cable_pair_reference(1e-9, 2e-3)["T"] == pytest.approx(ea * 2e-3, rel=1e-6)
+
+    # Elastica integrator. (a) Pure tip moment: the circular arc, exactly.
+    length = ELASTICA_LENGTH
+    for phi in (1.0, 2.0):
+        ref = elastica_reference(0.0, phi * COLUMN_EI / length)
+        gate(ref["ux"], length * (math.sin(phi) / phi - 1.0), 1e-9, f"elastica integrator vs arc ux, phi={phi}")
+        gate(ref["uz"], -length * (1.0 - math.cos(phi)) / phi, 1e-9, f"elastica integrator vs arc uz, phi={phi}")
+        gate(ref["ry"], phi, 1e-12, f"elastica integrator vs arc rotation, phi={phi}")
+    # (b) Small tip load: the linear cantilever P L^3 / (3 EI).
+    p_small = 1e-5 * COLUMN_EI / length**2
+    gate(-elastica_reference(p_small, 0.0)["uz"], p_small * length**3 / (3 * COLUMN_EI), 1e-4, "elastica small-load limit")
+    for ratio in (1.0, 2.0):
+        p = ratio * COLUMN_EI / length**2
+        fine, coarse = elastica_reference(p, 0.0), elastica_reference(p, 0.0, steps=500)
+        # (c) Halving the step changes nothing at the gate's resolution.
+        for key in ("ux", "uz", "ry"):
+            gate(coarse[key], fine[key], 1e-8, f"elastica step convergence of {key} at PL^2/EI={ratio}")
+        # (d) First integral EI theta'^2/2 + P sin(theta) is constant along the beam.
+        path = fine["path"]
+        energy = 0.5 * path[:, 1] ** 2 + (p / COLUMN_EI) * np.sin(path[:, 0])
+        assert float(np.ptp(energy)) <= 1e-10 * float(np.max(np.abs(energy))), "elastica first integral drifts"
 
 
 # --- 1. column buckling through the contract -------------------------------------------
@@ -467,10 +492,9 @@ def test_unpretensioned_cable_pair_is_recovered_from_singular_reference():
 
     A transverse load stiffens it (A04, A05). Expected: success, reason
     geometrically_stiffened, and the exact solution of
-    P = 2 T d / l, T = EA (l - a)/a (bisection). Larger time budget: see
-    HARD_CASE_TIMEOUT_MS.
+    P = 2 T d / l, T = EA (l - a)/a (bisection).
     """
-    model_dict, ref = cable_pair_model(2000.0, 0.0, timeout_ms=HARD_CASE_TIMEOUT_MS)
+    model_dict, ref = cable_pair_model(2000.0, 0.0)
     result = run(model_dict)
     expect_status(result, "success")
     comp = expect_valid(result, "b")
@@ -499,7 +523,6 @@ def test_pin_jointed_frame_mechanism_is_unstable(loading):
     "stiffened" shape, and without results.
     """
     model_dict = pin_jointed_frame_model(loading)
-    model_dict["analysis"] = {"timeoutMs": HARD_CASE_TIMEOUT_MS}
     result = run(model_dict)
     expect_status(result, "unstable")
     comp = component_of(result, "m_c")
@@ -524,7 +547,6 @@ def test_mechanism_does_not_invalidate_independent_stable_component():
         frame["members"] + k_members,
         frame["supports"] + k_supports,
         frame["loads"] + k_loads,
-        timeout_ms=HARD_CASE_TIMEOUT_MS,
     )
     result = run(model_dict)
     expect_status(result, "unstable")
@@ -537,13 +559,103 @@ def test_mechanism_does_not_invalidate_independent_stable_component():
     gate(result["memberForces"]["k_beam"]["momentStart"], info["M"], NONLINEAR_GATE, "independent cantilever base moment")
 
 
+# --- large deflection (A02) ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("ratio", [1.0, 2.0])
+def test_cantilever_elastica_under_tip_load(ratio):
+    """Cantilever with a dead tip load at P L^2 / EI = ratio: large displacement and rotation.
+
+    Reference: shooting solution of EI theta'' = -P cos(theta) (elastica_reference),
+    checked against the arc closed form, step halving and the first integral in
+    test_references_are_self_consistent. It reproduces the classical values
+    (Bisshopp and Drucker 1945): at ratio 1 the tip drops 0.3017 L, pulls in
+    0.0564 L and turns 0.4614 rad; at ratio 2, 0.4935 L, 0.1606 L, 0.7817 rad.
+    Gate 1 % on each tip component and the tip rotation.
+    """
+    p = ratio * COLUMN_EI / ELASTICA_LENGTH**2
+    ref = elastica_reference(p, 0.0)
+    model_dict = elastica_model(p, 0.0)
+    result = run(model_dict)
+    expect_status(result, "success")
+    comp = expect_valid(result, "tip")
+    check_equilibrium(model_dict, result, comp)
+    check_hygiene(result)
+    tip = result["displacements"]["tip"]
+    gate(tip[2], ref["uz"], NONLINEAR_GATE, f"elastica tip UZ at PL^2/EI={ratio}")
+    gate(tip[0], ref["ux"], NONLINEAR_GATE, f"elastica tip UX at PL^2/EI={ratio}")
+    gate(tip[4], ref["ry"], NONLINEAR_GATE, f"elastica tip rotation RY at PL^2/EI={ratio}")
+    near_zero(tip[1], ELASTICA_LENGTH, "elastica out-of-plane tip UY")
+    # Base moment at the deformed geometry: P times the tip's horizontal reach.
+    gate(-result["reactions"]["root"][4], p * (ELASTICA_LENGTH + ref["ux"]), NONLINEAR_GATE, f"elastica base moment at PL^2/EI={ratio}")
+
+
+@pytest.mark.parametrize("phi", [1.0, 2.0])
+def test_cantilever_under_tip_moment_bends_into_circular_arc(phi):
+    """Tip moment M = phi EI / L about +Y: constant curvature M/EI, a circular arc.
+
+    Reference: tip (L/phi)(sin phi - phi, 0, -(1 - cos phi)), rotation phi.
+    """
+    m = phi * COLUMN_EI / ELASTICA_LENGTH
+    model_dict = elastica_model(0.0, m)
+    result = run(model_dict)
+    expect_status(result, "success")
+    comp = expect_valid(result, "tip")
+    check_equilibrium(model_dict, result, comp)
+    tip = result["displacements"]["tip"]
+    radius = ELASTICA_LENGTH / phi
+    gate(tip[0], radius * math.sin(phi) - ELASTICA_LENGTH, NONLINEAR_GATE, f"arc tip UX at phi={phi}")
+    gate(tip[2], -radius * (1.0 - math.cos(phi)), NONLINEAR_GATE, f"arc tip UZ at phi={phi}")
+    gate(tip[4], phi, NONLINEAR_GATE, f"arc tip rotation RY at phi={phi}")
+    gate(-result["reactions"]["root"][4], m, NONLINEAR_GATE, "arc base reaction moment")
+
+
+# --- unresolved: time budget exhausted ---------------------------------------------------
+
+
+def test_exhausted_time_budget_is_unresolved_not_success():
+    """A deliberately tiny timeoutMs: no verified conclusion is possible, so `unresolved`.
+
+    Two independent components that each need nonlinear steps (the bowed
+    column and the elastica). Contract: work left unfinished is `unknown`,
+    never guessed; status is `unresolved` when nothing is `unstable` and
+    something is `unknown`. Any component that did finish must still be right.
+    """
+    bowed, _ = bowed_column_model(0.5)
+    arm = elastica_model(COLUMN_EI / ELASTICA_LENGTH**2, 0.0)
+    for item in arm["nodes"]:
+        item["position"][1] += 50.0  # move it well away; positions alone never connect anything
+    model_dict = model(
+        bowed["nodes"] + arm["nodes"],
+        bowed["members"] + arm["members"],
+        bowed["supports"] + arm["supports"],
+        bowed["loads"] + arm["loads"],
+        timeout_ms=0.001,
+    )
+    result = run(model_dict)
+    assert result["status"] == "unresolved", f"expected status 'unresolved'; {describe(result)}"
+    assert len(result["components"]) == 2, describe(result)
+    unknown = [c for c in result["components"] if c["state"] == "unknown"]
+    assert unknown, f"no component is unknown under a 1 microsecond budget; {describe(result)}"
+    for comp in unknown:
+        assert "timeout" in comp["reasonCodes"], f"unknown component {comp['id']} lacks the timeout reason; {describe(result)}"
+        assert not comp["resultsValid"], describe(result)
+    assert "timeout" in result["analysis"]["reasonCodes"]
+    for comp in result["components"]:
+        assert comp["state"] != "unstable", f"a timeout must not be reported as instability; {describe(result)}"
+        if comp["resultsValid"]:
+            check_equilibrium(model_dict, result, comp)
+    check_hygiene(result)
+
+
 # --- 8. determinism ---------------------------------------------------------------------------
 
 DETERMINISM_CASES = {
     "bowed_column": lambda: bowed_column_model(0.5)[0],
     "buckled_column": lambda: column_buckling_model("pinned", 2.0)[0],
-    "unpretensioned_cables": lambda: cable_pair_model(2000.0, 0.0, timeout_ms=HARD_CASE_TIMEOUT_MS)[0],
+    "unpretensioned_cables": lambda: cable_pair_model(2000.0, 0.0)[0],
     "slack_tie": lambda: beam_with_tie_model(-1)[0],
+    "elastica": lambda: elastica_model(2.0 * COLUMN_EI / ELASTICA_LENGTH**2, 0.0),
 }
 
 

@@ -27,3 +27,7 @@ The first line gives platform, processor, Python and OpenSeesPy versions. Quote 
 JSON (`--output`): `{machine, groups: {name: {count, p50_ms, p95_ms, max_ms, mean_ms, statuses, raised, target}}}`; stress groups add `members` and `activeDofs`.
 
 Stress p95 is meaningless at 5 runs; compare `max` there, or raise `--stress-runs`.
+
+## Analysed-only timings
+
+Refusals (`unsupported`, `error`) return almost instantly. After the main table the harness prints, for the ordinary groups only, the same statistics restricted to calls that returned `success`, `unstable` or `unresolved`. In the JSON this is `groups.<name>.analysed` (`count`, `p50_ms`, `p95_ms`, `max_ms`, `mean_ms`; only `count` when none were analysed).

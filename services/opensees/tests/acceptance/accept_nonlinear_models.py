@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Iterable
+from functools import lru_cache
 
 import numpy as np
 
@@ -569,3 +570,77 @@ def independent_cantilever(offset_x: float) -> tuple[list, list, list, list, dic
     supports = [support("k_base", FIXED)]
     loads = [load("k_tip", (0, 0, -p))]
     return nodes, members, supports, loads, {"P": p, "tip": -p * length**3 / (3 * COLUMN_EI), "M": p * length}
+
+
+# --- large deflection: cantilever elastica -----------------------------------------------
+#
+# Inextensible Euler-Bernoulli cantilever of length L along +X, fixed at the
+# origin, bending in the XZ plane. theta(s) is the rotation of the tangent
+# about +Y (positive turns +X towards -Z, the right-hand sense), s the arc
+# length. Tip loads: a dead force P along -Z and a moment M about +Y.
+# Moment equilibrium of the part beyond s:
+#     EI theta'(s) = M + P (x_tip - x(s))
+# Differentiating, with x' = cos(theta), z' = -sin(theta):
+#     EI theta'' = -P cos(theta),  theta(0) = 0,  EI theta'(L) = M.
+# Solved by shooting on kappa0 = theta'(0) with a fixed-step classical RK4
+# integrator; kappa0 is bisected until theta'(L) = M / EI. For P = 0 the exact
+# solution is the circular arc theta = M s / EI, tip (EI/M) (sin phi,
+# 0, -(1 - cos phi)), phi = M L / EI, which test_references_are_self_consistent
+# uses to check the integrator, together with step halving, the first
+# integral EI theta'^2 / 2 + P sin(theta) = const and the small-load limit.
+# Neglected: axial and shear strain (P / EA <= 5e-5 here).
+
+ELASTICA_LENGTH = 3.0
+
+
+def elastica_integrate(kappa0: float, p_over_ei: float, length: float, steps: int) -> np.ndarray:
+    """RK4 on y = (theta, theta', x, z); returns the state at every step, shape (steps + 1, 4)."""
+
+    def rhs(y):
+        theta, dtheta, _, _ = y
+        return np.array([dtheta, -p_over_ei * math.cos(theta), math.cos(theta), -math.sin(theta)])
+
+    h = length / steps
+    y = np.array([0.0, kappa0, 0.0, 0.0])
+    out = np.empty((steps + 1, 4))
+    out[0] = y
+    for i in range(steps):
+        k1 = rhs(y)
+        k2 = rhs(y + 0.5 * h * k1)
+        k3 = rhs(y + 0.5 * h * k2)
+        k4 = rhs(y + h * k3)
+        y = y + h / 6.0 * (k1 + 2 * k2 + 2 * k3 + k4)
+        out[i + 1] = y
+    return out
+
+
+@lru_cache(maxsize=None)
+def elastica_reference(p: float, m: float, ei: float = COLUMN_EI, length: float = ELASTICA_LENGTH, steps: int = 1000) -> dict:
+    """Tip displacement (ux, uz) and rotation about +Y of the cantilever elastica.
+
+    theta'(L) - M/EI is increasing in kappa0 for the loads used (unique
+    solution, PL^2/EI <= 2); the bracket [M/EI, M/EI + P L/EI] holds because
+    the bending moment lies between M and M + P L along the beam.
+    1000 RK4 steps agree with 2000 and 4000 to about 1e-14 m at PL^2/EI <= 2.
+    Cached: callers must not mutate the returned dict.
+    """
+    q = p / ei
+    target = m / ei
+
+    def miss(kappa0):
+        return elastica_integrate(kappa0, q, length, steps)[-1, 1] - target
+
+    lo, hi = target, target + q * length
+    kappa0 = lo if q == 0 else bisect(miss, lo, hi + 1e-15, tol=1e-13)
+    path = elastica_integrate(kappa0, q, length, steps)
+    theta, _, x, z = path[-1]
+    return {"ux": x - length, "uz": z, "ry": theta, "kappa0": kappa0, "path": path}
+
+
+def elastica_model(p: float, m: float, timeout_ms: float | None = None) -> dict:
+    """Cantilever along +X as one contract member; dead tip force -P along Z and tip moment M about +Y."""
+    nodes = [node("root", (0, 0, 0)), node("tip", (ELASTICA_LENGTH, 0, 0))]
+    members = [member("arm", "root", "tip", COLUMN_SECTION)]
+    supports = [support("root", FIXED)]
+    loads = [load("tip", (0, 0, -p), (0, m, 0))]
+    return model(nodes, members, supports, loads, timeout_ms=timeout_ms)
