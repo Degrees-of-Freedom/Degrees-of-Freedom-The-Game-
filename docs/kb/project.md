@@ -4,6 +4,8 @@ last_validated: 2026-11-14
 validated_against:
   - README.md
   - package.json
+  - apps/web/package.json
+  - apps/web/src
 owner: unknown
 status: partial
 ---

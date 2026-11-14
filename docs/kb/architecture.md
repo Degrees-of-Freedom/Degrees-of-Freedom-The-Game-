@@ -16,7 +16,7 @@ status: partial
 
 The npm workspace contains a React and TypeScript site in `apps/web` and a shared preliminary structural model and solver adapter contract in `packages/solver-contract`. `services/opensees` reserves a location for a future service; it contains no implementation.
 
-The site separates its Zustand game state, UI components, routes, Three.js viewer, and solver adapter placeholder into directories. The viewer receives a structural model rather than owning the game state. The contract permits asynchronous adapters so future local or remote solvers can share an interface. No actual solver or gameplay rules are implemented.
+The site separates its Zustand game state, UI components, pages, Three.js viewer, and solver adapter placeholder into directories; React Router routes are defined in App.tsx. The viewer receives a structural model rather than owning the game state. The contract permits asynchronous adapters so future local or remote solvers can share an interface. No actual solver or gameplay rules are implemented.
 
 ## Open questions
 
