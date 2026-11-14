@@ -1,3 +1,23 @@
+import type { GameModel, Level, Member, MemberType } from '../game/model';
+type BeamType = Exclude<MemberType, 'cable'>;
+type Section = typeof ITEMS[MemberType];
+type BeamSection = typeof ITEMS[BeamType];
+type Element = { m: Member; it: Section; L: number; R: number[][]; ex: number[]; a: number; b: number; k: Float64Array; rel: number[]; kgl: Float64Array; dofs: number[]; cable: boolean; rigidA: boolean; rigidB: boolean };
+type Context = { keys: string[]; pos: number[][]; act: number[]; NA: number; eq: Int32Array; nf: number; els: Element[]; bw: number };
+type Demand = { Nt: number; Nc: number; Vy: number; Vz: number; My: number; Mz: number; endF: number[]; endM: number[]; dEIy: number; dEIz: number; dmax: number };
+type ElementForce = { f: Float64Array; ul: Float64Array; slack?: boolean };
+type Solved = { u: Float64Array; K0: Float64Array; active: Map<Element, boolean>; ef: Map<Element, ElementForce> };
+type LoadCombo = { name: string; short: string; type: 'ULS'|'SLS'; dir: number[] };
+type Combo = { combo: LoadCombo; F: Float64Array; vis: {a: number; v: number[]; kind: string}[]; fail?: boolean; u?: Float64Array; ef?: Map<Element, ElementForce>; active?: Map<Element, boolean>; reac?: Record<number, Float64Array>; maxD?: number; sol?: Solved };
+/** Prototype analysis in kN and metres. Results are approximate and not engineering design. */
+export interface VoxelAnalysis {
+ error?: string; mechanism: boolean; floating: string[]; unstable: Set<string>;
+ objectives: {ok: boolean; label: string; detail: string; warn?: boolean}[];
+ members: Record<number, {e: Element; util: number; gov: string; slack: boolean; checks: Record<string, number>; demand: Demand}>;
+ found: Record<string, {util: number; r: Float64Array | null; locked: boolean}>;
+ combos: Combo[]; nodes: Record<string, never>; ctx?: Context; alpha?: (number|null)[]; amp?: number; avgU?: number; failing?: number; connMax?: number; foundMax?: number; topZ?: number;
+ success?: boolean; cost?: number; mass?: number; stars?: number; maxU?: number; alphaMin?: number; time?: number;
+}
 import { dot, localAxes, frameK, trussK, condense, toGlobal, vecToLocal, vecToGlobal, gaussSolve, cholesky, cholSolve } from './frameMath';
 // Experimental Voxel Struct analysis, extracted from prototypes/voxel-struct.
 // Uses kN and metres, with prototype assumptions and approximate design checks.
@@ -21,11 +41,11 @@ const ITEMS = {
   joint: { kind:'joint', label:'Moment connection', sub:'Rigid + stronger joint', color:'#f39c34', cost:80 },
   found: { kind:'found', label:'Foundation', sub:'Fixed support on ground', color:'#b9b4aa', cost:400 },
   load:  { kind:'load', label:'Point load 50 kN', sub:'Sandbox live load', color:'#ff5a5f', cost:0 },
-};
+} as const;
 const JOINT_CAP = { pinF:350, rigidF:700, rigidM:220 };   // kN, kNm
 const FOUND_CAP = { Nc:1500, Nt:250, H:350, M:300 };       // kN, kNm
 const GAMMA = { ULS:{G:1.35,Q:1.5,W:0.9,notional:true}, SLS:{G:1,Q:1,W:0.6,notional:false} };
-const COMBOS = [
+const COMBOS: LoadCombo[] = [
   { name:'ULS · 1.35G+1.5Q+0.9Wx', short:'ULS wind X', type:'ULS', dir:[1,0,0] },
   { name:'ULS · 1.35G+1.5Q+0.9Wy', short:'ULS wind Y', type:'ULS', dir:[0,1,0] },
   { name:'SLS · G+Q+0.6Wx', short:'SLS wind X', type:'SLS', dir:[1,0,0] },
@@ -33,28 +53,31 @@ const COMBOS = [
 ];
 
 
-function runVoxel(model, LV, autoDesign) {
-const key = (i,j,k) => `${i},${j},${k}`;
-const parse = s => s.split(',').map(Number);
+type AutoDesignResult = {model: GameModel; analysis: VoxelAnalysis; changed: boolean};
+function runVoxel(model: GameModel, LV: Level, autoDesign: false): VoxelAnalysis;
+function runVoxel(model: GameModel, LV: Level, autoDesign: true): AutoDesignResult;
+function runVoxel(model: GameModel, LV: Level, autoDesign: boolean): VoxelAnalysis | AutoDesignResult {
+const key = (i: number,j: number,k: number) => `${i},${j},${k}`;
+const parse = (s: string) => s.split(',').map(Number);
 function allNodeKeys(){
- const keys=new Set();
+ const keys=new Set<string>();
  for(const m of model.members){ keys.add(m.a); keys.add(m.b); }
  for(const k in model.attrs){ const a=model.attrs[k]; if(a.found||a.joint||a.load) keys.add(k); }
  return [...keys];
 }
-function makeElement(m, pa, pb, a, b, eq){
-  const it=ITEMS[m.type];
+function makeElement(m: Member, pa: number[], pb: number[], a: number, b: number, eq: Int32Array): Element{
+  const it: Section=ITEMS[m.type];
   const d=[pb[0]-pa[0],pb[1]-pa[1],pb[2]-pa[2]], L=Math.hypot(...d);
   const ex=d.map(v=>v/L), R=localAxes(ex);
   const cable = it.kind==='cable';
   const rigidA = !cable && !!model.attrs[m.a]?.joint, rigidB = !cable && !!model.attrs[m.b]?.joint;
-  const k = cable ? trussK(it.E,it.A,L) : frameK(it.E,it.G,it.A,it.Iy,it.Iz,it.J,L);
+  const k = it.kind === 'cable' ? trussK(it.E,it.A,L) : frameK(it.E,it.G,it.A,it.Iy,it.Iz,it.J,L);
   const rel=[]; if(!cable){ if(!rigidA) rel.push(4,5); if(!rigidB) rel.push(10,11); }
   const kgl = toGlobal(condense(k,rel), R);
   const dofs=[]; for(let q=0;q<6;q++) dofs.push(eq[a*6+q]); for(let q=0;q<6;q++) dofs.push(eq[b*6+q]);
   return { m, it, L, R, ex, a, b, k, rel, kgl, dofs, cable, rigidA, rigidB };
 }
-function recover(e,u){
+function recover(e: Element,u: Float64Array): ElementForce{
   const ug=new Float64Array(12);
   for(let q=0;q<6;q++){ ug[q]=u[e.a*6+q]; ug[6+q]=u[e.b*6+q]; }
   const ul=vecToLocal(ug,e.R);
@@ -67,25 +90,25 @@ function recover(e,u){
   for(let i=0;i<12;i++){ let s=0; for(let j=0;j<12;j++) s+=e.k[i*12+j]*ul[j]; f[i]=s; }
   return {ul,f};
 }
-const windQ = z => LV.q0*Math.pow(Math.max(z,2)/10,0.25);
+const windQ = (z: number) => LV.q0*Math.pow(Math.max(z,2)/10,0.25);
 
-function variableLoads(ctx){
+function variableLoads(ctx: Context){
   const out=[];
   if(LV.type==='tower'){
     let top=-1; for(let a=0;a<ctx.NA;a++) top=Math.max(top, ctx.pos[ctx.act[a]][2]);
     const tops=[]; for(let a=0;a<ctx.NA;a++) if(ctx.pos[ctx.act[a]][2]===top && top>0) tops.push(a);
-    tops.forEach(a=>out.push({a, f:LV.payload/tops.length}));
+    tops.forEach(a=>out.push({a, f:LV.payload!/tops.length}));
   } else if(LV.type==='bridge'){
     const deck=[]; for(let a=0;a<ctx.NA;a++){ const [i,j,k]=parse(ctx.keys[ctx.act[a]]);
-      if(k===LV.cliffH && i>LV.cliffL && i<LV.cliffR) deck.push(a); }
-    const tot=LV.traffic*(LV.cliffR-LV.cliffL)*S;
+      if(k===LV.cliffH! && i>LV.cliffL! && i<LV.cliffR!) deck.push(a); }
+    const tot=LV.traffic!*(LV.cliffR!-LV.cliffL!)*S;
     deck.forEach(a=>out.push({a, f:tot/deck.length}));
   } else {
     for(let a=0;a<ctx.NA;a++){ const at=model.attrs[ctx.keys[ctx.act[a]]]; if(at?.load) out.push({a, f:at.load}); }
   }
   return out;
 }
-function buildLoads(ctx, combo){
+function buildLoads(ctx: Context, combo: LoadCombo){
   const g=GAMMA[combo.type], F=new Float64Array(ctx.NA*6), vis=[], d=combo.dir;
   for(const e of ctx.els){ const W=e.it.w*e.L*g.G; F[e.a*6+2]-=W/2; F[e.b*6+2]-=W/2; }
   for(const {a,f} of variableLoads(ctx)){ F[a*6+2]-=f*g.Q; vis.push({a, v:[0,0,-f*g.Q], kind:'Q'}); }
@@ -101,7 +124,7 @@ function buildLoads(ctx, combo){
   if(g.notional) for(let a=0;a<ctx.NA;a++){ const fz=Math.abs(F[a*6+2]); F[a*6]+=d[0]*fz/200; F[a*6+1]+=d[1]*fz/200; }
   return {F, vis};
 }
-function assemble(ctx, active){
+function assemble(ctx: Context, active: Map<Element, boolean>){
   const {nf,els}=ctx, K=new Float64Array(nf*nf);
   for(const e of els){
     if(e.cable && !active.get(e)) continue;
@@ -111,11 +134,11 @@ function assemble(ctx, active){
   for(let i=0;i<nf;i++) K[i*nf+i]+=1e-3; // tiny regularisation → mechanisms show as huge displacements
   return K;
 }
-function solveCombo(ctx, F){
+function solveCombo(ctx: Context, F: Float64Array): {fail: true} | Solved{
   const {nf,eq,els,NA}=ctx;
   const cables=els.filter(e=>e.cable);
   const active=new Map(cables.map(e=>[e,true]));
-  let u, K0;
+  let u = new Float64Array(NA*6), K0 = new Float64Array(nf*nf);
   for(let iter=0; iter<10; iter++){
     const K=assemble(ctx,active); K0=K.slice();
     const Ff=new Float64Array(nf); for(let d=0; d<NA*6; d++) if(eq[d]>=0) Ff[eq[d]]+=F[d];
@@ -132,7 +155,7 @@ function solveCombo(ctx, F){
     }
     if(!changed) break;
   }
-  const ef=new Map();
+  const ef=new Map<Element, ElementForce>();
   for(const e of els){
     if(e.cable && !active.get(e)){ ef.set(e,{f:new Float64Array(12), ul:new Float64Array(12), slack:true}); continue; }
     const r=recover(e,u);
@@ -141,14 +164,14 @@ function solveCombo(ctx, F){
   }
   return {u, K0, active, ef};
 }
-function alphaCr(ctx, sol){
+function alphaCr(ctx: Context, sol: Solved){
   const {nf,els}=ctx; if(nf===0) return Infinity; if(nf>2400) return null;
   const Kg=new Float64Array(nf*nf); let comp=false;
   for(const e of els){
     if(e.cable && !sol.active.get(e)) continue;
-    const N=sol.ef.get(e).f[6]; if(N<-1e-6) comp=true;
+    const N=sol.ef.get(e)!.f[6]; if(N<-1e-6) comp=true;
     if(e.rigidA&&e.rigidB){ // consistent beam geometric stiffness (captures member bending in sway/buckling)
-      const L=e.L, kg=new Float64Array(144), s=(i,j,v)=>{ kg[i*12+j]+=v; if(i!==j) kg[j*12+i]+=v; }, c=N/L;
+      const L=e.L, kg=new Float64Array(144), s=(i: number,j: number,v: number)=>{ kg[i*12+j]+=v; if(i!==j) kg[j*12+i]+=v; }, c=N/L;
       for(const [a,b,c2,d,sg] of [[1,5,7,11,1],[2,4,8,10,-1]]){
         s(a,a,c*6/5); s(c2,c2,c*6/5); s(a,c2,-c*6/5);
         s(a,b,sg*c*L/10); s(a,d,sg*c*L/10); s(b,c2,-sg*c*L/10); s(c2,d,-sg*c*L/10);
@@ -161,12 +184,12 @@ function alphaCr(ctx, sol){
     const c=N/e.L;
     const G=[0,1,2].map(i=>[0,1,2].map(j=>c*((i===j?1:0)-e.ex[i]*e.ex[j])));
     const dA=[0,1,2].map(q=>e.dofs[q]), dB=[0,1,2].map(q=>e.dofs[6+q]);
-    const put=(rows,cols,s)=>{ for(let i=0;i<3;i++){ if(rows[i]<0) continue; for(let j=0;j<3;j++){ if(cols[j]<0) continue; Kg[rows[i]*nf+cols[j]]+=s*G[i][j]; } } };
+    const put=(rows: number[],cols: number[],s: number)=>{ for(let i=0;i<3;i++){ if(rows[i]<0) continue; for(let j=0;j<3;j++){ if(cols[j]<0) continue; Kg[rows[i]*nf+cols[j]]+=s*G[i][j]; } } };
     put(dA,dA,1); put(dB,dB,1); put(dA,dB,-1); put(dB,dA,-1);
   }
   if(!comp) return Infinity;
   const W=new Float64Array(nf*nf);
-  const pd=lam=>{ for(let i=0;i<W.length;i++) W[i]=sol.K0[i]+lam*Kg[i]; return cholesky(W,nf,ctx.bw); };
+  const pd=(lam: number)=>{ for(let i=0;i<W.length;i++) W[i]=sol.K0[i]+lam*Kg[i]; return cholesky(W,nf,ctx.bw); };
   if(!pd(1)){ let lo=0,hi=1; for(let i=0;i<7;i++){ const m=(lo+hi)/2; if(pd(m)) lo=m; else hi=m; } return lo; }
   let lo=1, hi=2;
   while(pd(hi)){ lo=hi; hi*=2; if(hi>128) return 128; }
@@ -175,33 +198,34 @@ function alphaCr(ctx, sol){
 }
 
 /* ---------- member design ---------- */
-function memberDemandULS(e, r, amp){
+function memberDemandULS(e: Element, r: ElementForce, amp: number){
   const {f,ul}=r, L=e.L, N=f[6];
   const out={N, Vy:0,Vz:0,My:0,Mz:0, endF:[Math.hypot(f[0],f[1],f[2]), Math.hypot(f[6],f[7],f[8])],
              endM:[Math.hypot(f[4],f[5]), Math.hypot(f[10],f[11])]};
-  if(e.cable) return out;
+  if(e.it.kind==='cable') return out;
   const gl=[0,0,-e.it.w*GAMMA.ULS.G], qy=dot(e.R[1],gl), qz=dot(e.R[2],gl);
   const both=e.rigidA&&e.rigidB, cm=both?1/3:1, ce=both?1/12:0;
-  const EIz=e.it.E*e.it.Iz, EIy=e.it.E*e.it.Iy;
+  const beam=e.it, EIz=beam.E*beam.Iz, EIy=beam.E*beam.Iy;
   out.Vy=Math.max(Math.abs(f[1]),Math.abs(f[7]))+Math.abs(qy)*L/2;
   out.Vz=Math.max(Math.abs(f[2]),Math.abs(f[8]))+Math.abs(qz)*L/2;
   out.Mz=amp*Math.max(Math.abs(f[5])+Math.abs(qy)*L*L*ce, Math.abs(f[11])+Math.abs(qy)*L*L*ce, Math.abs(EIz*(ul[11]-ul[5])/L - qy*L*L/8*cm));
   out.My=amp*Math.max(Math.abs(f[4])+Math.abs(qz)*L*L*ce, Math.abs(f[10])+Math.abs(qz)*L*L*ce, Math.abs(EIy*(ul[4]-ul[10])/L - qz*L*L/8*cm));
   return out;
 }
-function memberDeflSLS(e, r){
-  if(e.cable) return {dEIy:0,dEIz:0};
+function memberDeflSLS(e: Element, r: ElementForce){
+  if(e.it.kind==='cable') return {dEIy:0,dEIz:0};
   const ul=r.ul, L=e.L, gl=[0,0,-e.it.w], qy=dot(e.R[1],gl), qz=dot(e.R[2],gl);
-  const cd=(e.rigidA&&e.rigidB)?1:5, EIz=e.it.E*e.it.Iz, EIy=e.it.E*e.it.Iy;
+  const beam=e.it, cd=(e.rigidA&&e.rigidB)?1:5, EIz=beam.E*beam.Iz, EIy=beam.E*beam.Iy;
   const dy=Math.abs(L*(ul[5]-ul[11])/8 + cd*qy*L**4/(384*EIz));
   const dz=Math.abs(L*(ul[10]-ul[4])/8 + cd*qz*L**4/(384*EIy));
   return {dEIy:dy*EIz, dEIz:dz*EIy, dy, dz};
 }
 const CHECK_NAMES = { strength:'Strength', shear:'Shear', buckling:'Buckling', slenderness:'Slenderness', deflection:'Deflection',
   connection:'Connection', tension:'Cable tension' };
-function checkMember(it, d, L, rA, rB){
-  const c={};
-  if(it.kind==='cable'){ c.tension=d.Nt/it.NRd; return c; }
+function checkMember(section: Section, d: Demand, L: number, rA: boolean, rB: boolean){
+  const c: Record<string, number>={};
+  if(section.kind==='cable'){ c.tension=d.Nt/section.NRd; return c; }
+  const it=section;
   const bend=d.My/(it.Wy*it.fm)+d.Mz/(it.Wz*it.fm);
   c.strength=Math.max(d.Nt/(it.A*it.ft), d.Nc/(it.A*it.fc))+bend;
   c.shear=Math.max(d.Vy/(it.Avy*it.fv), d.Vz/(it.Avz*it.fv));
@@ -214,29 +238,29 @@ function checkMember(it, d, L, rA, rB){
   }
   c.slenderness=lam/(d.Nc>1e-3?200:300);
   c.deflection=Math.max(d.dEIy/(it.E*it.Iz), d.dEIz/(it.E*it.Iy))/(L/250);
-  const conn=(F,M,rigid)=> rigid?Math.max(F/JOINT_CAP.rigidF, M/JOINT_CAP.rigidM):F/JOINT_CAP.pinF;
+  const conn=(F: number,M: number,rigid: boolean)=> rigid?Math.max(F/JOINT_CAP.rigidF, M/JOINT_CAP.rigidM):F/JOINT_CAP.pinF;
   c.connection=Math.max(conn(d.endF[0],d.endM[0],rA), conn(d.endF[1],d.endM[1],rB));
   return c;
 }
-function govern(c){ let u=0,g=''; for(const k in c) if(c[k]>u){u=c[k];g=k;} return {util:u, gov:g}; }
+function govern(c: Record<string, number>){ let u=0,g=''; for(const k in c) if(c[k]>u){u=c[k];g=k;} return {util:u, gov:g}; }
 
 /* ---------- full analysis ---------- */
 function analyze(){
   const t0=performance.now();
   const keys=allNodeKeys();
-  const out={ members:{}, nodes:{}, found:{}, objectives:[], combos:[], floating:[], unstable:new Set(), mechanism:false };
+  const out: VoxelAnalysis={ members:{}, nodes:{}, found:{}, objectives:[], combos:[], floating:[], unstable:new Set<string>(), mechanism:false };
   if(!keys.length){ out.error='Nothing built yet.'; return out; }
   const idx=new Map(keys.map((k,n)=>[k,n]));
   const pos=keys.map(k=>parse(k).map(v=>v*S));
   const isF=keys.map(k=>!!model.attrs[k]?.found);
-  const adj=keys.map(()=>[]);
-  for(const m of model.members){ const a=idx.get(m.a), b=idx.get(m.b); adj[a].push(b); adj[b].push(a); }
-  const sup=new Uint8Array(keys.length), st=[];
+  const adj: number[][]=keys.map(()=>[]);
+  for(const m of model.members){ const a=idx.get(m.a)!, b=idx.get(m.b)!; adj[a].push(b); adj[b].push(a); }
+  const sup=new Uint8Array(keys.length), st: number[]=[];
   isF.forEach((f,n)=>{ if(f){sup[n]=1;st.push(n);} });
-  while(st.length){ const n=st.pop(); for(const o of adj[n]) if(!sup[o]){sup[o]=1;st.push(o);} }
+  while(st.length){ const n=st.pop()!; for(const o of adj[n]) if(!sup[o]){sup[o]=1;st.push(o);} }
   out.floating=keys.filter((k,n)=>!sup[n]);
   if(!isF.some(Boolean)){ out.error='No foundation — place at least one foundation on the ground.'; return out; }
-  const act=[], aid=new Int32Array(keys.length).fill(-1);
+  const act: number[]=[], aid=new Int32Array(keys.length).fill(-1);
   keys.forEach((k,n)=>{ if(sup[n]) act.push(n); });
   // order nodes spatially (z, x, y) to keep the stiffness matrix bandwidth small
   act.sort((p,q)=>pos[p][2]-pos[q][2] || pos[p][0]-pos[q][0] || pos[p][1]-pos[q][1]);
@@ -244,7 +268,7 @@ function analyze(){
   const NA=act.length, eq=new Int32Array(NA*6); let nf=0;
   for(let a=0;a<NA;a++){ const fx=isF[act[a]]; for(let q=0;q<6;q++) eq[a*6+q]=fx?-1:nf++; }
   const els=[];
-  for(const m of model.members){ const na=idx.get(m.a), nb=idx.get(m.b); if(!sup[na]) continue;
+  for(const m of model.members){ const na=idx.get(m.a)!, nb=idx.get(m.b)!; if(!sup[na]) continue;
     els.push(makeElement(m,pos[na],pos[nb],aid[na],aid[nb],eq)); }
   let bw=0;
   for(const e of els){ let lo=Infinity,hi=-1; for(const d of e.dofs) if(d>=0){ lo=Math.min(lo,d); hi=Math.max(hi,d); } if(hi>=0) bw=Math.max(bw,hi-lo); }
@@ -256,14 +280,14 @@ function analyze(){
   for(const combo of COMBOS){
     const {F,vis}=buildLoads(ctx,combo);
     const sol=solveCombo(ctx,F);
-    if(sol.fail){ out.mechanism=true; out.combos.push({combo,F,vis,fail:true}); continue; }
+    if('fail' in sol){ out.mechanism=true; out.combos.push({combo,F,vis,fail:true}); continue; }
     let maxD=0;
     for(let a=0;a<NA;a++){ const d=Math.hypot(sol.u[a*6],sol.u[a*6+1],sol.u[a*6+2]); maxD=Math.max(maxD,d); if(d>0.5) out.unstable.add(keys[act[a]]); }
     if(maxD>2) out.mechanism=true;
     // reactions
-    const reac={};
+    const reac: Record<number, Float64Array>={};
     for(let a=0;a<NA;a++) if(isF[act[a]]){ const r=new Float64Array(6); for(let q=0;q<6;q++) r[q]=-F[a*6+q]; reac[a]=r; }
-    for(const e of els){ const fg=vecToGlobal(sol.ef.get(e).f,e.R);
+    for(const e of els){ const fg=vecToGlobal(sol.ef.get(e)!.f,e.R);
       if(reac[e.a]) for(let q=0;q<6;q++) reac[e.a][q]+=fg[q];
       if(reac[e.b]) for(let q=0;q<6;q++) reac[e.b][q]+=fg[6+q]; }
     out.combos.push({combo,F,vis,u:sol.u,ef:sol.ef,active:sol.active,reac,maxD,sol});
@@ -273,7 +297,7 @@ function analyze(){
   // ---- global buckling (ULS combos)
   out.alpha=[];
   if(!out.mechanism){
-    out.combos.forEach((c,i)=>{ if(c.combo.type==='ULS') out.alpha.push(alphaCr(ctx,c.sol)); });
+    out.combos.forEach((c,i)=>{ if(c.combo.type==='ULS') out.alpha!.push(alphaCr(ctx,c.sol!)); });
   }
   const aMin=out.alpha.length?Math.min(...out.alpha.map(a=>a===null?Infinity:a)):Infinity;
   out.alphaMin=aMin;
@@ -287,12 +311,12 @@ function analyze(){
     const d={Nt:0,Nc:0,Vy:0,Vz:0,My:0,Mz:0,endF:[0,0],endM:[0,0],dEIy:0,dEIz:0,dmax:0}; let slack=false;
     for(const c of out.combos){
       if(c.fail) continue;
-      const r=c.ef.get(e);
+      const r=c.ef!.get(e)!;
       if(c.combo.type==='ULS'){
         if(r.slack) slack=true;
         const x=memberDemandULS(e,r,amp);
         d.Nt=Math.max(d.Nt,x.N); d.Nc=Math.max(d.Nc,-x.N);
-        for(const k of ['Vy','Vz','My','Mz']) d[k]=Math.max(d[k],x[k]);
+        for(const k of (['Vy','Vz','My','Mz'] as const)) d[k]=Math.max(d[k],x[k]);
         for(const s of [0,1]){ d.endF[s]=Math.max(d.endF[s],x.endF[s]); d.endM[s]=Math.max(d.endM[s],x.endM[s]); }
       } else {
         const x=memberDeflSLS(e,r); d.dEIy=Math.max(d.dEIy,x.dEIy); d.dEIz=Math.max(d.dEIz,x.dEIz); d.dmax=Math.max(d.dmax,x.dy||0,x.dz||0);
@@ -312,8 +336,8 @@ function analyze(){
   // ---- foundations
   let foundMax=0;
   for(let a=0;a<NA;a++){ if(!isF[act[a]]) continue; const k=keys[act[a]], locked=!!model.attrs[k]?.locked, f=locked?3:1;
-    let u=0, worst=null;
-    for(const c of out.combos){ if(c.fail||c.combo.type!=='ULS') continue; const r=c.reac[a];
+    let u=0, worst: Float64Array | null=null;
+    for(const c of out.combos){ if(c.fail||c.combo.type!=='ULS') continue; const r=c.reac![a];
       const uu=Math.max(r[2]>0?r[2]/(FOUND_CAP.Nc*f):-r[2]/(FOUND_CAP.Nt*f), Math.hypot(r[0],r[1])/(FOUND_CAP.H*f), Math.hypot(r[3],r[4])/(FOUND_CAP.M*f));
       if(uu>=u){u=uu;worst=r;} }
     out.found[k]={util:u, r:worst, locked}; foundMax=Math.max(foundMax,u);
@@ -321,7 +345,7 @@ function analyze(){
   out.foundMax=foundMax;
 
   // ---- objectives
-  const O=out.objectives, add=(ok,label,detail,warn)=>O.push({ok,label,detail,warn});
+  const O=out.objectives, add=(ok: boolean,label: string,detail: string,warn?: boolean)=>O.push({ok,label,detail,warn});
   add(out.floating.length===0,'All parts connected to a foundation', out.floating.length?`${out.floating.length} floating node(s) ignored`:'');
   add(!out.mechanism,'Stable — no mechanism', out.mechanism?'Structure moves freely: add bracing (triangles) or moment connections':'');
   if(!out.mechanism){
@@ -334,20 +358,20 @@ function analyze(){
   let topZ=-1; for(let a=0;a<NA;a++) topZ=Math.max(topZ,pos[act[a]][2]);
   out.topZ=topZ;
   if(LV.type==='tower'){
-    add(topZ>=LV.target*S,`Reach ${LV.target*S} m height`, `top at ${topZ} m`);
+    add(topZ>=LV.target!*S,`Reach ${LV.target!*S} m height`, `top at ${topZ} m`);
     if(!out.mechanism){
       let drift=0; const tops=[]; for(let a=0;a<NA;a++) if(pos[act[a]][2]===topZ) tops.push(a);
-      for(const c of out.combos){ if(c.fail||c.combo.type!=='SLS') continue; for(const a of tops) drift=Math.max(drift,Math.hypot(c.u[a*6],c.u[a*6+1])); }
+      for(const c of out.combos){ if(c.fail||c.combo.type!=='SLS') continue; for(const a of tops) drift=Math.max(drift,Math.hypot(c.u![a*6],c.u![a*6+1])); }
       const lim=Math.max(topZ,1)/200;
       add(drift<=lim,'Top drift ≤ H/200 (SLS)', `${(drift*1000).toFixed(0)} mm (limit ${(lim*1000).toFixed(0)} mm)`);
     }
   } else if(LV.type==='bridge'){
     const deckOK=deckContinuous();
-    add(deckOK,'Continuous deck between abutments', deckOK?'':`chain beams at z = ${LV.cliffH*S} m from left to right abutment`);
+    add(deckOK,'Continuous deck between abutments', deckOK?'':`chain beams at z = ${LV.cliffH!*S} m from left to right abutment`);
     if(!out.mechanism){
-      let dz=0; for(let a=0;a<NA;a++){ const [i,,k]=parse(keys[act[a]]); if(k!==LV.cliffH||i<=LV.cliffL||i>=LV.cliffR) continue;
-        for(const c of out.combos){ if(c.fail||c.combo.type!=='SLS') continue; dz=Math.max(dz,Math.abs(c.u[a*6+2])); } }
-      const lim=(LV.cliffR-LV.cliffL)*S/400;
+      let dz=0; for(let a=0;a<NA;a++){ const [i,,k]=parse(keys[act[a]]); if(k!==LV.cliffH!||i<=LV.cliffL!||i>=LV.cliffR!) continue;
+        for(const c of out.combos){ if(c.fail||c.combo.type!=='SLS') continue; dz=Math.max(dz,Math.abs(c.u![a*6+2])); } }
+      const lim=(LV.cliffR!-LV.cliffL!)*S/400;
       add(dz<=lim,'Deck deflection ≤ span/400 (SLS)', `${(dz*1000).toFixed(0)} mm (limit ${(lim*1000).toFixed(0)} mm)`);
     }
   }
@@ -358,12 +382,12 @@ function analyze(){
   return out;
 }
 function deckContinuous(){
-  const dk=LV.cliffH, starts=LV.ys.map(y=>key(LV.cliffL,y,dk)), ends=new Set(LV.ys.map(y=>key(LV.cliffR,y,dk)));
-  const adj={};
+  const dk=LV.cliffH!, starts=LV.ys!.map(y=>key(LV.cliffL!,y,dk)), ends=new Set(LV.ys!.map(y=>key(LV.cliffR!,y,dk)));
+  const adj: Record<string, string[]>={};
   for(const m of model.members){ if(ITEMS[m.type].kind!=='beam') continue; const a=parse(m.a), b=parse(m.b);
     if(a[2]!==dk||b[2]!==dk) continue; (adj[m.a]??=[]).push(m.b); (adj[m.b]??=[]).push(m.a); }
   const seen=new Set(starts), st=[...starts];
-  while(st.length){ const n=st.pop(); if(ends.has(n)) return true; for(const o of adj[n]||[]) if(!seen.has(o)){seen.add(o);st.push(o);} }
+  while(st.length){ const n=st.pop()!; if(ends.has(n)) return true; for(const o of adj[n]||[]) if(!seen.has(o)){seen.add(o);st.push(o);} }
   return false;
 }
 function costOf(){
@@ -379,7 +403,7 @@ if (!autoDesign) return analyze();
 model = { ...model, members: model.members.map(m => ({ ...m })), attrs: Object.fromEntries(Object.entries(model.attrs).map(([k, a]) => [k, { ...a }])) };
 let analysis = analyze(), changedAny = false;
 if (!analysis.error && !analysis.mechanism) {
-  const order = ['shs', 'glulam', 'ipe', 'heb'].sort((a, b) => ITEMS[a].cost - ITEMS[b].cost);
+  const order: BeamType[] = (['shs', 'glulam', 'ipe', 'heb'] as BeamType[]).sort((a, b) => ITEMS[a].cost - ITEMS[b].cost);
   for (let round = 0; round < 4; round++) {
     if (analysis.error || analysis.mechanism) break;
     const pool = Object.fromEntries(order.map(t => [t, LV.inv ? (LV.inv[t] || 0) : Infinity]));
@@ -390,7 +414,7 @@ if (!analysis.error && !analysis.mechanism) {
     let changed = false;
     for (const m of analysed) {
       const r = analysis.members[m.id];
-      let best = null, bestU = Infinity, fallback = null;
+      let best: BeamType | null = null, bestU = Infinity, fallback: BeamType | null = null;
       for (const t of order) {
         if (pool[t] <= 0) continue;
         const u = govern(checkMember(ITEMS[t], r.demand, r.e.L, r.e.rigidA, r.e.rigidB)).util;
@@ -410,6 +434,6 @@ return { model, analysis, changed: changedAny };
 }
 
 /** Run the original prototype's game-specific analysis. */
-export function analyzeVoxel(model, level) { return runVoxel(model, level, false); }
+export function analyzeVoxel(model: GameModel, level: Level): VoxelAnalysis { return runVoxel(model, level, false); }
 /** Resize beam sections from available supply and reanalyse, without mutating the input. */
-export function autoDesignVoxel(model, level) { return runVoxel(model, level, true); }
+export function autoDesignVoxel(model: GameModel, level: Level): { model: GameModel; analysis: VoxelAnalysis; changed: boolean } { return runVoxel(model, level, true); }
