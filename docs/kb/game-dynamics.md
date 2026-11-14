@@ -2,6 +2,9 @@
 title: "Game Architecture and Turn Dynamics"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/avatar-criteria.md
+  - prototypes/timburr-companion/README.md
+  - docs/kb/animation-criteria.md
   - apps/web/src/game/model.ts
   - apps/web/src/game/store.ts
   - apps/web/src/game/examples.ts
@@ -24,3 +27,11 @@ The owner has now confirmed the core turn rules in [turn, deck and connection cr
 [Solver criteria sections 4 and 9](solver-criteria.md#4-turn-resolution-and-failure) propose 2–4 players and an initial foundation and column per player. The newer [turn criteria](turn-criteria.md) define the confirmed draw/play limits and proposed detailed transaction/assessment policy. The proposed completed-turn transaction reapplies persistent loads to current topology from reference geometry, preserves committed damage and explicit initial strain, and records a stable model/version ID. Preview must not mutate committed state or trigger penalties. This turn policy is not implemented by the voxel editing loop.
 
 Proposed defaults are fixed foundations, cross-player connections, persistent gravity, full reanalysis, retaining unstable geometry on the grid, and no automatic collapse. Interior attachments, self-weight/uplift scoring, penalty worsening thresholds, permanent failure and repair, permanent deformed geometry, and cumulative scoring still require owner decisions. Keep these policies outside the physics kernel. An unverified component must not receive a new authoritative reaction score; optional failure release/removal requires a bounded deterministic reanalysis policy, not a dynamic-collapse claim.
+
+## Action presentation requirements
+
+See [animation and sound criteria](animation-criteria.md) for setup, draws, staging, per-end attachments, loads, analysis, issue/score feedback, handoff and match-outcome presentation. Animation must follow versioned authoritative events, preserve private information and never consume cards, apply penalties or decide outcomes through completion callbacks. Proposed timings and dramatic cues do not change turn rules or resolve open scoring/end-condition policies.
+
+## Avatar reactions
+
+[Timburr avatar criteria](avatar-criteria.md) define personality and public-event reactions independently of game state. Automatic Conkeldurr transformation requires a compatible verified serious-issue event; the current experimental turn report is insufficient. The avatar specification does not introduce penalties, collapse or match rules. Implementation is deferred; see the [prototype handoff](../../prototypes/timburr-companion/README.md).
