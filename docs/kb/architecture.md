@@ -47,3 +47,5 @@ A second, narrower path does use the shared contract. `game/structuralModel.ts` 
 See [structural solver](structural-solver.md) for analysis limitations and candidate frameworks. The [turn criteria](turn-criteria.md) define the confirmed core rules and proposed transaction flow; the turn system is not implemented. The OpenSees service runs locally for development and has an untested Dockerfile. Persistence beyond local browser storage and deployment remain open.
 
 The voxel game uses versioned browser saves and an experimental analysis snapshot; see [structural state](structural-state.md) for validation, replay limits, and the proposed solver-neutral model.
+
+The shared contract also defines a versioned solver-neutral structural snapshot and immutable revision service. The existing voxel game and OpenSees adapter are not yet wired to that model; see [structural state](structural-state.md).
