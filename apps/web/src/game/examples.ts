@@ -1,10 +1,14 @@
 import { initialModel, nodeKey, type GameModel, type LevelId, type MemberType, LEVELS } from './model';
 /** Reference structures supplied by the standalone prototype. */
 export function exampleModel(id: LevelId): GameModel | null {
- if(id!=='tower1'&&id!=='bridge1') return null;
+ if(id!=='tower1'&&id!=='bridge1'&&id!=='pickup1') return null;
  const m=initialModel(LEVELS[id]);
  const add=(a:string,b:string,type:MemberType)=>m.members.push({id:m.nextId++,a,b,type});
- if(id==='tower1') {
+ if(id==='pickup1') {
+  const points=[[4,4],[7,4],[5,7]];
+  points.forEach(([i,j])=>{m.attrs[nodeKey(i,j,0)]={found:true};add(nodeKey(i,j,0),nodeKey(i,j,3),'shs');});
+  points.forEach(([i,j],n)=>{const [p,q]=points[(n+1)%3];add(nodeKey(i,j,3),nodeKey(p,q,3),'shs');add(nodeKey(i,j,0),nodeKey(p,q,3),'glulam');});
+ } else if(id==='tower1') {
   const legs=[[4,4],[6,4],[6,6],[4,6]];
   legs.forEach(([i,j])=>{m.attrs[nodeKey(i,j,0)]={found:true};});
   legs.forEach(([i,j],n)=>{add(nodeKey(i,j,0),nodeKey(i,j,3),'ipe'); add(nodeKey(i,j,3),nodeKey(i,j,6),n<2?'ipe':'glulam');});
@@ -26,3 +30,4 @@ export function exampleModel(id: LevelId): GameModel | null {
  }
  return m;
 }
+
