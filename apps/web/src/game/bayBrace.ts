@@ -1,4 +1,5 @@
-import { nodeKey, parseNodeKey, type GameModel, type GridPoint } from "./model";
+import { nodeKey, parseNodeKey, type GameModel, type GridPoint, type Level } from "./model";
+import { memberIssue } from "./placementRules";
 
 export type BayFace = {
   corners: [GridPoint, GridPoint, GridPoint, GridPoint];
@@ -59,4 +60,27 @@ export function bayBraceCandidates(
         (member.a === bk && member.b === ak),
     );
   });
+}
+
+/** Cycle a panel's two diagonals while leaving its edges and other panels alone. */
+export function cycleBayBrace(level: Level, model: GameModel, face: BayFace):
+  { ok: true; model: GameModel } | { ok: false; reason: string } {
+  const [a, b, c, d] = face.corners;
+  const diagonals: [GridPoint, GridPoint][] = [[a, d], [b, c]];
+  const present = diagonals.map(([from, to]) => {
+    const start = nodeKey(...from), end = nodeKey(...to);
+    return model.members.find((m) => m.a === start && m.b === end || m.a === end && m.b === start);
+  });
+  const remove = present[0] && present[1] ? present : present[0] ? [present[0]] : [];
+  const add = present[0] && present[1] ? null : diagonals[present[0] ? 1 : 0];
+  const removedIds = new Set(remove.map((member) => member?.id));
+  const members = model.members.filter(({ id }) => !removedIds.has(id));
+  let nextId = model.nextId;
+  if (add) {
+    const [from, to] = add;
+    const issue = memberIssue(level, { ...model, members }, from, to, "shs");
+    if (issue) return { ok: false, reason: issue };
+    members.push({ id: nextId++, a: nodeKey(...from), b: nodeKey(...to), type: "shs" });
+  }
+  return { ok: true, model: { ...model, members, nextId } };
 }

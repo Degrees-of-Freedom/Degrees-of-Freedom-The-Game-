@@ -177,7 +177,7 @@ export function bindSceneInteraction(
       } else getView().onMessage?.(hit.issue);
     } else if (hit?.kind === "brace") {
       getView().onMessage?.(
-        hit.issue ?? s.addMember(hit.a, hit.b, "shs") ?? "",
+        hit.issue ?? s.cycleBrace(hit.face) ?? "",
       );
     } else if (hit?.kind === "bay") {
       getView().onMessage?.(
@@ -281,9 +281,10 @@ export function bindSceneInteraction(
       if (tool) s.setTool(tool);
     } else if (e.key === "[") s.setWorkK(s.workK - 1);
     else if (e.key === "]") s.setWorkK(s.workK + 1);
-    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+    else if ((e.ctrlKey || e.metaKey) && (key === "z" || key === "y")) {
       e.preventDefault();
-      s.undo();
+      if (key === "y" || e.shiftKey) s.redo();
+      else s.undo();
     } else if (
       (e.key === "Delete" || e.key === "Backspace") &&
       s.selected?.type === "member"

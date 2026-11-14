@@ -10,7 +10,7 @@ import {
   type Tool,
 } from "../game/model";
 import { groundK } from "../game/terrain";
-import { bayBraceCandidates } from "../game/bayBrace";
+import { bayFaces, cycleBayBrace, type BayFace } from "../game/bayBrace";
 import { sceneLevel } from "./sceneLevel";
 import { MEMBER_TYPES, remaining } from "../game/inventory";
 import { memberIssue, nodeItemIssue } from "../game/placementRules";
@@ -36,7 +36,7 @@ import type { SceneView } from "./sceneView";
 
 type Hit =
   | BayHit
-  | { kind: "brace"; a: GridPoint; b: GridPoint; issue: string | null }
+  | { kind: "brace"; face: BayFace; issue: string | null }
   | ({ kind: "connection" } & ConnectionTarget)
   | { kind: "point"; p: GridPoint; issue: string | null }
   | { kind: "member"; id: number }
@@ -131,10 +131,11 @@ export function createPicker(
       }
     } else if (tool === "brace") {
       let closest = 16;
-      for (const [a, b] of bayBraceCandidates(
+      for (const face of bayFaces(
         s.model,
         getView().baySize ?? DEFAULT_BAY_SIZE,
       )) {
+        const [a, , , b] = face.corners;
         const from = new THREE.Vector3(...a).multiplyScalar(CELL_SIZE);
         const to = new THREE.Vector3(...b).multiplyScalar(CELL_SIZE);
         const [ax, ay, az] = screen(from);
@@ -150,10 +151,15 @@ export function createPicker(
         if (az < -1 || az >= 1 || bz < -1 || bz >= 1 || distance >= closest)
           continue;
         closest = distance;
-        const issue = memberIssue(level, s.model, a, b, "shs");
-        hit = { kind: "brace", a, b, issue };
+        const cycle = cycleBayBrace(level, s.model, face);
+        const issue = cycle.ok ? null : cycle.reason;
+        hit = { kind: "brace", face, issue };
+        const brace = cycle.ok ? cycle.model.members.find(({ id }) => id === s.model.nextId) : undefined;
+        const previewPoints = brace
+          ? [point(brace.a), point(brace.b)]
+          : [from, to];
         preview.geometry.dispose();
-        preview.geometry = new THREE.BufferGeometry().setFromPoints([from, to]);
+        preview.geometry = new THREE.BufferGeometry().setFromPoints(previewPoints);
         preview.material.color.set(issue ? "#e75151" : "#5578c2");
         preview.visible = true;
       }
@@ -342,7 +348,7 @@ export function createPicker(
           : hit?.kind === "node"
             ? `Node ${hit.key}`
             : hit?.kind === "brace"
-              ? (hit.issue ?? "Place panel brace")
+              ? (hit.issue ?? "Cycle panel bracing")
               : hit?.kind === "connection"
                 ? [
                     "Connect member",

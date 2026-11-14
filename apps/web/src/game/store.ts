@@ -31,6 +31,7 @@ import {
   type PresentationStyle,
 } from "./modes";
 import { missingBayEdges, bayIssue } from "./bay";
+import { cycleBayBrace, type BayFace } from "./bayBrace";
 import { nodeValid } from "./terrain";
 import { readSession, writeSession, type Session } from "./session";
 import {
@@ -77,6 +78,7 @@ interface GameState {
     size: GridPoint,
     type: MemberType,
   ) => string | null;
+  cycleBrace: (face: BayFace) => string | null;
   exportModel: () => GameSave;
   importModel: (value: unknown) => string | null;
   redo: () => void;
@@ -395,6 +397,16 @@ export const useGameStore = create<GameState>((set, get) => {
       } catch (error) {
         return error instanceof Error ? error.message : String(error);
       }
+    },
+    cycleBrace: (face) => {
+      const s = get();
+      if (s.mode === "multiplayer" || s.mode === "forensics")
+        return "Panel braces cannot be cycled in this mode.";
+      const result = cycleBayBrace(LEVELS[s.levelId], s.model, face);
+      if (!result.ok) return result.reason;
+      commit(result.model);
+      set({ selected: null });
+      return null;
     },
     addBay: (origin, size, type) => {
       if (get().mode === "multiplayer")
