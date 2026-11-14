@@ -2,7 +2,7 @@
 title: "3D Viewer"
 last_validated: 2026-11-14
 validated_against:
-  - apps/web/src/viewer/Scene.tsx
+  - apps/web/src/viewer
   - apps/web/src/pages/Workspace.tsx
 owner: unknown
 status: partial
@@ -10,8 +10,8 @@ status: partial
 
 # 3D Viewer
 
-The web scaffold uses Three.js to display a grid and axes, with orbit and zoom controls. It draws a line for each member whose endpoint nodes exist in the supplied model, a cube at each support, and an arrow for each nodal force. Moment loads and the restraint pattern of a support are not shown. The renderer and camera persist across model and result changes, so the view does not reset.
+The React workspace uses Three.js for a Z-up voxel scene with terrain, orbit and zoom, build planes, member and node picking, and placement. The viewer consumes the Zustand game model; edit validity is checked by game rules. It can show approximate experimental analysis results using deformed positions, member colours, load and reaction arrows, and a force-weighted load-path view. Load paths are illustrative routes derived from the results, not a separate physical analysis. These visualizations inherit the solver's limitations and are not engineering design evidence. The OpenSees stability check appears only as numbers in the analysis panel; the viewer does not yet draw its mechanism shapes or moving nodes.
 
-The viewer also receives the analysis result. For a successful result it colours members by axial force relative to the largest in the model: blue for tension, red for compression, grey near zero. Bending is not visualised, so a member that carries load only in bending looks unstressed. For an unstable result it overlays the first reported mechanism shape in orange and marks the moving nodes. Displaced shapes of stable structures, reactions, and animation are not implemented. Placement and selection are not implemented.
+The scene manages the renderer and lifecycle. Separate modules handle picking, input, mesh construction, result overlays, and particle animation.
 
-The intended game aims to communicate load paths, instability, and failures. The viewer passes model coordinates straight to Three.js, whose ground grid makes Y the vertical axis; the example structures follow that. This is current behavior, not a recorded decision. Accessibility, presentation, and interaction details remain open.
+The viewer simplifies member shapes and colours compared with the standalone prototype. Accessibility and further presentation details remain open.

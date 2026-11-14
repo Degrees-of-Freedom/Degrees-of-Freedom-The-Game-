@@ -1,0 +1,115 @@
+.workspace {
+  padding: 48px 5% 22px;
+  max-width: 1800px;
+  margin: auto;
+}
+.heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  margin-bottom: 29px;
+}
+.eyebrow,
+.panel-title {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  font-weight: 700;
+  color: #688277;
+}
+.heading p:not(.eyebrow),
+.about p {
+  color: #788a7e;
+  font-size: 14px;
+}
+.draft {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: #85978a;
+}
+.layout {
+  display: grid;
+  grid-template-columns: 225px minmax(300px, 1fr) 245px;
+  min-height: 570px;
+  border: 1px solid #dce4da;
+  background: white;
+}
+.panel {
+  padding: 24px 20px;
+}
+.inspector {
+  border-left: 1px solid #e4eae3;
+}
+.viewport {
+  min-height: 570px;
+  position: relative;
+  overflow: hidden;
+  background: #dce3dd;
+}
+.scene {
+  position: absolute;
+  inset: 0;
+}
+.scene canvas {
+  display: block;
+}
+.view-label,
+.view-help {
+  position: absolute;
+  left: 23px;
+  right: 23px;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: #607c6b;
+  pointer-events: none;
+}
+.view-label {
+  top: 22px;
+}
+.view-label span,
+.view-help span {
+  float: right;
+}
+.view-help {
+  bottom: 21px;
+}
+.workspace-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+}
+.workspace-actions label,
+.control-label {
+  font-size: 12px;
+  color: #577563;
+}
+.workspace-actions button,
+.workspace-actions select,
+.control-label select,
+.selection button,
+.selection select,
+.plane-controls button {
+  font: inherit;
+  border: 1px solid #dce4da;
+  background: #fff;
+  color: #244737;
+  border-radius: 4px;
+  padding: 8px;
+  cursor: pointer;
+}
+.workspace-actions .primary-action {
+  background: #244e3c;
+  color: #fff;
+}
+.plane-controls {
+  position: absolute;
+  bottom: 48px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #244737;
+}

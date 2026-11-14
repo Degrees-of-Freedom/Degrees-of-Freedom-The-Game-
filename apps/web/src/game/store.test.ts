@@ -1,119 +1,159 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import type { AnalysisResult, SolverAdapter } from '@dof/solver-contract';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { LEVELS } from './levels';
+import { memberIssue, nodeItemIssue } from './placementRules';
 import { useGameStore } from './store';
-import { EXAMPLES } from './examples';
-import { resolveSolver } from '../solver';
-import { createOpenSeesSolver } from '../solver/opensees';
-import { unavailableSolver } from '../solver/unavailable';
-
-const success: AnalysisResult = { status: 'success', displacements: {}, warnings: [] };
-
-/** A solver whose analyses finish only when the test says so. */
-function manualSolver() {
-  const pending: Array<{ resolve: (result: AnalysisResult) => void; signal?: AbortSignal }> = [];
-  const solver: SolverAdapter = {
-    id: 'manual',
-    name: 'Manual test solver',
-    analyze: (_model, signal) => new Promise((resolve) => pending.push({ resolve, signal })),
-  };
-  return { solver, pending };
-}
-
-describe('game store', () => {
+describe('voxel game rules', () => {
   beforeEach(() => {
-    useGameStore.setState({ solver: unavailableSolver });
+    useGameStore.getState().setLevel('tower1');
     useGameStore.getState().reset();
   });
-
-  it('resets to an empty model', () => {
-    useGameStore.getState().loadModel(EXAMPLES[0].build());
-    useGameStore.getState().reset();
-    expect(useGameStore.getState().model.nodes).toEqual([]);
+  it('validates placement, duplicates and supply, and restores supply on undo', () => {
+    const s = useGameStore.getState();
+    expect(s.addMember([0, 0, 0], [0, 0, 3], 'ipe')).toBeNull();
+    expect(
+      useGameStore.getState().addMember([0, 0, 3], [0, 0, 0], 'ipe'),
+    ).toContain('already');
+    expect(
+      useGameStore.getState().addMember([0, 0, 0], [4, 0, 0], 'ipe'),
+    ).toContain('Too long');
+    useGameStore.getState().undo();
+    expect(useGameStore.getState().model.members).toHaveLength(0);
   });
-
-  it('reports analysis as unavailable', async () => {
-    expect((await unavailableSolver.analyze(useGameStore.getState().model)).status).toBe('unsupported');
+  it('loads reference examples as undoable edits', () => {
+    expect(useGameStore.getState().loadExample()).toBe(true);
+    expect(useGameStore.getState().model.members.length).toBeGreaterThan(0);
+    useGameStore.getState().undo();
+    expect(useGameStore.getState().model.members).toHaveLength(0);
+    useGameStore.getState().setLevel('tower2');
+    expect(useGameStore.getState().loadExample()).toBe(false);
   });
-
-  it('moves from idle through running to a result', async () => {
-    const { solver, pending } = manualSolver();
-    useGameStore.setState({ solver });
-    expect(useGameStore.getState().analysis).toEqual({ phase: 'idle' });
-
-    const run = useGameStore.getState().runAnalysis();
-    expect(useGameStore.getState().analysis).toEqual({ phase: 'running' });
-    pending[0].resolve(success);
-    await run;
-    expect(useGameStore.getState().analysis).toEqual({ phase: 'done', result: success });
+  it('clears as an undoable edit and opens bridge at deck height', () => {
+    const s = useGameStore.getState();
+    s.addMember([0, 0, 0], [0, 0, 2], 'shs');
+    s.reset();
+    expect(useGameStore.getState().model.members).toHaveLength(0);
+    useGameStore.getState().undo();
+    expect(useGameStore.getState().model.members).toHaveLength(1);
+    useGameStore.getState().setLevel('bridge1');
+    expect(useGameStore.getState().workK).toBe(3);
   });
-
-  it('discards a result when the model changes', async () => {
-    const { solver, pending } = manualSolver();
-    useGameStore.setState({ solver });
-    const run = useGameStore.getState().runAnalysis();
-    useGameStore.getState().loadModel(EXAMPLES[1].build());
-    expect(pending[0].signal?.aborted).toBe(true);
-    pending[0].resolve(success);
-    await run;
-    expect(useGameStore.getState().analysis).toEqual({ phase: 'idle' });
+  it('applies auto-design as one edit and refuses stale designs', () => {
+    const s = useGameStore.getState();
+    s.addMember([0, 0, 0], [0, 0, 2], 'shs');
+    const source = useGameStore.getState().model;
+    const design = {
+      ...source,
+      members: source.members.map((m) => ({ ...m, type: 'ipe' as const })),
+    };
+    expect(s.applyAutoDesign(design, source)).toBe(true);
+    expect(useGameStore.getState().model.members[0].type).toBe('ipe');
+    expect(s.applyAutoDesign(design, source)).toBe(false);
+    useGameStore.getState().undo();
+    expect(useGameStore.getState().model.members[0].type).toBe('shs');
   });
-
-  it('keeps only the newest of two overlapping runs', async () => {
-    const { solver, pending } = manualSolver();
-    useGameStore.setState({ solver });
-    const first = useGameStore.getState().runAnalysis();
-    const second = useGameStore.getState().runAnalysis();
-    const newest: AnalysisResult = { status: 'error', message: 'newest' };
-    pending[1].resolve(newest);
-    pending[0].resolve(success);
-    await Promise.all([first, second]);
-    expect(useGameStore.getState().analysis).toEqual({ phase: 'done', result: newest });
+  it('persists a level independently and restores it on return', () => {
+    const data = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (key: string, value: string) => data.set(key, value),
+    });
+    try {
+      useGameStore.getState().addMember([0, 0, 0], [0, 0, 2], 'shs');
+      useGameStore.getState().setLevel('sandbox');
+      expect(data.get('voxstruct:level')).toBe('sandbox');
+      useGameStore.getState().setLevel('tower1');
+      expect(useGameStore.getState().model.members).toHaveLength(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
-
-  it('turns a solver exception into an error result', async () => {
-    useGameStore.setState({ solver: { id: 'broken', name: 'Broken', analyze: async () => { throw new Error('boom'); } } });
-    await useGameStore.getState().runAnalysis();
-    expect(useGameStore.getState().analysis).toEqual({ phase: 'done', result: { status: 'error', message: 'boom' } });
+  it('limits batch swaps to available supply and refunds the old type', () => {
+    const s = useGameStore.getState();
+    for (let x = 0; x < 7; x++) s.addMember([x, 0, 0], [x, 0, 1], 'shs');
+    expect(s.swapAllOfType('shs', 'ipe')).toBe(6);
+    const model = useGameStore.getState().model;
+    expect(model.members.filter((m) => m.type === 'ipe')).toHaveLength(6);
+    expect(model.members.filter((m) => m.type === 'shs')).toHaveLength(1);
+    useGameStore.getState().undo();
+    expect(
+      useGameStore.getState().model.members.every((m) => m.type === 'shs'),
+    ).toBe(true);
   });
-});
-
-describe('solver selection', () => {
-  it('uses the configured service, the local one in development, and none otherwise', () => {
-    expect(resolveSolver({ VITE_OPENSEES_URL: 'http://solver.test' }).id).toBe('opensees');
-    expect(resolveSolver({ DEV: true }).id).toBe('opensees');
-    expect(resolveSolver({ DEV: false })).toBe(unavailableSolver);
+  it('leaves the sandbox-only load tool when switching to a challenge', () => {
+    const s = useGameStore.getState();
+    s.setLevel('sandbox');
+    s.setTool('load');
+    s.setLevel('tower1');
+    expect(useGameStore.getState().tool).toBe('shs');
+    s.setTool('inspect');
+    s.setLevel('bridge1');
+    expect(useGameStore.getState().tool).toBe('inspect');
   });
-});
-
-describe('example structures', () => {
-  it.each(EXAMPLES)('$name refers only to nodes it defines', ({ build }) => {
-    const model = build();
-    const ids = new Set(model.nodes.map((node) => node.id));
-    expect(ids.size).toBe(model.nodes.length);
-    expect(new Set(model.members.map((member) => member.id)).size).toBe(model.members.length);
-    const referenced = [
-      ...model.members.flatMap((member) => [member.startNodeId, member.endNodeId]),
-      ...model.supports.map((support) => support.nodeId),
-      ...model.loads.map((load) => load.nodeId),
-    ];
-    expect(referenced.every((id) => ids.has(id))).toBe(true);
+  it('preserves fixed pickup weights through edits and clear', () => {
+    const s = useGameStore.getState();
+    s.setLevel('pickup1');
+    s.reset();
+    expect(useGameStore.getState().model.attrs['4,4,3']).toMatchObject({
+      load: 40,
+      target: true,
+      locked: true,
+    });
+    s.addMember([4, 4, 0], [4, 4, 3], 'shs');
+    s.toggleAttr([4, 4, 3], 'joint');
+    s.removeNodeAttrs('4,4,3');
+    expect(useGameStore.getState().model.attrs['4,4,3']).toMatchObject({
+      load: 40,
+      target: true,
+      locked: true,
+    });
+    s.removeMember(1);
+    expect(useGameStore.getState().model.attrs['4,4,3'].load).toBe(40);
+    expect(s.loadExample()).toBe(true);
+    s.reset();
+    expect(useGameStore.getState().model.members).toHaveLength(0);
+    expect(useGameStore.getState().model.attrs['4,4,3'].load).toBe(40);
+    s.undo();
+    expect(useGameStore.getState().model.members.length).toBeGreaterThan(0);
   });
-
-  // Opt-in check against a running service:
-  //   VITE_OPENSEES_URL=http://127.0.0.1:8000 npm test
-  const liveUrl: string | undefined = import.meta.env.VITE_OPENSEES_URL;
-  it.skipIf(!liveUrl)('behave as their names promise on a live service', async () => {
-    const solver = createOpenSeesSolver(liveUrl!);
-    const [braced, unbraced, rigid] = await Promise.all(EXAMPLES.map(({ build }) => solver.analyze(build())));
-
-    if (braced.status !== 'success') throw new Error(`Braced truss: ${JSON.stringify(braced)}`);
-    expect(braced.stability).toMatchObject({ stable: true, freeDofs: 12, mechanisms: 0, staticIndeterminacy: 0 });
-
-    if (unbraced.status !== 'unstable') throw new Error(`Unbraced frame: ${JSON.stringify(unbraced)}`);
-    // The top square can slide two ways, twist, and rack.
-    expect(unbraced.stability).toMatchObject({ translationalMechanisms: 4, staticIndeterminacy: 0 });
-
-    if (rigid.status !== 'success') throw new Error(`Rigid frame: ${JSON.stringify(rigid)}`);
-    expect(rigid.stability).toMatchObject({ stable: true, translationalMechanisms: 0 });
+  it('rejects foundations in the lake and makes new random layouts undoable', () => {
+    const s = useGameStore.getState();
+    s.setLevel('pickup2');
+    expect(
+      nodeItemIssue(LEVELS.pickup2, s.model, [7, 7, 0], 'found'),
+    ).toContain('solid ground');
+    s.setLevel('pickupR');
+    const previous = useGameStore.getState().model;
+    expect(Object.values(previous.attrs).length).toBeGreaterThanOrEqual(3);
+    s.reset();
+    expect(useGameStore.getState().model.attrs).toEqual(previous.attrs);
+    expect(s.newLayout()).toBe(true);
+    s.undo();
+    expect(useGameStore.getState().model).toEqual(previous);
+  });
+  it('keeps bridge bearings locked and prevents foundations in water', () => {
+    useGameStore.getState().setLevel('bridge1');
+    const s = useGameStore.getState();
+    s.removeNodeAttrs('4,4,3');
+    expect(useGameStore.getState().model.attrs['4,4,3'].locked).toBe(true);
+    expect(
+      nodeItemIssue(LEVELS.bridge1, s.model, [7, 4, 0], 'found'),
+    ).toContain('solid ground');
+    expect(
+      memberIssue(LEVELS.bridge1, s.model, [3, 4, 3], [5, 4, 0], 'shs'),
+    ).toContain('ground');
+  });
+  it('swaps members as one undoable edit and removes orphaned attachments', () => {
+    useGameStore.getState().setLevel('sandbox');
+    let s = useGameStore.getState();
+    s.addMember([0, 0, 0], [0, 0, 2], 'shs');
+    s.addMember([0, 0, 2], [0, 0, 4], 'shs');
+    s.toggleAttr([0, 0, 4], 'joint');
+    expect(useGameStore.getState().swapAllOfType('shs', 'ipe')).toBe(2);
+    useGameStore.getState().undo();
+    expect(
+      useGameStore.getState().model.members.every((m) => m.type === 'shs'),
+    ).toBe(true);
+    useGameStore.getState().removeMember(2);
+    expect(useGameStore.getState().model.attrs['0,0,4']).toBeUndefined();
   });
 });
