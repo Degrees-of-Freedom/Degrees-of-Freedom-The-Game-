@@ -3,6 +3,8 @@ title: "3D Viewer"
 last_validated: 2026-11-14
 validated_against:
   - README.md
+  - prototypes/voxel-struct/index.html
+  - prototypes/voxel-struct/README.md
 owner: unknown
 status: partial
 ---
@@ -17,7 +19,9 @@ Record the intended visual interface and its relationship to the game and solver
 
 The game is envisioned on a 3D grid and aims to make structural behavior visible and understandable, including load paths, instability, and failures. The owner wants a visual feel inspired by Townscaper and an all-steel structural palette; the specific art direction and interaction details are not yet specified.
 
-The project owner has identified WebGL as the intended rendering platform. Three.js and React Three Fiber are under consideration for the viewer; their selection is not yet settled or implemented.
+The project owner has identified WebGL as the intended rendering platform. Three.js and React Three Fiber are under consideration for the eventual viewer; their selection for the game is not yet settled.
+
+The separate Voxel Struct prototype uses Three.js for an interactive 3D grid and groups its existing editing tools and items into provisional libraries. Its catalog is not the final game element selection; see its README for the prototype's capabilities and limitations.
 
 ## Open questions
 

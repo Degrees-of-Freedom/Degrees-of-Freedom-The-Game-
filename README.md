@@ -27,3 +27,5 @@ The game is intended to evaluate and communicate:
 ## Project status
 
 The project is in the concept stage. Gameplay rules, analysis methods, visual presentation, and technical implementation are still to be developed.
+
+A separate playable experiment is available in [prototypes/voxel-struct](prototypes/voxel-struct/README.md). Its mechanics and element catalog are provisional and do not establish the final game design.
