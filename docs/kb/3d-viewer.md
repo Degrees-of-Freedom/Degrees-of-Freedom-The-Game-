@@ -2,24 +2,27 @@
 title: "3D Viewer"
 last_validated: 2026-11-14
 validated_against:
-  - README.md
+  - docs/kb/avatar-criteria.md
+  - prototypes/timburr-companion/README.md
+  - docs/kb/animation-criteria.md
+  - apps/web/src/viewer
+  - apps/web/src/pages/Workspace.tsx
 owner: unknown
 status: partial
 ---
 
 # 3D Viewer
 
-## Purpose
+The React workspace uses Three.js for a Z-up voxel scene with terrain, orbit and zoom, build planes, member and node picking, and placement. The viewer consumes the Zustand game model; edit validity is checked by game rules. It can show approximate experimental analysis results using deformed positions, member colours, load and reaction arrows, and a force-weighted load-path view. Load paths are illustrative routes derived from the results, not a separate physical analysis. These visualizations inherit the solver's limitations and are not engineering design evidence. The OpenSees stability check appears only as numbers in the analysis panel; the viewer does not yet draw its mechanism shapes or moving nodes.
 
-Record the intended visual interface and its relationship to the game and solver.
+The scene manages the renderer and lifecycle. Separate modules handle picking, input, mesh construction, result overlays, and particle animation.
 
-## Documented intent
+The full-screen workspace follows the layouts and palettes of Grow, Grow Dusk, Levels, Blocks and Kit from the environment prototype branch. The [unified runtime](unified-runtime.md#environment-mapping) records the mapping and remaining interaction differences. The shared scene renders computed deformation, utilization, load arrows and reaction labels when the current simulation provides those results. Grow Dusk labels applied loads in kN and positions weights above or below joints according to neighboring members. Shared table shows explicit end connections and reads solver positions for loose endpoints. Graph reachability remains available independently of numerical results.
 
-The game is envisioned on a 3D grid and aims to make structural behavior visible and understandable, including load paths, instability, and failures. Visual presentation and interaction details are not yet specified.
+## Animation and sound requirements
 
-## Open questions
+See [animation and sound criteria](animation-criteria.md) for the owner-confirmed magical arena direction, all-action coverage and coordinated sound. The specification includes configurable structural glow/pulse, reduced-motion alternatives, and a distinction between reference geometry, verified deformation and illustrative instability modes. Breaking/removal effects require a matching committed game transition. This is a presentation specification, not a claim that these effects or controls exist.
 
-- What rendering platform, coordinate conventions, camera controls, and accessibility features will be used?
-- How will players select and place members, connections, supports, and loads?
-- How will analysis results and uncertainty be displayed without implying unsupported precision?
-- What data and update events will the viewer receive from the game and solver?
+## Deferred Timburr companion
+
+[Avatar criteria](avatar-criteria.md) define a compact Timburr companion across screens and a proposed temporary Conkeldurr reaction. Live models, pose approval and fallback behavior remain future implementation work. The [prototype handoff](../../prototypes/timburr-companion/README.md) preserves candidate assets and unfinished code in an unapplied patch; it is not part of the current viewer. The available desktop browser could not create a WebGL context, so live character rendering has not been visually validated.

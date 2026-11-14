@@ -2,25 +2,23 @@
 title: "Project"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/turn-criteria.md
   - README.md
+  - package.json
+  - apps/web/package.json
+  - apps/web/src
+  - services/opensees/README.md
+  - prototypes/voxel-struct/README.md
 owner: unknown
 status: partial
 ---
 
 # Project
 
-## Purpose
+Degrees of Freedom is conceived as a turn-based structural engineering game on a 3D grid. Players are intended to build and test structures to explore force paths and stability. The prototype includes local goal-based modes and a card playtest as documented in the [unified runtime](unified-runtime.md).
 
-Describe the game and current state of the repository.
+An early TypeScript web scaffold now exists, with React, a Zustand store, React Router, and a Three.js viewer. The workspace now includes experimental voxel building tools, challenge rules, and approximate analysis. An OpenSees-backed service provides a second, independent check of stability and degrees of freedom through the shared solver contract. The [turn criteria](turn-criteria.md) record confirmed core rules, proposed connection profiles and remaining decisions. The turn system remains unimplemented. See [architecture](architecture.md), [structural solver](structural-solver.md), and [development and testing](development-and-testing.md).
 
-## Facts and intent
+Ownership, solver details, distribution, and precise game rules remain open.
 
-- Degrees of Freedom is conceived as a turn-based structural engineering game on a 3D grid. Players build and test structures to explore how decisions affect force paths and stability.
-- The README describes goal-based and failure-based modes as starting concepts, not fixed rules.
-- The project is at the concept stage. Gameplay rules, analysis methods, visual presentation, and implementation are still to be developed.
-- At the initial review, the repository contained the root README and `.gitignore`; no application source, dependency manifest, or test suite was found.
-
-## Open questions
-
-- Who owns the project and its subsystems?
-- What platform, languages, and distribution targets will the project use?
+The [original Voxel Struct prototype](../../prototypes/voxel-struct/README.md) is archived in Git history. The maintained implementation is in the workspace; its experimental analysis does not implement the shared solver contract.

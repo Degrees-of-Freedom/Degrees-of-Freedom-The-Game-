@@ -1,0 +1,1000 @@
+/* Visual source: ftroshani prototype grow-dusk (2b72967). Scoped to the shared React runtime. */
+
+/* Palette: Kit's "Dusk table". Dark translucent slate panels, cream text, amber for "on". */
+.environment[data-style="grow-dusk"] {
+  --slate: rgba(31, 45, 58, 0.88);
+  --slate-solid: #1f2d3a;
+  --slate-hover: rgba(243, 234, 216, 0.12);
+  --cream: #f3ead8;
+  --cream-dim: rgba(243, 234, 216, 0.72);
+  --cream-faint: rgba(243, 234, 216, 0.16);
+  --warm-line: rgba(246, 200, 159, 0.3);
+  --ink: #22313f;
+  --ink-soft: rgba(243, 234, 216, 0.72);
+  --line: rgba(243, 234, 216, 0.16);
+  --pin: #22313f;
+  --column: #e9806e;
+  --beam: #6a9bd8;
+  --brace: #8cc7b5;
+  --load: #f2b134;
+  --amber: #f2b134;
+  --float: #8d93a0;
+  --danger: #e0566c;
+  --ax: #f2826f;
+  --ay: #7cc68a;
+  --az: #7aa8e8;
+  --shadow: 0 0 0 1px var(--warm-line), 0 10px 30px rgba(10, 18, 26, 0.35);
+  --font:
+    ui-rounded, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+}
+.environment[data-style="grow-dusk"] * {
+  box-sizing: border-box;
+}
+.environment[data-style="grow-dusk"],
+.environment[data-style="grow-dusk"] {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #33506b;
+  font-family: var(--font);
+  color: var(--cream);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+.environment[data-style="grow-dusk"] button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: 0;
+  background: none;
+  padding: 0;
+}
+.environment[data-style="grow-dusk"] #stage,
+.environment[data-style="grow-dusk"] .scene canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.environment[data-style="grow-dusk"] .scene canvas {
+  outline: none;
+  touch-action: none;
+}
+.environment[data-style="grow-dusk"] #labels,
+.environment[data-style="grow-dusk"] #ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.environment[data-style="grow-dusk"] #ui > * {
+  pointer-events: auto;
+}
+
+/* ---- chips and buttons ---- */
+.environment[data-style="grow-dusk"] .chip {
+  background: var(--slate);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+  color: var(--cream);
+}
+.environment[data-style="grow-dusk"] .btn {
+  height: 36px;
+  padding: 0 13px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    transform 0.12s,
+    color 0.12s;
+}
+.environment[data-style="grow-dusk"] .btn:hover {
+  background: var(--slate-hover);
+}
+.environment[data-style="grow-dusk"] .btn:active {
+  transform: scale(0.95);
+}
+.environment[data-style="grow-dusk"] .btn[disabled] {
+  opacity: 0.35;
+  cursor: default;
+  background: none;
+  transform: none;
+}
+.environment[data-style="grow-dusk"] .btn.icon {
+  width: 36px;
+  padding: 0;
+  justify-content: center;
+}
+.environment[data-style="grow-dusk"] .btn.on,
+.environment[data-style="grow-dusk"] .btn.on:hover {
+  background: var(--amber);
+  color: var(--ink);
+}
+.environment[data-style="grow-dusk"] .btn svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.environment[data-style="grow-dusk"] .sep {
+  width: 1px;
+  height: 20px;
+  background: var(--cream-faint);
+  margin: 0 3px;
+}
+.environment[data-style="grow-dusk"] .tag {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--amber);
+  border: 1px dashed rgba(242, 177, 52, 0.6);
+  border-radius: 8px;
+  padding: 1px 6px;
+}
+
+.environment[data-style="grow-dusk"] #topleft {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+.environment[data-style="grow-dusk"] #brand {
+  padding: 7px 14px 7px 10px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.environment[data-style="grow-dusk"] #brand b {
+  display: block;
+  font-size: 14px;
+  line-height: 1.15;
+}
+.environment[data-style="grow-dusk"] #brand span {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.environment[data-style="grow-dusk"] #turn {
+  padding: 5px 6px 5px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.environment[data-style="grow-dusk"] #turn .who {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.environment[data-style="grow-dusk"] #turn .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--column);
+}
+.environment[data-style="grow-dusk"] #actions {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.environment[data-style="grow-dusk"] #demo {
+  position: absolute;
+  left: 50%;
+  top: 70px;
+  transform: translateX(-50%);
+  padding: 9px 18px;
+  border-radius: 14px;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--ink);
+  background: repeating-linear-gradient(
+    -45deg,
+    #f2b134 0 12px,
+    #f7c75c 12px 24px
+  );
+  box-shadow:
+    0 0 0 2px #fff3d6,
+    0 8px 22px rgba(10, 18, 26, 0.5);
+  border: 2px solid var(--ink);
+  display: none;
+  white-space: nowrap;
+}
+.environment[data-style="grow-dusk"] #demo.show {
+  display: block;
+}
+
+/* ---- bottom dock ---- */
+.environment[data-style="grow-dusk"] #dock {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none !important;
+}
+.environment[data-style="grow-dusk"] #dock > * {
+  pointer-events: auto;
+}
+.environment[data-style="grow-dusk"] #hint {
+  padding: 6px 14px;
+  border-radius: 12px;
+  background: rgba(31, 45, 58, 0.8);
+  color: var(--cream);
+  box-shadow:
+    0 0 0 1px var(--cream-faint),
+    0 2px 8px rgba(10, 18, 26, 0.25);
+  font-size: 13px;
+  white-space: nowrap;
+  max-width: 92vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none !important;
+  backdrop-filter: blur(6px);
+}
+.environment[data-style="grow-dusk"] .env-tools {
+  padding: 6px;
+  display: flex;
+  gap: 4px;
+}
+.environment[data-style="grow-dusk"] .tool {
+  height: 54px;
+  min-width: 132px;
+  padding: 0 14px 0 10px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+  font-size: 14px;
+  transition:
+    background 0.12s,
+    transform 0.15s,
+    color 0.12s;
+}
+.environment[data-style="grow-dusk"] .tool svg {
+  width: 30px;
+  height: 30px;
+}
+.environment[data-style="grow-dusk"] .tool kbd {
+  margin-left: auto;
+  font: 600 12px var(--font);
+  color: var(--cream);
+  border: 1px solid rgba(243, 234, 216, 0.24);
+  border-radius: 6px;
+  padding: 1px 6px;
+  background: rgba(243, 234, 216, 0.12);
+}
+.environment[data-style="grow-dusk"] .tool:hover {
+  background: var(--slate-hover);
+}
+.environment[data-style="grow-dusk"] .tool:active {
+  transform: scale(0.96);
+}
+.environment[data-style="grow-dusk"] .tool.on {
+  background: var(--amber);
+  color: var(--ink);
+}
+.environment[data-style="grow-dusk"] .tool.on kbd {
+  background: transparent;
+  color: var(--ink);
+  border-color: rgba(34, 49, 63, 0.45);
+}
+
+.environment[data-style="grow-dusk"] .env-pad {
+  padding: 8px 10px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+}
+.environment[data-style="grow-dusk"] .env-pad.show {
+  display: flex;
+}
+.environment[data-style="grow-dusk"] .env-pad .title {
+  font-weight: 700;
+  min-width: 74px;
+}
+.environment[data-style="grow-dusk"] .env-pad .title small {
+  display: block;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.environment[data-style="grow-dusk"] .dirs,
+.environment[data-style="grow-dusk"] .amts {
+  display: flex;
+  gap: 3px;
+}
+.environment[data-style="grow-dusk"] .dir {
+  width: 46px;
+  height: 46px;
+  border-radius: 11px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 0;
+  transition: background 0.12s;
+}
+.environment[data-style="grow-dusk"] .dir svg {
+  width: 24px;
+  height: 24px;
+  transition: transform 0.08s linear;
+}
+.environment[data-style="grow-dusk"] .dir:hover,
+.environment[data-style="grow-dusk"] .amt:hover {
+  background: var(--slate-hover);
+}
+.environment[data-style="grow-dusk"] .dir.on,
+.environment[data-style="grow-dusk"] .amt.on {
+  background: var(--amber);
+  color: var(--ink);
+}
+.environment[data-style="grow-dusk"] .dir.on svg {
+  filter: drop-shadow(0 0 1.5px #22313f) drop-shadow(0 0 1px #22313f);
+}
+.environment[data-style="grow-dusk"] .amt {
+  height: 46px;
+  min-width: 44px;
+  padding: 0 8px;
+  border-radius: 11px;
+  font-weight: 700;
+  font-size: 14px;
+}
+.environment[data-style="grow-dusk"] .amt small {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+.environment[data-style="grow-dusk"] .env-pad .rm {
+  display: none;
+}
+.environment[data-style="grow-dusk"] .env-pad.editing .rm {
+  display: inline-flex;
+  background: rgba(224, 86, 108, 0.22);
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+.environment[data-style="grow-dusk"] .env-pad.editing .rm:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* ---- corners ---- */
+.environment[data-style="grow-dusk"] #cornerleft {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none !important;
+}
+.environment[data-style="grow-dusk"] #axes {
+  width: 76px;
+  height: 76px;
+}
+.environment[data-style="grow-dusk"] #axes text {
+  font: 700 12px var(--font);
+}
+.environment[data-style="grow-dusk"] #stats {
+  padding: 7px 12px;
+  font-weight: 600;
+  background: var(--slate);
+  color: var(--cream);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+}
+.environment[data-style="grow-dusk"] #stats .roles {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 3px;
+  flex-wrap: wrap;
+  max-width: 300px;
+}
+.environment[data-style="grow-dusk"] #stats i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+.environment[data-style="grow-dusk"] #stats .fl {
+  color: #c9cdd6;
+  display: none;
+}
+.environment[data-style="grow-dusk"] #stats .fl.show {
+  display: inline;
+}
+.environment[data-style="grow-dusk"] #stats .fl i {
+  background: var(--float);
+  outline: 1px dashed #c9cdd6;
+  outline-offset: 1px;
+}
+
+.environment[data-style="grow-dusk"] #cornerright {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none !important;
+}
+.environment[data-style="grow-dusk"] #cornerright > * {
+  pointer-events: auto;
+}
+.environment[data-style="grow-dusk"] #legend {
+  padding: 9px 12px 8px;
+  display: none;
+  width: 230px;
+}
+.environment[data-style="grow-dusk"] #legend.show {
+  display: block;
+}
+.environment[data-style="grow-dusk"] #legend b {
+  font-size: 13px;
+}
+.environment[data-style="grow-dusk"] #legend .bar {
+  height: 12px;
+  border-radius: 6px;
+  margin: 7px 0 3px;
+  background: linear-gradient(
+    90deg,
+    #f7eed6,
+    #f3c668 33.3%,
+    #e27d3c 66.6%,
+    #9c2740
+  );
+  position: relative;
+}
+.environment[data-style="grow-dusk"] #legend .bar::after {
+  content: "";
+  position: absolute;
+  left: 66.6%;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--cream);
+}
+.environment[data-style="grow-dusk"] #legend .ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--ink-soft);
+  position: relative;
+}
+.environment[data-style="grow-dusk"] #legend .ticks span:nth-child(2) {
+  position: absolute;
+  left: 66.6%;
+  transform: translateX(-50%);
+  color: var(--cream);
+  font-weight: 700;
+}
+.environment[data-style="grow-dusk"] #legend p {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: var(--amber);
+}
+.environment[data-style="grow-dusk"] #help {
+  padding: 12px 14px;
+  width: 318px;
+  display: none;
+}
+.environment[data-style="grow-dusk"] #help.show {
+  display: block;
+}
+.environment[data-style="grow-dusk"] #help h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.environment[data-style="grow-dusk"] #help table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+.environment[data-style="grow-dusk"] #help td {
+  padding: 2.5px 0;
+  vertical-align: top;
+  color: var(--cream-dim);
+}
+.environment[data-style="grow-dusk"] #help td:first-child {
+  font-weight: 700;
+  white-space: nowrap;
+  padding-right: 10px;
+  color: var(--cream);
+}
+.environment[data-style="grow-dusk"] #help p {
+  margin: 7px 0 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* ---- solver drawer ---- */
+.environment[data-style="grow-dusk"] #drawer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: min(430px, 92vw);
+  background: rgba(31, 45, 58, 0.95);
+  color: var(--cream);
+  box-shadow:
+    0 0 0 1px var(--warm-line),
+    -8px 0 30px rgba(10, 18, 26, 0.45);
+  backdrop-filter: blur(6px);
+  border-radius: 16px 0 0 16px;
+  transform: translateX(105%);
+  transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+}
+.environment[data-style="grow-dusk"] #drawer.show {
+  transform: none;
+}
+.environment[data-style="grow-dusk"] #drawer header {
+  padding: 14px 16px 8px;
+}
+.environment[data-style="grow-dusk"] #drawer h2 {
+  margin: 0;
+  font-size: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.environment[data-style="grow-dusk"] #drawer .note {
+  font-size: 12px;
+  color: var(--amber);
+  margin: 4px 0 8px;
+}
+.environment[data-style="grow-dusk"] #drawer .row {
+  display: flex;
+  gap: 6px;
+}
+.environment[data-style="grow-dusk"] #drawer .btn {
+  background: rgba(243, 234, 216, 0.1);
+  box-shadow: inset 0 0 0 1px var(--warm-line);
+}
+.environment[data-style="grow-dusk"] #drawer .btn:hover {
+  background: rgba(243, 234, 216, 0.2);
+}
+.environment[data-style="grow-dusk"] #drawer #drawer-close {
+  box-shadow: none;
+  background: none;
+}
+.environment[data-style="grow-dusk"] #drawer #drawer-close:hover {
+  background: var(--slate-hover);
+}
+.environment[data-style="grow-dusk"] #drawer pre {
+  flex: 1;
+  margin: 0;
+  padding: 10px 16px 20px;
+  overflow: auto;
+  font:
+    12px/1.45 ui-monospace,
+    "Cascadia Mono",
+    Consolas,
+    monospace;
+  color: #e9e0cd;
+  border-top: 1px solid var(--cream-faint);
+  background: rgba(10, 16, 23, 0.55);
+  user-select: text;
+}
+
+/* ---- DOF card ---- */
+.environment[data-style="grow-dusk"] .env-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 262px;
+  padding: 12px;
+  display: none;
+  z-index: 10;
+  transform-origin: 0 50%;
+  background: rgba(31, 45, 58, 0.94);
+}
+.environment[data-style="grow-dusk"] .env-card.show {
+  display: block;
+  animation: grow-dusk-cardin 0.2s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes grow-dusk-cardin {
+  from {
+    opacity: 0;
+    scale: 0.9;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+.environment[data-style="grow-dusk"] .env-card h3 {
+  margin: 0;
+  font-size: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.environment[data-style="grow-dusk"] .env-card .sub {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin: 1px 0 9px;
+}
+.environment[data-style="grow-dusk"] .env-card .lbl {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin: 9px 0 4px;
+  display: flex;
+  justify-content: space-between;
+}
+.environment[data-style="grow-dusk"] .seg {
+  display: grid;
+  gap: 4px;
+}
+.environment[data-style="grow-dusk"] .seg.four {
+  grid-template-columns: repeat(4, 1fr);
+}
+.environment[data-style="grow-dusk"] .seg.two {
+  grid-template-columns: repeat(2, 1fr);
+}
+.environment[data-style="grow-dusk"] .seg button {
+  height: 50px;
+  border-radius: 10px;
+  background: rgba(243, 234, 216, 0.1);
+  color: var(--cream);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  transition:
+    background 0.12s,
+    transform 0.12s;
+}
+.environment[data-style="grow-dusk"] .seg.two button {
+  height: 40px;
+  flex-direction: row;
+  gap: 7px;
+}
+.environment[data-style="grow-dusk"] .seg button svg {
+  width: 24px;
+  height: 24px;
+}
+.environment[data-style="grow-dusk"] .seg button:hover {
+  background: rgba(243, 234, 216, 0.2);
+}
+.environment[data-style="grow-dusk"] .seg button:active {
+  transform: scale(0.95);
+}
+.environment[data-style="grow-dusk"] .seg button.on,
+.environment[data-style="grow-dusk"] .seg button.on:hover {
+  background: var(--amber);
+  color: var(--ink);
+}
+.environment[data-style="grow-dusk"] .dofs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+.environment[data-style="grow-dusk"] .dof {
+  height: 62px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.1;
+  transition:
+    background 0.15s,
+    transform 0.12s,
+    box-shadow 0.15s;
+}
+.environment[data-style="grow-dusk"] .dof svg {
+  width: 30px;
+  height: 30px;
+  overflow: visible;
+}
+.environment[data-style="grow-dusk"] .dof:active {
+  transform: scale(0.94);
+}
+/* free: outlined in its axis colour and swaying; locked: a solid cream tile */
+.environment[data-style="grow-dusk"] .dof.free {
+  background: rgba(243, 234, 216, 0.06);
+  box-shadow: inset 0 0 0 2px var(--c);
+  color: var(--cream);
+}
+.environment[data-style="grow-dusk"] .dof.free svg {
+  color: var(--c);
+  animation: grow-dusk-sway 1.5s ease-in-out infinite alternate;
+}
+.environment[data-style="grow-dusk"] .dof.free.rot svg {
+  animation-name: grow-dusk-rock;
+}
+.environment[data-style="grow-dusk"] .dof.free:hover {
+  background: rgba(243, 234, 216, 0.14);
+}
+.environment[data-style="grow-dusk"] .dof.locked {
+  background: var(--cream);
+  color: var(--ink);
+}
+.environment[data-style="grow-dusk"] .dof.locked svg {
+  color: rgba(34, 49, 63, 0.55);
+}
+.environment[data-style="grow-dusk"] .dof.locked:hover {
+  background: #fff8ea;
+}
+.environment[data-style="grow-dusk"] .dof small {
+  font-weight: 600;
+  font-size: 12px;
+  opacity: 0.85;
+}
+@keyframes grow-dusk-sway {
+  from {
+    transform: translate(calc(var(--dx) * -3px), calc(var(--dy) * -3px));
+  }
+  to {
+    transform: translate(calc(var(--dx) * 3px), calc(var(--dy) * 3px));
+  }
+}
+@keyframes grow-dusk-rock {
+  from {
+    transform: rotate(-16deg);
+  }
+  to {
+    transform: rotate(16deg);
+  }
+}
+.environment[data-style="grow-dusk"] .env-card .foot {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 9px;
+}
+
+/* ---- labels living in the scene ---- */
+.environment[data-style="grow-dusk"] .lab {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  will-change: transform;
+}
+.environment[data-style="grow-dusk"] .pill {
+  background: var(--slate-solid);
+  color: var(--cream);
+  border-radius: 9px;
+  padding: 2px 8px;
+  font-weight: 700;
+  font-size: 13px;
+  box-shadow:
+    0 0 0 1px var(--warm-line),
+    0 2px 6px rgba(10, 18, 26, 0.35);
+}
+.environment[data-style="grow-dusk"] .pill.load {
+  background: var(--amber);
+  color: var(--ink);
+  box-shadow:
+    0 0 0 1.5px rgba(34, 49, 63, 0.55),
+    0 2px 6px rgba(10, 18, 26, 0.35);
+  font-size: 12px;
+  padding: 1px 7px;
+}
+.environment[data-style="grow-dusk"] .pill.load.sel {
+  background: var(--ink);
+  color: var(--amber);
+  box-shadow:
+    0 0 0 2px var(--amber),
+    0 2px 6px rgba(10, 18, 26, 0.35);
+}
+.environment[data-style="grow-dusk"] .pill.ghost {
+  opacity: 0.8;
+}
+.environment[data-style="grow-dusk"] .pill.len i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin: 0 5px 0 7px;
+}
+.environment[data-style="grow-dusk"] .pill.len small {
+  font-weight: 600;
+  font-size: 12px;
+}
+.environment[data-style="grow-dusk"] .pill.bad {
+  background: var(--danger);
+  color: #fff;
+  box-shadow:
+    0 0 0 1px #f39aa8,
+    0 2px 6px rgba(10, 18, 26, 0.35);
+}
+.environment[data-style="grow-dusk"] .ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  display: none;
+  will-change: transform;
+}
+.environment[data-style="grow-dusk"] .ring.show {
+  display: block;
+}
+.environment[data-style="grow-dusk"] .ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid var(--cream);
+  box-shadow:
+    0 0 0 1.5px rgba(34, 49, 63, 0.7),
+    inset 0 0 0 1.5px rgba(34, 49, 63, 0.7);
+}
+.environment[data-style="grow-dusk"] #rhover::before {
+  animation: grow-dusk-ringin 0.16s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.environment[data-style="grow-dusk"] #rarmed {
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+}
+.environment[data-style="grow-dusk"] #rarmed::before {
+  border-color: var(--amber);
+  box-shadow:
+    0 0 0 2px var(--ink),
+    inset 0 0 0 2px var(--ink);
+  animation: grow-dusk-pulse 1.1s ease-in-out infinite alternate;
+}
+.environment[data-style="grow-dusk"] #rsel {
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+}
+.environment[data-style="grow-dusk"] #rsel::before {
+  border: 3px dashed var(--amber);
+  box-shadow: none;
+  filter: drop-shadow(0 0 1px #22313f) drop-shadow(0 0 1px #22313f);
+  animation: grow-dusk-spin 9s linear infinite;
+}
+.environment[data-style="grow-dusk"] .ring.erase::before {
+  border-color: #ffd0d7;
+  box-shadow:
+    0 0 0 1.5px var(--danger),
+    inset 0 0 0 1.5px var(--danger);
+}
+@keyframes grow-dusk-ringin {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes grow-dusk-pulse {
+  from {
+    transform: scale(0.88);
+  }
+  to {
+    transform: scale(1.06);
+  }
+}
+@keyframes grow-dusk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.environment[data-style="grow-dusk"] .axl {
+  font: 800 13px var(--font);
+  text-shadow:
+    0 0 3px #22313f,
+    0 0 3px #22313f,
+    0 0 2px #22313f,
+    0 0 1px #22313f;
+}
+.environment[data-style="grow-dusk"] .float-note {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--cream);
+  background: var(--slate-solid);
+  border-radius: 9px;
+  padding: 2px 9px;
+  box-shadow:
+    0 0 0 1px var(--warm-line),
+    0 2px 6px rgba(10, 18, 26, 0.35);
+  animation: grow-dusk-rise 1.1s ease-out forwards;
+}
+@keyframes grow-dusk-rise {
+  0% {
+    opacity: 0;
+    margin-top: 4px;
+  }
+  15% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    margin-top: -22px;
+  }
+}
+
+.environment[data-style="grow-dusk"] #toast {
+  position: absolute;
+  left: 50%;
+  top: 122px;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none !important;
+  background: var(--slate-solid);
+}
+.environment[data-style="grow-dusk"] #toast.show {
+  opacity: 1;
+}
+.environment[data-style="grow-dusk"] #boot {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(#33506b, #7f8fa6 62%, #f6c89f);
+  z-index: 50;
+  transition: opacity 0.4s;
+  color: var(--cream);
+}
+.environment[data-style="grow-dusk"] #boot.hide {
+  opacity: 0;
+  pointer-events: none;
+}
+.environment[data-style="grow-dusk"] #boot div {
+  background: var(--slate);
+  padding: 18px 22px;
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  max-width: 420px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.environment[data-style="grow-dusk"] #boot b {
+  color: var(--amber);
+}
+.environment[data-style="grow-dusk"] #boot code {
+  color: var(--cream);
+}
+@media (max-width: 1340px) {
+  .environment[data-style="grow-dusk"] .hide-narrow {
+    display: none;
+  }
+}
