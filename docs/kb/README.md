@@ -5,6 +5,7 @@ validated_against:
   - README.md
   - package.json
   - docs/kb/architecture.md
+  - docs/kb/unified-runtime.md
   - docs/kb/code-standards.md
   - docs/kb/structural-solver.md
   - docs/kb/solver-criteria.md
@@ -19,12 +20,13 @@ status: partial
 
 ## Purpose and status
 
-This is the canonical entry point for durable project knowledge. The game remains at the concept stage with an initial web scaffold. The workspace includes experimental voxel building, challenges, and approximate numerical analysis alongside a preliminary shared solver contract and unavailable-solver placeholder. It does not implement a turn system, and the voxel analysis is not an implementation of the shared adapter. Distinguish documented intent and proposed experiments from implemented behavior and decisions.
+This is the canonical entry point for durable project knowledge. The early web prototype presents five environments in one application, with voxel editing, challenges, approximate numerical analysis and a local Shared table card playtest. Shared table turns commit with unresolved analysis pending solver support for individual member-end connections. Distinguish documented intent and proposed experiments from implemented behavior and decisions.
 
 ## Pages
 
 | Page | Use this when |
 | --- | --- |
+| [unified-runtime.md](unified-runtime.md) | Mapping the source environments, runtime entry points, features and remaining gaps. |
 | [project.md](project.md) | Understanding the concept, status, and repository. |
 | [architecture.md](architecture.md) | Understanding the three intended areas, current frameworks, and modular boundaries. |
 | [code-standards.md](code-standards.md) | Applying TypeScript, folder structure, modularity, React, Zustand, and routing standards. |
@@ -41,7 +43,7 @@ This is the canonical entry point for durable project knowledge. The game remain
 
 Start with [turn criteria](turn-criteria.md#1-status-and-confirmed-rules) for the owner's confirmed two-deck rules. The page includes the card families, six-DOF connection profile table, turn lifecycle, whole-structure issue comparison, 1-point penalty policy, a worked example, persistence requirements and acceptance scenarios.
 
-The confirmed decisions are distinct from the proposed connection presets and unresolved balance choices. [Questions still to resolve](turn-criteria.md#9-questions-still-to-resolve) tracks opening hands, deck balance, load magnitudes, placement limits, scoring and match endings. No turn implementation is claimed. Later confirmed turn decisions supersede earlier gameplay proposals in the solver criteria; numerical solver requirements remain in [solver criteria](solver-criteria.md).
+The confirmed decisions are distinct from the proposed connection presets and unresolved balance choices. [Questions still to resolve](turn-criteria.md#9-questions-still-to-resolve) tracks opening hands, deck balance, load magnitudes, placement limits, scoring and match endings. The Shared table implements the card lifecycle and explicit attachments. Verified issue assessment and penalties remain pending. Later confirmed turn decisions supersede earlier gameplay proposals in the solver criteria; numerical solver requirements remain in [solver criteria](solver-criteria.md).
 
 ## Maintenance
 

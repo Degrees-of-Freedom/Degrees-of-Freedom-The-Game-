@@ -14,7 +14,7 @@ status: partial
 
 # Project
 
-Degrees of Freedom is conceived as a turn-based structural engineering game on a 3D grid. Players are intended to build and test structures to explore force paths and stability. Goal-based and failure-based modes are concepts, not implemented rules.
+Degrees of Freedom is conceived as a turn-based structural engineering game on a 3D grid. Players are intended to build and test structures to explore force paths and stability. The prototype includes local goal-based modes and a card playtest as documented in the [unified runtime](unified-runtime.md).
 
 An early TypeScript web scaffold now exists, with React, a Zustand store, React Router, and a Three.js viewer. The workspace now includes experimental voxel building tools, challenge rules, and approximate analysis. The [turn criteria](turn-criteria.md) record confirmed core rules, proposed connection profiles and remaining decisions. The turn system remains unimplemented. See [architecture](architecture.md) and [development and testing](development-and-testing.md).
 

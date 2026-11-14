@@ -16,7 +16,7 @@ status: needs-review
 
 ## 1. Status and confirmed rules
 
-This is a design specification, not implemented behavior. It extends the [solver criteria](solver-criteria.md) and supersedes earlier turn proposals only where the owner has confirmed a rule here. The existing voxel editing and challenge rules do not implement this system.
+This specification extends the [solver criteria](solver-criteria.md) and supersedes earlier turn proposals where the owner has confirmed a rule here. The [Shared table playtest](unified-runtime.md#shared-table-playtest) implements local card draws, staging and commits with explicit attachments. Verifying end-turn issues and applying the confirmed penalty require compatible analysis.
 
 The owner confirmed:
 
@@ -174,6 +174,6 @@ The following tests are required when implementing this design; they are not cur
 6. Placement: lengths, isolated elements and interior attachment. Shared access to existing joints is confirmed.
 7. Match: setup/order, turn limit/end condition, reaction scoring, penalty interaction and victory/ties.
 
-Documentation review checked the named member families against `voxelInput.ts`/`voxelSections.ts` and the solver requirements; no turn implementation or numerical validation is claimed.
+Documentation review checked the named member families against `voxelInput.ts`/`voxelSections.ts` and the solver requirements; the local card lifecycle is implemented, with numerical verification pending.
 
 Confirmed rules can guide contract design now. Unanswered policies must remain explicit; recommendations are not agreed or implemented behavior.
