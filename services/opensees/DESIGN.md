@@ -123,16 +123,30 @@ OpenSeesPy 3.8 give the same numbers, except `forceBeamColumnCBDI`, which is
 accurate with two segments but crashes the process under line search and has
 no end releases. It is not used.
 
-Subdividing every beam finely is unaffordable, and unnecessary: only members
-in significant compression need it. So:
+A second effect needs subdivision too. One corotational element treats
+deformation relative to its chord as small, so a member that bends through a
+large rotation is inaccurate with one element. On a cantilever elastica with
+`P L^2 / EI = 2` the tip error was 1.77%, 0.40% and 0.10% with 2, 4 and 8
+elements. In terms of the end rotation relative to the chord, `theta`, that
+is about `0.16 * theta^2 / n^2`.
 
-1. The linear solve of the component runs first. Each beam gets
-   `n = clamp(ceil(29 * sqrt(rho)), 1, 32)` from its largest compressive
-   axial force at full load, and 1 if it is in tension. The constant 29
-   makes `0.83 * rho / n^2 <= 0.1%`. That is tighter than the 2% buckling
-   gate because deflections near a critical load are amplified by
-   `1 / (1 - P/Pcr)`, so a 0.3% error in `Pcr` already costs more than 1% at
-   three quarters of the critical load.
+Subdividing every beam finely is unaffordable, and unnecessary: only members
+in significant compression or bending through a large rotation need it. So:
+
+1. The linear solve of the component runs first. Each beam gets the larger
+   of two counts, each clamped to 1..32:
+   - `ceil(29 * sqrt(rho))` from its largest compressive axial force at full
+     load, and 1 if it is in tension. The constant 29 makes
+     `0.83 * rho / n^2 <= 0.1%`. That is tighter than the 2% buckling gate
+     because deflections near a critical load are amplified by
+     `1 / (1 - P/Pcr)`, so a 0.3% error in `Pcr` already costs more than 1%
+     at three quarters of the critical load.
+   - `ceil(12.5 * theta)` from its largest chord-relative end rotation in
+     radians, which makes `0.16 * theta^2 / n^2 <= 0.1%`. Below 0.08 rad
+     this is 1, so ordinary structures are not refined. Only one load level
+     was measured; the `theta^2` scaling is assumed. An independent elastica
+     test at `P L^2 / EI = 1` passes its 1% gate on the tip pull-in with
+     about a third of the gate to spare, so this constant has little margin.
 2. With no linear result to go on, every beam gets 4 segments.
 3. After a stable nonlinear solve the counts are recomputed from the actual
    axial forces. If a beam needed more than it had, the component is rebuilt
@@ -287,11 +301,29 @@ Under linear fidelity the iteration then fails and the component is
 | Name | Value | Status |
 | --- | --- | --- |
 | Default fidelity | `nonlinear` | Decision: the owner wants a nonlinear solution. |
-| Beam subdivision under nonlinear fidelity | `clamp(ceil(29 * sqrt(rho)), 1, 32)`, 4 without a linear result | Measured; see "Beam subdivision". |
+| Beam subdivision under nonlinear fidelity | Larger of `ceil(29 * sqrt(rho))` and `ceil(12.5 * theta)`, clamped to 1..32; 4 without a linear result | Measured; see "Beam subdivision". |
 | Default time budget | 2000 ms per request | From criteria section 6. |
 | `RECOVERY_DISPLACEMENT_LIMIT` | 0.1 x shortest member | Provisional. |
 | `NEAR_MECHANISM` | 1e-8 scaled | Provisional. |
 | Equilibrium residual gate | 1e-5 | From criteria section 7. |
+
+## What the nonlinear solve finds that a linear one cannot
+
+Run on the game's twenty library fixtures, the nonlinear solve disagrees
+with the linear solve and with the in-browser voxel analysis on two
+structures that both of those call stable. Both disagreements are correct
+physics, checked by hand:
+
+- The slender column fixture is a 20 m fixed-free column with an Euler load
+  of `pi^2 E I / (2 L)^2` = 4.1 kN carrying 10 kN. The solve reports
+  `load_induced_instability` at a load factor of 0.416; the hand value is
+  0.415.
+- The bent cantilever fixture has an 8 m IPE 300 arm with a 20 kN tip load
+  and no lateral restraint. The classical lateral-torsional buckling load of
+  a tip-loaded cantilever, `4.01 * sqrt(E Iz * G J) / L^2`, is about 9 kN, a
+  factor of 0.45; the solve reports 0.49. The elastic beam element has no
+  warping stiffness, which a real I-section has, so the true section would
+  buckle somewhat later.
 
 ## Not in scope here
 
