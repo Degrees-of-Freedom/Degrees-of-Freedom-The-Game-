@@ -15,7 +15,7 @@ import { initialModel } from './layout';
 import { memberIssue, nodeItemIssue, swapIssue } from './placementRules';
 import { save, savedLevel, loadWithStatus, saveLevel, loadMode } from './persistence';
 import { createGameSave, readGameSave, type GameSave } from './structuralState';
-import { modeSetup, type GameMode, type PresentationStyle } from './modes';
+import { hasForensicsFixture, modeSetup, type GameMode, type PresentationStyle } from './modes';
 import { missingBayEdges, bayIssue } from './bay';
 import { nodeValid } from './terrain';
 import { readSession, writeSession, type Session } from './session';
@@ -39,6 +39,7 @@ interface GameState {
   cancelDraft: () => string | null;
   endTurn: () => string | null;
   setMode: (mode: GameMode) => void;
+  newMatch: () => string | null;
   setStyle: (style: PresentationStyle) => void;
   addBay: (origin: GridPoint, size: GridPoint, type: MemberType) => string | null;
   exportModel: () => GameSave;

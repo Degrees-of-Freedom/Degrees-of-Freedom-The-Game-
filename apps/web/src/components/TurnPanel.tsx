@@ -18,6 +18,11 @@ export function TurnPanel({ game, onMessage }: { game: Game; onMessage: (message
     <h2>{turn.finished ? 'Table complete' : `Player ${turn.playerIndex + 1} · Round ${Math.ceil(turn.turn / 2)} of ${KIT_PLAYTEST.rounds}`}</h2>
     <p>{KIT_PLAYTEST.description} Draw two cards from each deck. Play up to one member, one gravity load and two end connections, or pass. This is an experimental local playtest.</p>
     <p>Staged this turn: {turn.draft.members.length}/1 member · {turn.draft.loads.length}/1 load · {turn.draft.connections.length}/2 connections.</p>
+    {turn.finished && <button className="primary-action" onClick={() => {
+      const issue = game.newMatch();
+      if (!issue) setRevealedTurn(null);
+      onMessage(issue ?? 'New match started. Pass the table to Player 1.');
+    }}>Start another match</button>}
     {!turn.finished && !revealed && <button className="resume-link" onClick={() => setRevealedTurn(turn.turn)}>Reveal Player {turn.playerIndex + 1}’s hand</button>}
     {!turn.finished && revealed && <><div className="turn-cards" aria-label={`${player.id} hand`}>{hand.map((card) => <button key={card.id} className="turn-card" aria-pressed={selectedCard?.id === card.id} onClick={() => game.selectCard(card.id)}>{card.label}<small>{card.kind}</small></button>)}</div>
       <p>{selectedCard?.kind === 'element' ? 'Choose two points in the scene or use Precise placement to stage this member.' : selectedCard?.kind === 'load' ? 'Click an existing joint to stage this gravity load.' : selectedCard?.kind === 'connection' ? 'Choose an unconnected member end below. Other players’ ends are available too.' : 'Select a card to play it.'}</p>
