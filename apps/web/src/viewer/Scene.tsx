@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { useGameStore } from '../game/store';
 import { LEVELS } from '../game/levels';
+import { allNodeKeys, parseNodeKey, CELL_SIZE } from '../game/model';
 import { buildGuides, buildTerrain, disposeGroup } from './sceneGeometry';
 import { addResultArrows, displayPoint } from './sceneResults';
 import { createFlowParticles } from './flowParticles';
@@ -84,6 +85,7 @@ export function Scene({
     const point = (key: string) => displayPoint(key, view.current);
     const particles = createFlowParticles(scene, point);
     let currentLevel = '';
+    let libraryRevision = -1;
     const interaction = bindSceneInteraction(
       renderer.domElement,
       camera,
@@ -100,6 +102,20 @@ export function Scene({
       if (currentLevel !== state.levelId) {
         currentLevel = state.levelId;
         buildTerrain(terrain, level, camera, controls);
+      }
+      if (state.levelId === 'library' && libraryRevision !== state.libraryLoadRevision) {
+        libraryRevision = state.libraryLoadRevision;
+        const points = allNodeKeys(state.model).map(key => new THREE.Vector3(...parseNodeKey(key)).multiplyScalar(CELL_SIZE));
+        if (points.length) {
+          const bounds = new THREE.Box3().setFromPoints(points);
+          const center = bounds.getCenter(new THREE.Vector3());
+          const radius = Math.max(3, bounds.getSize(new THREE.Vector3()).length() / 2);
+          const angle = Math.min(camera.fov * Math.PI / 360, Math.atan(Math.tan(camera.fov * Math.PI / 360) * camera.aspect));
+          const distance = radius / Math.sin(angle) * 1.2;
+          controls.target.copy(center);
+          camera.position.copy(center).add(new THREE.Vector3(1, -1.3, .9).normalize().multiplyScalar(distance));
+          controls.update();
+        }
       }
       disposeGroup(structure);
       disposeGroup(guides);

@@ -20,6 +20,8 @@ status: partial
 
 # Structural State and Persistence
 
+The [structure library](structure-library.md) now supplies 20 loadable voxel fixtures, PNG previews, a generated SQLite index and observed voxel regression baselines. The general solver-neutral fixture suite proposed below remains unimplemented; statements below about missing benchmark fixtures refer to that general suite. SQLite here is an exported catalog, not a state persistence service.
+
 This page describes the implemented experimental voxel state service and the proposed path to a general, solver-neutral structural state. It does not meet all of the proposed [solver criteria](solver-criteria.md): independent member-end connectivity, general six-axis connection laws, reusable material definitions, nonlinear history, and a shared solver adapter remain work to do. There is no SQLite or remote state service.
 
 ## Browser saves

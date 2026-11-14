@@ -2,6 +2,7 @@ export type MemberType = 'shs' | 'glulam' | 'ipe' | 'heb' | 'cable';
 export type NodeItem = 'joint' | 'found' | 'load';
 export type Tool = MemberType | NodeItem | 'inspect' | 'delete' | 'swap';
 export type LevelId =
+  | 'library'
   | 'tower1'
   | 'tower2'
   | 'bridge1'

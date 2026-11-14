@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { exampleModel } from './examples';
+import { createGameSave } from './structuralState';
 import {
   nodeKey,
   type GameModel,
@@ -29,6 +30,8 @@ interface GameState {
   setLevel: (id: LevelId) => void;
   reset: () => void;
   loadExample: () => boolean;
+  loadLibraryModel: (model: GameModel) => void;
+  libraryLoadRevision: number;
   newLayout: () => boolean;
   applyAutoDesign: (model: GameModel, sourceModel: GameModel) => boolean;
   swapTarget: MemberType;
@@ -77,6 +80,7 @@ export const useGameStore = create<GameState>((set, get) => {
     swapTarget: 'ipe',
     setSwapTarget: (swapTarget) => set({ swapTarget }),
     history: [],
+    libraryLoadRevision: 0,
     tool: 'shs',
     workK: LEVELS[startLevel].cliffH ?? 0,
     chainStart: null,
@@ -119,6 +123,13 @@ export const useGameStore = create<GameState>((set, get) => {
       commit(model);
       set({ chainStart: null, selected: null });
       return true;
+    },
+    loadLibraryModel: (source) => {
+      // Validate before switching; library edits never overwrite a challenge or sandbox.
+      const model = createGameSave('library', source).model;
+      if (get().levelId !== 'library') get().setLevel('library');
+      commit(model);
+      set(s => ({ chainStart: null, selected: null, workK: 0, libraryLoadRevision: s.libraryLoadRevision + 1 }));
     },
     newLayout: () => {
       const s = get();

@@ -4,6 +4,7 @@ import { LEVELS } from '../game/levels';
 import { CELL_SIZE, type LevelId } from '../game/model';
 import { useGameStore } from '../game/store';
 import { BuildTools } from '../components/BuildTools';
+import { StructureLibrary } from '../components/StructureLibrary';
 import { StructureInspector } from '../components/StructureInspector';
 import { AnalysisPanel } from '../components/AnalysisPanel';
 import { StabilityCheckPanel } from '../components/StabilityCheckPanel';
@@ -144,6 +145,7 @@ export function Workspace() {
           Run analysis
         </button>
       </div>
+      <StructureLibrary />
       <div className="layout">
         <BuildTools game={game} />
         <section className="viewport" aria-label="Structural workspace">
