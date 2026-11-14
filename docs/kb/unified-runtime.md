@@ -21,7 +21,7 @@ The visual references are the five standalone environments from the [prototype b
 
 ## Entry points and boundaries
 
-- `/` presents the environment launcher. Its environment cards open Creative, except Kit, which opens the local Shared table. The launcher also offers the five game modes. `/play` opens the current workspace.
+- `/` presents the environment launcher. Grow Dusk is the primary launcher entry. It opens Creative, as do Grow, Levels and Blocks. Kit opens the local Shared table. The launcher also offers the five game modes. `/play` opens the current workspace.
 - A game mode defines a rules context; an environment changes presentation and placement interaction. Switching the environment preserves the structure. Engineering challenges use tower, bridge, and pickup levels; Creative permits open editing; Forensics starts from a prepared repair fixture; Load in space starts with a suspended load target; Shared table uses cards.
 - `store.ts` coordinates editor state, history, and persistence. `turns.ts` owns the Shared table rules. `session.ts` validates and reconstructs a turn session from versioned deterministic events. `connectivity.ts` reports foundation reachability independently of numerical analysis.
 - `Scene.tsx` and its viewer modules share one renderer, with camera, guides, geometry, picking, and palette selected by the environment. `components/environment` and the scoped `environment-*.css` files provide the chrome, trays, and controls. Build options exposes precise coordinate entry.
@@ -43,7 +43,7 @@ Some visual feedback and input details differ across the reference and the unifi
 
 A standard workspace member has two lattice endpoints. Creative can author six DOF restraints at a support and choose among signed X, Y and Z point-load directions. The editor persists those values. The current voxel analysis applies independent axis restraints and signed point-load directions. Reachability follows shared member endpoints in the voxel editor and explicit attached ends in Shared table. Reachability indicates a graph path to a support; stability, stiffness, and capacity require analysis. Load totals count explicit point loads, separate from generated solver loads.
 
-The Feedback preview control opens the experimental analysis for supported voxel inputs. Its result overlays use the numerical experiment rather than the prototype’s mock utilization colors. The approximate solver is unvalidated for engineering design. See [structural solver](structural-solver.md) and [solver criteria](solver-criteria.md).
+**Run simulation** analyzes the current model or Shared table draft and opens the results drawer. **Results** reopens the available analysis for the unchanged model. Creative and Shared table run one applied-load case with player-placed point loads and member self-weight. Engineering challenges, Forensics and Load in space use the active level’s experimental design combinations, generated loads where specified, and objective checks. Results can show deformation, applied loads and reactions, member utilization and governing checks. The approximate solver is unvalidated for engineering design. See [structural solver](structural-solver.md) and [solver criteria](solver-criteria.md).
 
 ## Shared table playtest
 

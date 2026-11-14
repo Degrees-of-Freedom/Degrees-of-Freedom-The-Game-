@@ -6,6 +6,8 @@ validated_against:
   - packages/solver-contract/src/index.ts
   - packages/solver-contract/README.md
   - apps/web/src/solver/unavailable.ts
+  - apps/web/src/solver/voxelLoads.ts
+  - apps/web/src/game/turnAnalysis.ts
   - apps/web/src/solver/voxel.ts
   - services/opensees/README.md
   - docs/kb/solver-criteria.md
@@ -23,7 +25,7 @@ The game intends to communicate load paths, instability, member or connection fa
 
 The owner-supplied [solver criteria](solver-criteria.md) are the proposed implementation requirements. They specify intentional member-end connectivity, six-axis connection laws, exact rigid constraints, verified linear and nonlinear physics, component-scoped stability and validity, signed reactions, and deterministic turn analysis. Their gameplay defaults, numerical gates, and performance targets remain proposals. The [gap analysis and milestones](solver-criteria-gap-analysis.md) compare them with current code and tests; no milestone is accepted as complete.
 
-The [turn criteria](turn-criteria.md) now define the confirmed two-deck draw/play limits and per-end connection-card model. End-turn assessment compares the full shared structure with the prior committed baseline. The game engine owns issue responsibility and penalties; the solver returns physical classifications and validity. The Shared table implements card placement. An experimental applied-load solve supports fixed and ball end connections. Verified issue comparison and penalties remain pending.
+The [turn criteria](turn-criteria.md) now define the confirmed two-deck draw/play limits and per-end connection-card model. The criteria call for comparing the complete structure with the prior committed state. The Shared table currently runs an experimental applied-load solve before committing the draft. The solver preserves member-end identity in fixed and ball connections, releases three rotations at ball connections, and gives unattached ends distinct node IDs even when they coincide with a joint. End turn records stable, unstable, partial or unresolved. Verified before-and-after issue matching and penalties remain pending.
 
 ## Model and interface today
 
