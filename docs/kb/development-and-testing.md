@@ -31,6 +31,12 @@ The OpenSees service in `services/opensees` is a Python project that needs [uv](
 
 Run the maintained workspace with `npm run dev`. The [original prototype notes](../../prototypes/voxel-struct/README.md) link to the archived standalone implementation and describe its historical checks.
 
+## Unified runtime integration validation — 2026-11-14
+
+The integration with current main passed TypeScript and 94 Vitest tests across 21 files. Two live OpenSees tests were skipped because no service URL was configured; this run does not verify the Python service or deployment. Browser checks compared all five environment views with prototype captures and exercised Grow Dusk and Kit simulation results, match persistence, style selection and compact layouts. Follow-up fixes addressed source glyphs, active tools, camera framing, result contrast and narrow-screen overlaps. The browser connection became unavailable before a final visual pass on the last portrait-specific overrides; those overrides received static and TypeScript checks.
+
+The web CI workflow runs dependency installation, TypeScript, Vitest and production build, then uploads `apps/web/dist`. Static hosting must route unknown application paths such as `/play` to `index.html`. CI produces an artifact; it is not an automatic hosting deployment.
+
 ## Solver criteria documentation validation — 2026-11-14
 
 Validated the criteria documentation against main baseline `b01a30e` and the owner-supplied text:
