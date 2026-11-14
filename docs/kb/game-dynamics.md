@@ -17,6 +17,8 @@ Record the intended gameplay and the decisions governing game state and turns.
 
 Players take turns placing structural members and connections, applying loads, and developing a structure over time. The README proposes goal-based challenges and a mode that continues until instability or failure. Rules, scoring, and additional modes remain open.
 
+Zustand is under consideration for client state management; it has not been selected or implemented.
+
 ## Open questions
 
 - What actions are legal on a turn, and when are they validated or committed?
