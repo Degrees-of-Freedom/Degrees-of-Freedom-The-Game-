@@ -1,0 +1,128 @@
+{
+  "format": "dof-structure-record",
+  "version": 1,
+  "id": "18-guyed-mast",
+  "name": "Guyed mast",
+  "family": "cable",
+  "purpose": "Pretension, cable angles and symmetric anchor layout.",
+  "complexity": "small",
+  "nodeCount": 11,
+  "memberCount": 10,
+  "extentMetres": [
+    16,
+    16,
+    12
+  ],
+  "expectation": {
+    "stability": "review",
+    "basis": "Qualitative design intent; not a verified numerical reference."
+  },
+  "preview": "previews/18-guyed-mast.png",
+  "save": {
+    "format": "dof-voxel-save",
+    "version": 1,
+    "levelId": "library",
+    "model": {
+      "members": [
+        {
+          "id": 1,
+          "a": "6,6,0",
+          "b": "6,6,1",
+          "type": "heb"
+        },
+        {
+          "id": 2,
+          "a": "6,6,1",
+          "b": "6,6,2",
+          "type": "heb"
+        },
+        {
+          "id": 3,
+          "a": "6,6,2",
+          "b": "6,6,3",
+          "type": "heb"
+        },
+        {
+          "id": 4,
+          "a": "6,6,3",
+          "b": "6,6,4",
+          "type": "heb"
+        },
+        {
+          "id": 5,
+          "a": "6,6,4",
+          "b": "6,6,5",
+          "type": "heb"
+        },
+        {
+          "id": 6,
+          "a": "6,6,5",
+          "b": "6,6,6",
+          "type": "heb"
+        },
+        {
+          "id": 7,
+          "a": "2,6,0",
+          "b": "6,6,6",
+          "type": "cable"
+        },
+        {
+          "id": 8,
+          "a": "10,6,0",
+          "b": "6,6,6",
+          "type": "cable"
+        },
+        {
+          "id": 9,
+          "a": "6,2,0",
+          "b": "6,6,6",
+          "type": "cable"
+        },
+        {
+          "id": 10,
+          "a": "6,10,0",
+          "b": "6,6,6",
+          "type": "cable"
+        }
+      ],
+      "attrs": {
+        "6,6,0": {
+          "found": true,
+          "joint": true
+        },
+        "6,6,1": {
+          "joint": true
+        },
+        "6,6,2": {
+          "joint": true
+        },
+        "6,6,3": {
+          "joint": true
+        },
+        "6,6,4": {
+          "joint": true
+        },
+        "6,6,5": {
+          "joint": true
+        },
+        "6,6,6": {
+          "joint": true,
+          "load": 10
+        },
+        "2,6,0": {
+          "found": true
+        },
+        "10,6,0": {
+          "found": true
+        },
+        "6,2,0": {
+          "found": true
+        },
+        "6,10,0": {
+          "found": true
+        }
+      },
+      "nextId": 11
+    }
+  }
+}

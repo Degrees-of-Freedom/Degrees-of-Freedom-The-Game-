@@ -69,6 +69,7 @@ const modelSchema = z
     }
   });
 const levelId = z.enum([
+  "library",
   "tower1",
   "tower2",
   "bridge1",

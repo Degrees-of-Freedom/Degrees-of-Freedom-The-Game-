@@ -1,5 +1,10 @@
 import { type Level, type LevelId } from "./model";
 export const LEVELS: Record<LevelId, Level> = {
+  library: {
+    name: 'Library · solver fixtures', type: 'sandbox',
+    nx: 16, ny: 16, nz: 14, q0: 0, budget: Infinity, inv: null,
+    desc: 'Reusable structure fixtures. Point loads plus the voxel solver self-weight and load combinations; no wind.',
+  },
   tower1: {
     name: "Tower I · 12 m lookout",
     type: "tower",

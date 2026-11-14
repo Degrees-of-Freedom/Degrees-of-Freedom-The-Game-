@@ -30,8 +30,9 @@ import { EngineeringOptions } from "../components/environment/EngineeringOptions
 import { SceneBoundary } from "../components/environment/SceneBoundary";
 import { PauseMenu } from "../components/PauseMenu";
 import { getSettings } from "../menu/settings";
+import { StructureLibrary } from "../components/StructureLibrary";
 
-type Drawer = "analysis" | "model" | "build" | "turn" | null;
+type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 
 /** The environment variants compose the same store, scene and analysis boundary. */
 export function Workspace() {
@@ -43,7 +44,9 @@ export function Workspace() {
     model: typeof game.model;
     result: VoxelAnalysis;
   } | null>(null);
-  const [drawer, setDrawer] = useState<Drawer>(null);
+  const [drawer, setDrawer] = useState<Drawer>(() =>
+    new URLSearchParams(window.location.search).has("library") ? "library" : null,
+  );
   const [message, setMessage] = useState("");
   const [help, setHelp] = useState(() => getSettings().showHelpOnStart);
   const [paused, setPaused] = useState(false);
@@ -54,6 +57,7 @@ export function Workspace() {
   const [loads, setLoads] = useState(true);
   const [loadPath, setLoadPath] = useState(false);
   const [exampleIndex, setExampleIndex] = useState(0);
+  const [libraryIndex, setLibraryIndex] = useState(0);
   const sound = useEditorSound(game.model);
   const result = analysis?.model === game.model ? analysis.result : null;
   const style = game.style === "engineering" ? "levels" : game.style;
@@ -138,6 +142,7 @@ export function Workspace() {
   });
   const historyActions = (
     <>
+      <button className="btn" onClick={() => setDrawer("library")}>Structure library</button>
       <button
         className="btn icon"
         aria-label="Undo"
@@ -420,7 +425,7 @@ export function Workspace() {
           >
             <div className="drawer-heading">
               <h2>
-                {drawer === "analysis"
+                {drawer === "library" ? "Structure library" : drawer === "analysis"
                   ? "Structural feedback"
                   : drawer === "model"
                     ? "Solver input"
@@ -437,6 +442,7 @@ export function Workspace() {
               </button>
             </div>
             <div className="drawer-content">
+              {drawer === "library" && <StructureLibrary index={libraryIndex} setIndex={setLibraryIndex} />}
               {drawer === "analysis" && (
                 <>
                   <p className="analysis-notice">

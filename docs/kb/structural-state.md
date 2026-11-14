@@ -25,6 +25,8 @@ status: partial
 
 # Structural State and Persistence
 
+The [structure library](structure-library.md) supplies 20 voxel specimens, PNG previews, a generated SQLite catalog and observed regression baselines. Its SQLite file is a portable catalog, not a state persistence service.
+
 This page describes the shared solver-neutral structural snapshot and revision storage, plus the existing experimental voxel saves. The shared snapshot is a data contract, not a numerical solver or complete turn system. OpenSees and the game UI are not yet connected to it. Nonlinear physics and full criteria validation remain work to do. There is no SQLite or remote state service.
 
 ## Shared structural snapshot v1

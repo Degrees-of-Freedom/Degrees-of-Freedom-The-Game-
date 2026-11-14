@@ -1,0 +1,5546 @@
+{
+  "format": "dof-structure-library",
+  "version": 1,
+  "records": [
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "01-stocky-column",
+      "name": "Stocky column",
+      "family": "column",
+      "purpose": "Axial load, foundation reaction and short-member picking.",
+      "complexity": "small",
+      "nodeCount": 2,
+      "memberCount": 1,
+      "extentMetres": [
+        0,
+        0,
+        2
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/01-stocky-column.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "6,6,0",
+              "b": "6,6,1",
+              "type": "heb"
+            }
+          ],
+          "attrs": {
+            "6,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "6,6,1": {
+              "joint": true,
+              "load": 10
+            }
+          },
+          "nextId": 2
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "02-slender-column",
+      "name": "Slender column",
+      "family": "column",
+      "purpose": "Height, slenderness and deformation overlays.",
+      "complexity": "small",
+      "nodeCount": 11,
+      "memberCount": 10,
+      "extentMetres": [
+        0,
+        0,
+        20
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/02-slender-column.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "6,6,0",
+              "b": "6,6,1",
+              "type": "shs"
+            },
+            {
+              "id": 2,
+              "a": "6,6,1",
+              "b": "6,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 3,
+              "a": "6,6,2",
+              "b": "6,6,3",
+              "type": "shs"
+            },
+            {
+              "id": 4,
+              "a": "6,6,3",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 5,
+              "a": "6,6,4",
+              "b": "6,6,5",
+              "type": "shs"
+            },
+            {
+              "id": 6,
+              "a": "6,6,5",
+              "b": "6,6,6",
+              "type": "shs"
+            },
+            {
+              "id": 7,
+              "a": "6,6,6",
+              "b": "6,6,7",
+              "type": "shs"
+            },
+            {
+              "id": 8,
+              "a": "6,6,7",
+              "b": "6,6,8",
+              "type": "shs"
+            },
+            {
+              "id": 9,
+              "a": "6,6,8",
+              "b": "6,6,9",
+              "type": "shs"
+            },
+            {
+              "id": 10,
+              "a": "6,6,9",
+              "b": "6,6,10",
+              "type": "shs"
+            }
+          ],
+          "attrs": {
+            "6,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "6,6,1": {
+              "joint": true
+            },
+            "6,6,2": {
+              "joint": true
+            },
+            "6,6,3": {
+              "joint": true
+            },
+            "6,6,4": {
+              "joint": true
+            },
+            "6,6,5": {
+              "joint": true
+            },
+            "6,6,6": {
+              "joint": true
+            },
+            "6,6,7": {
+              "joint": true
+            },
+            "6,6,8": {
+              "joint": true
+            },
+            "6,6,9": {
+              "joint": true
+            },
+            "6,6,10": {
+              "joint": true,
+              "load": 10
+            }
+          },
+          "nextId": 11
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "03-cantilever",
+      "name": "Bent cantilever",
+      "family": "beam",
+      "purpose": "Bending, end displacement and moment connections.",
+      "complexity": "small",
+      "nodeCount": 7,
+      "memberCount": 6,
+      "extentMetres": [
+        8,
+        0,
+        4
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/03-cantilever.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "6,6,0",
+              "b": "6,6,1",
+              "type": "heb"
+            },
+            {
+              "id": 2,
+              "a": "6,6,1",
+              "b": "6,6,2",
+              "type": "heb"
+            },
+            {
+              "id": 3,
+              "a": "6,6,2",
+              "b": "7,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 4,
+              "a": "7,6,2",
+              "b": "8,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 5,
+              "a": "8,6,2",
+              "b": "9,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 6,
+              "a": "9,6,2",
+              "b": "10,6,2",
+              "type": "ipe"
+            }
+          ],
+          "attrs": {
+            "6,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "6,6,1": {
+              "joint": true
+            },
+            "6,6,2": {
+              "joint": true,
+              "load": 10
+            },
+            "7,6,2": {
+              "joint": true
+            },
+            "8,6,2": {
+              "joint": true
+            },
+            "9,6,2": {
+              "joint": true
+            },
+            "10,6,2": {
+              "joint": true,
+              "load": 20
+            }
+          },
+          "nextId": 7
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "04-rigid-portal",
+      "name": "Rigid portal",
+      "family": "frame",
+      "purpose": "Rigid joints and planar frame bending.",
+      "complexity": "small",
+      "nodeCount": 7,
+      "memberCount": 6,
+      "extentMetres": [
+        8,
+        0,
+        4
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/04-rigid-portal.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "4,6,0",
+              "b": "4,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 2,
+              "a": "8,6,0",
+              "b": "8,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 3,
+              "a": "4,6,2",
+              "b": "5,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 4,
+              "a": "5,6,2",
+              "b": "6,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 5,
+              "a": "6,6,2",
+              "b": "7,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 6,
+              "a": "7,6,2",
+              "b": "8,6,2",
+              "type": "ipe"
+            }
+          ],
+          "attrs": {
+            "4,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,6,2": {
+              "joint": true
+            },
+            "8,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "8,6,2": {
+              "joint": true
+            },
+            "5,6,2": {
+              "joint": true
+            },
+            "6,6,2": {
+              "joint": true,
+              "load": 20
+            },
+            "7,6,2": {
+              "joint": true
+            }
+          },
+          "nextId": 7
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "05-released-portal",
+      "name": "Released portal",
+      "family": "mechanism",
+      "purpose": "Released bending joints; detect mechanism rather than plausible deformation.",
+      "complexity": "small",
+      "nodeCount": 7,
+      "memberCount": 6,
+      "extentMetres": [
+        8,
+        0,
+        4
+      ],
+      "expectation": {
+        "stability": "mechanism",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/05-released-portal.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "4,6,0",
+              "b": "4,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 2,
+              "a": "8,6,0",
+              "b": "8,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 3,
+              "a": "4,6,2",
+              "b": "5,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 4,
+              "a": "5,6,2",
+              "b": "6,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 5,
+              "a": "6,6,2",
+              "b": "7,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 6,
+              "a": "7,6,2",
+              "b": "8,6,2",
+              "type": "ipe"
+            }
+          ],
+          "attrs": {
+            "4,6,0": {
+              "found": true
+            },
+            "8,6,0": {
+              "found": true
+            },
+            "6,6,2": {
+              "load": 20
+            }
+          },
+          "nextId": 7
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "06-braced-portal",
+      "name": "Braced portal",
+      "family": "frame",
+      "purpose": "Compare bracing against the released portal.",
+      "complexity": "small",
+      "nodeCount": 7,
+      "memberCount": 8,
+      "extentMetres": [
+        8,
+        0,
+        4
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/06-braced-portal.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "4,6,0",
+              "b": "4,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 2,
+              "a": "8,6,0",
+              "b": "8,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 3,
+              "a": "4,6,2",
+              "b": "5,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 4,
+              "a": "5,6,2",
+              "b": "6,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 5,
+              "a": "6,6,2",
+              "b": "7,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 6,
+              "a": "7,6,2",
+              "b": "8,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 7,
+              "a": "4,6,0",
+              "b": "6,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 8,
+              "a": "8,6,0",
+              "b": "6,6,2",
+              "type": "shs"
+            }
+          ],
+          "attrs": {
+            "4,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,6,2": {
+              "joint": true
+            },
+            "8,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "8,6,2": {
+              "joint": true
+            },
+            "5,6,2": {
+              "joint": true
+            },
+            "6,6,2": {
+              "joint": true,
+              "load": 20
+            },
+            "7,6,2": {
+              "joint": true
+            }
+          },
+          "nextId": 9
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "07-timber-portal",
+      "name": "Timber portal",
+      "family": "frame",
+      "purpose": "Material color, section sizing and stiffness comparison.",
+      "complexity": "small",
+      "nodeCount": 7,
+      "memberCount": 6,
+      "extentMetres": [
+        8,
+        0,
+        4
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/07-timber-portal.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "4,6,0",
+              "b": "4,6,2",
+              "type": "glulam"
+            },
+            {
+              "id": 2,
+              "a": "8,6,0",
+              "b": "8,6,2",
+              "type": "glulam"
+            },
+            {
+              "id": 3,
+              "a": "4,6,2",
+              "b": "5,6,2",
+              "type": "glulam"
+            },
+            {
+              "id": 4,
+              "a": "5,6,2",
+              "b": "6,6,2",
+              "type": "glulam"
+            },
+            {
+              "id": 5,
+              "a": "6,6,2",
+              "b": "7,6,2",
+              "type": "glulam"
+            },
+            {
+              "id": 6,
+              "a": "7,6,2",
+              "b": "8,6,2",
+              "type": "glulam"
+            }
+          ],
+          "attrs": {
+            "4,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,6,2": {
+              "joint": true
+            },
+            "8,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "8,6,2": {
+              "joint": true
+            },
+            "5,6,2": {
+              "joint": true
+            },
+            "6,6,2": {
+              "joint": true,
+              "load": 20
+            },
+            "7,6,2": {
+              "joint": true
+            }
+          },
+          "nextId": 7
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "08-space-frame",
+      "name": "Single-storey space frame",
+      "family": "frame",
+      "purpose": "3D connections and overlapping node selection.",
+      "complexity": "small",
+      "nodeCount": 8,
+      "memberCount": 8,
+      "extentMetres": [
+        4,
+        4,
+        4
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/08-space-frame.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "2,2,0",
+              "b": "2,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 2,
+              "a": "2,2,2",
+              "b": "4,2,2",
+              "type": "ipe"
+            },
+            {
+              "id": 3,
+              "a": "2,2,2",
+              "b": "2,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 4,
+              "a": "2,4,0",
+              "b": "2,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 5,
+              "a": "2,4,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 6,
+              "a": "4,2,0",
+              "b": "4,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 7,
+              "a": "4,2,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 8,
+              "a": "4,4,0",
+              "b": "4,4,2",
+              "type": "heb"
+            }
+          ],
+          "attrs": {
+            "2,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "2,2,2": {
+              "joint": true,
+              "load": 5
+            },
+            "4,2,2": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "4,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,4,0": {
+              "found": true,
+              "joint": true
+            }
+          },
+          "nextId": 9
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "09-two-storey",
+      "name": "Two-storey frame",
+      "family": "building",
+      "purpose": "Multiple build planes and floor connectivity.",
+      "complexity": "medium",
+      "nodeCount": 18,
+      "memberCount": 26,
+      "extentMetres": [
+        8,
+        4,
+        8
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/09-two-storey.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "2,2,0",
+              "b": "2,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 2,
+              "a": "2,2,2",
+              "b": "4,2,2",
+              "type": "ipe"
+            },
+            {
+              "id": 3,
+              "a": "2,2,2",
+              "b": "2,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 4,
+              "a": "2,2,2",
+              "b": "2,2,4",
+              "type": "heb"
+            },
+            {
+              "id": 5,
+              "a": "2,2,4",
+              "b": "4,2,4",
+              "type": "ipe"
+            },
+            {
+              "id": 6,
+              "a": "2,2,4",
+              "b": "2,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 7,
+              "a": "2,4,0",
+              "b": "2,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 8,
+              "a": "2,4,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 9,
+              "a": "2,4,2",
+              "b": "2,4,4",
+              "type": "heb"
+            },
+            {
+              "id": 10,
+              "a": "2,4,4",
+              "b": "4,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 11,
+              "a": "4,2,0",
+              "b": "4,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 12,
+              "a": "4,2,2",
+              "b": "6,2,2",
+              "type": "ipe"
+            },
+            {
+              "id": 13,
+              "a": "4,2,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 14,
+              "a": "4,2,2",
+              "b": "4,2,4",
+              "type": "heb"
+            },
+            {
+              "id": 15,
+              "a": "4,2,4",
+              "b": "6,2,4",
+              "type": "ipe"
+            },
+            {
+              "id": 16,
+              "a": "4,2,4",
+              "b": "4,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 17,
+              "a": "4,4,0",
+              "b": "4,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 18,
+              "a": "4,4,2",
+              "b": "6,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 19,
+              "a": "4,4,2",
+              "b": "4,4,4",
+              "type": "heb"
+            },
+            {
+              "id": 20,
+              "a": "4,4,4",
+              "b": "6,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 21,
+              "a": "6,2,0",
+              "b": "6,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 22,
+              "a": "6,2,2",
+              "b": "6,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 23,
+              "a": "6,2,2",
+              "b": "6,2,4",
+              "type": "heb"
+            },
+            {
+              "id": 24,
+              "a": "6,2,4",
+              "b": "6,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 25,
+              "a": "6,4,0",
+              "b": "6,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 26,
+              "a": "6,4,2",
+              "b": "6,4,4",
+              "type": "heb"
+            }
+          ],
+          "attrs": {
+            "2,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "2,2,2": {
+              "joint": true
+            },
+            "4,2,2": {
+              "joint": true
+            },
+            "2,4,2": {
+              "joint": true
+            },
+            "2,2,4": {
+              "joint": true,
+              "load": 5
+            },
+            "4,2,4": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,4": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,4,2": {
+              "joint": true
+            },
+            "4,4,4": {
+              "joint": true,
+              "load": 5
+            },
+            "4,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "6,2,2": {
+              "joint": true
+            },
+            "6,2,4": {
+              "joint": true,
+              "load": 5
+            },
+            "4,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "6,4,2": {
+              "joint": true
+            },
+            "6,4,4": {
+              "joint": true,
+              "load": 5
+            },
+            "6,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "6,4,0": {
+              "found": true,
+              "joint": true
+            }
+          },
+          "nextId": 27
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "10-braced-tower",
+      "name": "Braced tower",
+      "family": "tower",
+      "purpose": "Slender 3D tower with facade diagonals.",
+      "complexity": "medium",
+      "nodeCount": 24,
+      "memberCount": 60,
+      "extentMetres": [
+        4,
+        4,
+        20
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/10-braced-tower.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "2,2,0",
+              "b": "2,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 2,
+              "a": "2,2,2",
+              "b": "4,2,2",
+              "type": "ipe"
+            },
+            {
+              "id": 3,
+              "a": "2,2,2",
+              "b": "2,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 4,
+              "a": "2,2,0",
+              "b": "4,2,2",
+              "type": "shs"
+            },
+            {
+              "id": 5,
+              "a": "2,2,0",
+              "b": "2,4,2",
+              "type": "shs"
+            },
+            {
+              "id": 6,
+              "a": "2,2,2",
+              "b": "2,2,4",
+              "type": "heb"
+            },
+            {
+              "id": 7,
+              "a": "2,2,4",
+              "b": "4,2,4",
+              "type": "ipe"
+            },
+            {
+              "id": 8,
+              "a": "2,2,4",
+              "b": "2,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 9,
+              "a": "2,2,2",
+              "b": "4,2,4",
+              "type": "shs"
+            },
+            {
+              "id": 10,
+              "a": "2,2,2",
+              "b": "2,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 11,
+              "a": "2,2,4",
+              "b": "2,2,6",
+              "type": "heb"
+            },
+            {
+              "id": 12,
+              "a": "2,2,6",
+              "b": "4,2,6",
+              "type": "ipe"
+            },
+            {
+              "id": 13,
+              "a": "2,2,6",
+              "b": "2,4,6",
+              "type": "ipe"
+            },
+            {
+              "id": 14,
+              "a": "2,2,4",
+              "b": "4,2,6",
+              "type": "shs"
+            },
+            {
+              "id": 15,
+              "a": "2,2,4",
+              "b": "2,4,6",
+              "type": "shs"
+            },
+            {
+              "id": 16,
+              "a": "2,2,6",
+              "b": "2,2,8",
+              "type": "heb"
+            },
+            {
+              "id": 17,
+              "a": "2,2,8",
+              "b": "4,2,8",
+              "type": "ipe"
+            },
+            {
+              "id": 18,
+              "a": "2,2,8",
+              "b": "2,4,8",
+              "type": "ipe"
+            },
+            {
+              "id": 19,
+              "a": "2,2,6",
+              "b": "4,2,8",
+              "type": "shs"
+            },
+            {
+              "id": 20,
+              "a": "2,2,6",
+              "b": "2,4,8",
+              "type": "shs"
+            },
+            {
+              "id": 21,
+              "a": "2,2,8",
+              "b": "2,2,10",
+              "type": "heb"
+            },
+            {
+              "id": 22,
+              "a": "2,2,10",
+              "b": "4,2,10",
+              "type": "ipe"
+            },
+            {
+              "id": 23,
+              "a": "2,2,10",
+              "b": "2,4,10",
+              "type": "ipe"
+            },
+            {
+              "id": 24,
+              "a": "2,2,8",
+              "b": "4,2,10",
+              "type": "shs"
+            },
+            {
+              "id": 25,
+              "a": "2,2,8",
+              "b": "2,4,10",
+              "type": "shs"
+            },
+            {
+              "id": 26,
+              "a": "2,4,0",
+              "b": "2,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 27,
+              "a": "2,4,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 28,
+              "a": "2,4,0",
+              "b": "4,4,2",
+              "type": "shs"
+            },
+            {
+              "id": 29,
+              "a": "2,4,2",
+              "b": "2,4,4",
+              "type": "heb"
+            },
+            {
+              "id": 30,
+              "a": "2,4,4",
+              "b": "4,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 31,
+              "a": "2,4,2",
+              "b": "4,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 32,
+              "a": "2,4,4",
+              "b": "2,4,6",
+              "type": "heb"
+            },
+            {
+              "id": 33,
+              "a": "2,4,6",
+              "b": "4,4,6",
+              "type": "ipe"
+            },
+            {
+              "id": 34,
+              "a": "2,4,4",
+              "b": "4,4,6",
+              "type": "shs"
+            },
+            {
+              "id": 35,
+              "a": "2,4,6",
+              "b": "2,4,8",
+              "type": "heb"
+            },
+            {
+              "id": 36,
+              "a": "2,4,8",
+              "b": "4,4,8",
+              "type": "ipe"
+            },
+            {
+              "id": 37,
+              "a": "2,4,6",
+              "b": "4,4,8",
+              "type": "shs"
+            },
+            {
+              "id": 38,
+              "a": "2,4,8",
+              "b": "2,4,10",
+              "type": "heb"
+            },
+            {
+              "id": 39,
+              "a": "2,4,10",
+              "b": "4,4,10",
+              "type": "ipe"
+            },
+            {
+              "id": 40,
+              "a": "2,4,8",
+              "b": "4,4,10",
+              "type": "shs"
+            },
+            {
+              "id": 41,
+              "a": "4,2,0",
+              "b": "4,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 42,
+              "a": "4,2,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 43,
+              "a": "4,2,0",
+              "b": "4,4,2",
+              "type": "shs"
+            },
+            {
+              "id": 44,
+              "a": "4,2,2",
+              "b": "4,2,4",
+              "type": "heb"
+            },
+            {
+              "id": 45,
+              "a": "4,2,4",
+              "b": "4,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 46,
+              "a": "4,2,2",
+              "b": "4,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 47,
+              "a": "4,2,4",
+              "b": "4,2,6",
+              "type": "heb"
+            },
+            {
+              "id": 48,
+              "a": "4,2,6",
+              "b": "4,4,6",
+              "type": "ipe"
+            },
+            {
+              "id": 49,
+              "a": "4,2,4",
+              "b": "4,4,6",
+              "type": "shs"
+            },
+            {
+              "id": 50,
+              "a": "4,2,6",
+              "b": "4,2,8",
+              "type": "heb"
+            },
+            {
+              "id": 51,
+              "a": "4,2,8",
+              "b": "4,4,8",
+              "type": "ipe"
+            },
+            {
+              "id": 52,
+              "a": "4,2,6",
+              "b": "4,4,8",
+              "type": "shs"
+            },
+            {
+              "id": 53,
+              "a": "4,2,8",
+              "b": "4,2,10",
+              "type": "heb"
+            },
+            {
+              "id": 54,
+              "a": "4,2,10",
+              "b": "4,4,10",
+              "type": "ipe"
+            },
+            {
+              "id": 55,
+              "a": "4,2,8",
+              "b": "4,4,10",
+              "type": "shs"
+            },
+            {
+              "id": 56,
+              "a": "4,4,0",
+              "b": "4,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 57,
+              "a": "4,4,2",
+              "b": "4,4,4",
+              "type": "heb"
+            },
+            {
+              "id": 58,
+              "a": "4,4,4",
+              "b": "4,4,6",
+              "type": "heb"
+            },
+            {
+              "id": 59,
+              "a": "4,4,6",
+              "b": "4,4,8",
+              "type": "heb"
+            },
+            {
+              "id": 60,
+              "a": "4,4,8",
+              "b": "4,4,10",
+              "type": "heb"
+            }
+          ],
+          "attrs": {
+            "2,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "2,2,2": {
+              "joint": true
+            },
+            "4,2,2": {
+              "joint": true
+            },
+            "2,4,2": {
+              "joint": true
+            },
+            "2,2,4": {
+              "joint": true
+            },
+            "4,2,4": {
+              "joint": true
+            },
+            "2,4,4": {
+              "joint": true
+            },
+            "2,2,6": {
+              "joint": true
+            },
+            "4,2,6": {
+              "joint": true
+            },
+            "2,4,6": {
+              "joint": true
+            },
+            "2,2,8": {
+              "joint": true
+            },
+            "4,2,8": {
+              "joint": true
+            },
+            "2,4,8": {
+              "joint": true
+            },
+            "2,2,10": {
+              "joint": true,
+              "load": 5
+            },
+            "4,2,10": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,10": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,4,2": {
+              "joint": true
+            },
+            "4,4,4": {
+              "joint": true
+            },
+            "4,4,6": {
+              "joint": true
+            },
+            "4,4,8": {
+              "joint": true
+            },
+            "4,4,10": {
+              "joint": true,
+              "load": 5
+            },
+            "4,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,4,0": {
+              "found": true,
+              "joint": true
+            }
+          },
+          "nextId": 61
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "11-unbraced-tower",
+      "name": "Moment tower",
+      "family": "tower",
+      "purpose": "Compare sway and force distribution without diagonals.",
+      "complexity": "medium",
+      "nodeCount": 24,
+      "memberCount": 40,
+      "extentMetres": [
+        4,
+        4,
+        20
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/11-unbraced-tower.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "2,2,0",
+              "b": "2,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 2,
+              "a": "2,2,2",
+              "b": "4,2,2",
+              "type": "ipe"
+            },
+            {
+              "id": 3,
+              "a": "2,2,2",
+              "b": "2,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 4,
+              "a": "2,2,2",
+              "b": "2,2,4",
+              "type": "heb"
+            },
+            {
+              "id": 5,
+              "a": "2,2,4",
+              "b": "4,2,4",
+              "type": "ipe"
+            },
+            {
+              "id": 6,
+              "a": "2,2,4",
+              "b": "2,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 7,
+              "a": "2,2,4",
+              "b": "2,2,6",
+              "type": "heb"
+            },
+            {
+              "id": 8,
+              "a": "2,2,6",
+              "b": "4,2,6",
+              "type": "ipe"
+            },
+            {
+              "id": 9,
+              "a": "2,2,6",
+              "b": "2,4,6",
+              "type": "ipe"
+            },
+            {
+              "id": 10,
+              "a": "2,2,6",
+              "b": "2,2,8",
+              "type": "heb"
+            },
+            {
+              "id": 11,
+              "a": "2,2,8",
+              "b": "4,2,8",
+              "type": "ipe"
+            },
+            {
+              "id": 12,
+              "a": "2,2,8",
+              "b": "2,4,8",
+              "type": "ipe"
+            },
+            {
+              "id": 13,
+              "a": "2,2,8",
+              "b": "2,2,10",
+              "type": "heb"
+            },
+            {
+              "id": 14,
+              "a": "2,2,10",
+              "b": "4,2,10",
+              "type": "ipe"
+            },
+            {
+              "id": 15,
+              "a": "2,2,10",
+              "b": "2,4,10",
+              "type": "ipe"
+            },
+            {
+              "id": 16,
+              "a": "2,4,0",
+              "b": "2,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 17,
+              "a": "2,4,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 18,
+              "a": "2,4,2",
+              "b": "2,4,4",
+              "type": "heb"
+            },
+            {
+              "id": 19,
+              "a": "2,4,4",
+              "b": "4,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 20,
+              "a": "2,4,4",
+              "b": "2,4,6",
+              "type": "heb"
+            },
+            {
+              "id": 21,
+              "a": "2,4,6",
+              "b": "4,4,6",
+              "type": "ipe"
+            },
+            {
+              "id": 22,
+              "a": "2,4,6",
+              "b": "2,4,8",
+              "type": "heb"
+            },
+            {
+              "id": 23,
+              "a": "2,4,8",
+              "b": "4,4,8",
+              "type": "ipe"
+            },
+            {
+              "id": 24,
+              "a": "2,4,8",
+              "b": "2,4,10",
+              "type": "heb"
+            },
+            {
+              "id": 25,
+              "a": "2,4,10",
+              "b": "4,4,10",
+              "type": "ipe"
+            },
+            {
+              "id": 26,
+              "a": "4,2,0",
+              "b": "4,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 27,
+              "a": "4,2,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 28,
+              "a": "4,2,2",
+              "b": "4,2,4",
+              "type": "heb"
+            },
+            {
+              "id": 29,
+              "a": "4,2,4",
+              "b": "4,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 30,
+              "a": "4,2,4",
+              "b": "4,2,6",
+              "type": "heb"
+            },
+            {
+              "id": 31,
+              "a": "4,2,6",
+              "b": "4,4,6",
+              "type": "ipe"
+            },
+            {
+              "id": 32,
+              "a": "4,2,6",
+              "b": "4,2,8",
+              "type": "heb"
+            },
+            {
+              "id": 33,
+              "a": "4,2,8",
+              "b": "4,4,8",
+              "type": "ipe"
+            },
+            {
+              "id": 34,
+              "a": "4,2,8",
+              "b": "4,2,10",
+              "type": "heb"
+            },
+            {
+              "id": 35,
+              "a": "4,2,10",
+              "b": "4,4,10",
+              "type": "ipe"
+            },
+            {
+              "id": 36,
+              "a": "4,4,0",
+              "b": "4,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 37,
+              "a": "4,4,2",
+              "b": "4,4,4",
+              "type": "heb"
+            },
+            {
+              "id": 38,
+              "a": "4,4,4",
+              "b": "4,4,6",
+              "type": "heb"
+            },
+            {
+              "id": 39,
+              "a": "4,4,6",
+              "b": "4,4,8",
+              "type": "heb"
+            },
+            {
+              "id": 40,
+              "a": "4,4,8",
+              "b": "4,4,10",
+              "type": "heb"
+            }
+          ],
+          "attrs": {
+            "2,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "2,2,2": {
+              "joint": true
+            },
+            "4,2,2": {
+              "joint": true
+            },
+            "2,4,2": {
+              "joint": true
+            },
+            "2,2,4": {
+              "joint": true
+            },
+            "4,2,4": {
+              "joint": true
+            },
+            "2,4,4": {
+              "joint": true
+            },
+            "2,2,6": {
+              "joint": true
+            },
+            "4,2,6": {
+              "joint": true
+            },
+            "2,4,6": {
+              "joint": true
+            },
+            "2,2,8": {
+              "joint": true
+            },
+            "4,2,8": {
+              "joint": true
+            },
+            "2,4,8": {
+              "joint": true
+            },
+            "2,2,10": {
+              "joint": true,
+              "load": 5
+            },
+            "4,2,10": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,10": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,4,2": {
+              "joint": true
+            },
+            "4,4,4": {
+              "joint": true
+            },
+            "4,4,6": {
+              "joint": true
+            },
+            "4,4,8": {
+              "joint": true
+            },
+            "4,4,10": {
+              "joint": true,
+              "load": 5
+            },
+            "4,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,4,0": {
+              "found": true,
+              "joint": true
+            }
+          },
+          "nextId": 41
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "12-midrise",
+      "name": "Multi-bay midrise",
+      "family": "building",
+      "purpose": "Dense selection and solver scaling across 208 members.",
+      "complexity": "large",
+      "nodeCount": 80,
+      "memberCount": 208,
+      "extentMetres": [
+        12,
+        12,
+        16
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/12-midrise.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "2,2,0",
+              "b": "2,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 2,
+              "a": "2,2,2",
+              "b": "4,2,2",
+              "type": "ipe"
+            },
+            {
+              "id": 3,
+              "a": "2,2,2",
+              "b": "2,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 4,
+              "a": "2,2,0",
+              "b": "4,2,2",
+              "type": "shs"
+            },
+            {
+              "id": 5,
+              "a": "2,2,0",
+              "b": "2,4,2",
+              "type": "shs"
+            },
+            {
+              "id": 6,
+              "a": "2,2,2",
+              "b": "2,2,4",
+              "type": "heb"
+            },
+            {
+              "id": 7,
+              "a": "2,2,4",
+              "b": "4,2,4",
+              "type": "ipe"
+            },
+            {
+              "id": 8,
+              "a": "2,2,4",
+              "b": "2,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 9,
+              "a": "2,2,2",
+              "b": "4,2,4",
+              "type": "shs"
+            },
+            {
+              "id": 10,
+              "a": "2,2,2",
+              "b": "2,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 11,
+              "a": "2,2,4",
+              "b": "2,2,6",
+              "type": "heb"
+            },
+            {
+              "id": 12,
+              "a": "2,2,6",
+              "b": "4,2,6",
+              "type": "ipe"
+            },
+            {
+              "id": 13,
+              "a": "2,2,6",
+              "b": "2,4,6",
+              "type": "ipe"
+            },
+            {
+              "id": 14,
+              "a": "2,2,4",
+              "b": "4,2,6",
+              "type": "shs"
+            },
+            {
+              "id": 15,
+              "a": "2,2,4",
+              "b": "2,4,6",
+              "type": "shs"
+            },
+            {
+              "id": 16,
+              "a": "2,2,6",
+              "b": "2,2,8",
+              "type": "heb"
+            },
+            {
+              "id": 17,
+              "a": "2,2,8",
+              "b": "4,2,8",
+              "type": "ipe"
+            },
+            {
+              "id": 18,
+              "a": "2,2,8",
+              "b": "2,4,8",
+              "type": "ipe"
+            },
+            {
+              "id": 19,
+              "a": "2,2,6",
+              "b": "4,2,8",
+              "type": "shs"
+            },
+            {
+              "id": 20,
+              "a": "2,2,6",
+              "b": "2,4,8",
+              "type": "shs"
+            },
+            {
+              "id": 21,
+              "a": "2,4,0",
+              "b": "2,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 22,
+              "a": "2,4,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 23,
+              "a": "2,4,2",
+              "b": "2,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 24,
+              "a": "2,4,0",
+              "b": "2,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 25,
+              "a": "2,4,2",
+              "b": "2,4,4",
+              "type": "heb"
+            },
+            {
+              "id": 26,
+              "a": "2,4,4",
+              "b": "4,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 27,
+              "a": "2,4,4",
+              "b": "2,6,4",
+              "type": "ipe"
+            },
+            {
+              "id": 28,
+              "a": "2,4,2",
+              "b": "2,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 29,
+              "a": "2,4,4",
+              "b": "2,4,6",
+              "type": "heb"
+            },
+            {
+              "id": 30,
+              "a": "2,4,6",
+              "b": "4,4,6",
+              "type": "ipe"
+            },
+            {
+              "id": 31,
+              "a": "2,4,6",
+              "b": "2,6,6",
+              "type": "ipe"
+            },
+            {
+              "id": 32,
+              "a": "2,4,4",
+              "b": "2,6,6",
+              "type": "shs"
+            },
+            {
+              "id": 33,
+              "a": "2,4,6",
+              "b": "2,4,8",
+              "type": "heb"
+            },
+            {
+              "id": 34,
+              "a": "2,4,8",
+              "b": "4,4,8",
+              "type": "ipe"
+            },
+            {
+              "id": 35,
+              "a": "2,4,8",
+              "b": "2,6,8",
+              "type": "ipe"
+            },
+            {
+              "id": 36,
+              "a": "2,4,6",
+              "b": "2,6,8",
+              "type": "shs"
+            },
+            {
+              "id": 37,
+              "a": "2,6,0",
+              "b": "2,6,2",
+              "type": "heb"
+            },
+            {
+              "id": 38,
+              "a": "2,6,2",
+              "b": "4,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 39,
+              "a": "2,6,2",
+              "b": "2,8,2",
+              "type": "ipe"
+            },
+            {
+              "id": 40,
+              "a": "2,6,0",
+              "b": "2,8,2",
+              "type": "shs"
+            },
+            {
+              "id": 41,
+              "a": "2,6,2",
+              "b": "2,6,4",
+              "type": "heb"
+            },
+            {
+              "id": 42,
+              "a": "2,6,4",
+              "b": "4,6,4",
+              "type": "ipe"
+            },
+            {
+              "id": 43,
+              "a": "2,6,4",
+              "b": "2,8,4",
+              "type": "ipe"
+            },
+            {
+              "id": 44,
+              "a": "2,6,2",
+              "b": "2,8,4",
+              "type": "shs"
+            },
+            {
+              "id": 45,
+              "a": "2,6,4",
+              "b": "2,6,6",
+              "type": "heb"
+            },
+            {
+              "id": 46,
+              "a": "2,6,6",
+              "b": "4,6,6",
+              "type": "ipe"
+            },
+            {
+              "id": 47,
+              "a": "2,6,6",
+              "b": "2,8,6",
+              "type": "ipe"
+            },
+            {
+              "id": 48,
+              "a": "2,6,4",
+              "b": "2,8,6",
+              "type": "shs"
+            },
+            {
+              "id": 49,
+              "a": "2,6,6",
+              "b": "2,6,8",
+              "type": "heb"
+            },
+            {
+              "id": 50,
+              "a": "2,6,8",
+              "b": "4,6,8",
+              "type": "ipe"
+            },
+            {
+              "id": 51,
+              "a": "2,6,8",
+              "b": "2,8,8",
+              "type": "ipe"
+            },
+            {
+              "id": 52,
+              "a": "2,6,6",
+              "b": "2,8,8",
+              "type": "shs"
+            },
+            {
+              "id": 53,
+              "a": "2,8,0",
+              "b": "2,8,2",
+              "type": "heb"
+            },
+            {
+              "id": 54,
+              "a": "2,8,2",
+              "b": "4,8,2",
+              "type": "ipe"
+            },
+            {
+              "id": 55,
+              "a": "2,8,0",
+              "b": "4,8,2",
+              "type": "shs"
+            },
+            {
+              "id": 56,
+              "a": "2,8,2",
+              "b": "2,8,4",
+              "type": "heb"
+            },
+            {
+              "id": 57,
+              "a": "2,8,4",
+              "b": "4,8,4",
+              "type": "ipe"
+            },
+            {
+              "id": 58,
+              "a": "2,8,2",
+              "b": "4,8,4",
+              "type": "shs"
+            },
+            {
+              "id": 59,
+              "a": "2,8,4",
+              "b": "2,8,6",
+              "type": "heb"
+            },
+            {
+              "id": 60,
+              "a": "2,8,6",
+              "b": "4,8,6",
+              "type": "ipe"
+            },
+            {
+              "id": 61,
+              "a": "2,8,4",
+              "b": "4,8,6",
+              "type": "shs"
+            },
+            {
+              "id": 62,
+              "a": "2,8,6",
+              "b": "2,8,8",
+              "type": "heb"
+            },
+            {
+              "id": 63,
+              "a": "2,8,8",
+              "b": "4,8,8",
+              "type": "ipe"
+            },
+            {
+              "id": 64,
+              "a": "2,8,6",
+              "b": "4,8,8",
+              "type": "shs"
+            },
+            {
+              "id": 65,
+              "a": "4,2,0",
+              "b": "4,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 66,
+              "a": "4,2,2",
+              "b": "6,2,2",
+              "type": "ipe"
+            },
+            {
+              "id": 67,
+              "a": "4,2,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 68,
+              "a": "4,2,0",
+              "b": "6,2,2",
+              "type": "shs"
+            },
+            {
+              "id": 69,
+              "a": "4,2,2",
+              "b": "4,2,4",
+              "type": "heb"
+            },
+            {
+              "id": 70,
+              "a": "4,2,4",
+              "b": "6,2,4",
+              "type": "ipe"
+            },
+            {
+              "id": 71,
+              "a": "4,2,4",
+              "b": "4,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 72,
+              "a": "4,2,2",
+              "b": "6,2,4",
+              "type": "shs"
+            },
+            {
+              "id": 73,
+              "a": "4,2,4",
+              "b": "4,2,6",
+              "type": "heb"
+            },
+            {
+              "id": 74,
+              "a": "4,2,6",
+              "b": "6,2,6",
+              "type": "ipe"
+            },
+            {
+              "id": 75,
+              "a": "4,2,6",
+              "b": "4,4,6",
+              "type": "ipe"
+            },
+            {
+              "id": 76,
+              "a": "4,2,4",
+              "b": "6,2,6",
+              "type": "shs"
+            },
+            {
+              "id": 77,
+              "a": "4,2,6",
+              "b": "4,2,8",
+              "type": "heb"
+            },
+            {
+              "id": 78,
+              "a": "4,2,8",
+              "b": "6,2,8",
+              "type": "ipe"
+            },
+            {
+              "id": 79,
+              "a": "4,2,8",
+              "b": "4,4,8",
+              "type": "ipe"
+            },
+            {
+              "id": 80,
+              "a": "4,2,6",
+              "b": "6,2,8",
+              "type": "shs"
+            },
+            {
+              "id": 81,
+              "a": "4,4,0",
+              "b": "4,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 82,
+              "a": "4,4,2",
+              "b": "6,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 83,
+              "a": "4,4,2",
+              "b": "4,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 84,
+              "a": "4,4,2",
+              "b": "4,4,4",
+              "type": "heb"
+            },
+            {
+              "id": 85,
+              "a": "4,4,4",
+              "b": "6,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 86,
+              "a": "4,4,4",
+              "b": "4,6,4",
+              "type": "ipe"
+            },
+            {
+              "id": 87,
+              "a": "4,4,4",
+              "b": "4,4,6",
+              "type": "heb"
+            },
+            {
+              "id": 88,
+              "a": "4,4,6",
+              "b": "6,4,6",
+              "type": "ipe"
+            },
+            {
+              "id": 89,
+              "a": "4,4,6",
+              "b": "4,6,6",
+              "type": "ipe"
+            },
+            {
+              "id": 90,
+              "a": "4,4,6",
+              "b": "4,4,8",
+              "type": "heb"
+            },
+            {
+              "id": 91,
+              "a": "4,4,8",
+              "b": "6,4,8",
+              "type": "ipe"
+            },
+            {
+              "id": 92,
+              "a": "4,4,8",
+              "b": "4,6,8",
+              "type": "ipe"
+            },
+            {
+              "id": 93,
+              "a": "4,6,0",
+              "b": "4,6,2",
+              "type": "heb"
+            },
+            {
+              "id": 94,
+              "a": "4,6,2",
+              "b": "6,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 95,
+              "a": "4,6,2",
+              "b": "4,8,2",
+              "type": "ipe"
+            },
+            {
+              "id": 96,
+              "a": "4,6,2",
+              "b": "4,6,4",
+              "type": "heb"
+            },
+            {
+              "id": 97,
+              "a": "4,6,4",
+              "b": "6,6,4",
+              "type": "ipe"
+            },
+            {
+              "id": 98,
+              "a": "4,6,4",
+              "b": "4,8,4",
+              "type": "ipe"
+            },
+            {
+              "id": 99,
+              "a": "4,6,4",
+              "b": "4,6,6",
+              "type": "heb"
+            },
+            {
+              "id": 100,
+              "a": "4,6,6",
+              "b": "6,6,6",
+              "type": "ipe"
+            },
+            {
+              "id": 101,
+              "a": "4,6,6",
+              "b": "4,8,6",
+              "type": "ipe"
+            },
+            {
+              "id": 102,
+              "a": "4,6,6",
+              "b": "4,6,8",
+              "type": "heb"
+            },
+            {
+              "id": 103,
+              "a": "4,6,8",
+              "b": "6,6,8",
+              "type": "ipe"
+            },
+            {
+              "id": 104,
+              "a": "4,6,8",
+              "b": "4,8,8",
+              "type": "ipe"
+            },
+            {
+              "id": 105,
+              "a": "4,8,0",
+              "b": "4,8,2",
+              "type": "heb"
+            },
+            {
+              "id": 106,
+              "a": "4,8,2",
+              "b": "6,8,2",
+              "type": "ipe"
+            },
+            {
+              "id": 107,
+              "a": "4,8,0",
+              "b": "6,8,2",
+              "type": "shs"
+            },
+            {
+              "id": 108,
+              "a": "4,8,2",
+              "b": "4,8,4",
+              "type": "heb"
+            },
+            {
+              "id": 109,
+              "a": "4,8,4",
+              "b": "6,8,4",
+              "type": "ipe"
+            },
+            {
+              "id": 110,
+              "a": "4,8,2",
+              "b": "6,8,4",
+              "type": "shs"
+            },
+            {
+              "id": 111,
+              "a": "4,8,4",
+              "b": "4,8,6",
+              "type": "heb"
+            },
+            {
+              "id": 112,
+              "a": "4,8,6",
+              "b": "6,8,6",
+              "type": "ipe"
+            },
+            {
+              "id": 113,
+              "a": "4,8,4",
+              "b": "6,8,6",
+              "type": "shs"
+            },
+            {
+              "id": 114,
+              "a": "4,8,6",
+              "b": "4,8,8",
+              "type": "heb"
+            },
+            {
+              "id": 115,
+              "a": "4,8,8",
+              "b": "6,8,8",
+              "type": "ipe"
+            },
+            {
+              "id": 116,
+              "a": "4,8,6",
+              "b": "6,8,8",
+              "type": "shs"
+            },
+            {
+              "id": 117,
+              "a": "6,2,0",
+              "b": "6,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 118,
+              "a": "6,2,2",
+              "b": "8,2,2",
+              "type": "ipe"
+            },
+            {
+              "id": 119,
+              "a": "6,2,2",
+              "b": "6,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 120,
+              "a": "6,2,0",
+              "b": "8,2,2",
+              "type": "shs"
+            },
+            {
+              "id": 121,
+              "a": "6,2,2",
+              "b": "6,2,4",
+              "type": "heb"
+            },
+            {
+              "id": 122,
+              "a": "6,2,4",
+              "b": "8,2,4",
+              "type": "ipe"
+            },
+            {
+              "id": 123,
+              "a": "6,2,4",
+              "b": "6,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 124,
+              "a": "6,2,2",
+              "b": "8,2,4",
+              "type": "shs"
+            },
+            {
+              "id": 125,
+              "a": "6,2,4",
+              "b": "6,2,6",
+              "type": "heb"
+            },
+            {
+              "id": 126,
+              "a": "6,2,6",
+              "b": "8,2,6",
+              "type": "ipe"
+            },
+            {
+              "id": 127,
+              "a": "6,2,6",
+              "b": "6,4,6",
+              "type": "ipe"
+            },
+            {
+              "id": 128,
+              "a": "6,2,4",
+              "b": "8,2,6",
+              "type": "shs"
+            },
+            {
+              "id": 129,
+              "a": "6,2,6",
+              "b": "6,2,8",
+              "type": "heb"
+            },
+            {
+              "id": 130,
+              "a": "6,2,8",
+              "b": "8,2,8",
+              "type": "ipe"
+            },
+            {
+              "id": 131,
+              "a": "6,2,8",
+              "b": "6,4,8",
+              "type": "ipe"
+            },
+            {
+              "id": 132,
+              "a": "6,2,6",
+              "b": "8,2,8",
+              "type": "shs"
+            },
+            {
+              "id": 133,
+              "a": "6,4,0",
+              "b": "6,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 134,
+              "a": "6,4,2",
+              "b": "8,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 135,
+              "a": "6,4,2",
+              "b": "6,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 136,
+              "a": "6,4,2",
+              "b": "6,4,4",
+              "type": "heb"
+            },
+            {
+              "id": 137,
+              "a": "6,4,4",
+              "b": "8,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 138,
+              "a": "6,4,4",
+              "b": "6,6,4",
+              "type": "ipe"
+            },
+            {
+              "id": 139,
+              "a": "6,4,4",
+              "b": "6,4,6",
+              "type": "heb"
+            },
+            {
+              "id": 140,
+              "a": "6,4,6",
+              "b": "8,4,6",
+              "type": "ipe"
+            },
+            {
+              "id": 141,
+              "a": "6,4,6",
+              "b": "6,6,6",
+              "type": "ipe"
+            },
+            {
+              "id": 142,
+              "a": "6,4,6",
+              "b": "6,4,8",
+              "type": "heb"
+            },
+            {
+              "id": 143,
+              "a": "6,4,8",
+              "b": "8,4,8",
+              "type": "ipe"
+            },
+            {
+              "id": 144,
+              "a": "6,4,8",
+              "b": "6,6,8",
+              "type": "ipe"
+            },
+            {
+              "id": 145,
+              "a": "6,6,0",
+              "b": "6,6,2",
+              "type": "heb"
+            },
+            {
+              "id": 146,
+              "a": "6,6,2",
+              "b": "8,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 147,
+              "a": "6,6,2",
+              "b": "6,8,2",
+              "type": "ipe"
+            },
+            {
+              "id": 148,
+              "a": "6,6,2",
+              "b": "6,6,4",
+              "type": "heb"
+            },
+            {
+              "id": 149,
+              "a": "6,6,4",
+              "b": "8,6,4",
+              "type": "ipe"
+            },
+            {
+              "id": 150,
+              "a": "6,6,4",
+              "b": "6,8,4",
+              "type": "ipe"
+            },
+            {
+              "id": 151,
+              "a": "6,6,4",
+              "b": "6,6,6",
+              "type": "heb"
+            },
+            {
+              "id": 152,
+              "a": "6,6,6",
+              "b": "8,6,6",
+              "type": "ipe"
+            },
+            {
+              "id": 153,
+              "a": "6,6,6",
+              "b": "6,8,6",
+              "type": "ipe"
+            },
+            {
+              "id": 154,
+              "a": "6,6,6",
+              "b": "6,6,8",
+              "type": "heb"
+            },
+            {
+              "id": 155,
+              "a": "6,6,8",
+              "b": "8,6,8",
+              "type": "ipe"
+            },
+            {
+              "id": 156,
+              "a": "6,6,8",
+              "b": "6,8,8",
+              "type": "ipe"
+            },
+            {
+              "id": 157,
+              "a": "6,8,0",
+              "b": "6,8,2",
+              "type": "heb"
+            },
+            {
+              "id": 158,
+              "a": "6,8,2",
+              "b": "8,8,2",
+              "type": "ipe"
+            },
+            {
+              "id": 159,
+              "a": "6,8,0",
+              "b": "8,8,2",
+              "type": "shs"
+            },
+            {
+              "id": 160,
+              "a": "6,8,2",
+              "b": "6,8,4",
+              "type": "heb"
+            },
+            {
+              "id": 161,
+              "a": "6,8,4",
+              "b": "8,8,4",
+              "type": "ipe"
+            },
+            {
+              "id": 162,
+              "a": "6,8,2",
+              "b": "8,8,4",
+              "type": "shs"
+            },
+            {
+              "id": 163,
+              "a": "6,8,4",
+              "b": "6,8,6",
+              "type": "heb"
+            },
+            {
+              "id": 164,
+              "a": "6,8,6",
+              "b": "8,8,6",
+              "type": "ipe"
+            },
+            {
+              "id": 165,
+              "a": "6,8,4",
+              "b": "8,8,6",
+              "type": "shs"
+            },
+            {
+              "id": 166,
+              "a": "6,8,6",
+              "b": "6,8,8",
+              "type": "heb"
+            },
+            {
+              "id": 167,
+              "a": "6,8,8",
+              "b": "8,8,8",
+              "type": "ipe"
+            },
+            {
+              "id": 168,
+              "a": "6,8,6",
+              "b": "8,8,8",
+              "type": "shs"
+            },
+            {
+              "id": 169,
+              "a": "8,2,0",
+              "b": "8,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 170,
+              "a": "8,2,2",
+              "b": "8,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 171,
+              "a": "8,2,0",
+              "b": "8,4,2",
+              "type": "shs"
+            },
+            {
+              "id": 172,
+              "a": "8,2,2",
+              "b": "8,2,4",
+              "type": "heb"
+            },
+            {
+              "id": 173,
+              "a": "8,2,4",
+              "b": "8,4,4",
+              "type": "ipe"
+            },
+            {
+              "id": 174,
+              "a": "8,2,2",
+              "b": "8,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 175,
+              "a": "8,2,4",
+              "b": "8,2,6",
+              "type": "heb"
+            },
+            {
+              "id": 176,
+              "a": "8,2,6",
+              "b": "8,4,6",
+              "type": "ipe"
+            },
+            {
+              "id": 177,
+              "a": "8,2,4",
+              "b": "8,4,6",
+              "type": "shs"
+            },
+            {
+              "id": 178,
+              "a": "8,2,6",
+              "b": "8,2,8",
+              "type": "heb"
+            },
+            {
+              "id": 179,
+              "a": "8,2,8",
+              "b": "8,4,8",
+              "type": "ipe"
+            },
+            {
+              "id": 180,
+              "a": "8,2,6",
+              "b": "8,4,8",
+              "type": "shs"
+            },
+            {
+              "id": 181,
+              "a": "8,4,0",
+              "b": "8,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 182,
+              "a": "8,4,2",
+              "b": "8,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 183,
+              "a": "8,4,0",
+              "b": "8,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 184,
+              "a": "8,4,2",
+              "b": "8,4,4",
+              "type": "heb"
+            },
+            {
+              "id": 185,
+              "a": "8,4,4",
+              "b": "8,6,4",
+              "type": "ipe"
+            },
+            {
+              "id": 186,
+              "a": "8,4,2",
+              "b": "8,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 187,
+              "a": "8,4,4",
+              "b": "8,4,6",
+              "type": "heb"
+            },
+            {
+              "id": 188,
+              "a": "8,4,6",
+              "b": "8,6,6",
+              "type": "ipe"
+            },
+            {
+              "id": 189,
+              "a": "8,4,4",
+              "b": "8,6,6",
+              "type": "shs"
+            },
+            {
+              "id": 190,
+              "a": "8,4,6",
+              "b": "8,4,8",
+              "type": "heb"
+            },
+            {
+              "id": 191,
+              "a": "8,4,8",
+              "b": "8,6,8",
+              "type": "ipe"
+            },
+            {
+              "id": 192,
+              "a": "8,4,6",
+              "b": "8,6,8",
+              "type": "shs"
+            },
+            {
+              "id": 193,
+              "a": "8,6,0",
+              "b": "8,6,2",
+              "type": "heb"
+            },
+            {
+              "id": 194,
+              "a": "8,6,2",
+              "b": "8,8,2",
+              "type": "ipe"
+            },
+            {
+              "id": 195,
+              "a": "8,6,0",
+              "b": "8,8,2",
+              "type": "shs"
+            },
+            {
+              "id": 196,
+              "a": "8,6,2",
+              "b": "8,6,4",
+              "type": "heb"
+            },
+            {
+              "id": 197,
+              "a": "8,6,4",
+              "b": "8,8,4",
+              "type": "ipe"
+            },
+            {
+              "id": 198,
+              "a": "8,6,2",
+              "b": "8,8,4",
+              "type": "shs"
+            },
+            {
+              "id": 199,
+              "a": "8,6,4",
+              "b": "8,6,6",
+              "type": "heb"
+            },
+            {
+              "id": 200,
+              "a": "8,6,6",
+              "b": "8,8,6",
+              "type": "ipe"
+            },
+            {
+              "id": 201,
+              "a": "8,6,4",
+              "b": "8,8,6",
+              "type": "shs"
+            },
+            {
+              "id": 202,
+              "a": "8,6,6",
+              "b": "8,6,8",
+              "type": "heb"
+            },
+            {
+              "id": 203,
+              "a": "8,6,8",
+              "b": "8,8,8",
+              "type": "ipe"
+            },
+            {
+              "id": 204,
+              "a": "8,6,6",
+              "b": "8,8,8",
+              "type": "shs"
+            },
+            {
+              "id": 205,
+              "a": "8,8,0",
+              "b": "8,8,2",
+              "type": "heb"
+            },
+            {
+              "id": 206,
+              "a": "8,8,2",
+              "b": "8,8,4",
+              "type": "heb"
+            },
+            {
+              "id": 207,
+              "a": "8,8,4",
+              "b": "8,8,6",
+              "type": "heb"
+            },
+            {
+              "id": 208,
+              "a": "8,8,6",
+              "b": "8,8,8",
+              "type": "heb"
+            }
+          ],
+          "attrs": {
+            "2,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "2,2,2": {
+              "joint": true
+            },
+            "4,2,2": {
+              "joint": true
+            },
+            "2,4,2": {
+              "joint": true
+            },
+            "2,2,4": {
+              "joint": true
+            },
+            "4,2,4": {
+              "joint": true
+            },
+            "2,4,4": {
+              "joint": true
+            },
+            "2,2,6": {
+              "joint": true
+            },
+            "4,2,6": {
+              "joint": true
+            },
+            "2,4,6": {
+              "joint": true
+            },
+            "2,2,8": {
+              "joint": true,
+              "load": 5
+            },
+            "4,2,8": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,8": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,4,2": {
+              "joint": true
+            },
+            "2,6,2": {
+              "joint": true
+            },
+            "4,4,4": {
+              "joint": true
+            },
+            "2,6,4": {
+              "joint": true
+            },
+            "4,4,6": {
+              "joint": true
+            },
+            "2,6,6": {
+              "joint": true
+            },
+            "4,4,8": {
+              "joint": true,
+              "load": 5
+            },
+            "2,6,8": {
+              "joint": true,
+              "load": 5
+            },
+            "2,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,6,2": {
+              "joint": true
+            },
+            "2,8,2": {
+              "joint": true
+            },
+            "4,6,4": {
+              "joint": true
+            },
+            "2,8,4": {
+              "joint": true
+            },
+            "4,6,6": {
+              "joint": true
+            },
+            "2,8,6": {
+              "joint": true
+            },
+            "4,6,8": {
+              "joint": true,
+              "load": 5
+            },
+            "2,8,8": {
+              "joint": true,
+              "load": 5
+            },
+            "2,8,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,8,2": {
+              "joint": true
+            },
+            "4,8,4": {
+              "joint": true
+            },
+            "4,8,6": {
+              "joint": true
+            },
+            "4,8,8": {
+              "joint": true,
+              "load": 5
+            },
+            "4,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "6,2,2": {
+              "joint": true
+            },
+            "6,2,4": {
+              "joint": true
+            },
+            "6,2,6": {
+              "joint": true
+            },
+            "6,2,8": {
+              "joint": true,
+              "load": 5
+            },
+            "4,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "6,4,2": {
+              "joint": true
+            },
+            "6,4,4": {
+              "joint": true
+            },
+            "6,4,6": {
+              "joint": true
+            },
+            "6,4,8": {
+              "joint": true,
+              "load": 5
+            },
+            "4,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "6,6,2": {
+              "joint": true
+            },
+            "6,6,4": {
+              "joint": true
+            },
+            "6,6,6": {
+              "joint": true
+            },
+            "6,6,8": {
+              "joint": true,
+              "load": 5
+            },
+            "4,8,0": {
+              "found": true,
+              "joint": true
+            },
+            "6,8,2": {
+              "joint": true
+            },
+            "6,8,4": {
+              "joint": true
+            },
+            "6,8,6": {
+              "joint": true
+            },
+            "6,8,8": {
+              "joint": true,
+              "load": 5
+            },
+            "6,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "8,2,2": {
+              "joint": true
+            },
+            "8,2,4": {
+              "joint": true
+            },
+            "8,2,6": {
+              "joint": true
+            },
+            "8,2,8": {
+              "joint": true,
+              "load": 5
+            },
+            "6,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "8,4,2": {
+              "joint": true
+            },
+            "8,4,4": {
+              "joint": true
+            },
+            "8,4,6": {
+              "joint": true
+            },
+            "8,4,8": {
+              "joint": true,
+              "load": 5
+            },
+            "6,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "8,6,2": {
+              "joint": true
+            },
+            "8,6,4": {
+              "joint": true
+            },
+            "8,6,6": {
+              "joint": true
+            },
+            "8,6,8": {
+              "joint": true,
+              "load": 5
+            },
+            "6,8,0": {
+              "found": true,
+              "joint": true
+            },
+            "8,8,2": {
+              "joint": true
+            },
+            "8,8,4": {
+              "joint": true
+            },
+            "8,8,6": {
+              "joint": true
+            },
+            "8,8,8": {
+              "joint": true,
+              "load": 5
+            },
+            "8,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "8,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "8,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "8,8,0": {
+              "found": true,
+              "joint": true
+            }
+          },
+          "nextId": 209
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "13-short-bridge",
+      "name": "Short through bridge",
+      "family": "bridge",
+      "purpose": "Deck loads and two connected side frames.",
+      "complexity": "medium",
+      "nodeCount": 20,
+      "memberCount": 38,
+      "extentMetres": [
+        12,
+        4,
+        8
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/13-short-bridge.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "2,4,0",
+              "b": "2,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 2,
+              "a": "8,4,0",
+              "b": "8,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 3,
+              "a": "2,4,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 4,
+              "a": "2,4,4",
+              "b": "4,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 5,
+              "a": "2,4,2",
+              "b": "4,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 6,
+              "a": "4,4,2",
+              "b": "6,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 7,
+              "a": "4,4,4",
+              "b": "6,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 8,
+              "a": "4,4,2",
+              "b": "6,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 9,
+              "a": "6,4,2",
+              "b": "8,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 10,
+              "a": "6,4,4",
+              "b": "8,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 11,
+              "a": "6,4,2",
+              "b": "8,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 12,
+              "a": "2,4,2",
+              "b": "2,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 13,
+              "a": "4,4,2",
+              "b": "4,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 14,
+              "a": "6,4,2",
+              "b": "6,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 15,
+              "a": "8,4,2",
+              "b": "8,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 16,
+              "a": "2,6,0",
+              "b": "2,6,2",
+              "type": "heb"
+            },
+            {
+              "id": 17,
+              "a": "8,6,0",
+              "b": "8,6,2",
+              "type": "heb"
+            },
+            {
+              "id": 18,
+              "a": "2,6,2",
+              "b": "4,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 19,
+              "a": "2,6,4",
+              "b": "4,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 20,
+              "a": "2,6,2",
+              "b": "4,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 21,
+              "a": "4,6,2",
+              "b": "6,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 22,
+              "a": "4,6,4",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 23,
+              "a": "4,6,2",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 24,
+              "a": "6,6,2",
+              "b": "8,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 25,
+              "a": "6,6,4",
+              "b": "8,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 26,
+              "a": "6,6,2",
+              "b": "8,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 27,
+              "a": "2,6,2",
+              "b": "2,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 28,
+              "a": "4,6,2",
+              "b": "4,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 29,
+              "a": "6,6,2",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 30,
+              "a": "8,6,2",
+              "b": "8,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 31,
+              "a": "2,4,2",
+              "b": "2,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 32,
+              "a": "2,4,4",
+              "b": "2,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 33,
+              "a": "4,4,2",
+              "b": "4,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 34,
+              "a": "4,4,4",
+              "b": "4,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 35,
+              "a": "6,4,2",
+              "b": "6,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 36,
+              "a": "6,4,4",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 37,
+              "a": "8,4,2",
+              "b": "8,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 38,
+              "a": "8,4,4",
+              "b": "8,6,4",
+              "type": "shs"
+            }
+          ],
+          "attrs": {
+            "2,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "2,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "8,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "8,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "4,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,4": {
+              "joint": true
+            },
+            "4,4,4": {
+              "joint": true
+            },
+            "6,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "6,4,4": {
+              "joint": true
+            },
+            "8,4,4": {
+              "joint": true
+            },
+            "2,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "2,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "8,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "8,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "4,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "2,6,4": {
+              "joint": true
+            },
+            "4,6,4": {
+              "joint": true
+            },
+            "6,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "6,6,4": {
+              "joint": true
+            },
+            "8,6,4": {
+              "joint": true
+            }
+          },
+          "nextId": 39
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "14-long-bridge",
+      "name": "Long through bridge",
+      "family": "bridge",
+      "purpose": "24 m span and repeated-member load paths.",
+      "complexity": "large",
+      "nodeCount": 32,
+      "memberCount": 68,
+      "extentMetres": [
+        24,
+        4,
+        8
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/14-long-bridge.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "2,4,0",
+              "b": "2,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 2,
+              "a": "14,4,0",
+              "b": "14,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 3,
+              "a": "2,4,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 4,
+              "a": "2,4,4",
+              "b": "4,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 5,
+              "a": "2,4,2",
+              "b": "4,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 6,
+              "a": "4,4,2",
+              "b": "6,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 7,
+              "a": "4,4,4",
+              "b": "6,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 8,
+              "a": "4,4,2",
+              "b": "6,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 9,
+              "a": "6,4,2",
+              "b": "8,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 10,
+              "a": "6,4,4",
+              "b": "8,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 11,
+              "a": "6,4,2",
+              "b": "8,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 12,
+              "a": "8,4,2",
+              "b": "10,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 13,
+              "a": "8,4,4",
+              "b": "10,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 14,
+              "a": "8,4,2",
+              "b": "10,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 15,
+              "a": "10,4,2",
+              "b": "12,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 16,
+              "a": "10,4,4",
+              "b": "12,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 17,
+              "a": "10,4,2",
+              "b": "12,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 18,
+              "a": "12,4,2",
+              "b": "14,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 19,
+              "a": "12,4,4",
+              "b": "14,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 20,
+              "a": "12,4,2",
+              "b": "14,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 21,
+              "a": "2,4,2",
+              "b": "2,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 22,
+              "a": "4,4,2",
+              "b": "4,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 23,
+              "a": "6,4,2",
+              "b": "6,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 24,
+              "a": "8,4,2",
+              "b": "8,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 25,
+              "a": "10,4,2",
+              "b": "10,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 26,
+              "a": "12,4,2",
+              "b": "12,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 27,
+              "a": "14,4,2",
+              "b": "14,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 28,
+              "a": "2,6,0",
+              "b": "2,6,2",
+              "type": "heb"
+            },
+            {
+              "id": 29,
+              "a": "14,6,0",
+              "b": "14,6,2",
+              "type": "heb"
+            },
+            {
+              "id": 30,
+              "a": "2,6,2",
+              "b": "4,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 31,
+              "a": "2,6,4",
+              "b": "4,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 32,
+              "a": "2,6,2",
+              "b": "4,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 33,
+              "a": "4,6,2",
+              "b": "6,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 34,
+              "a": "4,6,4",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 35,
+              "a": "4,6,2",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 36,
+              "a": "6,6,2",
+              "b": "8,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 37,
+              "a": "6,6,4",
+              "b": "8,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 38,
+              "a": "6,6,2",
+              "b": "8,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 39,
+              "a": "8,6,2",
+              "b": "10,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 40,
+              "a": "8,6,4",
+              "b": "10,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 41,
+              "a": "8,6,2",
+              "b": "10,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 42,
+              "a": "10,6,2",
+              "b": "12,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 43,
+              "a": "10,6,4",
+              "b": "12,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 44,
+              "a": "10,6,2",
+              "b": "12,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 45,
+              "a": "12,6,2",
+              "b": "14,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 46,
+              "a": "12,6,4",
+              "b": "14,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 47,
+              "a": "12,6,2",
+              "b": "14,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 48,
+              "a": "2,6,2",
+              "b": "2,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 49,
+              "a": "4,6,2",
+              "b": "4,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 50,
+              "a": "6,6,2",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 51,
+              "a": "8,6,2",
+              "b": "8,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 52,
+              "a": "10,6,2",
+              "b": "10,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 53,
+              "a": "12,6,2",
+              "b": "12,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 54,
+              "a": "14,6,2",
+              "b": "14,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 55,
+              "a": "2,4,2",
+              "b": "2,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 56,
+              "a": "2,4,4",
+              "b": "2,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 57,
+              "a": "4,4,2",
+              "b": "4,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 58,
+              "a": "4,4,4",
+              "b": "4,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 59,
+              "a": "6,4,2",
+              "b": "6,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 60,
+              "a": "6,4,4",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 61,
+              "a": "8,4,2",
+              "b": "8,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 62,
+              "a": "8,4,4",
+              "b": "8,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 63,
+              "a": "10,4,2",
+              "b": "10,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 64,
+              "a": "10,4,4",
+              "b": "10,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 65,
+              "a": "12,4,2",
+              "b": "12,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 66,
+              "a": "12,4,4",
+              "b": "12,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 67,
+              "a": "14,4,2",
+              "b": "14,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 68,
+              "a": "14,4,4",
+              "b": "14,6,4",
+              "type": "shs"
+            }
+          ],
+          "attrs": {
+            "2,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "2,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "14,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "14,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "4,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,4": {
+              "joint": true
+            },
+            "4,4,4": {
+              "joint": true
+            },
+            "6,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "6,4,4": {
+              "joint": true
+            },
+            "8,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "8,4,4": {
+              "joint": true
+            },
+            "10,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "10,4,4": {
+              "joint": true
+            },
+            "12,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "12,4,4": {
+              "joint": true
+            },
+            "14,4,4": {
+              "joint": true
+            },
+            "2,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "2,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "14,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "14,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "4,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "2,6,4": {
+              "joint": true
+            },
+            "4,6,4": {
+              "joint": true
+            },
+            "6,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "6,6,4": {
+              "joint": true
+            },
+            "8,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "8,6,4": {
+              "joint": true
+            },
+            "10,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "10,6,4": {
+              "joint": true
+            },
+            "12,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "12,6,4": {
+              "joint": true
+            },
+            "14,6,4": {
+              "joint": true
+            }
+          },
+          "nextId": 69
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "15-cable-bridge",
+      "name": "Cable-diagonal bridge",
+      "family": "cable",
+      "purpose": "Tension-only diagonals and slack-cable visualization.",
+      "complexity": "medium",
+      "nodeCount": 24,
+      "memberCount": 48,
+      "extentMetres": [
+        16,
+        4,
+        8
+      ],
+      "expectation": {
+        "stability": "review",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/15-cable-bridge.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "2,4,0",
+              "b": "2,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 2,
+              "a": "10,4,0",
+              "b": "10,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 3,
+              "a": "2,4,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 4,
+              "a": "2,4,4",
+              "b": "4,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 5,
+              "a": "2,4,2",
+              "b": "4,4,4",
+              "type": "cable"
+            },
+            {
+              "id": 6,
+              "a": "4,4,2",
+              "b": "6,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 7,
+              "a": "4,4,4",
+              "b": "6,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 8,
+              "a": "4,4,2",
+              "b": "6,4,4",
+              "type": "cable"
+            },
+            {
+              "id": 9,
+              "a": "6,4,2",
+              "b": "8,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 10,
+              "a": "6,4,4",
+              "b": "8,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 11,
+              "a": "6,4,2",
+              "b": "8,4,4",
+              "type": "cable"
+            },
+            {
+              "id": 12,
+              "a": "8,4,2",
+              "b": "10,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 13,
+              "a": "8,4,4",
+              "b": "10,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 14,
+              "a": "8,4,2",
+              "b": "10,4,4",
+              "type": "cable"
+            },
+            {
+              "id": 15,
+              "a": "2,4,2",
+              "b": "2,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 16,
+              "a": "4,4,2",
+              "b": "4,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 17,
+              "a": "6,4,2",
+              "b": "6,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 18,
+              "a": "8,4,2",
+              "b": "8,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 19,
+              "a": "10,4,2",
+              "b": "10,4,4",
+              "type": "shs"
+            },
+            {
+              "id": 20,
+              "a": "2,6,0",
+              "b": "2,6,2",
+              "type": "heb"
+            },
+            {
+              "id": 21,
+              "a": "10,6,0",
+              "b": "10,6,2",
+              "type": "heb"
+            },
+            {
+              "id": 22,
+              "a": "2,6,2",
+              "b": "4,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 23,
+              "a": "2,6,4",
+              "b": "4,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 24,
+              "a": "2,6,2",
+              "b": "4,6,4",
+              "type": "cable"
+            },
+            {
+              "id": 25,
+              "a": "4,6,2",
+              "b": "6,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 26,
+              "a": "4,6,4",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 27,
+              "a": "4,6,2",
+              "b": "6,6,4",
+              "type": "cable"
+            },
+            {
+              "id": 28,
+              "a": "6,6,2",
+              "b": "8,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 29,
+              "a": "6,6,4",
+              "b": "8,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 30,
+              "a": "6,6,2",
+              "b": "8,6,4",
+              "type": "cable"
+            },
+            {
+              "id": 31,
+              "a": "8,6,2",
+              "b": "10,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 32,
+              "a": "8,6,4",
+              "b": "10,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 33,
+              "a": "8,6,2",
+              "b": "10,6,4",
+              "type": "cable"
+            },
+            {
+              "id": 34,
+              "a": "2,6,2",
+              "b": "2,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 35,
+              "a": "4,6,2",
+              "b": "4,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 36,
+              "a": "6,6,2",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 37,
+              "a": "8,6,2",
+              "b": "8,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 38,
+              "a": "10,6,2",
+              "b": "10,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 39,
+              "a": "2,4,2",
+              "b": "2,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 40,
+              "a": "2,4,4",
+              "b": "2,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 41,
+              "a": "4,4,2",
+              "b": "4,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 42,
+              "a": "4,4,4",
+              "b": "4,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 43,
+              "a": "6,4,2",
+              "b": "6,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 44,
+              "a": "6,4,4",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 45,
+              "a": "8,4,2",
+              "b": "8,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 46,
+              "a": "8,4,4",
+              "b": "8,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 47,
+              "a": "10,4,2",
+              "b": "10,6,2",
+              "type": "shs"
+            },
+            {
+              "id": 48,
+              "a": "10,4,4",
+              "b": "10,6,4",
+              "type": "shs"
+            }
+          ],
+          "attrs": {
+            "2,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "2,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "10,4,0": {
+              "found": true,
+              "joint": true
+            },
+            "10,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "4,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,4": {
+              "joint": true
+            },
+            "4,4,4": {
+              "joint": true
+            },
+            "6,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "6,4,4": {
+              "joint": true
+            },
+            "8,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "8,4,4": {
+              "joint": true
+            },
+            "10,4,4": {
+              "joint": true
+            },
+            "2,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "2,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "10,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "10,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "4,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "2,6,4": {
+              "joint": true
+            },
+            "4,6,4": {
+              "joint": true
+            },
+            "6,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "6,6,4": {
+              "joint": true
+            },
+            "8,6,2": {
+              "joint": true,
+              "load": 5
+            },
+            "8,6,4": {
+              "joint": true
+            },
+            "10,6,4": {
+              "joint": true
+            }
+          },
+          "nextId": 49
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "16-roof-grid",
+      "name": "Timber roof grid",
+      "family": "roof",
+      "purpose": "Plan view, orthogonal roof grid and material contrast.",
+      "complexity": "medium",
+      "nodeCount": 29,
+      "memberCount": 44,
+      "extentMetres": [
+        16,
+        16,
+        6
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/16-roof-grid.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "2,2,3",
+              "b": "4,2,3",
+              "type": "glulam"
+            },
+            {
+              "id": 2,
+              "a": "2,2,3",
+              "b": "2,4,3",
+              "type": "glulam"
+            },
+            {
+              "id": 3,
+              "a": "2,2,0",
+              "b": "2,2,3",
+              "type": "heb"
+            },
+            {
+              "id": 4,
+              "a": "2,4,3",
+              "b": "4,4,3",
+              "type": "glulam"
+            },
+            {
+              "id": 5,
+              "a": "2,4,3",
+              "b": "2,6,3",
+              "type": "glulam"
+            },
+            {
+              "id": 6,
+              "a": "2,6,3",
+              "b": "4,6,3",
+              "type": "glulam"
+            },
+            {
+              "id": 7,
+              "a": "2,6,3",
+              "b": "2,8,3",
+              "type": "glulam"
+            },
+            {
+              "id": 8,
+              "a": "2,8,3",
+              "b": "4,8,3",
+              "type": "glulam"
+            },
+            {
+              "id": 9,
+              "a": "2,8,3",
+              "b": "2,10,3",
+              "type": "glulam"
+            },
+            {
+              "id": 10,
+              "a": "2,10,3",
+              "b": "4,10,3",
+              "type": "glulam"
+            },
+            {
+              "id": 11,
+              "a": "2,10,0",
+              "b": "2,10,3",
+              "type": "heb"
+            },
+            {
+              "id": 12,
+              "a": "4,2,3",
+              "b": "6,2,3",
+              "type": "glulam"
+            },
+            {
+              "id": 13,
+              "a": "4,2,3",
+              "b": "4,4,3",
+              "type": "glulam"
+            },
+            {
+              "id": 14,
+              "a": "4,4,3",
+              "b": "6,4,3",
+              "type": "glulam"
+            },
+            {
+              "id": 15,
+              "a": "4,4,3",
+              "b": "4,6,3",
+              "type": "glulam"
+            },
+            {
+              "id": 16,
+              "a": "4,6,3",
+              "b": "6,6,3",
+              "type": "glulam"
+            },
+            {
+              "id": 17,
+              "a": "4,6,3",
+              "b": "4,8,3",
+              "type": "glulam"
+            },
+            {
+              "id": 18,
+              "a": "4,8,3",
+              "b": "6,8,3",
+              "type": "glulam"
+            },
+            {
+              "id": 19,
+              "a": "4,8,3",
+              "b": "4,10,3",
+              "type": "glulam"
+            },
+            {
+              "id": 20,
+              "a": "4,10,3",
+              "b": "6,10,3",
+              "type": "glulam"
+            },
+            {
+              "id": 21,
+              "a": "6,2,3",
+              "b": "8,2,3",
+              "type": "glulam"
+            },
+            {
+              "id": 22,
+              "a": "6,2,3",
+              "b": "6,4,3",
+              "type": "glulam"
+            },
+            {
+              "id": 23,
+              "a": "6,4,3",
+              "b": "8,4,3",
+              "type": "glulam"
+            },
+            {
+              "id": 24,
+              "a": "6,4,3",
+              "b": "6,6,3",
+              "type": "glulam"
+            },
+            {
+              "id": 25,
+              "a": "6,6,3",
+              "b": "8,6,3",
+              "type": "glulam"
+            },
+            {
+              "id": 26,
+              "a": "6,6,3",
+              "b": "6,8,3",
+              "type": "glulam"
+            },
+            {
+              "id": 27,
+              "a": "6,8,3",
+              "b": "8,8,3",
+              "type": "glulam"
+            },
+            {
+              "id": 28,
+              "a": "6,8,3",
+              "b": "6,10,3",
+              "type": "glulam"
+            },
+            {
+              "id": 29,
+              "a": "6,10,3",
+              "b": "8,10,3",
+              "type": "glulam"
+            },
+            {
+              "id": 30,
+              "a": "8,2,3",
+              "b": "10,2,3",
+              "type": "glulam"
+            },
+            {
+              "id": 31,
+              "a": "8,2,3",
+              "b": "8,4,3",
+              "type": "glulam"
+            },
+            {
+              "id": 32,
+              "a": "8,4,3",
+              "b": "10,4,3",
+              "type": "glulam"
+            },
+            {
+              "id": 33,
+              "a": "8,4,3",
+              "b": "8,6,3",
+              "type": "glulam"
+            },
+            {
+              "id": 34,
+              "a": "8,6,3",
+              "b": "10,6,3",
+              "type": "glulam"
+            },
+            {
+              "id": 35,
+              "a": "8,6,3",
+              "b": "8,8,3",
+              "type": "glulam"
+            },
+            {
+              "id": 36,
+              "a": "8,8,3",
+              "b": "10,8,3",
+              "type": "glulam"
+            },
+            {
+              "id": 37,
+              "a": "8,8,3",
+              "b": "8,10,3",
+              "type": "glulam"
+            },
+            {
+              "id": 38,
+              "a": "8,10,3",
+              "b": "10,10,3",
+              "type": "glulam"
+            },
+            {
+              "id": 39,
+              "a": "10,2,3",
+              "b": "10,4,3",
+              "type": "glulam"
+            },
+            {
+              "id": 40,
+              "a": "10,2,0",
+              "b": "10,2,3",
+              "type": "heb"
+            },
+            {
+              "id": 41,
+              "a": "10,4,3",
+              "b": "10,6,3",
+              "type": "glulam"
+            },
+            {
+              "id": 42,
+              "a": "10,6,3",
+              "b": "10,8,3",
+              "type": "glulam"
+            },
+            {
+              "id": 43,
+              "a": "10,8,3",
+              "b": "10,10,3",
+              "type": "glulam"
+            },
+            {
+              "id": 44,
+              "a": "10,10,0",
+              "b": "10,10,3",
+              "type": "heb"
+            }
+          ],
+          "attrs": {
+            "2,2,3": {
+              "joint": true,
+              "load": 2
+            },
+            "4,2,3": {
+              "joint": true,
+              "load": 2
+            },
+            "2,4,3": {
+              "joint": true,
+              "load": 2
+            },
+            "2,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,4,3": {
+              "joint": true,
+              "load": 2
+            },
+            "2,6,3": {
+              "joint": true,
+              "load": 2
+            },
+            "4,6,3": {
+              "joint": true,
+              "load": 2
+            },
+            "2,8,3": {
+              "joint": true,
+              "load": 2
+            },
+            "4,8,3": {
+              "joint": true,
+              "load": 2
+            },
+            "2,10,3": {
+              "joint": true,
+              "load": 2
+            },
+            "4,10,3": {
+              "joint": true,
+              "load": 2
+            },
+            "2,10,0": {
+              "found": true,
+              "joint": true
+            },
+            "6,2,3": {
+              "joint": true,
+              "load": 2
+            },
+            "6,4,3": {
+              "joint": true,
+              "load": 2
+            },
+            "6,6,3": {
+              "joint": true,
+              "load": 2
+            },
+            "6,8,3": {
+              "joint": true,
+              "load": 2
+            },
+            "6,10,3": {
+              "joint": true,
+              "load": 2
+            },
+            "8,2,3": {
+              "joint": true,
+              "load": 2
+            },
+            "8,4,3": {
+              "joint": true,
+              "load": 2
+            },
+            "8,6,3": {
+              "joint": true,
+              "load": 2
+            },
+            "8,8,3": {
+              "joint": true,
+              "load": 2
+            },
+            "8,10,3": {
+              "joint": true,
+              "load": 2
+            },
+            "10,2,3": {
+              "joint": true,
+              "load": 2
+            },
+            "10,4,3": {
+              "joint": true,
+              "load": 2
+            },
+            "10,6,3": {
+              "joint": true,
+              "load": 2
+            },
+            "10,8,3": {
+              "joint": true,
+              "load": 2
+            },
+            "10,10,3": {
+              "joint": true,
+              "load": 2
+            },
+            "10,2,0": {
+              "found": true,
+              "joint": true
+            },
+            "10,10,0": {
+              "found": true,
+              "joint": true
+            }
+          },
+          "nextId": 45
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "17-pyramid",
+      "name": "Pyramid canopy",
+      "family": "roof",
+      "purpose": "Spatial diagonals meeting at one loaded apex.",
+      "complexity": "small",
+      "nodeCount": 5,
+      "memberCount": 8,
+      "extentMetres": [
+        12,
+        12,
+        8
+      ],
+      "expectation": {
+        "stability": "stable",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/17-pyramid.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "3,3,0",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 2,
+              "a": "3,3,0",
+              "b": "9,3,0",
+              "type": "shs"
+            },
+            {
+              "id": 3,
+              "a": "9,3,0",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 4,
+              "a": "9,3,0",
+              "b": "9,9,0",
+              "type": "shs"
+            },
+            {
+              "id": 5,
+              "a": "9,9,0",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 6,
+              "a": "9,9,0",
+              "b": "3,9,0",
+              "type": "shs"
+            },
+            {
+              "id": 7,
+              "a": "3,9,0",
+              "b": "6,6,4",
+              "type": "shs"
+            },
+            {
+              "id": 8,
+              "a": "3,9,0",
+              "b": "3,3,0",
+              "type": "shs"
+            }
+          ],
+          "attrs": {
+            "3,3,0": {
+              "found": true,
+              "joint": true
+            },
+            "6,6,4": {
+              "joint": true,
+              "load": 40
+            },
+            "9,3,0": {
+              "joint": true,
+              "found": true
+            },
+            "9,9,0": {
+              "joint": true,
+              "found": true
+            },
+            "3,9,0": {
+              "joint": true,
+              "found": true
+            }
+          },
+          "nextId": 9
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "18-guyed-mast",
+      "name": "Guyed mast",
+      "family": "cable",
+      "purpose": "Pretension, cable angles and symmetric anchor layout.",
+      "complexity": "small",
+      "nodeCount": 11,
+      "memberCount": 10,
+      "extentMetres": [
+        16,
+        16,
+        12
+      ],
+      "expectation": {
+        "stability": "review",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/18-guyed-mast.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "6,6,0",
+              "b": "6,6,1",
+              "type": "heb"
+            },
+            {
+              "id": 2,
+              "a": "6,6,1",
+              "b": "6,6,2",
+              "type": "heb"
+            },
+            {
+              "id": 3,
+              "a": "6,6,2",
+              "b": "6,6,3",
+              "type": "heb"
+            },
+            {
+              "id": 4,
+              "a": "6,6,3",
+              "b": "6,6,4",
+              "type": "heb"
+            },
+            {
+              "id": 5,
+              "a": "6,6,4",
+              "b": "6,6,5",
+              "type": "heb"
+            },
+            {
+              "id": 6,
+              "a": "6,6,5",
+              "b": "6,6,6",
+              "type": "heb"
+            },
+            {
+              "id": 7,
+              "a": "2,6,0",
+              "b": "6,6,6",
+              "type": "cable"
+            },
+            {
+              "id": 8,
+              "a": "10,6,0",
+              "b": "6,6,6",
+              "type": "cable"
+            },
+            {
+              "id": 9,
+              "a": "6,2,0",
+              "b": "6,6,6",
+              "type": "cable"
+            },
+            {
+              "id": 10,
+              "a": "6,10,0",
+              "b": "6,6,6",
+              "type": "cable"
+            }
+          ],
+          "attrs": {
+            "6,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "6,6,1": {
+              "joint": true
+            },
+            "6,6,2": {
+              "joint": true
+            },
+            "6,6,3": {
+              "joint": true
+            },
+            "6,6,4": {
+              "joint": true
+            },
+            "6,6,5": {
+              "joint": true
+            },
+            "6,6,6": {
+              "joint": true,
+              "load": 10
+            },
+            "2,6,0": {
+              "found": true
+            },
+            "10,6,0": {
+              "found": true
+            },
+            "6,2,0": {
+              "found": true
+            },
+            "6,10,0": {
+              "found": true
+            }
+          },
+          "nextId": 11
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "19-floating-component",
+      "name": "Supported plus floating",
+      "family": "diagnostic",
+      "purpose": "Scope failures to a disconnected component; never claim whole-model stability.",
+      "complexity": "small",
+      "nodeCount": 9,
+      "memberCount": 7,
+      "extentMetres": [
+        16,
+        4,
+        6
+      ],
+      "expectation": {
+        "stability": "floating",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/19-floating-component.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "4,6,0",
+              "b": "4,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 2,
+              "a": "8,6,0",
+              "b": "8,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 3,
+              "a": "4,6,2",
+              "b": "5,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 4,
+              "a": "5,6,2",
+              "b": "6,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 5,
+              "a": "6,6,2",
+              "b": "7,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 6,
+              "a": "7,6,2",
+              "b": "8,6,2",
+              "type": "ipe"
+            },
+            {
+              "id": 7,
+              "a": "10,8,3",
+              "b": "12,8,3",
+              "type": "shs"
+            }
+          ],
+          "attrs": {
+            "4,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "4,6,2": {
+              "joint": true
+            },
+            "8,6,0": {
+              "found": true,
+              "joint": true
+            },
+            "8,6,2": {
+              "joint": true
+            },
+            "5,6,2": {
+              "joint": true
+            },
+            "6,6,2": {
+              "joint": true,
+              "load": 20
+            },
+            "7,6,2": {
+              "joint": true
+            },
+            "10,8,3": {
+              "joint": true
+            },
+            "12,8,3": {
+              "joint": true,
+              "load": 10
+            }
+          },
+          "nextId": 8
+        }
+      }
+    },
+    {
+      "format": "dof-structure-record",
+      "version": 1,
+      "id": "20-no-foundation",
+      "name": "Unsupported cube",
+      "family": "diagnostic",
+      "purpose": "No-support error, rigid-body modes and clear UI diagnostics.",
+      "complexity": "small",
+      "nodeCount": 8,
+      "memberCount": 8,
+      "extentMetres": [
+        4,
+        4,
+        4
+      ],
+      "expectation": {
+        "stability": "unsupported",
+        "basis": "Qualitative design intent; not a verified numerical reference."
+      },
+      "preview": "previews/20-no-foundation.png",
+      "save": {
+        "format": "dof-voxel-save",
+        "version": 1,
+        "levelId": "library",
+        "model": {
+          "members": [
+            {
+              "id": 1,
+              "a": "2,2,0",
+              "b": "2,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 2,
+              "a": "2,2,2",
+              "b": "4,2,2",
+              "type": "ipe"
+            },
+            {
+              "id": 3,
+              "a": "2,2,2",
+              "b": "2,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 4,
+              "a": "2,4,0",
+              "b": "2,4,2",
+              "type": "heb"
+            },
+            {
+              "id": 5,
+              "a": "2,4,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 6,
+              "a": "4,2,0",
+              "b": "4,2,2",
+              "type": "heb"
+            },
+            {
+              "id": 7,
+              "a": "4,2,2",
+              "b": "4,4,2",
+              "type": "ipe"
+            },
+            {
+              "id": 8,
+              "a": "4,4,0",
+              "b": "4,4,2",
+              "type": "heb"
+            }
+          ],
+          "attrs": {
+            "2,2,0": {
+              "found": false,
+              "joint": true
+            },
+            "2,2,2": {
+              "joint": true,
+              "load": 5
+            },
+            "4,2,2": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "2,4,0": {
+              "found": false,
+              "joint": true
+            },
+            "4,4,2": {
+              "joint": true,
+              "load": 5
+            },
+            "4,2,0": {
+              "found": false,
+              "joint": true
+            },
+            "4,4,0": {
+              "found": false,
+              "joint": true
+            }
+          },
+          "nextId": 9
+        }
+      }
+    }
+  ]
+}
