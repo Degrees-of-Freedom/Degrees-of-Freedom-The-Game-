@@ -1,0 +1,2123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Degrees of Freedom - Kit prototype</title>
+<!--
+  Game-environment prototype, option "Kit": a board game on a turntable.
+  Players take sticks, joint tokens and weights from a tray and play them onto
+  one shared structure. Exploratory: turn rules are placeholders and there is
+  no solver. Everything the player builds lives in ../shared/model-core.js.
+-->
+<style>
+  :root {
+    --slate: rgba(31, 45, 58, 0.88);
+    --slate-solid: #1f2d3a;
+    --ink: #22313f;
+    --cream: #f3ead8;
+    --cream-dim: rgba(243, 234, 216, 0.66);
+    --cream-faint: rgba(243, 234, 216, 0.14);
+    --warm-line: rgba(246, 200, 159, 0.30);
+    --p1: #e9806e;
+    --p2: #6a9bd8;
+    --player: var(--p1);
+    --amber: #f2b134;
+    --danger: #e0566c;
+    --font: ui-rounded, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #33506b; color: var(--cream);
+    font-family: var(--font); font-size: 13px; -webkit-font-smoothing: antialiased; user-select: none; }
+  body.p2 { --player: var(--p2); }
+  canvas#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  kbd { font: 600 11px/1 var(--font); padding: 2px 5px; border-radius: 5px; background: rgba(243, 234, 216, 0.13);
+    border: 1px solid rgba(243, 234, 216, 0.22); color: var(--cream); min-width: 18px; display: inline-block; text-align: center; }
+  .panel { background: var(--slate); border: 1px solid var(--warm-line); border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(10, 18, 26, 0.35); backdrop-filter: blur(6px); }
+  .btn { height: 34px; padding: 0 12px; border-radius: 10px; background: var(--slate); border: 1px solid var(--warm-line);
+    display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-weight: 600; font-size: 12.5px;
+    transition: background .15s, transform .12s, border-color .15s, opacity .15s; backdrop-filter: blur(6px); }
+  .btn:hover:not(:disabled) { background: rgba(52, 72, 90, 0.95); border-color: rgba(246, 200, 159, 0.6); transform: translateY(-1px); }
+  .btn:active:not(:disabled) { transform: translateY(1px); }
+  .btn:disabled { opacity: .38; cursor: default; }
+  .btn.icon { width: 34px; padding: 0; justify-content: center; }
+  .btn.on, .btn.on:hover:not(:disabled) { background: var(--amber); color: var(--ink); border-color: var(--amber); }
+  .btn svg { width: 16px; height: 16px; flex: none; }
+
+  /* ---------- top row ---------- */
+  #top-left, #top-right { position: fixed; top: 14px; display: flex; gap: 6px; z-index: 5; }
+  #top-left { left: 14px; } #top-right { right: 14px; }
+  #banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; align-items: stretch;
+    height: 46px; padding: 0; overflow: hidden; }
+  #who { position: relative; min-width: 132px; padding: 0 16px 0 14px; display: flex; flex-direction: column; justify-content: center;
+    background: var(--player); color: var(--ink); overflow: hidden; }
+  #who::after { content: ""; position: absolute; inset: 0; background: var(--sweep, transparent); transform: translateX(102%); }
+  #who.sweep::after { animation: sweep .75s cubic-bezier(.6, 0, .2, 1) forwards; }
+  @keyframes sweep { from { transform: translateX(0); } to { transform: translateX(102%); } }
+  #who b { font-size: 15px; line-height: 1.1; position: relative; z-index: 1; }
+  #who span { font-size: 12px; opacity: .8; position: relative; z-index: 1; }
+  #actions { display: flex; align-items: center; gap: 10px; padding: 0 14px; border-right: 1px solid var(--cream-faint); }
+  #pips { display: flex; gap: 6px; }
+  .pip { width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--player); background: var(--player);
+    transition: transform .25s cubic-bezier(.3, 1.6, .5, 1), background .2s, opacity .2s; }
+  .pip.spent { background: transparent; opacity: .55; transform: scale(.72); }
+  #pips.shake { animation: shake .3s; }
+  @keyframes shake { 25% { transform: translateX(-4px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-2px); } }
+  #actions-text { font-size: 12px; color: var(--cream-dim); min-width: 86px; }
+  #end-turn { align-self: center; margin: 0 10px; height: 30px; background: rgba(243, 234, 216, 0.1); backdrop-filter: none; }
+  #end-turn.pulse { background: var(--player); color: var(--ink); border-color: var(--player); animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(243, 234, 216, 0.22); filter: brightness(1.12); } }
+  #rules { display: flex; align-items: center; gap: 10px; padding: 0 12px 0 0; }
+  .switch { display: inline-flex; align-items: center; gap: 7px; background: none; border: 0; padding: 4px 2px; font-size: 12px; color: var(--cream-dim); }
+  .switch i { width: 30px; height: 17px; border-radius: 9px; background: rgba(243, 234, 216, 0.18); position: relative; transition: background .2s; }
+  .switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: var(--cream); transition: transform .2s; }
+  .switch.on i { background: var(--amber); } .switch.on i::after { transform: translateX(13px); }
+  .switch:hover { color: var(--cream); }
+  #provisional { font-size: 12px; color: var(--amber); border: 1px dashed rgba(242, 177, 52, 0.6); border-radius: 8px; padding: 3px 7px; cursor: help; position: relative; }
+  #provisional-tip { display: none; position: absolute; top: 30px; right: -12px; width: 290px; padding: 10px 12px; font-size: 12px; line-height: 1.45;
+    color: var(--cream); background: var(--slate-solid); border: 1px solid var(--warm-line); border-radius: 10px; z-index: 30; white-space: normal; }
+  #provisional:hover #provisional-tip { display: block; }
+
+  /* ---------- player strips ---------- */
+  .strip { position: fixed; top: 62px; z-index: 4; padding: 8px 12px; display: flex; align-items: center; gap: 10px; opacity: .62;
+    transition: opacity .3s, transform .3s; }
+  #strip1 { left: 14px; } #strip2 { right: 14px; }
+  .strip.active { opacity: 1; }
+  .strip .dot { width: 26px; height: 10px; border-radius: 5px; }
+  #strip1 .dot { background: var(--p1); } #strip2 .dot { background: var(--p2); }
+  .strip b { font-size: 12.5px; display: block; }
+  .strip span { font-size: 12px; color: var(--cream-dim); }
+  .strip em { font-style: normal; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 6px; background: var(--cream); color: var(--ink); display: none; }
+  .strip.active em { display: inline-block; }
+
+  /* ---------- tray ---------- */
+  #dock { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+  #guide { padding: 5px 13px; border-radius: 999px; background: rgba(31, 45, 58, 0.78); border: 1px solid var(--cream-faint); font-size: 12.5px; color: var(--cream);
+    max-width: 92vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #guide.warn { background: var(--amber); color: var(--ink); border-color: var(--amber); font-weight: 600; }
+  #tray { display: flex; align-items: stretch; gap: 6px; padding: 7px; border-radius: 18px;
+    background: linear-gradient(180deg, rgba(40, 57, 72, 0.94), rgba(26, 38, 50, 0.94)); }
+  .well { position: relative; border-radius: 12px; padding: 22px 6px 5px; background: rgba(12, 20, 28, 0.42);
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35); display: flex; align-items: flex-end; gap: 2px; transition: background .2s; }
+  .well.active { background: rgba(243, 234, 216, 0.09); }
+  .well > h4 { position: absolute; top: 4px; left: 10px; margin: 0; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--cream-dim); font-weight: 700; display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+  .well > h4 kbd { font-size: 10px; padding: 1px 4px; min-width: 15px; }
+  .token { position: relative; background: none; border: 0; padding: 4px 5px 2px; border-radius: 10px; display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-end; gap: 3px; height: 64px; min-width: 44px; transition: transform .16s cubic-bezier(.3, 1.5, .5, 1), background .15s; }
+  .token svg { display: block; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.4)); overflow: visible; }
+  .token small { font-size: 11px; color: var(--cream-dim); line-height: 1; white-space: nowrap; }
+  .token .key { position: absolute; top: 3px; right: 3px; font-size: 9.5px; padding: 1px 3px; min-width: 14px; opacity: 0; transition: opacity .15s; }
+  .well.active .token .key { opacity: .9; }
+  .token:hover:not(:disabled) { transform: translateY(-3px); }
+  .token.sel { transform: translateY(-4px); background: rgba(243, 234, 216, 0.13); box-shadow: 0 0 0 1.5px var(--cream) inset; }
+  .token.sel small { color: var(--cream); font-weight: 700; }
+  .token.sel svg { filter: drop-shadow(0 8px 4px rgba(0, 0, 0, 0.45)); }
+  #tray.spent .token:not(.always) { opacity: .34; cursor: not-allowed; }
+  .sep { width: 1px; align-self: stretch; margin: 2px 4px 14px; background: var(--cream-faint); }
+  .stickfill { fill: var(--player); transition: fill .5s; }
+  #dirpad { position: relative; width: 76px; height: 62px; margin-left: 4px; }
+  #dirpad svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  #dirpad .dir { cursor: pointer; }
+  #dirpad .dir circle { fill: rgba(243, 234, 216, 0.12); stroke: rgba(243, 234, 216, 0.4); stroke-width: 1; transition: fill .15s, r .15s; }
+  #dirpad .dir:hover circle { fill: rgba(243, 234, 216, 0.3); }
+  #dirpad .dir.sel circle { fill: var(--amber); stroke: var(--amber); }
+  #dirpad .dir text { font: 700 8.5px var(--font); fill: var(--cream); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  #dirpad .dir.sel text { fill: var(--ink); }
+  #dirpad line { stroke: rgba(243, 234, 216, 0.3); stroke-width: 1.5; }
+
+  /* ---------- corner: axes, stats, help ---------- */
+  #corner { position: fixed; left: 14px; bottom: 118px; z-index: 4; display: flex; align-items: flex-end; gap: 10px; pointer-events: none; }
+  #gizmo { width: 78px; height: 78px; }
+  #gizmo text { font: 700 11px var(--font); text-anchor: middle; dominant-baseline: central; }
+  #brand { padding-bottom: 6px; text-shadow: 0 1px 6px rgba(15, 25, 35, 0.7); }
+  #brand b { display: block; font-size: 13px; letter-spacing: .02em; }
+  #brand span { font-size: 12px; color: rgba(243, 234, 216, 0.85); }
+  #help { position: fixed; left: 14px; top: 124px; width: 252px; z-index: 4; padding: 10px 12px 9px; font-size: 12px; line-height: 1.5; }
+  #help h3 { margin: 0 0 5px; font-size: 12.5px; display: flex; justify-content: space-between; align-items: center; }
+  #help h3 button { background: none; border: 0; font-size: 15px; line-height: 1; padding: 2px 4px; opacity: .7; }
+  #help h3 button:hover { opacity: 1; }
+  #help table { border-collapse: collapse; width: 100%; }
+  #help td { padding: 1.5px 0; vertical-align: top; color: var(--cream-dim); }
+  #help td:first-child { white-space: nowrap; padding-right: 9px; color: var(--cream); }
+  #help.hidden { display: none; }
+
+  /* ---------- scene labels ---------- */
+  #labels { position: fixed; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+  .tag { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); white-space: nowrap; font-weight: 700; font-size: 12px;
+    padding: 2px 7px; border-radius: 999px; background: var(--amber); color: var(--ink); box-shadow: 0 2px 6px rgba(10, 18, 26, 0.35); will-change: transform; }
+  .tag.ghost { opacity: .8; }
+  .tag.sel { outline: 2px solid var(--cream); }
+  #ghost-label, #tip { position: absolute; left: 0; top: 0; white-space: nowrap; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 8px;
+    background: var(--slate-solid); color: var(--cream); border: 1px solid var(--warm-line); display: none; }
+  #ghost-label.bad { background: var(--danger); color: #fff; border-color: var(--danger); }
+  #ghost-label b { font-size: 13px; }
+
+  /* ---------- cards ---------- */
+  .card { position: fixed; z-index: 8; width: 262px; padding: 11px 12px 10px; display: none; }
+  .card.open { display: block; animation: cardin .2s cubic-bezier(.3, 1.4, .5, 1); }
+  @keyframes cardin { from { opacity: 0; transform: scale(.9); } }
+  .card h3 { margin: 0; font-size: 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .card h3 button { background: none; border: 0; font-size: 16px; line-height: 1; padding: 2px 4px; opacity: .7; }
+  .card h3 button:hover { opacity: 1; }
+  .card .sub { font-size: 12px; color: var(--cream-dim); margin: 1px 0 8px; }
+  .card h5 { margin: 9px 0 5px; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--cream-dim); font-weight: 700; }
+  .dofs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .dof { border-radius: 10px; border: 1.5px solid transparent; padding: 4px 2px 4px; display: flex; flex-direction: column; align-items: center; gap: 0;
+    background: rgba(243, 234, 216, 0.1); transition: background .15s, transform .12s, border-color .15s; }
+  .dof svg { width: 40px; height: 34px; }
+  .dof b { font-size: 12px; line-height: 1.1; }
+  .dof span { font-size: 11px; line-height: 1.2; font-weight: 600; }
+  .dof.free { color: var(--amber); border-color: rgba(242, 177, 52, 0.55); }
+  .dof.free .axis { stroke: var(--amber); } .dof.free .head { fill: var(--amber); }
+  .dof.locked { background: var(--cream); color: var(--ink); }
+  .dof.locked .axis { stroke: rgba(34, 49, 63, 0.4); } .dof.locked .head { fill: rgba(34, 49, 63, 0.4); }
+  .dof .lock { display: none; } .dof.locked .lock { display: block; }
+  .dof:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--cream); }
+  .seg { display: grid; gap: 4px; }
+  .seg.four { grid-template-columns: repeat(4, 1fr); } .seg.two { grid-template-columns: repeat(2, 1fr); } .seg.six { grid-template-columns: repeat(6, 1fr); }
+  .seg button { border-radius: 9px; border: 1.5px solid transparent; background: rgba(243, 234, 216, 0.1); padding: 5px 2px 4px; font-size: 11.5px; font-weight: 600;
+    display: flex; flex-direction: column; align-items: center; gap: 2px; transition: background .15s, transform .12s, border-color .15s; }
+  .seg button svg { display: block; }
+  .seg button:hover:not(:disabled) { border-color: var(--cream); transform: translateY(-1px); }
+  .seg button.sel { background: rgba(242, 177, 52, 0.2); border-color: var(--amber); color: #fff; }
+  .card button:disabled { opacity: .45; cursor: not-allowed; }
+  .card .foot { margin-top: 9px; font-size: 12px; color: var(--cream-dim); line-height: 1.4; }
+  .card .foot.warn { color: var(--amber); }
+  .card .row { display: flex; gap: 6px; margin-top: 9px; }
+  .card .row .btn { height: 30px; flex: 1; justify-content: center; backdrop-filter: none; background: rgba(243, 234, 216, 0.1); }
+  #leader { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 7; }
+  #leader line { stroke: var(--cream); stroke-width: 1.5; stroke-dasharray: 3 4; opacity: .8; }
+
+  /* ---------- drawer, legend, demo banner, toast ---------- */
+  #drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 400px; max-width: 90vw; z-index: 20; border-radius: 16px 0 0 16px; border-right: 0;
+    transform: translateX(105%); transition: transform .32s cubic-bezier(.3, 1, .4, 1); display: flex; flex-direction: column; padding: 14px 14px 12px; }
+  #drawer.open { transform: none; }
+  #drawer h3 { margin: 0 0 2px; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
+  #drawer h3 button { background: none; border: 0; font-size: 18px; opacity: .7; } #drawer h3 button:hover { opacity: 1; }
+  #drawer p { margin: 0 0 9px; font-size: 12px; color: var(--amber); line-height: 1.4; }
+  #drawer pre { flex: 1; margin: 0; overflow: auto; background: rgba(10, 16, 23, 0.55); border-radius: 10px; padding: 10px 12px; font: 12px/1.45 ui-monospace, "Cascadia Mono", Consolas, monospace;
+    color: #e9e0cd; user-select: text; white-space: pre; }
+  #drawer .row { display: flex; gap: 6px; margin-top: 9px; }
+  #drawer .row .btn { flex: 1; justify-content: center; backdrop-filter: none; background: rgba(243, 234, 216, 0.1); }
+  #demo { position: fixed; top: 66px; left: 50%; transform: translateX(-50%); z-index: 5; display: none; padding: 7px 18px; border-radius: 999px;
+    background: var(--amber); color: var(--ink); font-size: 14px; font-weight: 800; letter-spacing: .01em; box-shadow: 0 6px 18px rgba(10, 18, 26, 0.4); white-space: nowrap; }
+  #legend { position: fixed; right: 14px; bottom: 118px; z-index: 4; padding: 10px 12px; width: 232px; display: none; }
+  body.preview #demo { display: block; } body.preview #legend { display: block; }
+  #legend b { font-size: 12.5px; } #legend small { display: block; font-size: 12px; color: var(--amber); margin-top: 1px; }
+  #ramp { height: 12px; border-radius: 6px; margin: 8px 0 3px; position: relative; }
+  #ramp::after { content: ""; position: absolute; left: 66.67%; top: -3px; bottom: -3px; width: 2px; background: var(--cream); }
+  #ticks { display: flex; justify-content: space-between; font-size: 12px; color: var(--cream-dim); }
+  #legend .swatch { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--cream-dim); margin-top: 6px; }
+  #legend .swatch i { width: 22px; height: 8px; border-radius: 4px; background: #8d93a0; opacity: .7; }
+  #toast { position: fixed; left: 50%; bottom: 150px; transform: translate(-50%, 10px); z-index: 25; padding: 7px 14px; border-radius: 10px; font-size: 12.5px; font-weight: 600;
+    background: var(--slate-solid); border: 1px solid var(--warm-line); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; white-space: nowrap; }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  #announce { position: fixed; left: 0; right: 0; top: 30%; z-index: 9; pointer-events: none; text-align: center; opacity: 0; }
+  #announce span { display: inline-block; padding: 12px 44px; border-radius: 999px; font-size: 26px; font-weight: 800; background: var(--player); color: var(--ink);
+    box-shadow: 0 14px 40px rgba(10, 18, 26, 0.45); }
+  #announce.go { animation: announce 1.5s ease both; }
+  @keyframes announce { 0% { opacity: 0; transform: translateX(-70px) scale(.92); } 18% { opacity: 1; transform: none; } 72% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateX(70px) scale(.96); } }
+  #fatal { position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center; background: #1f2d3a; padding: 30px; text-align: center; font-size: 15px; line-height: 1.6; }
+  #fatal div { max-width: 520px; } #fatal b { font-size: 19px; display: block; margin-bottom: 8px; color: var(--amber); }
+  body.spin canvas#scene { cursor: grabbing; }
+  body.blocked canvas#scene { cursor: not-allowed; }
+  @media (max-width: 1340px) { #actions-text { display: none; } .btn .long { display: none; } }
+</style>
+<script src="../shared/model-core.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="scene" tabindex="-1"></canvas>
+<div id="labels"><div id="ghost-label"></div><div id="tip"></div></div>
+<svg id="leader"><line id="leader-line" x1="0" y1="0" x2="0" y2="0" style="display:none"/></svg>
+
+<div id="top-left">
+  <button class="btn icon" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3 2.5 6.5 6 10"/><path d="M3 6.5h6.5a4 4 0 0 1 0 8H7"/></svg></button>
+  <button class="btn icon" id="redo" title="Redo (Ctrl+Y)" aria-label="Redo"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3l3.5 3.5L10 10"/><path d="M13 6.5H6.5a4 4 0 0 0 0 8H9"/></svg></button>
+  <button class="btn" id="clear" title="Take every piece off the board">Clear</button>
+  <button class="btn" id="example" title="Load an example structure. Click again for the next one.">Load example</button>
+</div>
+
+<div id="banner" class="panel">
+  <div id="who"><b id="who-name">Player 1</b><span id="who-turn">Turn 1</span></div>
+  <div id="actions"><div id="pips"></div><div id="actions-text">3 actions left</div></div>
+  <button class="btn" id="end-turn" title="End turn (Enter)">End turn <kbd>Enter</kbd></button>
+  <div id="rules">
+    <button class="switch" id="sandbox" title="Sandbox: build without the action limit" aria-pressed="false"><i></i>Sandbox</button>
+    <div id="provisional">Placeholder rules
+      <div id="provisional-tip">Turn rules are not decided by the team. Two players, three actions per turn, and what costs an action (a stick, a connection change, placing or changing a weight) are placeholders that make this prototype playable. Taking a piece back is free. There is no scoring.</div>
+    </div>
+  </div>
+</div>
+
+<div id="top-right">
+  <button class="btn" id="preview" title="Tint sticks with placeholder numbers to rehearse how feedback could look">Feedback preview</button>
+  <button class="btn" id="solver" title="Show the model as the draft solver-input document">Solver input</button>
+  <button class="btn icon" id="mute" title="Sound on or off (M)" aria-label="Sound"></button>
+  <button class="btn icon" id="help-btn" title="Controls (H or ?)" aria-label="Controls">?</button>
+</div>
+
+<div class="strip panel" id="strip1"><i class="dot"></i><div><b>Player 1 <em>to play</em></b><span id="strip1-text">0 sticks, 0 m</span></div></div>
+<div class="strip panel" id="strip2"><i class="dot"></i><div><b>Player 2 <em>to play</em></b><span id="strip2-text">0 sticks, 0 m</span></div></div>
+
+<div id="help" class="panel">
+  <h3>Controls <button id="help-close" title="Hide (H)" aria-label="Hide controls">&times;</button></h3>
+  <table>
+    <tr><td>Click a tray piece</td><td>pick it up</td></tr>
+    <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>sticks, joints, weights</td></tr>
+    <tr><td><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> ..</td><td>pieces in the open group</td></tr>
+    <tr><td>Click the board</td><td>play the piece (ghost shows it)</td></tr>
+    <tr><td>Right-click</td><td>take a piece back</td></tr>
+    <tr><td><kbd>X</kbd></td><td>take-back mode for left-click</td></tr>
+    <tr><td>Drag, <kbd>A</kbd> <kbd>D</kbd></td><td>spin the turntable</td></tr>
+    <tr><td>Wheel, <kbd>V</kbd></td><td>zoom, low or high view</td></tr>
+    <tr><td><kbd>F</kbd></td><td>next weight direction</td></tr>
+    <tr><td><kbd>Enter</kbd></td><td>end turn</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></td><td>undo, redo</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>cancel</td></tr>
+  </table>
+</div>
+
+<div id="corner">
+  <svg id="gizmo" viewBox="-39 -39 78 78"></svg>
+  <div id="brand"><b>Degrees of Freedom &middot; Kit</b><span id="stats">0 sticks &middot; 0 m &middot; 0 kN</span></div>
+</div>
+
+<div id="dock">
+  <div id="guide">Pick a piece from the tray.</div>
+  <div id="tray" class="panel"></div>
+</div>
+
+<div id="demo">Demo data - no solver connected</div>
+<div id="legend" class="panel">
+  <b>Feedback preview</b><small>Demo data - no solver connected</small>
+  <div id="ramp"></div>
+  <div id="ticks"><span>0</span><span>0.5</span><span>1.0</span><span>1.5</span></div>
+  <div class="swatch">Placeholder utilization per stick. The line marks 1.0.</div>
+  <div class="swatch"><i></i>Not connected to a support</div>
+</div>
+
+<div id="dofcard" class="card panel"></div>
+<div id="loadcard" class="card panel"></div>
+
+<div id="drawer" class="panel">
+  <h3>Solver input <button id="drawer-close" aria-label="Close">&times;</button></h3>
+  <p>Draft format proposed by the environment prototypes. Not an agreed contract.</p>
+  <pre id="json"></pre>
+  <div class="row"><button class="btn" id="copy">Copy</button><button class="btn" id="download">Download</button></div>
+</div>
+
+<div id="toast"></div>
+<div id="announce"><span id="announce-text"></span></div>
+<div id="fatal"><div><b>Degrees of Freedom - Kit</b><span id="fatal-text"></span></div></div>
+
+<script type="module">
+// =====================================================================
+// Boot: load three.js (needs a network connection) and fail readably.
+// =====================================================================
+function fatal(message) {
+  document.getElementById('fatal-text').textContent = message;
+  document.getElementById('fatal').style.display = 'flex';
+}
+let THREE = null;
+let RoundedBoxGeometry = null;
+try {
+  THREE = await import('three');
+  ({ RoundedBoxGeometry } = await import('three/addons/geometries/RoundedBoxGeometry.js'));
+} catch (error) {
+  fatal('The 3D library (three.js) could not be loaded. This prototype needs an internet connection the first time it opens. Check the connection and reload.');
+}
+if (THREE && !window.DOFCore) {
+  fatal('The shared model core (../shared/model-core.js) was not found. Open this file from inside the prototypes/game-environment/kit folder.');
+} else if (THREE) {
+  try {
+    main();
+  } catch (error) {
+    console.error(error);
+    fatal('The prototype could not start: ' + (error && error.message ? error.message : error));
+  }
+}
+
+function main() {
+  const DOFCore = window.DOFCore;
+  THREE.Object3D.DEFAULT_UP.set(0, 0, 1); // Z is up, before any camera exists
+  const $ = (id) => document.getElementById(id);
+  const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+  const Y_AXIS = V3(0, 1, 0);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const params = new URLSearchParams(location.search);
+
+  // =====================================================================
+  // The model. Single source of truth: the view redraws from its events.
+  // =====================================================================
+  const core = DOFCore.createModel({ bounds: { i: [0, 6], j: [0, 6], k: [0, 5] }, directions: '26', maxSteps: 4 });
+  const ACTIONS_PER_TURN = 3; // placeholder rule
+  const actionsLeft = () => {
+    const value = core.getMeta('actionsLeft');
+    return typeof value === 'number' ? value : ACTIONS_PER_TURN;
+  };
+
+  /** A game a few turns in, built through the core so pieces belong to both players. */
+  function buildStarter() {
+    core.batch(() => {
+      core.clear();
+      core.addMember([2, 2, 0], [2, 2, 3]);
+      core.addMember([4, 2, 0], [4, 2, 3]);
+      core.addMember([2, 2, 3], [4, 2, 3]);
+      core.endTurn();
+      core.addMember([4, 4, 0], [4, 4, 3]);
+      core.addMember([4, 2, 3], [4, 4, 3]);
+      core.addMember([2, 2, 0], [4, 2, 2]);
+      core.endTurn();
+      core.addMember([2, 4, 0], [2, 4, 3]);
+      core.addMember([2, 4, 3], [4, 4, 3]);
+      core.setSupport(core.nodeAt([2, 4, 0]).id, 'fixed');
+      core.endTurn();
+      core.setJoint(core.nodeAt([4, 2, 2]).id, 'pinned');
+      core.addLoad([3, 2, 3], '-Z', 10);
+      core.endTurn();
+      core.setMeta('actionsLeft', ACTIONS_PER_TURN);
+    }, 'example');
+  }
+
+  /** The core's tower example does not fit a 7 by 7 board, so this is the same idea one step over. */
+  function buildTower() {
+    core.batch(() => {
+      core.clear();
+      const corners = [[2, 2], [4, 2], [4, 4], [2, 4]];
+      corners.forEach(([i, j], c) => {
+        if (c % 2 === 0) core.addMember([i, j, 0], [i, j, 4]);
+        else { core.addMember([i, j, 0], [i, j, 2]); core.addMember([i, j, 2], [i, j, 4]); }
+      });
+      core.endTurn();
+      for (const level of [2, 4]) {
+        corners.forEach(([i, j], c) => {
+          const [i2, j2] = corners[(c + 1) % 4];
+          core.addMember([i, j, level], [i2, j2, level]);
+        });
+        core.endTurn();
+      }
+      core.addMember([2, 2, 0], [4, 2, 2]);
+      core.addMember([4, 2, 0], [4, 4, 2]);
+      core.addMember([4, 4, 2], [2, 4, 4]);
+      core.addMember([2, 4, 2], [2, 2, 4]);
+      core.endTurn();
+      core.addMember([4, 2, 4], [6, 2, 4]);
+      core.addMember([4, 2, 2], [6, 2, 4]);
+      core.addLoad([6, 2, 4], '-Z', 20);
+      core.addLoad([2, 4, 4], '+X', 10);
+      core.setSupport(core.nodeAt([2, 2, 0]).id, 'fixed');
+      core.setJoint(core.nodeAt([6, 2, 4]).id, 'pinned');
+      core.endTurn();
+      core.setMeta('actionsLeft', ACTIONS_PER_TURN);
+    }, 'example');
+  }
+
+  const EXAMPLES = [
+    { name: 'Game in progress', load: buildStarter },
+    { name: 'Portal frame', load: () => core.loadExample('portal') },
+    { name: 'Braced tower', load: buildTower }
+  ];
+  let exampleIndex = 0;
+
+  if (!params.has('empty')) buildStarter();
+
+  // =====================================================================
+  // Palette ("Dusk table")
+  // =====================================================================
+  const COL = {
+    skyTop: '#33506b', skyMid: '#7f8fa6', horizon: '#f6c89f', water: '#2f5d6b',
+    board: '#e9dcc3', boardSide: '#cdbb9a', dot: '#bca987',
+    p1: '#e9806e', p2: '#6a9bd8', hub: '#f3ead8', ink: '#22313f', amber: '#f2b134',
+    floating: '#8d93a0', danger: '#e0566c', table: '#a48a66', tableSide: '#7f6a4e'
+  };
+  const playerColor = (player) => (player === 2 ? COL.p2 : COL.p1);
+  // Feedback preview ramp: one warm hue family, light to dark, for 0 .. 1.5.
+  const RAMP = [[0, '#f7eed6'], [0.5, '#f3c668'], [1.0, '#e27d3c'], [1.5, '#9c2740']];
+  const rampColor = (() => {
+    const stops = RAMP.map(([t, hex]) => [t, new THREE.Color(hex)]);
+    return (value, target) => {
+      const v = clamp(value, 0, 1.5);
+      for (let s = 1; s < stops.length; s++) {
+        if (v <= stops[s][0]) {
+          const [t0, c0] = stops[s - 1];
+          const [t1, c1] = stops[s];
+          return target.copy(c0).lerp(c1, (v - t0) / (t1 - t0));
+        }
+      }
+      return target.copy(stops[stops.length - 1][1]);
+    };
+  })();
+  $('ramp').style.background = 'linear-gradient(90deg, ' + RAMP.map(([t, hex]) => hex + ' ' + (t / 1.5) * 100 + '%').join(', ') + ')';
+
+  // =====================================================================
+  // Renderer, scene, lights
+  // =====================================================================
+  const canvas = $('scene');
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  } catch (error) {
+    fatal('This browser could not start WebGL, which the 3D view needs.');
+    return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(COL.skyTop);
+
+  const G = -0.26;              // top of the board; ground-level joints sit at z = 0 on their bases
+  const PIVOT = V3(3, 3, 0);    // centre of the 7 by 7 board
+  const SUN_AZ = THREE.MathUtils.degToRad(158);
+  const SUN_EL = THREE.MathUtils.degToRad(33);
+  const sunDir = V3(Math.cos(SUN_EL) * Math.cos(SUN_AZ), Math.cos(SUN_EL) * Math.sin(SUN_AZ), Math.sin(SUN_EL));
+
+  scene.add(new THREE.HemisphereLight('#dde6f5', '#93a3b0', 2.1)); // cool fill
+  const sun = new THREE.DirectionalLight('#ffdcb4', 2.5);            // warm, low key light
+  sun.position.copy(PIVOT).addScaledVector(sunDir, 30);
+  sun.target.position.copy(PIVOT);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -9.5, right: 9.5, top: 9.5, bottom: -9.5, near: 5, far: 60 });
+  sun.shadow.bias = -0.0006;
+  sun.shadow.normalBias = 0.03;
+  scene.add(sun, sun.target);
+
+  // ---- sky dome: gradient by elevation, warmer toward the sun
+  const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(180, 32, 16),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false,
+      uniforms: {
+        top: { value: new THREE.Color(COL.skyTop) }, mid: { value: new THREE.Color(COL.skyMid) },
+        horizon: { value: new THREE.Color(COL.horizon) }, sunAz: { value: V3(Math.cos(SUN_AZ), Math.sin(SUN_AZ), 0) }
+      },
+      vertexShader: 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `
+        uniform vec3 top; uniform vec3 mid; uniform vec3 horizon; uniform vec3 sunAz; varying vec3 vDir;
+        void main() {
+          vec3 d = normalize(vDir);
+          float e = asin(clamp(d.z, -1.0, 1.0)) * 57.2958;             // elevation in degrees
+          float glow = pow(max(dot(normalize(vec3(d.xy, 0.0)), sunAz), 0.0), 3.0);
+          float lift = 1.0 + 0.9 * glow;                                // the warm band is taller near the sun
+          vec3 c = mix(horizon, mid, smoothstep(0.0, 6.5 * lift, e));
+          c = mix(c, top, smoothstep(5.0 * lift, 15.0 * lift, e));
+          c += vec3(0.10, 0.045, 0.0) * glow * (1.0 - smoothstep(0.0, 9.0, e));
+          c = mix(c, horizon, 1.0 - smoothstep(-3.0, 0.0, e));
+          gl_FragColor = vec4(c, 1.0);
+          #include <colorspace_fragment>
+        }`
+    })
+  );
+  sky.position.copy(PIVOT);
+  sky.renderOrder = -10;
+  scene.add(sky);
+
+  // ---- water: flat colour that warms toward the horizon and toward the sun
+  const WATER_Z = -0.92;
+  const waterUniforms = {
+    deep: { value: new THREE.Color(COL.water) }, horizon: { value: new THREE.Color(COL.horizon) },
+    sunAz: { value: V3(Math.cos(SUN_AZ), Math.sin(SUN_AZ), 0) }, eye: { value: V3(0, 0, 0) }, time: { value: 0 }, pivot: { value: PIVOT.clone() }
+  };
+  const water = new THREE.Mesh(
+    new THREE.CircleGeometry(180, 64),
+    new THREE.ShaderMaterial({
+      uniforms: waterUniforms,
+      vertexShader: 'varying vec3 vPos; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vPos = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+      fragmentShader: `
+        uniform vec3 deep; uniform vec3 horizon; uniform vec3 sunAz; uniform vec3 eye; uniform vec3 pivot; uniform float time; varying vec3 vPos;
+        void main() {
+          vec3 toP = vPos - eye;
+          float dist = length(toP.xy);
+          float graze = clamp(1.0 - abs(toP.z) / max(dist, 0.001) * 3.2, 0.0, 1.0);   // 1 at the horizon
+          float side = pow(max(dot(normalize(toP.xy), sunAz.xy), 0.0), 4.0);
+          vec3 c = deep;
+          c = mix(c, vec3(0.42, 0.56, 0.60), 0.35 * smoothstep(0.2, 0.9, graze));       // lighter with distance
+          c = mix(c, horizon, pow(graze, 5.0) * 0.82);                                   // haze into the sky
+          float ripple = sin(dist * 1.7 - time * 0.6 + sin(vPos.x * 0.35) * 2.0) * 0.5 + 0.5;
+          c += vec3(0.95, 0.62, 0.34) * side * (0.10 + 0.22 * ripple * smoothstep(0.3, 1.0, graze)); // warm path to the sun
+          float r = length(vPos.xy - pivot.xy);
+          c *= 1.0 - 0.34 * (1.0 - smoothstep(5.2, 9.5, r));                             // soft dark pool around the table
+          gl_FragColor = vec4(c, 1.0);
+          #include <colorspace_fragment>
+        }`
+    })
+  );
+  water.position.set(PIVOT.x, PIVOT.y, WATER_Z);
+  scene.add(water);
+
+  // ---- helpers for Z-up primitives (three builds cylinders along Y)
+  const zCylinder = (rTop, rBottom, height, segments) => new THREE.CylinderGeometry(rTop, rBottom, height, segments || 28).rotateX(Math.PI / 2);
+  const lambert = (color, extra) => new THREE.MeshLambertMaterial(Object.assign({ color }, extra || {}));
+
+  // ---- turntable: a round wooden base with 45 degree notches and a seat mark per player
+  const TABLE_R = 5.8;
+  const TABLE_TOP = G - 0.24;
+  const table = new THREE.Group();
+  {
+    const base = new THREE.Mesh(zCylinder(TABLE_R, TABLE_R * 0.97, 0.46, 72), [lambert(COL.tableSide), lambert(COL.table), lambert(COL.tableSide)]);
+    base.position.set(PIVOT.x, PIVOT.y, TABLE_TOP - 0.23);
+    base.receiveShadow = true;
+    table.add(base);
+    const foot = new THREE.Mesh(zCylinder(TABLE_R * 0.62, TABLE_R * 0.62, 0.5, 48), lambert('#5d4f3c'));
+    foot.position.set(PIVOT.x, PIVOT.y, TABLE_TOP - 0.7);
+    table.add(foot);
+    const notchGeometry = new THREE.BoxGeometry(0.34, 0.07, 0.012);
+    const notchMaterial = lambert('#d9c7a2');
+    for (let n = 0; n < 8; n++) {
+      const a = (n * Math.PI) / 4;
+      const notch = new THREE.Mesh(notchGeometry, notchMaterial);
+      notch.position.set(PIVOT.x + Math.cos(a) * (TABLE_R - 0.3), PIVOT.y + Math.sin(a) * (TABLE_R - 0.3), TABLE_TOP + 0.006);
+      notch.rotation.z = a;
+      table.add(notch);
+    }
+  }
+  scene.add(table);
+
+  // =====================================================================
+  // Turntable camera: fixed elevation, turns only about the vertical axis
+  // =====================================================================
+  const HOME_AZ = { 1: THREE.MathUtils.degToRad(-118), 2: THREE.MathUtils.degToRad(62) };
+  const VIEWS = {
+    low: { el: THREE.MathUtils.degToRad(19), dist: 21.5, lift: 1.45 },
+    high: { el: THREE.MathUtils.degToRad(43), dist: 23, lift: 0.6 }
+  };
+  const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 1, 600);
+  const rig = {
+    az: HOME_AZ[core.turn.player], azTarget: HOME_AZ[core.turn.player], azVel: 0,
+    view: 'low', el: VIEWS.low.el, dist: VIEWS.low.dist, lift: VIEWS.low.lift, zoom: 1, zoomTarget: 1, moving: false
+  };
+  function applyCamera() {
+    const d = rig.dist * rig.zoom;
+    camera.position.set(
+      PIVOT.x + d * Math.cos(rig.el) * Math.cos(rig.az),
+      PIVOT.y + d * Math.cos(rig.el) * Math.sin(rig.az),
+      PIVOT.z + d * Math.sin(rig.el)
+    );
+    camera.lookAt(PIVOT.x, PIVOT.y, PIVOT.z + rig.lift * Math.min(1.15, rig.zoom));
+    camera.updateMatrixWorld(true);
+    camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+    waterUniforms.eye.value.copy(camera.position);
+  }
+  function updateCamera(dt) {
+    const before = rig.az + rig.el * 7 + rig.dist * rig.zoom;
+    const target = VIEWS[rig.view];
+    const k = 1 - Math.exp(-dt * 7);
+    const kAz = 1 - Math.exp(-dt * (rig.dragging ? 30 : 5.5));
+    rig.az += (rig.azTarget - rig.az) * kAz;
+    rig.el += (target.el - rig.el) * k;
+    rig.dist += (target.dist - rig.dist) * k;
+    rig.lift += (target.lift - rig.lift) * k;
+    rig.zoom += (rig.zoomTarget - rig.zoom) * (1 - Math.exp(-dt * 10));
+    applyCamera();
+    rig.moving = Math.abs(rig.az + rig.el * 7 + rig.dist * rig.zoom - before) > 1e-4;
+  }
+  const _v = V3(0, 0, 0);
+  /** World point -> viewport CSS pixels with the live camera. */
+  function toScreen(x, y, z) {
+    _v.set(x, y, z).project(camera);
+    const rect = canvas.getBoundingClientRect();
+    return { x: rect.left + (_v.x * 0.5 + 0.5) * rect.width, y: rect.top + (-_v.y * 0.5 + 0.5) * rect.height, z: _v.z };
+  }
+  const gridScreen = (p) => { const w = core.position(p); return toScreen(w[0], w[1], w[2]); };
+  applyCamera();
+
+  // =====================================================================
+  // Board: parchment slab with a printed lattice, coordinates and axes
+  // =====================================================================
+  const BOARD = 7.9;
+  {
+    const half = BOARD / 2, r = 0.5;
+    const shape = new THREE.Shape();
+    shape.moveTo(-half + r, -half); shape.lineTo(half - r, -half); shape.quadraticCurveTo(half, -half, half, -half + r);
+    shape.lineTo(half, half - r); shape.quadraticCurveTo(half, half, half - r, half);
+    shape.lineTo(-half + r, half); shape.quadraticCurveTo(-half, half, -half, half - r);
+    shape.lineTo(-half, -half + r); shape.quadraticCurveTo(-half, -half, -half + r, -half);
+    const slab = new THREE.Mesh(
+      new THREE.ExtrudeGeometry(shape, { depth: 0.2, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 2, curveSegments: 10 }),
+      [lambert(COL.board), lambert(COL.boardSide)]
+    );
+    slab.position.set(PIVOT.x, PIVOT.y, G - 0.236);
+    slab.receiveShadow = true;
+    slab.castShadow = true;
+    scene.add(slab);
+
+    // Printed face: lattice dots, faint lines, coordinates and the +X / +Y arrows.
+    const size = 1024, px = size / BOARD;
+    const face = document.createElement('canvas');
+    face.width = face.height = size;
+    const c = face.getContext('2d');
+    const toPx = (wx, wy) => [(wx - (PIVOT.x - half)) * px, (PIVOT.y + half - wy) * px];
+    c.fillStyle = COL.board; c.fillRect(0, 0, size, size);
+    c.strokeStyle = 'rgba(188, 169, 135, 0.38)'; c.lineWidth = 2;
+    for (let n = 0; n <= 6; n++) {
+      let [x0, y0] = toPx(n, 0), [x1, y1] = toPx(n, 6);
+      c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+      [x0, y0] = toPx(0, n); [x1, y1] = toPx(6, n);
+      c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+    }
+    c.fillStyle = COL.dot;
+    for (let i = 0; i <= 6; i++) for (let j = 0; j <= 6; j++) {
+      const [x, y] = toPx(i, j);
+      c.beginPath(); c.arc(x, y, 0.085 * px, 0, Math.PI * 2); c.fill();
+    }
+    c.fillStyle = 'rgba(150, 130, 98, 0.9)';
+    c.font = '700 ' + Math.round(0.2 * px) + 'px "Segoe UI", system-ui, sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    for (let n = 0; n <= 6; n++) {
+      let [x, y] = toPx(n, -0.62); c.fillText(String(n), x, y);
+      [x, y] = toPx(-0.62, n); c.fillText(String(n), x, y);
+    }
+    // axis arrows printed in the near corner
+    c.strokeStyle = c.fillStyle = 'rgba(150, 130, 98, 0.9)'; c.lineWidth = 5; c.lineCap = 'round';
+    const arrow = (ax, ay, bx, by, label) => {
+      const [x0, y0] = toPx(ax, ay), [x1, y1] = toPx(bx, by);
+      c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+      const a = Math.atan2(y1 - y0, x1 - x0);
+      c.beginPath(); c.moveTo(x1 + Math.cos(a) * 14, y1 + Math.sin(a) * 14);
+      c.lineTo(x1 + Math.cos(a + 2.5) * 13, y1 + Math.sin(a + 2.5) * 13); c.lineTo(x1 + Math.cos(a - 2.5) * 13, y1 + Math.sin(a - 2.5) * 13); c.fill();
+      c.fillText(label, x1 + Math.cos(a) * 44, y1 + Math.sin(a) * 44);
+    };
+    c.font = '800 ' + Math.round(0.22 * px) + 'px "Segoe UI", system-ui, sans-serif';
+    arrow(6.3, -0.62, 6.44, -0.62, 'X');
+    arrow(-0.62, 6.3, -0.62, 6.44, 'Y');
+    const texture = new THREE.CanvasTexture(face);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const print = new THREE.Mesh(new THREE.PlaneGeometry(BOARD - 0.08, BOARD - 0.08), new THREE.MeshLambertMaterial({ map: texture }));
+    // the plane shows the canvas minus a 0.04 margin, so crop the texture to match
+    texture.repeat.set((BOARD - 0.08) / BOARD, (BOARD - 0.08) / BOARD);
+    texture.offset.set(0.04 / BOARD, 0.04 / BOARD);
+    print.position.set(PIVOT.x, PIVOT.y, G);
+    print.receiveShadow = true;
+    scene.add(print);
+  }
+
+  // =====================================================================
+  // Tweens (time-based, so slow frames still finish on time)
+  // =====================================================================
+  const tweens = [];
+  function tween(duration, step, done, delay) {
+    tweens.push({ t: -(delay || 0), duration, step, done });
+  }
+  function runTweens(dt) {
+    for (let n = tweens.length - 1; n >= 0; n--) {
+      const tw = tweens[n];
+      tw.t += dt;
+      if (tw.t < 0) continue;
+      const u = Math.min(1, tw.t / tw.duration);
+      tw.step(u);
+      if (u >= 1) {
+        tweens.splice(n, 1);
+        if (tw.done) tw.done();
+      }
+    }
+  }
+  const easeOutBack = (u) => 1 + 2.70158 * Math.pow(u - 1, 3) + 1.70158 * Math.pow(u - 1, 2);
+  const easeInCubic = (u) => u * u * u;
+
+  // =====================================================================
+  // Pieces: sticks, joints and weights drawn from the model
+  // =====================================================================
+  const world = new THREE.Group();   // everything that belongs to the structure
+  scene.add(world);
+  const R_STICK = 0.1;
+  const stickGeometries = new Map();
+  function stickGeometry(length) {
+    const key = length.toFixed(3);
+    if (!stickGeometries.has(key)) stickGeometries.set(key, new THREE.CapsuleGeometry(R_STICK, Math.max(0.05, length - 0.2), 6, 14));
+    return stickGeometries.get(key);
+  }
+  const GEO = {
+    hub: new RoundedBoxGeometry(0.36, 0.36, 0.36, 3, 0.075),
+    ball: new THREE.SphereGeometry(0.185, 24, 16),
+    ring: new THREE.TorusGeometry(0.255, 0.05, 10, 32),
+    plateRound: zCylinder(0.43, 0.43, 0.045, 32),
+    cone: zCylinder(0.15, 0.37, 0.2, 28),
+    plateSquare: new RoundedBoxGeometry(0.88, 0.88, 0.05, 2, 0.02),
+    block: new RoundedBoxGeometry(0.6, 0.6, 0.2, 3, 0.05),
+    bolt: zCylinder(0.05, 0.05, 0.035, 12),
+    rollerBall: new THREE.SphereGeometry(0.062, 14, 10),
+    rollerCap: zCylinder(0.15, 0.33, 0.1, 28),
+    hex: zCylinder(0.31, 0.31, 0.2, 6),
+    hexBand: zCylinder(0.325, 0.325, 0.06, 6)
+  };
+  const MAT = {
+    cream: lambert(COL.hub), ink: lambert(COL.ink),
+    floatCream: lambert(COL.floating, { transparent: true, opacity: 0.6 }),
+    floatInk: lambert('#5d6470', { transparent: true, opacity: 0.6 }),
+    ghostCream: new THREE.MeshBasicMaterial({ color: COL.hub, transparent: true, opacity: 0.6, depthWrite: false }),
+    ghostInk: new THREE.MeshBasicMaterial({ color: COL.ink, transparent: true, opacity: 0.6, depthWrite: false }),
+    amber: lambert(COL.amber),
+    amberFloat: lambert('#b9a37a', { transparent: true, opacity: 0.7 }),
+    ghostAmber: new THREE.MeshBasicMaterial({ color: COL.amber, transparent: true, opacity: 0.55, depthWrite: false })
+  };
+
+  /**
+   * A joint draws itself from what it is: its base from the support type and
+   * its hub from the joint type. `spec` is { support, joint, onGround }.
+   */
+  function buildGlyph(spec, cream, ink, shadows) {
+    const group = new THREE.Group();
+    const add = (geometry, material, x, y, z, parent) => {
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(x, y, z);
+      mesh.castShadow = !!shadows;
+      mesh.receiveShadow = !!shadows;
+      (parent || group).add(mesh);
+      return mesh;
+    };
+    // --- base (support)
+    const base = new THREE.Group();
+    if (spec.support === 'pinned') {
+      add(GEO.plateRound, ink, 0, 0, G + 0.0225, base);
+      add(GEO.cone, cream, 0, 0, G + 0.045 + 0.1, base);
+    } else if (spec.support === 'fixed') {
+      add(GEO.plateSquare, ink, 0, 0, G + 0.025, base);
+      add(GEO.block, cream, 0, 0, G + 0.05 + 0.1, base);
+      for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) add(GEO.bolt, cream, sx * 0.36, sy * 0.36, G + 0.06, base);
+    } else if (spec.support === 'roller') {
+      add(GEO.plateRound, ink, 0, 0, G + 0.0225, base);
+      for (let n = 0; n < 3; n++) {
+        const a = (n * Math.PI * 2) / 3 + 0.5;
+        add(GEO.rollerBall, ink, Math.cos(a) * 0.2, Math.sin(a) * 0.2, G + 0.045 + 0.062, base);
+      }
+      add(GEO.rollerCap, cream, 0, 0, G + 0.17 + 0.05, base);
+    } else if (spec.support === 'custom') {
+      add(GEO.plateRound, ink, 0, 0, G + 0.0225, base);
+      add(GEO.hex, cream, 0, 0, G + 0.045 + 0.1, base);
+      add(GEO.hexBand, ink, 0, 0, G + 0.045 + 0.1, base);
+    }
+    if (!spec.onGround) base.scale.setScalar(0.72); // a restrained joint in the air carries a smaller base under it
+    group.add(base);
+    // --- hub (joint)
+    if (spec.joint === 'pinned') {
+      add(GEO.ball, cream, 0, 0, 0);
+      add(GEO.ring, ink, 0, 0, 0);
+    } else {
+      add(GEO.hub, cream, 0, 0, 0);
+    }
+    return group;
+  }
+
+  const loadSize = (magnitude) => 0.75 + 0.25 * Math.log2(Math.max(1, magnitude) / 5);
+  const arrowParts = new Map();
+  /** A chunky arrow built along +Y whose tip stops just short of the joint at the origin. */
+  function buildArrow(magnitude, material, shadows) {
+    const f = clamp(loadSize(magnitude), 0.6, 1.8);
+    const key = f.toFixed(2);
+    if (!arrowParts.has(key)) {
+      arrowParts.set(key, {
+        head: new THREE.ConeGeometry(0.16 * f, 0.32 * f, 20),
+        shaft: new THREE.CylinderGeometry(0.06 * f, 0.06 * f, 0.44 * f + 0.1, 14),
+        tail: new THREE.SphereGeometry(0.06 * f, 12, 8)
+      });
+    }
+    const parts = arrowParts.get(key);
+    const gap = 0.27, headLength = 0.32 * f, shaftLength = 0.44 * f + 0.1;
+    const group = new THREE.Group();
+    const head = new THREE.Mesh(parts.head, material);
+    head.position.y = -gap - headLength / 2;
+    const shaft = new THREE.Mesh(parts.shaft, material);
+    shaft.position.y = -gap - headLength - shaftLength / 2 + 0.02;
+    const tail = new THREE.Mesh(parts.tail, material);
+    tail.position.y = -gap - headLength - shaftLength + 0.02;
+    for (const mesh of [head, shaft, tail]) { mesh.castShadow = !!shadows; group.add(mesh); }
+    group.userData.reach = gap + headLength + shaftLength; // distance from the joint to the tail
+    return group;
+  }
+  const orient = (object, direction) => object.quaternion.setFromUnitVectors(Y_AXIS, _v.set(direction[0], direction[1], direction[2]).normalize());
+
+  const memberViews = new Map();
+  const nodeViews = new Map();
+  const loadViews = new Map();
+  let preview = false;           // feedback preview (demo data) on or off
+  let floatingCount = 0;
+  const labels = $('labels');
+
+  function removeView(view, kind, instant) {
+    const object = view.object;
+    const finish = () => {
+      world.remove(object);
+      if (kind === 'member') view.material.dispose();
+    };
+    if (view.label) view.label.remove();
+    if (instant) return finish();
+    const from = object.scale.clone();
+    tween(0.2, (u) => object.scale.copy(from).multiplyScalar(Math.max(0.001, 1 - easeInCubic(u))), finish);
+  }
+
+  function popIn(object, delay, lengthwise) {
+    object.scale.setScalar(0.001);
+    tween(0.3, (u) => {
+      const s = Math.max(0.001, easeOutBack(u));
+      if (lengthwise) object.scale.set(Math.max(0.001, easeOutBack(Math.min(1, u * 1.5))), s, Math.max(0.001, easeOutBack(Math.min(1, u * 1.5))));
+      else object.scale.setScalar(s);
+    }, null, delay);
+  }
+  const bump = (object) => tween(0.26, (u) => object.scale.setScalar(1 + 0.28 * Math.sin(Math.PI * u) * (1 - u)));
+
+  /** Redraw from the model. `change` is the core's change record (or null for a full rebuild). */
+  function syncScene(change) {
+    const rebuild = !change || change.reset;
+    const added = change ? change.added : { nodes: [], members: [], loads: [] };
+    const connectivity = core.connectivity();
+    const floatingMembers = new Set(connectivity.floatingMembers);
+    const floatingNodes = new Set(connectivity.floatingNodes);
+    floatingCount = floatingMembers.size + floatingNodes.size;
+    const results = preview ? core.mockResults() : null;
+    let stagger = 0;
+    const nextDelay = () => (rebuild ? (stagger += 0.02) : 0);
+    if (rebuild) {
+      for (const view of memberViews.values()) removeView(view, 'member', true);
+      for (const view of nodeViews.values()) removeView(view, 'node', true);
+      for (const view of loadViews.values()) removeView(view, 'load', true);
+      memberViews.clear(); nodeViews.clear(); loadViews.clear();
+    }
+
+    // ---- sticks
+    const members = core.members;
+    const seenMembers = new Set();
+    for (const m of members) {
+      seenMembers.add(m.id);
+      let view = memberViews.get(m.id);
+      if (!view) {
+        const material = lambert(playerColor(m.player));
+        const mesh = new THREE.Mesh(stickGeometry(m.length), material);
+        const a = V3(...m.fromPosition), b = V3(...m.toPosition);
+        mesh.position.copy(a).add(b).multiplyScalar(0.5);
+        mesh.quaternion.setFromUnitVectors(Y_AXIS, b.clone().sub(a).normalize());
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        world.add(mesh);
+        view = { id: m.id, object: mesh, material, base: mesh.position.clone(), phase: Math.random() * 6.28, a, b };
+        memberViews.set(m.id, view);
+        if (rebuild || added.members.includes(m.id)) popIn(mesh, nextDelay(), true);
+      }
+      view.data = m;
+      view.floating = floatingMembers.has(m.id);
+      view.utilization = results && results.members[m.id] ? results.members[m.id].utilization : null;
+      if (view.floating) view.material.color.set(COL.floating);
+      else if (preview && view.utilization !== null) rampColor(view.utilization, view.material.color);
+      else view.material.color.set(playerColor(m.player));
+      const translucent = view.floating;
+      if (view.material.transparent !== translucent) { view.material.transparent = translucent; view.material.needsUpdate = true; }
+      view.material.opacity = translucent ? 0.55 : 1;
+      view.object.castShadow = !translucent;
+      if (!view.floating) view.object.position.copy(view.base);
+    }
+    for (const [id, view] of memberViews) if (!seenMembers.has(id)) { removeView(view, 'member'); memberViews.delete(id); }
+
+    // ---- joints
+    const seenNodes = new Set();
+    for (const n of core.nodes) {
+      seenNodes.add(n.id);
+      const floating = floatingNodes.has(n.id);
+      const signature = [n.support, n.joint, n.onGround, floating].join('|');
+      let view = nodeViews.get(n.id);
+      if (!view) {
+        const group = new THREE.Group();
+        group.position.set(...n.position);
+        world.add(group);
+        view = { id: n.id, object: group, base: group.position.clone(), phase: Math.random() * 6.28, signature: null };
+        nodeViews.set(n.id, view);
+        if (rebuild || added.nodes.includes(n.id)) popIn(group, nextDelay());
+      }
+      if (view.signature !== signature) {
+        const fresh = view.signature === null;
+        view.object.clear();
+        view.object.add(buildGlyph(n, floating ? MAT.floatCream : MAT.cream, floating ? MAT.floatInk : MAT.ink, !floating));
+        view.signature = signature;
+        if (!fresh) bump(view.object);
+      }
+      view.data = n;
+      view.floating = floating;
+      if (!floating) view.object.position.copy(view.base);
+    }
+    for (const [id, view] of nodeViews) if (!seenNodes.has(id)) { removeView(view, 'node'); nodeViews.delete(id); }
+
+    // ---- weights
+    const seenLoads = new Set();
+    for (const l of core.loads) {
+      seenLoads.add(l.id);
+      const node = core.node(l.node);
+      const floating = floatingNodes.has(l.node);
+      const signature = [l.direction.join(','), l.magnitude, floating].join('|');
+      let view = loadViews.get(l.id);
+      if (!view) {
+        const group = new THREE.Group();
+        world.add(group);
+        const label = document.createElement('div');
+        label.className = 'tag';
+        labels.appendChild(label);
+        view = { id: l.id, object: group, label, signature: null };
+        loadViews.set(l.id, view);
+        if (rebuild || added.loads.includes(l.id)) popIn(group, nextDelay());
+      }
+      view.object.position.set(...node.position);
+      if (view.signature !== signature) {
+        const fresh = view.signature === null;
+        view.object.clear();
+        const arrow = buildArrow(l.magnitude, floating ? MAT.amberFloat : MAT.amber, !floating);
+        view.object.add(arrow);
+        orient(view.object, l.direction);
+        view.reach = arrow.userData.reach;
+        view.label.textContent = l.magnitude + ' kN';
+        view.signature = signature;
+        if (!fresh) bump(view.object);
+      }
+      view.data = l;
+      view.nodePosition = node.position;
+    }
+    for (const [id, view] of loadViews) if (!seenLoads.has(id)) { removeView(view, 'load'); loadViews.delete(id); }
+  }
+
+  /** Pieces with no path of sticks to a support bob gently, so they always look unsettled. */
+  function bobFloating(time) {
+    if (!floatingCount) return;
+    for (const view of memberViews.values()) if (view.floating) view.object.position.z = view.base.z + Math.sin(time * 2.2 + view.phase) * 0.035;
+    for (const view of nodeViews.values()) if (view.floating) view.object.position.z = view.base.z + Math.sin(time * 2.2 + view.phase) * 0.035;
+  }
+
+  /** Keep the HTML tags of the weights on their arrows, and apart from each other. */
+  function placeLabels() {
+    const placed = [];
+    for (const view of loadViews.values()) {
+      const d = view.data.direction, p = view.nodePosition, r = view.reach + 0.2;
+      const s = toScreen(p[0] - d[0] * r, p[1] - d[1] * r, p[2] - d[2] * r);
+      let y = s.y;
+      for (const other of placed) if (Math.abs(other.x - s.x) < 54 && Math.abs(other.y - y) < 20) y = other.y - 21;
+      placed.push({ x: s.x, y });
+      view.screen = { x: s.x, y };
+      view.label.style.transform = 'translate(-50%, -50%) translate(' + s.x.toFixed(1) + 'px, ' + y.toFixed(1) + 'px)';
+      view.label.style.display = s.z < 1 ? '' : 'none';
+    }
+  }
+
+  // =====================================================================
+  // Interface state
+  // =====================================================================
+  const STICKS = [1, 2, 3, 4];
+  const JOINTS = [
+    { id: 'inspect', label: 'Inspect', hint: 'Inspect: open a joint\'s DOF card' },
+    { id: 'rigid', label: 'Rigid hub', hint: 'Rigid hub: passes bending between sticks' },
+    { id: 'pin', label: 'Pin', hint: 'Pin: stick ends at this joint are free to rotate' },
+    { id: 'pinned', label: 'Pinned base', hint: 'Pinned base: holds position, free to rotate' },
+    { id: 'fixed', label: 'Fixed base', hint: 'Fixed base: holds position and rotation' },
+    { id: 'roller', label: 'Roller', hint: 'Roller: holds up, free to slide' }
+  ];
+  const WEIGHTS = DOFCore.LOAD_STEPS;
+  const DIRS = DOFCore.AXIS_DIRECTIONS;
+  const DIR_NAME = { '-Z': 'down', '+Z': 'up', '+X': 'toward +X', '-X': 'toward -X', '+Y': 'toward +Y', '-Y': 'toward -Y' };
+  const SUPPORT_NAME = { free: 'No base', roller: 'Roller', pinned: 'Pinned base', fixed: 'Fixed base', custom: 'Custom base' };
+  const ITEM_KEYS = ['q', 'w', 'e', 'r', 't', 'y'];
+  const ui = {
+    group: 'member', stick: 1, joint: 'inspect', weight: 10, dir: '-Z',
+    takeBack: false, sandbox: false, armed: null, selectedNode: null, selectedLoad: null, muted: false
+  };
+  const pointer = { x: -1, y: -1, inside: false, down: null };
+  let hover = null;
+  let tipPiece = null;
+  let shownPlayer = core.turn.player;
+  let undoDepth = 0;
+  const spent = () => !ui.sandbox && actionsLeft() <= 0;
+  const currentTool = () => ui.group;
+  const dirId = (vector) => { const d = DIRS.find((a) => a.vector.every((c, n) => Math.abs(c - vector[n]) < 1e-6)); return d ? d.id : '?'; };
+  const metres = (value) => (Math.round(value * 100) / 100).toFixed(2) + ' m';
+  const keyOf = (p) => p[0] + ',' + p[1] + ',' + p[2];
+
+  // =====================================================================
+  // Sound: tiny synthesised pops. Never allowed to break the page.
+  // =====================================================================
+  let audio = null;
+  function blip(from, to, duration, volume, type) {
+    if (ui.muted) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+      const t = audio.currentTime;
+      const osc = audio.createOscillator();
+      const gain = audio.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(from, t);
+      osc.frequency.exponentialRampToValueAtTime(to, t + duration);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(volume || 0.06, t + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+      osc.connect(gain).connect(audio.destination);
+      osc.start(t);
+      osc.stop(t + duration + 0.02);
+    } catch (error) { /* sound is optional */ }
+  }
+  const SFX = {
+    place: () => blip(420, 760, 0.11, 0.07),
+    remove: () => blip(520, 240, 0.12, 0.06),
+    pick: () => blip(880, 990, 0.045, 0.03),
+    arm: () => blip(600, 660, 0.06, 0.04),
+    nope: () => blip(170, 130, 0.13, 0.06, 'triangle'),
+    turn: () => { blip(523, 523, 0.14, 0.05); setTimeout(() => blip(784, 784, 0.2, 0.05), 120); }
+  };
+
+  // =====================================================================
+  // Small messages
+  // =====================================================================
+  let toastTimer = 0;
+  function toast(message) {
+    const el = $('toast');
+    el.textContent = message;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+  }
+  function outOfActions() {
+    SFX.nope();
+    const pips = $('pips');
+    pips.classList.remove('shake');
+    void pips.offsetWidth;
+    pips.classList.add('shake');
+    toast('No actions left this turn. End the turn, or undo a move.');
+  }
+
+  // =====================================================================
+  // Actions: every edit goes through the core. Placing a stick, changing a
+  // connection and placing or changing a weight each cost one action
+  // (placeholder rule); the count lives in the core's meta so undo returns it.
+  // =====================================================================
+  const modelSignature = () => JSON.stringify([core.nodes, core.members, core.loads]);
+  function spend(reason, edit) {
+    if (spent()) { outOfActions(); return { ok: false, reason: 'no-actions' }; }
+    let result = null;
+    let changed = false;
+    core.batch(() => {
+      const before = modelSignature();
+      result = edit() || { ok: true };
+      changed = modelSignature() !== before;
+      if (changed && !ui.sandbox) core.setMeta('actionsLeft', actionsLeft() - 1);
+    }, reason);
+    result.changed = changed;
+    return result;
+  }
+  function endTurn() {
+    core.batch(() => {
+      core.endTurn();
+      core.setMeta('actionsLeft', ACTIONS_PER_TURN);
+    }, 'endTurn');
+  }
+  function undo() { if (undoDepth > 0 && core.canUndo) core.undo(); else SFX.nope(); }
+  function redo() { if (core.canRedo) core.redo(); else SFX.nope(); }
+
+  /** Take back the piece under the cursor. Free in this prototype (placeholder rule). */
+  function takeBack(piece) {
+    if (!piece) return false;
+    if (piece.kind === 'member') { core.removeMember(piece.id); SFX.remove(); return true; }
+    if (piece.kind === 'load') { core.removeLoad(piece.id); SFX.remove(); return true; }
+    const n = core.node(piece.id);
+    if (!n) return false;
+    const plain = n.onGround ? 'pinned' : 'free';
+    if (n.joint !== 'rigid' || n.support !== plain) {
+      core.batch(() => { core.setJoint(n.id, 'rigid'); core.setSupport(n.id, plain); }, 'takeBackJoint');
+      SFX.remove();
+      toast(n.onGround ? 'Joint token taken back. A joint on the board keeps its plain pinned base.' : 'Joint token taken back.');
+      return true;
+    }
+    const ends = core.membersAt(n.id).some((m) => m.end);
+    if (n.explicit && !ends && core.loadsAt(n.id).length === 0) { core.removeNode(n.id); SFX.remove(); return true; }
+    SFX.nope();
+    toast('A plain joint leaves when its sticks do. Take back a stick instead.');
+    return false;
+  }
+
+  // =====================================================================
+  // Picking: everything is chosen by distance on screen, so a click on the
+  // projected position of a lattice point acts on exactly that point.
+  // =====================================================================
+  const GROUND_POINTS = [];
+  for (let i = 0; i <= 6; i++) for (let j = 0; j <= 6; j++) GROUND_POINTS.push([i, j, 0]);
+  let structurePoints = new Map(); // lattice key -> { p, node, onMember }
+  function indexStructure() {
+    structurePoints = new Map();
+    for (const m of core.members) {
+      for (const p of DOFCore.latticePoints(m.from, m.to)) structurePoints.set(keyOf(p), { p, node: null, onMember: true });
+    }
+    for (const n of core.nodes) {
+      const entry = structurePoints.get(keyOf(n.grid)) || { p: n.grid, node: null, onMember: false };
+      entry.node = n;
+      structurePoints.set(keyOf(n.grid), entry);
+    }
+  }
+  /** Nearest candidate to the cursor. Candidates: { p, node?, structure? }. */
+  function nearestPoint(candidates, radius) {
+    let best = null;
+    let bestScore = Infinity;
+    for (const candidate of candidates) {
+      const s = gridScreen(candidate.p);
+      if (s.z >= 1) continue;
+      const d = Math.hypot(s.x - pointer.x, s.y - pointer.y);
+      if (d > radius) continue;
+      // an exact hit always wins; otherwise pieces of the structure are a little stickier than bare board
+      const score = d <= 2.5 ? d - 100 + s.z * 0.01 : d - (candidate.node ? 6 : candidate.structure ? 3 : 0);
+      if (score < bestScore) { bestScore = score; best = candidate; best.screen = s; }
+    }
+    return best;
+  }
+  function segmentDistance(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay;
+    const t = clamp(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1), 0, 1);
+    return Math.hypot(px - ax - dx * t, py - ay - dy * t);
+  }
+  const pxPerMetre = () => (canvas.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))) / (rig.dist * rig.zoom);
+  function loadAt(x, y) {
+    for (const view of loadViews.values()) {
+      if (!view.screen) continue;
+      if (Math.abs(x - view.screen.x) < 26 && Math.abs(y - view.screen.y) < 12) return view.id;
+      const p = view.nodePosition, d = view.data.direction;
+      const a = toScreen(p[0] - d[0] * 0.25, p[1] - d[1] * 0.25, p[2] - d[2] * 0.25);
+      const b = toScreen(p[0] - d[0] * view.reach, p[1] - d[1] * view.reach, p[2] - d[2] * view.reach);
+      if (segmentDistance(x, y, a.x, a.y, b.x, b.y) < 0.17 * pxPerMetre() + 3) return view.id;
+    }
+    return null;
+  }
+  /** The piece under the cursor: a weight first, then a joint, then a stick. */
+  function pieceAt(x, y) {
+    const load = loadAt(x, y);
+    if (load) return { kind: 'load', id: load };
+    const scale = pxPerMetre();
+    let best = null, bestD = 0.24 * scale + 2;
+    for (const view of nodeViews.values()) {
+      const s = toScreen(view.base.x, view.base.y, view.base.z);
+      const d = Math.hypot(s.x - x, s.y - y);
+      if (d < bestD) { bestD = d; best = { kind: 'node', id: view.id }; }
+    }
+    if (best) return best;
+    bestD = 0.1 * scale + 5;
+    for (const view of memberViews.values()) {
+      const a = toScreen(view.a.x, view.a.y, view.a.z), b = toScreen(view.b.x, view.b.y, view.b.z);
+      const d = segmentDistance(x, y, a.x, a.y, b.x, b.y);
+      if (d < bestD) { bestD = d; best = { kind: 'member', id: view.id }; }
+    }
+    return best;
+  }
+
+  /** Where a stick of the chosen length could go from p: the reachable points, plus the blocked ones so they can look blocked. */
+  function stickTargets(p, steps) {
+    const targets = core.reachableFrom(p, { minSteps: steps, maxSteps: steps }).map((r) => ({ point: r.point, ok: true, length: r.length, node: r.node }));
+    const have = new Set(targets.map((t) => keyOf(t.point)));
+    for (const d of DOFCore.DIRECTIONS_26) {
+      const q = [p[0] + d[0] * steps, p[1] + d[1] * steps, p[2] + d[2] * steps];
+      if (!core.inBounds(q) || have.has(keyOf(q))) continue;
+      const check = core.checkMember(p, q);
+      if (!check.ok) targets.push({ point: q, ok: false, reason: check.reason, length: Math.hypot(d[0], d[1], d[2]) * steps * core.options.spacing });
+    }
+    return targets;
+  }
+  const WHY = { overlap: 'A stick is already there', 'out-of-bounds': 'Off the board', 'too-long': 'Too long', direction: 'Not a lattice direction', 'zero-length': 'No length' };
+
+  function computeHover() {
+    if (!pointer.inside || rig.dragging) return null;
+    if (ui.takeBack) {
+      const piece = pieceAt(pointer.x, pointer.y);
+      return piece ? { kind: 'remove', piece } : null;
+    }
+    const structure = Array.from(structurePoints.values()).map((e) => ({ p: e.p, node: e.node, structure: true }));
+    if (ui.group === 'member') {
+      if (spent()) return null;
+      if (ui.armed) {
+        let best = null, bestD = Infinity;
+        for (const target of ui.armed.targets) {
+          const s = gridScreen(target.point);
+          const d = Math.hypot(s.x - pointer.x, s.y - pointer.y) - (target.ok ? 4 : 0);
+          if (d < bestD) { bestD = d; best = target; }
+        }
+        const a = gridScreen(ui.armed.point);
+        const onAnchor = Math.hypot(a.x - pointer.x, a.y - pointer.y) < Math.min(14, bestD);
+        return best ? { kind: 'target', target: best, onAnchor } : null;
+      }
+      const taken = new Set(structure.map((c) => keyOf(c.p)));
+      const candidates = structure.concat(GROUND_POINTS.filter((p) => !taken.has(keyOf(p))).map((p) => ({ p })));
+      const pick = nearestPoint(candidates, 20);
+      if (!pick) return null;
+      return { kind: 'anchor', point: pick.p, node: pick.node, room: core.reachableFrom(pick.p, { minSteps: ui.stick, maxSteps: ui.stick }).length > 0 };
+    }
+    if (ui.group === 'connection') {
+      const base = ui.joint === 'pinned' || ui.joint === 'fixed' || ui.joint === 'roller';
+      let candidates = structure;
+      if (base) {
+        const taken = new Set(structure.map((c) => keyOf(c.p)));
+        candidates = structure.concat(GROUND_POINTS.filter((p) => !taken.has(keyOf(p))).map((p) => ({ p })));
+      }
+      const pick = nearestPoint(candidates, 20);
+      if (!pick) return null;
+      if (ui.joint === 'inspect') return { kind: 'inspect', point: pick.p, node: pick.node };
+      const valid = !base || pick.p[2] === 0;
+      return { kind: 'token', point: pick.p, node: pick.node, valid, why: valid ? '' : 'Bases go on the board. Use Inspect for a joint in the air.' };
+    }
+    if (ui.group === 'load') {
+      const existing = loadAt(pointer.x, pointer.y);
+      if (existing) return { kind: 'load', id: existing };
+      if (spent()) return null;
+      const pick = nearestPoint(structure, 20);
+      return pick ? { kind: 'weight', point: pick.p, node: pick.node } : null;
+    }
+    return null;
+  }
+
+  // =====================================================================
+  // Clicks
+  // =====================================================================
+  function disarm() { ui.armed = null; }
+  function selectNode(id) { ui.selectedNode = id; ui.selectedLoad = null; renderCards(); }
+  function selectLoad(id) { ui.selectedLoad = id; ui.selectedNode = null; renderCards(); }
+  function clearSelection() { if (ui.selectedNode || ui.selectedLoad) { ui.selectedNode = ui.selectedLoad = null; renderCards(); } }
+
+  function applyJointToken(point, node) {
+    const token = ui.joint;
+    const result = spend('playJoint', () => {
+      const id = node ? node.id : core.ensureNode(point).id;
+      if (token === 'rigid') return core.setJoint(id, 'rigid');
+      if (token === 'pin') return core.setJoint(id, 'pinned');
+      return core.setSupport(id, token);
+    });
+    if (result.ok && result.changed) SFX.place();
+    else if (result.ok) toast('That joint is already a ' + JOINTS.find((j) => j.id === token).label.toLowerCase() + '.');
+  }
+
+  function onClick(button) {
+    hover = computeHover();
+    if (button === 2) {
+      if (ui.armed) { disarm(); SFX.pick(); refreshUI(); return; }
+      if (!takeBack(pieceAt(pointer.x, pointer.y))) clearSelection();
+      return;
+    }
+    if (ui.takeBack) { if (hover) takeBack(hover.piece); return; }
+    if (!hover) {
+      if (spent() && !(ui.group === 'connection' && ui.joint === 'inspect')) outOfActions();
+      clearSelection();
+      return;
+    }
+    if (hover.kind === 'anchor') {
+      if (!hover.room) { SFX.nope(); toast('No room for a ' + ui.stick + '-step stick from here.'); return; }
+      ui.armed = { point: hover.point, targets: stickTargets(hover.point, ui.stick), since: performance.now() };
+      const w = core.position(hover.point);
+      swing.pos.set(w[0], w[1], w[2]); swing.vel.set(0, 0, 0);
+      SFX.arm();
+      refreshUI();
+    } else if (hover.kind === 'target') {
+      if (hover.onAnchor) { disarm(); SFX.pick(); refreshUI(); return; }
+      const target = hover.target;
+      if (!target.ok) { SFX.nope(); toast((WHY[target.reason] || 'Not allowed') + '. Pick another glowing point.'); return; }
+      const anchor = ui.armed.point;
+      disarm();
+      const result = spend('placeStick', () => core.addMember(anchor, target.point));
+      if (result.ok) SFX.place();
+      refreshUI();
+    } else if (hover.kind === 'inspect') {
+      if (hover.node && ui.selectedNode === hover.node.id) {
+        // fast path: clicking the selected joint again steps to the next sensible type
+        const id = hover.node.id;
+        const result = spend('stepJoint', () => (hover.node.onGround ? core.cycleSupport(id) : core.toggleJoint(id)));
+        if (result.ok) SFX.place();
+      } else if (hover.node) {
+        selectNode(hover.node.id); SFX.pick();
+      } else {
+        let id = null;
+        const result = spend('placeConnection', () => { const r = core.ensureNode(hover.point); id = r.id; return r; });
+        if (result.ok && id) { selectNode(id); SFX.place(); }
+      }
+    } else if (hover.kind === 'token') {
+      if (!hover.valid) { SFX.nope(); toast(hover.why); return; }
+      applyJointToken(hover.point, hover.node);
+    } else if (hover.kind === 'load') {
+      selectLoad(hover.id); SFX.pick();
+    } else if (hover.kind === 'weight') {
+      const result = spend('placeWeight', () => core.addLoad(hover.node ? hover.node.id : hover.point, ui.dir, ui.weight));
+      if (result.ok && result.changed) SFX.place();
+      else if (result.ok) toast('That weight is already there.');
+    }
+  }
+
+  // =====================================================================
+  // Pointer: a drag spins the turntable, a click plays a piece
+  // =====================================================================
+  canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+  canvas.addEventListener('pointerdown', (event) => {
+    pointer.x = event.clientX; pointer.y = event.clientY; pointer.inside = true;
+    pointer.down = { x: event.clientX, y: event.clientY, button: event.button, lastX: event.clientX, lastT: performance.now(), vel: 0 };
+    try { canvas.setPointerCapture(event.pointerId); } catch (error) { /* not essential */ }
+  });
+  canvas.addEventListener('pointermove', (event) => {
+    pointer.x = event.clientX; pointer.y = event.clientY; pointer.inside = true;
+    const down = pointer.down;
+    if (!down || down.button === 2) return;
+    if (!rig.dragging && Math.hypot(event.clientX - down.x, event.clientY - down.y) > 5) {
+      rig.dragging = true;
+      down.lastX = event.clientX;
+      document.body.classList.add('spin');
+    }
+    if (rig.dragging) {
+      const now = performance.now();
+      const dx = event.clientX - down.lastX;
+      rig.azTarget -= dx * 0.0075;
+      down.vel = lerp(down.vel, dx / Math.max(1, now - down.lastT), 0.5);
+      down.lastX = event.clientX; down.lastT = now;
+    }
+  });
+  const release = (event) => {
+    const down = pointer.down;
+    pointer.down = null;
+    if (!down) return;
+    if (rig.dragging) {
+      rig.dragging = false;
+      document.body.classList.remove('spin');
+      if (performance.now() - down.lastT < 80) rig.azTarget -= clamp(down.vel, -3, 3) * 0.9; // a little inertia
+    } else if (event.type === 'pointerup') {
+      pointer.x = event.clientX; pointer.y = event.clientY;
+      onClick(down.button);
+    }
+  };
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+  canvas.addEventListener('pointerleave', () => { if (!pointer.down) pointer.inside = false; });
+  canvas.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    rig.zoomTarget = clamp(rig.zoomTarget * Math.exp(event.deltaY * 0.0011), 0.55, 1.4);
+  }, { passive: false });
+
+  // =====================================================================
+  // Ghosts: what the next click will do, drawn before it happens
+  // =====================================================================
+  const overlay = new THREE.Group();
+  scene.add(overlay);
+  const basic = (color, opacity, depthTest) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, depthTest: depthTest !== false });
+  const ringGeometry = new THREE.RingGeometry(0.3, 0.38, 40);
+  const makeRing = (color) => { const m = new THREE.Mesh(ringGeometry, basic(color, 0.95, false)); m.renderOrder = 60; m.visible = false; overlay.add(m); return m; };
+  const hoverRing = makeRing(COL.hub);
+  const armRing = makeRing(COL.p1);
+  const selectRing = makeRing(COL.hub);
+  const bloomGeometry = new THREE.SphereGeometry(0.1, 16, 12);
+  const bloomOk = basic('#fff3d6', 0.95);
+  const bloomBad = basic('#3a4654', 0.7);
+  const blooms = [];
+  for (let n = 0; n < 26; n++) { const m = new THREE.Mesh(bloomGeometry, bloomOk); m.visible = false; m.renderOrder = 40; overlay.add(m); blooms.push(m); }
+  const ghostStickMaterial = basic(COL.p1, 0.62);
+  const ghostStick = new THREE.Mesh(new THREE.CylinderGeometry(R_STICK, R_STICK, 1, 14), ghostStickMaterial);
+  const ghostTip = new THREE.Mesh(new THREE.SphereGeometry(0.16, 18, 12), ghostStickMaterial);
+  const dropLine = new THREE.Mesh(zCylinder(0.016, 0.016, 1, 6), basic(COL.ink, 0.5));
+  const dropRing = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.24, 28), basic(COL.ink, 0.5));
+  for (const m of [ghostStick, ghostTip, dropLine, dropRing]) { m.visible = false; m.renderOrder = 45; overlay.add(m); }
+  const ghostHolder = new THREE.Group();   // ghost of a joint token or a weight
+  overlay.add(ghostHolder);
+  let ghostKey = '';
+  const swing = { pos: V3(0, 0, 0), vel: V3(0, 0, 0) }; // spring that carries the free end of the ghost stick
+  const ghostLabel = $('ghost-label');
+  const tip = $('tip');
+  let glowing = null; // stick tinted as "about to be taken back"
+
+  function setGhostLabel(html, x, y, bad) {
+    if (!html) { ghostLabel.style.display = 'none'; return; }
+    ghostLabel.innerHTML = html;
+    ghostLabel.className = bad ? 'bad' : '';
+    ghostLabel.style.display = 'block';
+    ghostLabel.style.transform = 'translate(' + Math.round(x + 16) + 'px, ' + Math.round(y - 30) + 'px)';
+  }
+  const faceCamera = (mesh) => mesh.quaternion.copy(camera.quaternion);
+
+  function updateTools(dt, time) {
+    hover = computeHover();
+    const pulse = 1 + 0.07 * Math.sin(time * 6);
+    let label = '', labelAt = null, labelBad = false, cursor = '';
+    hoverRing.visible = armRing.visible = ghostStick.visible = ghostTip.visible = dropLine.visible = dropRing.visible = false;
+    for (const b of blooms) b.visible = false;
+    let wantGhost = '';
+    if (glowing) { glowing.material.emissive.set(0x000000); glowing = null; }
+
+    // ---- stick tool
+    if (ui.armed) {
+      const anchor = core.position(ui.armed.point);
+      const color = playerColor(core.turn.player);
+      armRing.material.color.set(color);
+      armRing.position.set(anchor[0], anchor[1], anchor[2]);
+      armRing.scale.setScalar(1.15 * pulse);
+      faceCamera(armRing);
+      armRing.visible = true;
+      const age = (performance.now() - ui.armed.since) / 1000;
+      const hot = hover && hover.kind === 'target' && !hover.onAnchor ? hover.target : null;
+      ui.armed.targets.forEach((target, n) => {
+        const b = blooms[n];
+        if (!b) return;
+        const w = core.position(target.point);
+        const grow = clamp((age - n * 0.012) / 0.18, 0, 1);
+        b.material = target.ok ? bloomOk : bloomBad;
+        b.position.set(w[0], w[1], w[2]);
+        b.scale.setScalar(Math.max(0.001, easeOutBack(grow)) * (target === hot ? 1.7 : target.ok ? 1 + 0.12 * Math.sin(time * 5 + n) : 0.7));
+        b.visible = true;
+      });
+      if (hot) {
+        const w = core.position(hot.point);
+        // spring the free end toward the chosen point: this is the swing of the ghost stick
+        let left = Math.min(dt, 0.1);
+        while (left > 0) {
+          const h = Math.min(left, 1 / 120);
+          swing.vel.x += ((w[0] - swing.pos.x) * 420 - swing.vel.x * 26) * h;
+          swing.vel.y += ((w[1] - swing.pos.y) * 420 - swing.vel.y * 26) * h;
+          swing.vel.z += ((w[2] - swing.pos.z) * 420 - swing.vel.z * 26) * h;
+          swing.pos.addScaledVector(swing.vel, h);
+          left -= h;
+        }
+        if (dt > 0.1) { swing.pos.set(w[0], w[1], w[2]); swing.vel.set(0, 0, 0); } // very slow frame: do not lag behind
+        const a = V3(anchor[0], anchor[1], anchor[2]);
+        const span = swing.pos.clone().sub(a);
+        const length = Math.max(0.05, span.length());
+        ghostStickMaterial.color.set(hot.ok ? color : COL.danger);
+        ghostStickMaterial.opacity = hot.ok ? 0.66 : 0.5;
+        ghostStick.position.copy(a).addScaledVector(span, 0.5);
+        ghostStick.quaternion.setFromUnitVectors(Y_AXIS, span.clone().normalize());
+        ghostStick.scale.set(1, length, 1);
+        ghostTip.position.copy(swing.pos);
+        ghostStick.visible = ghostTip.visible = true;
+        hoverRing.material.color.set(hot.ok ? COL.hub : COL.danger);
+        hoverRing.position.set(w[0], w[1], w[2]);
+        hoverRing.scale.setScalar(0.85 * pulse);
+        faceCamera(hoverRing);
+        hoverRing.visible = true;
+        const height = w[2] - G;
+        if (height > 0.3) {
+          dropLine.position.set(w[0], w[1], G + height / 2);
+          dropLine.scale.set(1, 1, height);
+          dropRing.position.set(w[0], w[1], G + 0.012);
+          dropLine.visible = dropRing.visible = true;
+        }
+        const s = gridScreen(hot.point);
+        labelAt = s;
+        labelBad = !hot.ok;
+        const d = [hot.point[0] - ui.armed.point[0], hot.point[1] - ui.armed.point[1], hot.point[2] - ui.armed.point[2]];
+        const role = d[0] === 0 && d[1] === 0 ? 'column' : d[2] === 0 ? 'beam' : 'brace';
+        label = hot.ok ? '<b>' + metres(hot.length) + '</b> &middot; ' + role : (WHY[hot.reason] || 'Not allowed');
+        cursor = hot.ok ? 'pointer' : 'not-allowed';
+      }
+    } else if (hover && hover.kind === 'anchor') {
+      const w = core.position(hover.point);
+      hoverRing.material.color.set(hover.room ? COL.hub : COL.danger);
+      hoverRing.position.set(w[0], w[1], w[2]);
+      hoverRing.scale.setScalar(pulse);
+      faceCamera(hoverRing);
+      hoverRing.visible = true;
+      if (!hover.node) wantGhost = 'hub|' + keyOf(hover.point);
+      if (!hover.room) { label = 'No room for a ' + ui.stick + '-step stick'; labelAt = gridScreen(hover.point); labelBad = true; }
+      cursor = hover.room ? 'pointer' : 'not-allowed';
+    }
+
+    // ---- joint tokens and inspect
+    if (hover && (hover.kind === 'inspect' || hover.kind === 'token')) {
+      const w = core.position(hover.point);
+      const bad = hover.kind === 'token' && !hover.valid;
+      hoverRing.material.color.set(bad ? COL.danger : COL.hub);
+      hoverRing.position.set(w[0], w[1], w[2]);
+      hoverRing.scale.setScalar(pulse * 1.05);
+      faceCamera(hoverRing);
+      hoverRing.visible = true;
+      cursor = bad ? 'not-allowed' : 'pointer';
+      const s = gridScreen(hover.point);
+      if (bad) { label = 'Bases go on the board'; labelAt = s; labelBad = true; }
+      else if (hover.kind === 'token') {
+        wantGhost = 'token|' + ui.joint + '|' + keyOf(hover.point);
+        label = JOINTS.find((j) => j.id === ui.joint).label + (hover.node ? '' : ' &middot; new joint'); labelAt = s;
+      } else if (!hover.node) {
+        wantGhost = 'hub|' + keyOf(hover.point);
+        label = 'Place a joint here'; labelAt = s;
+      } else if (ui.selectedNode === hover.node.id) {
+        label = hover.node.onGround ? 'Click to step the base' : 'Click to switch hub and pin'; labelAt = s;
+      }
+    }
+
+    // ---- weights
+    if (hover && hover.kind === 'weight') {
+      wantGhost = 'weight|' + ui.weight + '|' + ui.dir + '|' + keyOf(hover.point);
+      cursor = 'pointer';
+      const w = core.position(hover.point);
+      hoverRing.material.color.set(COL.amber);
+      hoverRing.position.set(w[0], w[1], w[2]);
+      hoverRing.scale.setScalar(pulse * 0.9);
+      faceCamera(hoverRing);
+      hoverRing.visible = true;
+      label = '<b>' + ui.weight + ' kN</b> ' + DIR_NAME[ui.dir]; labelAt = gridScreen(hover.point);
+    } else if (hover && hover.kind === 'load') {
+      cursor = 'pointer';
+      const view = loadViews.get(hover.id);
+      if (view && view.screen && ui.selectedLoad !== hover.id) { label = 'Click to change this weight'; labelAt = view.screen; }
+    }
+
+    // ---- take back
+    if (hover && hover.kind === 'remove') {
+      cursor = 'pointer';
+      const piece = hover.piece;
+      if (piece.kind === 'member') {
+        const view = memberViews.get(piece.id);
+        if (view) { view.material.emissive.set(COL.danger).multiplyScalar(0.45 + 0.25 * Math.sin(time * 8)); glowing = view; }
+      } else {
+        const p = piece.kind === 'node' ? nodeViews.get(piece.id).base : V3(...loadViews.get(piece.id).nodePosition);
+        hoverRing.material.color.set(COL.danger);
+        hoverRing.position.copy(p);
+        hoverRing.scale.setScalar(pulse * (piece.kind === 'node' ? 1.05 : 1.3));
+        faceCamera(hoverRing);
+        hoverRing.visible = true;
+      }
+      label = piece.kind === 'member' ? 'Take this stick back' : piece.kind === 'load' ? 'Take this weight back' : 'Take the joint token back';
+      labelAt = { x: pointer.x, y: pointer.y };
+    }
+
+    // ---- ghost of a joint token, a bare hub or a weight
+    if (wantGhost !== ghostKey) {
+      ghostKey = wantGhost;
+      ghostHolder.clear();
+      if (wantGhost) {
+        const parts = wantGhost.split('|');
+        const point = parts[parts.length - 1].split(',').map(Number);
+        const w = core.position(point);
+        ghostHolder.position.set(w[0], w[1], w[2]);
+        ghostHolder.quaternion.identity();
+        if (parts[0] === 'hub') {
+          ghostHolder.add(buildGlyph({ support: point[2] === 0 ? 'pinned' : 'free', joint: 'rigid', onGround: point[2] === 0 }, MAT.ghostCream, MAT.ghostInk, false));
+        } else if (parts[0] === 'token') {
+          const node = core.nodeAt(point);
+          const spec = { support: node ? node.support : point[2] === 0 ? 'pinned' : 'free', joint: node ? node.joint : 'rigid', onGround: point[2] === 0 };
+          if (parts[1] === 'rigid') spec.joint = 'rigid';
+          else if (parts[1] === 'pin') spec.joint = 'pinned';
+          else spec.support = parts[1];
+          const glyph = buildGlyph(spec, MAT.ghostCream, MAT.ghostInk, false);
+          glyph.scale.setScalar(1.12);
+          ghostHolder.add(glyph);
+        } else {
+          const direction = DIRS.find((d) => d.id === parts[2]).vector;
+          ghostHolder.add(buildArrow(Number(parts[1]), MAT.ghostAmber, false));
+          orient(ghostHolder, direction);
+        }
+      }
+    }
+    if (ghostKey) ghostHolder.scale.setScalar(1 + 0.04 * Math.sin(time * 6));
+
+    // ---- selection ring, cards and tooltip
+    const selected = ui.selectedNode ? nodeViews.get(ui.selectedNode) : null;
+    selectRing.visible = !!selected;
+    if (selected) { selectRing.position.copy(selected.base); selectRing.scale.setScalar(1.25); faceCamera(selectRing); }
+    placeCards();
+    setGhostLabel(label, labelAt ? labelAt.x : 0, labelAt ? labelAt.y : 0, labelBad);
+
+    tipPiece = null;
+    if (!label && pointer.inside && !rig.dragging && !ui.armed && !(hover && hover.kind !== 'inspect')) {
+      const piece = pieceAt(pointer.x, pointer.y);
+      if (piece && piece.kind === 'member') tipPiece = piece;
+    }
+    if (tipPiece) {
+      const view = memberViews.get(tipPiece.id), m = view.data;
+      const role = m.role.charAt(0).toUpperCase() + m.role.slice(1);
+      tip.textContent = role + ' · ' + metres(m.length) + ' · Player ' + m.player +
+        (view.floating ? ' · not connected to a support' : '') +
+        (preview && view.utilization !== null ? ' · demo utilization ' + view.utilization.toFixed(2) : '');
+      tip.style.display = 'block';
+      tip.style.transform = 'translate(' + Math.round(pointer.x + 16) + 'px, ' + Math.round(pointer.y + 14) + 'px)';
+    } else tip.style.display = 'none';
+
+    const blocked = pointer.inside && spent() && !ui.takeBack && !(ui.group === 'connection' && ui.joint === 'inspect') && !(hover && hover.kind === 'load');
+    canvas.style.cursor = rig.dragging ? 'grabbing' : blocked ? 'not-allowed' : cursor || 'grab';
+  }
+
+  // =====================================================================
+  // Tray: the pieces a player can pick up
+  // =====================================================================
+  const INK_STROKE = 'stroke="rgba(243,234,216,0.75)" stroke-width="1.2"';
+  const ART = {
+    stick: (n) => { const w = 12 + n * 14; return '<svg width="' + w + '" height="14" viewBox="0 0 ' + w + ' 14"><rect class="stickfill" x="0" y="1" width="' + w + '" height="12" rx="6"/><rect x="5" y="3.2" width="' + (w - 10) + '" height="2.6" rx="1.3" fill="rgba(255,255,255,0.35)"/></svg>'; },
+    inspect: () => '<svg width="30" height="28" viewBox="0 0 30 28" fill="none" stroke="#f3ead8" stroke-width="2" stroke-linecap="round"><circle cx="13" cy="12" r="8.5"/><path d="M19.5 18.5 27 26"/><path d="M13 16V8M13 16l-4 2.5M13 16l4.5 2" stroke-width="1.6"/></svg>',
+    rigid: () => '<svg width="28" height="28" viewBox="0 0 28 28"><rect x="4" y="4" width="20" height="20" rx="5" fill="#f3ead8"/><rect x="7" y="6.5" width="14" height="3" rx="1.5" fill="rgba(255,255,255,0.7)"/></svg>',
+    pin: () => '<svg width="34" height="28" viewBox="0 0 34 28"><circle cx="17" cy="14" r="9.5" fill="#f3ead8"/><ellipse cx="17" cy="14.5" rx="14" ry="4.6" fill="none" stroke="#22313f" stroke-width="3.6"/><ellipse cx="17" cy="14.5" rx="14" ry="4.6" fill="none" stroke="rgba(243,234,216,0.75)" stroke-width="0.9"/><path d="M8.2 10.2A9.5 9.5 0 0 1 25.8 10.2L25.6 13.4H8.4Z" fill="#f3ead8"/></svg>',
+    pinned: () => '<svg width="32" height="28" viewBox="0 0 32 28"><rect x="2" y="21.5" width="28" height="5" rx="2.5" fill="#22313f" ' + INK_STROKE + '/><path d="M16 5 26 21.5H6Z" fill="#f3ead8" stroke="#f3ead8" stroke-width="2.5" stroke-linejoin="round"/></svg>',
+    fixed: () => '<svg width="32" height="28" viewBox="0 0 32 28"><rect x="1.5" y="21.5" width="29" height="5" rx="2" fill="#22313f" ' + INK_STROKE + '/><rect x="7" y="6" width="18" height="15.5" rx="3" fill="#f3ead8"/><circle cx="4.6" cy="24" r="1.2" fill="#f3ead8"/><circle cx="27.4" cy="24" r="1.2" fill="#f3ead8"/></svg>',
+    roller: () => '<svg width="32" height="28" viewBox="0 0 32 28"><path d="M16 3 25 15.5H7Z" fill="#f3ead8" stroke="#f3ead8" stroke-width="2.5" stroke-linejoin="round"/><circle cx="9.5" cy="20.3" r="3.1" fill="#22313f" ' + INK_STROKE + '/><circle cx="16" cy="20.3" r="3.1" fill="#22313f" ' + INK_STROKE + '/><circle cx="22.5" cy="20.3" r="3.1" fill="#22313f" ' + INK_STROKE + '/><rect x="3" y="24.2" width="26" height="2.6" rx="1.3" fill="#f3ead8" opacity=".55"/></svg>',
+    free: () => '<svg width="32" height="28" viewBox="0 0 32 28"><rect x="9" y="6" width="14" height="14" rx="4" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3"/></svg>',
+    weight: (kn) => {
+      const f = 0.72 + 0.14 * WEIGHTS.indexOf(kn), w = 30 * f, h = 26 * f, W = 40, H = 34, x = (W - w) / 2, y = H - h;
+      return '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '"><rect x="' + (W / 2 - 4 * f) + '" y="' + (y - 5 * f) + '" width="' + 8 * f + '" height="' + 7 * f + '" rx="' + 2.5 * f + '" fill="#d99a22"/>' +
+        '<path d="M' + (x + w * 0.16) + ' ' + y + 'H' + (x + w * 0.84) + 'L' + (x + w) + ' ' + (H - 3) + 'Q' + (x + w) + ' ' + H + ' ' + (x + w - 3) + ' ' + H + 'H' + (x + 3) + 'Q' + x + ' ' + H + ' ' + x + ' ' + (H - 3) + 'Z" fill="#f2b134"/>' +
+        '<text x="' + W / 2 + '" y="' + (H - h * 0.42) + '" text-anchor="middle" dominant-baseline="central" font-size="' + (11 + 2 * f) + '" font-weight="800" fill="#22313f">' + kn + '</text></svg>';
+    }
+  };
+  const tray = $('tray');
+  function buildTray() {
+    const token = (group, id, art, label, title, key) =>
+      '<button class="token" data-group="' + group + '" data-id="' + id + '" title="' + title + '">' + art + '<small>' + label + '</small><kbd class="key">' + key.toUpperCase() + '</kbd></button>';
+    let html = '<div class="well" data-well="member"><h4><kbd>1</kbd>Sticks</h4>';
+    STICKS.forEach((n, k) => { html += token('member', n, ART.stick(n), n + (n === 1 ? ' step' : ' steps'), 'Stick, ' + n + (n === 1 ? ' step' : ' steps') + ' long', ITEM_KEYS[k]); });
+    html += '</div><div class="well" data-well="connection"><h4><kbd>2</kbd>Joints</h4>';
+    JOINTS.forEach((j, k) => {
+      if (k === 1 || k === 3) html += '<i class="sep"></i>';
+      html += token('connection', j.id, ART[j.id](), j.label, j.hint, ITEM_KEYS[k]);
+    });
+    html += '</div><div class="well" data-well="load"><h4><kbd>3</kbd>Weights</h4>';
+    WEIGHTS.forEach((kn, k) => { html += token('load', kn, ART.weight(kn), kn + ' kN', 'Weight, ' + kn + ' kN', ITEM_KEYS[k]); });
+    html += '<i class="sep"></i><button class="token always" id="dir-token" title="Direction the weight pushes. Click an arrow, or press F for the next one."><div id="dirpad"><svg viewBox="-38 -31 76 62"></svg></div><small id="dir-name">down</small><kbd class="key">F</kbd></button>';
+    html += '</div><div class="well" data-well="back"><h4>Board</h4><button class="token always" id="takeback" title="Take-back mode: left-click removes a piece. Right-click always does."><svg width="30" height="28" viewBox="0 0 30 28" fill="none" stroke="#f3ead8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 7 5 13l6 6"/><path d="M5 13h13a6 6 0 0 1 0 12h-4"/></svg><small>Take back</small><kbd class="key" style="opacity:.9">X</kbd></button></div>';
+    tray.innerHTML = html;
+  }
+  buildTray();
+  const dirSvg = tray.querySelector('#dirpad svg');
+  /** The six directions sit where the axes point on screen right now. */
+  function drawDirPad() {
+    let html = '';
+    const spots = DIRS.map((d) => {
+      const s = axisOnScreen(d.vector);
+      const vertical = d.vector[2] !== 0;
+      return { d, x: vertical ? 0 : s.x * 28, y: vertical ? -d.vector[2] * 23 : (s.y / Math.max(0.2, Math.sin(rig.el))) * 9.5, depth: s.depth };
+    }).sort((a, b) => a.depth - b.depth);
+    for (const spot of spots) html += '<line x1="0" y1="0" x2="' + spot.x.toFixed(1) + '" y2="' + spot.y.toFixed(1) + '"/>';
+    for (const spot of spots) {
+      const a = Math.atan2(spot.y, spot.x);
+      const head = [0, 2.5, -2.5].map((turn, n) => (spot.x + Math.cos(a + turn) * (n ? 4 : 4.6)).toFixed(1) + ',' + (spot.y + Math.sin(a + turn) * (n ? 4 : 4.6)).toFixed(1)).join(' ');
+      html += '<g class="dir' + (ui.dir === spot.d.id ? ' sel' : '') + '" data-dir="' + spot.d.id + '"><title>Push ' + DIR_NAME[spot.d.id] + ' (' + spot.d.id + ')</title>' +
+        '<circle cx="' + spot.x.toFixed(1) + '" cy="' + spot.y.toFixed(1) + '" r="7.2"/><polygon points="' + head + '" fill="' + (ui.dir === spot.d.id ? '#22313f' : '#f3ead8') + '" pointer-events="none"/></g>';
+    }
+    dirSvg.innerHTML = html;
+  }
+
+  function pickToken(group, id) {
+    ui.group = group;
+    if (group === 'member') ui.stick = Number(id);
+    if (group === 'connection') ui.joint = id;
+    if (group === 'load') ui.weight = Number(id);
+    ui.takeBack = false;
+    disarm();
+    if (!(group === 'connection' && id === 'inspect')) ui.selectedNode = null;
+    if (group !== 'load') ui.selectedLoad = null;
+    renderCards();
+    refreshUI();
+  }
+  /** Keys 1, 2, 3 and the debug API: jump to the first piece of a group. */
+  function selectGroup(group) {
+    if (group === 'member') pickToken('member', STICKS[0]);
+    else if (group === 'connection') pickToken('connection', JOINTS[0].id);
+    else if (group === 'load') pickToken('load', WEIGHTS[0]);
+  }
+  function setDirection(id) { ui.dir = id; drawDirPad(); refreshUI(); }
+  tray.addEventListener('click', (event) => {
+    const dir = event.target.closest('.dir');
+    if (dir) { ui.group = 'load'; ui.takeBack = false; disarm(); setDirection(dir.dataset.dir); SFX.pick(); return; }
+    const button = event.target.closest('button');
+    if (!button) return;
+    button.blur();
+    if (button.id === 'takeback') { ui.takeBack = !ui.takeBack; disarm(); SFX.pick(); refreshUI(); return; }
+    if (button.id === 'dir-token') { ui.group = 'load'; ui.takeBack = false; disarm(); setDirection(DIRS[(DIRS.findIndex((d) => d.id === ui.dir) + 1) % DIRS.length].id); SFX.pick(); return; }
+    if (button.dataset.group) { pickToken(button.dataset.group, button.dataset.id); SFX.pick(); }
+  });
+
+  // =====================================================================
+  // DOF card and weight card
+  // =====================================================================
+  const dofCard = $('dofcard');
+  const loadCard = $('loadcard');
+  const LOCK = '<g class="lock" transform="translate(27 1)"><rect x="0" y="5" width="10" height="8" rx="2" fill="#22313f"/><path d="M2.2 5V3.6a2.8 2.8 0 0 1 5.6 0V5" fill="none" stroke="#22313f" stroke-width="1.8"/></g>';
+  const AXIS_ANGLE = { x: 0, y: -38, z: -90 }; // how each world axis is drawn on the card
+  function dofIcon(index) {
+    const axis = 'xyz'[index % 3];
+    const turn = 'rotate(' + AXIS_ANGLE[axis] + ' 20 18)';
+    if (index < 3) {
+      return '<svg viewBox="0 0 40 34"><g transform="' + turn + '"><line class="axis" x1="7" y1="18" x2="28" y2="18" stroke-width="4" stroke-linecap="round"/><polygon class="head" points="35,18 26,12.5 26,23.5"/></g>' + LOCK + '</svg>';
+    }
+    return '<svg viewBox="0 0 40 34"><g transform="' + turn + '"><line class="axis" x1="5" y1="18" x2="35" y2="18" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="2 3"/>' +
+      '<path class="axis" d="M22.6 8.6A5.2 10 0 1 0 23.4 27" fill="none" stroke-width="3.2" stroke-linecap="round"/><polygon class="head" points="29.2,21.6 21.2,22.6 26.4,29.6"/></g>' + LOCK + '</svg>';
+  }
+  const jointTitle = (n) => {
+    const hub = n.joint === 'pinned' ? 'Pin' : 'Rigid hub';
+    return n.support === 'free' ? hub : hub + ' on a ' + SUPPORT_NAME[n.support].toLowerCase();
+  };
+  function renderCards() {
+    const n = ui.selectedNode ? core.node(ui.selectedNode) : null;
+    if (!n) { ui.selectedNode = null; dofCard.classList.remove('open'); }
+    else {
+      const off = spent();
+      const dis = off ? ' disabled' : '';
+      const names = ['Slide along X', 'Slide along Y', 'Slide along Z', 'Turn about X', 'Turn about Y', 'Turn about Z'];
+      let html = '<h3>' + jointTitle(n) + '<button data-act="close" aria-label="Close">&times;</button></h3>' +
+        '<div class="sub">Joint at x ' + n.grid[0] + ', y ' + n.grid[1] + ', level ' + n.grid[2] + (n.onGround ? ' (on the board)' : '') + '</div>' +
+        '<h5>Degrees of freedom</h5><div class="dofs">';
+      DOFCore.DOF_ORDER.forEach((name, d) => {
+        const locked = n.restraint[d];
+        html += '<button class="dof ' + (locked ? 'locked' : 'free') + '" data-act="dof" data-dof="' + d + '" title="' + names[d] + ': ' + (locked ? 'locked. Click to free it.' : 'free. Click to lock it.') + '"' + dis + '>' +
+          dofIcon(d) + '<b>' + name + '</b><span>' + (locked ? 'locked' : 'free') + '</span></button>';
+      });
+      html += '</div><h5>Support</h5><div class="seg four">';
+      for (const preset of ['free', 'roller', 'pinned', 'fixed']) {
+        html += '<button data-act="support" data-id="' + preset + '" class="' + (n.support === preset ? 'sel' : '') + '"' + dis + ' title="' + SUPPORT_NAME[preset] + '">' +
+          ART[preset]().replace('width="32" height="28"', 'width="27" height="24"') + '<span>' + { free: 'No base', roller: 'Roller', pinned: 'Pinned', fixed: 'Fixed' }[preset] + '</span></button>';
+      }
+      html += '</div>' + (n.support === 'custom' ? '<div class="foot">Custom base: a mix of locks that is none of the four above.</div>' : '') +
+        '<h5>Joint between sticks</h5><div class="seg two">' +
+        '<button data-act="joint" data-id="rigid" class="' + (n.joint === 'rigid' ? 'sel' : '') + '"' + dis + ' title="Rigid hub: passes bending between sticks">' + ART.rigid().replace('width="28" height="28"', 'width="22" height="22"') + '<span>Rigid hub</span></button>' +
+        '<button data-act="joint" data-id="pinned" class="' + (n.joint === 'pinned' ? 'sel' : '') + '"' + dis + ' title="Pin: stick ends at this joint are free to rotate">' + ART.pin().replace('width="34" height="28"', 'width="27" height="22"') + '<span>Pin</span></button></div>' +
+        '<div class="foot' + (off ? ' warn' : '') + '">' + (off ? 'No actions left this turn. End the turn to change this joint.' :
+          (ui.sandbox ? 'Sandbox: changes are free. ' : 'Each change costs one action. ') + 'Click the joint again to step its ' + (n.onGround ? 'base.' : 'hub.')) + '</div>';
+      dofCard.innerHTML = html;
+      dofCard.classList.add('open');
+    }
+    const l = ui.selectedLoad ? core.load(ui.selectedLoad) : null;
+    if (!l) { ui.selectedLoad = null; loadCard.classList.remove('open'); }
+    else {
+      const off = spent();
+      const dis = off ? ' disabled' : '';
+      const id = dirId(l.direction);
+      const taken = new Set(core.loadsAt(l.node).filter((o) => o.id !== l.id).map((o) => dirId(o.direction)));
+      let html = '<h3>Weight, ' + l.magnitude + ' kN<button data-act="close" aria-label="Close">&times;</button></h3>' +
+        '<div class="sub">Pushes ' + DIR_NAME[id] + ' (' + id + ')</div><h5>Amount</h5><div class="seg four">';
+      for (const kn of WEIGHTS) html += '<button data-act="amount" data-id="' + kn + '" class="' + (l.magnitude === kn ? 'sel' : '') + '"' + dis + '><span>' + kn + ' kN</span></button>';
+      html += '</div><h5>Direction</h5><div class="seg six">';
+      for (const d of DIRS) html += '<button data-act="direction" data-id="' + d.id + '" class="' + (id === d.id ? 'sel' : '') + '"' + (off || taken.has(d.id) ? ' disabled' : '') + ' title="Push ' + DIR_NAME[d.id] + '"><span>' + d.id.replace('-', '−') + '</span></button>';
+      html += '</div><div class="row"><button class="btn" data-act="remove">Take back</button></div>' +
+        '<div class="foot' + (off ? ' warn' : '') + '">' + (off ? 'No actions left this turn. Taking the weight back is still free.' : ui.sandbox ? 'Sandbox: changes are free.' : 'Each change costs one action. Taking it back is free.') + '</div>';
+      loadCard.innerHTML = html;
+      loadCard.classList.add('open');
+    }
+  }
+  dofCard.addEventListener('click', (event) => {
+    const button = event.target.closest('button');
+    if (!button || !ui.selectedNode) return;
+    button.blur();
+    const id = ui.selectedNode, act = button.dataset.act;
+    if (act === 'close') return clearSelection();
+    let result = null;
+    if (act === 'dof') result = spend('toggleDof', () => core.toggleDof(id, Number(button.dataset.dof)));
+    if (act === 'support') result = spend('setSupport', () => core.setSupport(id, button.dataset.id));
+    if (act === 'joint') result = spend('setJoint', () => core.setJoint(id, button.dataset.id));
+    if (result && result.ok && result.changed) SFX.place();
+  });
+  loadCard.addEventListener('click', (event) => {
+    const button = event.target.closest('button');
+    if (!button || !ui.selectedLoad) return;
+    button.blur();
+    const id = ui.selectedLoad, act = button.dataset.act;
+    if (act === 'close') return clearSelection();
+    if (act === 'remove') { core.removeLoad(id); SFX.remove(); return; }
+    let result = null;
+    if (act === 'amount') result = spend('changeWeight', () => core.updateLoad(id, { magnitude: Number(button.dataset.id) }));
+    if (act === 'direction') result = spend('changeWeight', () => core.updateLoad(id, { direction: button.dataset.id }));
+    if (result && result.ok && result.changed) SFX.place();
+  });
+  const leaderLine = $('leader-line');
+  function placeCard(card, anchor) {
+    const w = card.offsetWidth, h = card.offsetHeight;
+    const right = anchor.x >= gridScreen([3, 3, 1]).x;
+    const x = clamp(right ? anchor.x + 54 : anchor.x - 54 - w, 10, window.innerWidth - w - 10);
+    const y = clamp(anchor.y - h * 0.5, 112, Math.max(112, window.innerHeight - 136 - h));
+    card.style.left = Math.round(x) + 'px';
+    card.style.top = Math.round(y) + 'px';
+    const ex = right ? x : x + w, ey = clamp(anchor.y, y + 16, y + h - 16);
+    const dx = ex - anchor.x, dy = ey - anchor.y, len = Math.hypot(dx, dy) || 1;
+    leaderLine.setAttribute('x1', anchor.x + (dx / len) * 22); leaderLine.setAttribute('y1', anchor.y + (dy / len) * 22);
+    leaderLine.setAttribute('x2', ex); leaderLine.setAttribute('y2', ey);
+    leaderLine.style.display = len > 30 ? '' : 'none';
+  }
+  function placeCards() {
+    const nodeView = ui.selectedNode ? nodeViews.get(ui.selectedNode) : null;
+    const loadView = ui.selectedLoad ? loadViews.get(ui.selectedLoad) : null;
+    if (nodeView) placeCard(dofCard, toScreen(nodeView.base.x, nodeView.base.y, nodeView.base.z));
+    else if (loadView && loadView.screen) placeCard(loadCard, loadView.screen);
+    else leaderLine.style.display = 'none';
+    for (const view of loadViews.values()) view.label.classList.toggle('sel', view.id === ui.selectedLoad);
+  }
+
+  // =====================================================================
+  // Banner, strips, guide, stats: redrawn from the model
+  // =====================================================================
+  function guideText() {
+    if (ui.takeBack) return 'Take back: click a stick, a weight or a joint token to remove it. X or Esc leaves this mode.';
+    const off = spent();
+    if (ui.group === 'member') {
+      if (off) return null;
+      if (ui.armed) return 'Now click a glowing point to place the stick. Esc or right-click cancels.';
+      return 'Stick of ' + ui.stick + (ui.stick === 1 ? ' step' : ' steps') + ': click a joint, a point on a stick or a board point to anchor it.';
+    }
+    if (ui.group === 'connection') {
+      if (ui.joint === 'inspect') return ui.selectedNode ? 'Change the joint on its card, or click the joint again to step its type.' : 'Inspect: click a joint to open its DOF card.';
+      if (off) return null;
+      const base = ui.joint !== 'rigid' && ui.joint !== 'pin';
+      return JOINTS.find((j) => j.id === ui.joint).label + ': click a joint' + (base ? ' or a point on the board.' : ', or a point along a stick.');
+    }
+    if (ui.selectedLoad) return 'Change the weight on its card, or right-click it to take it back.';
+    if (off) return null;
+    return ui.weight + ' kN ' + DIR_NAME[ui.dir] + ': click a joint or a point along a stick. Click a placed weight to change it.';
+  }
+  function refreshUI() {
+    const turn = core.turn;
+    const left = actionsLeft();
+    const off = spent();
+    document.body.classList.toggle('p2', turn.player === 2);
+    document.body.classList.toggle('preview', preview);
+    $('who-name').textContent = 'Player ' + turn.player;
+    $('who-turn').textContent = 'Turn ' + turn.number;
+    let pips = '';
+    for (let n = 0; n < ACTIONS_PER_TURN; n++) pips += '<i class="pip' + (ui.sandbox || n < left ? '' : ' spent') + '"></i>';
+    $('pips').innerHTML = pips;
+    $('pips').style.opacity = ui.sandbox ? 0.35 : 1;
+    $('actions-text').textContent = ui.sandbox ? 'No action limit' : left + (left === 1 ? ' action left' : ' actions left');
+    $('end-turn').classList.toggle('pulse', off);
+    $('sandbox').classList.toggle('on', ui.sandbox);
+    $('sandbox').setAttribute('aria-pressed', String(ui.sandbox));
+    const members = core.members;
+    for (const player of [1, 2]) {
+      const mine = members.filter((m) => m.player === player);
+      const total = mine.reduce((sum, m) => sum + m.length, 0);
+      $('strip' + player + '-text').textContent = mine.length + (mine.length === 1 ? ' stick, ' : ' sticks, ') + metres(total);
+      $('strip' + player).classList.toggle('active', turn.player === player);
+    }
+    const stats = core.stats();
+    $('stats').textContent = stats.members + (stats.members === 1 ? ' stick' : ' sticks') + ' · ' + metres(stats.totalLength) + ' · ' + stats.totalLoad + ' kN';
+    $('undo').disabled = !(undoDepth > 0 && core.canUndo);
+    $('redo').disabled = !core.canRedo;
+    $('preview').classList.toggle('on', preview);
+    tray.classList.toggle('spent', off && !ui.takeBack);
+    for (const well of tray.querySelectorAll('.well')) well.classList.toggle('active', !ui.takeBack && well.dataset.well === ui.group || (ui.takeBack && well.dataset.well === 'back'));
+    for (const token of tray.querySelectorAll('.token[data-group]')) {
+      const g = token.dataset.group, id = token.dataset.id;
+      const selected = !ui.takeBack && g === ui.group && ((g === 'member' && Number(id) === ui.stick) || (g === 'connection' && id === ui.joint) || (g === 'load' && Number(id) === ui.weight));
+      token.classList.toggle('sel', selected);
+    }
+    $('takeback').classList.toggle('sel', ui.takeBack);
+    $('dir-name').textContent = DIR_NAME[ui.dir].replace('toward ', '');
+    const guide = guideText();
+    $('guide').textContent = guide || 'No actions left this turn. End the turn (Enter), or undo a move.';
+    $('guide').classList.toggle('warn', !guide);
+    if ($('drawer').classList.contains('open')) $('json').textContent = JSON.stringify(core.toSolverInput(), null, 2);
+  }
+
+  /** The hand-off: the banner sweeps to the other colour and the turntable swings half a turn. */
+  function handOff(player, forward) {
+    const who = $('who');
+    who.style.setProperty('--sweep', playerColor(player === 1 ? 2 : 1)); // the old colour slides away
+    who.classList.remove('sweep');
+    void who.offsetWidth;
+    who.classList.add('sweep');
+    const home = HOME_AZ[player];
+    // swing to the other player's side: the nearest equivalent of their home angle, half a turn on from here
+    const aim = rig.azTarget + (forward ? Math.PI : -Math.PI);
+    rig.azTarget = home + Math.round((aim - home) / (2 * Math.PI)) * 2 * Math.PI;
+    $('announce-text').textContent = 'Player ' + player + ', your move';
+    const announce = $('announce');
+    announce.classList.remove('go');
+    void announce.offsetWidth;
+    announce.classList.add('go');
+    SFX.turn();
+  }
+
+  /** Runs after every model change (and once at start with null). */
+  function afterSync(change) {
+    indexStructure();
+    if (change) {
+      if (change.reason === 'undo') undoDepth = Math.max(0, undoDepth - 1);
+      else undoDepth++;
+      disarm();
+    }
+    const player = core.turn.player;
+    if (player !== shownPlayer) {
+      const forward = !change || change.reason !== 'undo';
+      shownPlayer = player;
+      handOff(player, forward);
+    }
+    if (ui.selectedNode && !core.node(ui.selectedNode)) ui.selectedNode = null;
+    if (ui.selectedLoad && !core.load(ui.selectedLoad)) ui.selectedLoad = null;
+    renderCards();
+    refreshUI();
+  }
+
+  // =====================================================================
+  // Buttons, drawer, help, keyboard
+  // =====================================================================
+  const SPEAKER = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.2h2.3L8 3.4v9.2L4.8 9.8H2.5z" fill="currentColor"/>';
+  function drawMute() { $('mute').innerHTML = SPEAKER + (ui.muted ? '<path d="m10.8 6.2 3.4 3.6M14.2 6.2l-3.4 3.6"/>' : '<path d="M10.6 5.8a3.2 3.2 0 0 1 0 4.4M12.6 4a5.8 5.8 0 0 1 0 8"/>') + '</svg>'; }
+  drawMute();
+  const onButton = (id, fn) => $(id).addEventListener('click', (event) => { event.currentTarget.blur(); fn(event); });
+  onButton('undo', undo);
+  onButton('redo', redo);
+  onButton('clear', () => { if (core.nodes.length || core.members.length) { core.clear(); SFX.remove(); toast('Board cleared. Undo brings it back.'); } });
+  onButton('example', () => {
+    const example = EXAMPLES[exampleIndex % EXAMPLES.length];
+    exampleIndex++;
+    example.load();
+    SFX.place();
+    toast('Loaded: ' + example.name + '. Click again for the next example.');
+  });
+  onButton('end-turn', endTurn);
+  onButton('sandbox', () => { ui.sandbox = !ui.sandbox; SFX.pick(); renderCards(); refreshUI(); toast(ui.sandbox ? 'Sandbox on: no action limit.' : 'Sandbox off: three actions per turn.'); });
+  function setPreview(on) {
+    preview = on;
+    syncScene({ added: { nodes: [], members: [], loads: [] }, removed: { nodes: [], members: [], loads: [] } });
+    refreshUI();
+  }
+  onButton('preview', () => { setPreview(!preview); SFX.pick(); });
+  function setDrawer(open) {
+    $('drawer').classList.toggle('open', open);
+    $('solver').classList.toggle('on', open);
+    refreshUI();
+  }
+  onButton('solver', () => setDrawer(!$('drawer').classList.contains('open')));
+  onButton('drawer-close', () => setDrawer(false));
+  onButton('copy', async () => {
+    const text = JSON.stringify(core.toSolverInput(), null, 2);
+    let done = false;
+    try { await navigator.clipboard.writeText(text); done = true; } catch (error) {
+      try {
+        const area = document.createElement('textarea');
+        area.value = text; document.body.appendChild(area); area.select();
+        done = document.execCommand('copy'); area.remove();
+      } catch (error2) { done = false; }
+    }
+    toast(done ? 'Solver input copied.' : 'Could not copy. Select the text instead.');
+  });
+  onButton('download', () => {
+    const blob = new Blob([JSON.stringify(core.toSolverInput(), null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'dof-solver-input-draft.json';
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+  });
+  onButton('mute', () => { ui.muted = !ui.muted; drawMute(); if (!ui.muted) SFX.pick(); });
+  const toggleHelp = () => $('help').classList.toggle('hidden');
+  onButton('help-btn', toggleHelp);
+  onButton('help-close', toggleHelp);
+
+  window.addEventListener('keydown', (event) => {
+    const key = event.key.toLowerCase();
+    const mod = event.ctrlKey || event.metaKey;
+    if (mod && key === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo(); return; }
+    if (mod && key === 'y') { event.preventDefault(); redo(); return; }
+    if (mod || event.altKey) return;
+    const focused = document.activeElement;
+    if (focused && focused.tagName === 'BUTTON' && (key === 'enter' || key === ' ')) return; // let a focused button act
+    if (key === '1') selectGroup('member');
+    else if (key === '2') selectGroup('connection');
+    else if (key === '3') selectGroup('load');
+    else if (ITEM_KEYS.includes(key)) {
+      const k = ITEM_KEYS.indexOf(key);
+      if (ui.group === 'member' && STICKS[k]) pickToken('member', STICKS[k]);
+      else if (ui.group === 'connection' && JOINTS[k]) pickToken('connection', JOINTS[k].id);
+      else if (ui.group === 'load' && WEIGHTS[k]) pickToken('load', WEIGHTS[k]);
+      else return;
+    }
+    else if (key === 'f') { ui.group = 'load'; ui.takeBack = false; disarm(); setDirection(DIRS[(DIRS.findIndex((d) => d.id === ui.dir) + 1) % DIRS.length].id); }
+    else if (key === 'x') { ui.takeBack = !ui.takeBack; disarm(); refreshUI(); }
+    else if (key === 'a') rig.azTarget += Math.PI / 4;
+    else if (key === 'd') rig.azTarget -= Math.PI / 4;
+    else if (key === 'v') rig.view = rig.view === 'low' ? 'high' : 'low';
+    else if (key === 'h' || key === '?') toggleHelp();
+    else if (key === 'm') { ui.muted = !ui.muted; drawMute(); }
+    else if (key === 'enter') endTurn();
+    else if (key === 'escape') {
+      if (ui.armed) disarm();
+      else if (ui.selectedNode || ui.selectedLoad) clearSelection();
+      else if (ui.takeBack) ui.takeBack = false;
+      else if ($('drawer').classList.contains('open')) setDrawer(false);
+      refreshUI();
+    }
+    else return;
+    event.preventDefault();
+    SFX.pick();
+  });
+
+  // =====================================================================
+  // Axis indicator: follows the camera so +X and +Y always mean something
+  // =====================================================================
+  const gizmo = $('gizmo');
+  const AXES = [
+    { id: '+X', v: [1, 0, 0], color: '#f19a8b', label: 'X' },
+    { id: '+Y', v: [0, 1, 0], color: '#9fd0a8', label: 'Y' },
+    { id: '+Z', v: [0, 0, 1], color: '#9dbfe9', label: 'Z' }
+  ];
+  /** Screen direction (unit-ish, y down) of a world axis for the current camera. */
+  function axisOnScreen(v) {
+    const e = camera.matrixWorldInverse.elements;
+    return { x: e[0] * v[0] + e[4] * v[1] + e[8] * v[2], y: -(e[1] * v[0] + e[5] * v[1] + e[9] * v[2]), depth: e[2] * v[0] + e[6] * v[1] + e[10] * v[2] };
+  }
+  function drawGizmo() {
+    const items = AXES.map((axis) => Object.assign({ s: axisOnScreen(axis.v) }, axis)).sort((a, b) => a.s.depth - b.s.depth);
+    let html = '<circle r="37" fill="rgba(31,45,58,0.62)" stroke="rgba(246,200,159,0.3)"/>';
+    for (const item of items) {
+      const x = item.s.x * 23, y = item.s.y * 23;
+      html += '<line x1="0" y1="0" x2="' + x.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="' + item.color + '" stroke-width="3.5" stroke-linecap="round"/>' +
+        '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="8" fill="' + item.color + '"/>' +
+        '<text x="' + x.toFixed(1) + '" y="' + (y + 0.5).toFixed(1) + '" fill="#22313f">' + item.label + '</text>';
+    }
+    gizmo.innerHTML = html;
+  }
+
+  // =====================================================================
+  // Frame loop
+  // =====================================================================
+  function resize() {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  syncScene(null);
+  if (typeof afterSync === 'function') afterSync(null);
+  core.on('change', (change) => {
+    syncScene(change);
+    if (typeof afterSync === 'function') afterSync(change);
+  });
+
+  let last = performance.now();
+  let frames = 0;
+  let gizmoKey = '';
+  function frame(now) {
+    const elapsed = (now - last) / 1000;  // real elapsed time, so slow frames still finish animations on time
+    const dt = Math.min(0.5, elapsed);
+    last = now;
+    const time = now / 1000;
+    updateCamera(dt);
+    runTweens(elapsed);
+    bobFloating(time);
+    if (typeof updateTools === 'function') updateTools(dt, time);
+    waterUniforms.time.value = time;
+    placeLabels();
+    const key = rig.az.toFixed(3) + rig.el.toFixed(3);
+    if (key !== gizmoKey) { gizmoKey = key; drawGizmo(); if (typeof drawDirPad === 'function') drawDirPad(); }
+    renderer.render(scene, camera);
+    if (++frames >= 2 && !window.__dof.ready && tweens.length === 0) window.__dof.ready = true; // ready once the opening pop-in has settled
+    requestAnimationFrame(frame);
+  }
+
+  // =====================================================================
+  // Debug API used by the automated tests
+  // =====================================================================
+  window.__dof = {
+    ready: false,
+    option: 'kit',
+    core,
+    tools: ['member', 'connection', 'load'],
+    get tool() { return typeof currentTool === 'function' ? currentTool() : 'member'; },
+    setTool(id) { if (typeof selectGroup === 'function') selectGroup(id); },
+    /** Viewport CSS pixels of a lattice point with the live camera. `visible` is false when it is off screen or under the interface. */
+    screenOf(i, j, k) {
+      applyCamera();
+      const w = core.position([i, j, k]);
+      const s = toScreen(w[0], w[1], w[2]);
+      const inside = s.z > -1 && s.z < 1 && s.x >= 0 && s.y >= 0 && s.x <= window.innerWidth && s.y <= window.innerHeight;
+      return { x: s.x, y: s.y, visible: inside && document.elementFromPoint(s.x, s.y) === canvas };
+    }
+  };
+  requestAnimationFrame(frame);
+}
+</script>
+</body>
+</html>
