@@ -17,6 +17,8 @@ Record the intended gameplay and the decisions governing game state and turns.
 
 The project owner wants turn-based play. Players are envisioned placing structural members and connections, applying loads, and developing a structure over time. The README proposes goal-based challenges and a mode that continues until instability or failure. The sequence and rules of turns, scoring, and additional modes remain open.
 
+Each player starts by placing a foundation and a column on that foundation. The column is fully fixed at its foundation connection. Foundation and column dimensions, placement constraints, and the sequence of these initial placements remain open.
+
 The owner wants NPCs in the game. Their roles, behavior, and relationship to turns and structures remain to be designed.
 
 Zustand is under consideration for client state management; it has not been selected or implemented.
