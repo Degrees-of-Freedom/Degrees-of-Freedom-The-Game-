@@ -34,7 +34,7 @@ export function Workspace() {
   function run() {
     // The contract-solver stability check runs alongside the voxel analysis and
     // reports on its own, so a solver failure never blocks the voxel result.
-    void stability.run(game.model);
+    void stability.run(game.model, level);
     try {
       setAnalysis({
         model: game.model,

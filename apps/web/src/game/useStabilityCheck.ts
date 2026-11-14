@@ -1,16 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AnalysisResult, SolverAdapter } from '@dof/solver-contract';
+import type { AnalysisResult, DetailedAnalysisResult, DetailedSolver, SolverAdapter } from '@dof/solver-contract';
 import { defaultSolver } from '../solver';
-import type { GameModel } from './model';
+import { toAnalysisModel } from './analysisModel';
+import type { GameModel, Level } from './model';
 import { toStructuralModel } from './structuralModel';
 
-/** Progress of the contract-solver stability check for one game model. */
+/**
+ * Progress of the contract-solver check for one game model.
+ *
+ * A solver that implements the detailed contract gives a `detailed` result:
+ * card sections, tension-only cables, self-weight, nonlinear analysis and a
+ * status per component. Any other solver gives the original `done` result,
+ * which covers kinematic stability and determinacy only.
+ */
 export type StabilityCheck =
   | { phase: 'idle' }
   | { phase: 'running' }
-  | { phase: 'done'; result: AnalysisResult; notes: string[] };
+  | { phase: 'done'; result: AnalysisResult; notes: string[] }
+  | { phase: 'detailed'; result: DetailedAnalysisResult; notes: string[] };
 
 const IDLE: StabilityCheck = { phase: 'idle' };
+
+const isDetailedSolver = (solver: SolverAdapter): solver is SolverAdapter & DetailedSolver =>
+  'analyzeDetailed' in solver && typeof solver.analyzeDetailed === 'function';
 
 /**
  * Run the shared-contract solver on a game model, alongside the voxel analysis.
@@ -32,28 +44,29 @@ export function useStabilityCheck(
   useEffect(() => () => inFlight.current?.abort(), []);
 
   const run = useCallback(
-    async (target: GameModel) => {
+    async (target: GameModel, level: Level) => {
       inFlight.current?.abort();
       const controller = new AbortController();
       inFlight.current = controller;
       setState({ model: target, check: { phase: 'running' } });
 
-      const { model: structural, notes } = toStructuralModel(target);
-      let result: AnalysisResult;
+      let check: StabilityCheck;
       try {
-        result = await solver.analyze(structural, controller.signal);
+        if (isDetailedSolver(solver)) {
+          const { model: analysis, options, notes } = toAnalysisModel(target, level);
+          const result = await solver.analyzeDetailed(analysis, options, controller.signal);
+          check = { phase: 'detailed', result, notes };
+        } else {
+          const { model: structural, notes } = toStructuralModel(target);
+          check = { phase: 'done', result: await solver.analyze(structural, controller.signal), notes };
+        }
       } catch (error) {
         if (controller.signal.aborted) return;
-        result = {
-          status: 'error',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'The solver failed unexpectedly.',
-        };
+        const message = error instanceof Error ? error.message : 'The solver failed unexpectedly.';
+        check = { phase: 'done', result: { status: 'error', message }, notes: [] };
       }
       if (controller.signal.aborted) return;
-      setState({ model: target, check: { phase: 'done', result, notes } });
+      setState({ model: target, check });
     },
     [solver],
   );
