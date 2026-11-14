@@ -2,6 +2,7 @@
 title: "Joint Degrees of Freedom Visualization Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/game-completion-criteria.md
   - "Project owner joint-DOF visualization answers and shared-joint rule revision, 2026-11-14"
   - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria.md
@@ -152,3 +153,7 @@ Recommended later implementation order: reconcile shared-joint schema/validation
 - Solver support for valid component-scoped modes, transformed connection laws and reliable near-mechanism grading. Do not manufacture these from current limited results.
 
 Current Shared table stores connection profiles per end (`fixed`/`ball`) and does not enforce the newly confirmed uniform-profile rule at a shared joint. The preliminary shared contract likewise supports fixed/pinned ends, not arbitrary six-axis elastic laws or a canonical joint profile. Existing joint markers/result overlays are not evidence that this specification is implemented. See [3D viewer](3d-viewer.md), [structural solver](structural-solver.md) and the [gap analysis](solver-criteria-gap-analysis.md) for implementation context.
+
+## 11. Quarter ports and common interface freedoms
+
+The later [placement criteria](placement-criteria.md) require original-reference quarter interfaces on all element families. A port is not automatically a ground support or free connector: incoming attachments still consume cards and must match the common interface freedoms. Explicit internal parent continuity must survive analytical subdivision; do not apply an incoming release law to split the original member into unintended hinges. Distinguish internal continuity from external attachment laws in the schema/inspector. Physical clashes use reference geometry, not this glyph’s visual volume.

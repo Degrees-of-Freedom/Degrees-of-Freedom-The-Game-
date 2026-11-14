@@ -4,6 +4,8 @@ last_validated: 2026-11-14
 validated_against:
   - docs/kb/element-representation-criteria.md
   - docs/kb/turn-criteria.md
+  - docs/kb/game-completion-criteria.md
+  - docs/kb/placement-criteria.md
   - docs/kb/joint-dof-criteria.md
   - "Project owner supplied Solver Criteria, 2026-11-14"
 owner: project owner
@@ -17,6 +19,8 @@ status: needs-review
 > **Later gameplay decisions — 2026-11-14:** Read [turn criteria](turn-criteria.md#1-status-and-confirmed-rules) for confirmed draw/play limits, per-end connections, shared access, immutable placed connectors, setup-only foundations, gravity-only persistent loads and the 1-point per-turn issue penalty. These later decisions supersede earlier gameplay proposals in this supplied document. Its numerical requirements remain proposed; this note does not claim implementation.
 
 > **Later joint decision — 2026-11-14:** all member ends intentionally attached to one shared joint must use the same connection freedoms, superseding independent release-profile choices at that joint. End interfaces remain distinct and intentional; different joints may have different profiles. Foundations are fully fixed by default. See [joint DOF criteria](joint-dof-criteria.md) for physical-axis compatibility, separate permission/instability overlays and unresolved elastic/migration details. This revises requirements, not implemented solver behavior.
+
+> **Later completion decisions — 2026-11-14:** [Core game criteria](game-completion-criteria.md) record fixed rounds, final-only adjusted load-share scoring, local hot-seat, clash-free grid/diagonal placement, original-quarter attachments for all families, assembly cards and retained structures repaired by additions. These revise earlier gameplay proposals; quarter/assembly/spring analytical laws and full verification are not implemented by recording the decisions.
 
 ## 1. Objective
 
@@ -36,7 +40,7 @@ The solver evaluates physics; the game engine determines legal moves, scoring an
 | M06 | Foundations have all six ground restraints locked by confirmed default. Retain explicit configurable restraints for supported non-default models; return all six reaction components with foundation IDs. Ground restraints and incoming connector laws are separate. |
 | M07 | Support persistent nodal forces/moments and optional member self-weight. Convert loads consistently without double-counting. |
 | M08 | Use card-defined properties (geometry, E, G, A, Iy, Iz, J, relevant capacities, cable rest length or initial strain). Use one documented unit system, coordinate convention and force sign convention. |
-| M09 | Use stable IDs for members, connection interfaces, loads and foundations. If interior member attachment is allowed, subdivide the analytical member while preserving continuity, properties, loads and parent card identity. |
+| M09 | Use stable IDs for members/assemblies, parts, ends, ports, loads and foundations. Interior attachment is required at original-reference quarter points for every family, including cables and springs. Validate subdivision/multi-port laws preserving continuity, section/rest state, loads, mass and parent identity; analytical subdivision must not enable recursive quarter stations. |
 
 ## 3. Analysis and stability
 
@@ -65,7 +69,7 @@ Proposed base-game policy: reapply persistent loads to the current topology from
 
 ## 5. Reactions and result contract
 
-Foundation load attraction comes from equilibrium, geometry, relative stiffness and connectivity—not ownership, graph distance or heuristic load splitting. Return signed vertical reactions, including uplift, and lateral reactions/moments separately. Under gravity alone, valid reactions across all supports must balance the applied weight. Do not normalize missing reactions into a full 100% load share. A separate game policy must decide how uplift, self-weight, pretension, unresolved components and cumulative scoring are treated. Nonlinear load attribution cannot assume superposition.
+Foundation load attraction comes from equilibrium, geometry, relative stiffness and connectivity—not ownership, graph distance or heuristic load splitting. Return signed vertical reactions, including uplift, and lateral reactions/moments separately. Under gravity alone, valid reactions across all supports must balance the applied weight. Do not normalize missing reactions into a full 100% load share. The confirmed game scores final load-share percentage minus accumulated penalties only at match end. [Scoring criteria](scoring-match-criteria.md) define proposed signed-load policy and remaining uplift/self-weight/pretension/unknown details; no cumulative attraction scoring is used. Nonlinear load attribution cannot assume superposition.
 
 Expose a solver API independent of UI, cards, player turns and scoring. It receives an immutable analytical model and analysis options; it returns:
 
@@ -115,7 +119,7 @@ Before implementation, read AGENTS.md and docs/kb/README.md, inspect current cod
 
 ## 9. Gameplay decisions to confirm
 
-Confirmed defaults include fully fixed foundations, shared access, persistent gravity loads and matching freedoms for all ends at one shared joint; see the later turn and joint decisions above. Full reanalysis, retaining unstable geometry on the grid and no automatic collapse remain proposed policies. Confirm interior attachment rules, self-weight and uplift scoring, remaining issue/penalty thresholds, permanent failure/repair, and whether deformed geometry can become permanent. Keep these options outside the physics kernel; document unresolved choices rather than silently inventing final rules.
+Confirmed defaults include fully fixed foundations, shared access, persistent gravity loads and matching freedoms for all ends at one shared joint; see the later turn and joint decisions above. Full reanalysis, retaining unstable geometry on the grid and no automatic collapse remain proposed policies. Quarter-only interior attachment across all families and retention/repair by additions are now confirmed. Settle self-weight/uplift/unknown scoring, remaining issue thresholds and quarter/assembly laws. Permanent failure/removal is outside the confirmed standard mode; a future variant needs separate policy. Keep these options outside the physics kernel; document unresolved choices rather than silently inventing final rules.
 
 ## 10. Later element representation requirements
 

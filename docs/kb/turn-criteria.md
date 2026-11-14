@@ -4,6 +4,9 @@ last_validated: 2026-11-14
 validated_against:
   - "Project owner turn definition and follow-up answers, 2026-11-14"
   - docs/kb/solver-criteria.md
+  - docs/kb/game-completion-criteria.md
+  - docs/kb/placement-criteria.md
+  - docs/kb/scoring-match-criteria.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
   - "Project owner shared-joint freedoms revision, 2026-11-14"
@@ -22,6 +25,8 @@ status: needs-review
 This specification extends the [solver criteria](solver-criteria.md) and supersedes earlier turn proposals where the owner has confirmed a rule here. The [Shared table playtest](unified-runtime.md#shared-table-playtest) implements local card draws, staging and commits with explicit attachments. Verifying end-turn issues and applying the confirmed penalty require compatible analysis.
 
 **Later joint decision — 2026-11-14:** all member ends intentionally attached to one shared joint must use the same connection freedoms, and foundations are fully fixed by default. This replaces earlier independent release-profile choices at one joint. It does not remove per-end attachment/card identity. [Joint DOF criteria](joint-dof-criteria.md) define the visualization and proposed compatibility workflow. The current per-end playtest does not yet enforce this revised rule.
+
+**Later completion decisions — 2026-11-14:** [Core game decisions](game-completion-criteria.md#2-owner-confirmed-decision-register) confirm final-only load-share percentage minus penalties, fixed rounds, local hot-seat privacy, grid/diagonal placement, quarter attachments for every family, no physical clashes, assembly cards using one element play and retained structures repaired through additions. These supersede earlier contradictory proposals below; implementation and numerical validation are pending.
 
 The owner confirmed:
 
@@ -45,7 +50,7 @@ Proposed setup retains the solver criteria's 2–4 players and one initially con
 
 Each card has a unique instance ID and a versioned definition ID. It occupies exactly one location: draw pile, hand, deployed structure or discard pile. Deployed cards remain attached to the objects they created and cannot be recycled by reshuffling. Record shuffle algorithm/seed, deck order, draw positions and discard order for deterministic replay. Proposed information policy: private hands, public placements and issue reports.
 
-The initial proposed deck 1 catalogue below reflects the existing experimental families; it is not validated numerical data or a finalized balanced deck. The later [element representation criteria](element-representation-criteria.md) also require axial springs, planar/trichord assemblies and expanded section geometry. Their visual inclusion does not yet authorize assembly cards, change the one-member placement rule or settle card/connection costs. Those integrations remain open.
+The initial proposed deck 1 catalogue below reflects the existing experimental families; it is not validated numerical data or a finalized balanced deck. The later [element representation criteria](element-representation-criteria.md) also require axial springs, planar/trichord assemblies and expanded section geometry. The later owner decision in [placement criteria](placement-criteria.md) now authorizes one assembly card per element play, with one connection card per external attachment. Actual catalogue definitions, internal physics, port geometry and deck balance still require implementation/review.
 
 | Family | Proposed contents and semantics |
 | --- | --- |
@@ -55,9 +60,9 @@ The initial proposed deck 1 catalogue below reflects the existing experimental f
 | Load | Point load 50 kN is the current example. Confirmed base deck uses persistent downward gravity point loads with printed magnitudes. Lateral-force and moment cards are excluded from the base game. |
 | Foundation / support | Setup-only by owner decision. Not included in either deck; no turn play adds a foundation. |
 
-An element card places one member, not an entire multi-member assembly or a foundation. Each member definition specifies lengths, orientation/section roll, E, G, A, Iy, Iz, J where relevant, capacities and self-weight policy. Player choices must stay within printed options. One load card uses one load allowance even if its defined load has several vector components.
+An ordinary element card places one member. By later owner decision, a planar/trichord assembly card places one complete authored assembly using one element play; each external attachment still needs its own connection card, within the two-connection-per-turn maximum. Internal authored parts/continuity do not consume extra player cards. No element card places a foundation. Each member definition specifies lengths, orientation/section roll, E, G, A, Iy, Iz, J where relevant, capacities and self-weight policy. Player choices must stay within printed options. One load card uses one load allowance even if its defined load has several vector components.
 
-A load targets an explicit joint or member-end interface, not mere coordinate coincidence. Gravity loads persist; removal requires an explicit separate rule. A load on an unsupported or unstable target is reportable physics, not automatically an illegal placement. Interior attachments and distributed loads remain deferred until subdivision/equivalent-load semantics are defined. Crossing members never connect automatically.
+A load targets an explicit eligible joint/member-end interface or a permitted activated quarter port under the authored target rules, not mere coordinate coincidence. Gravity loads persist; removal requires an explicit separate rule. A load on an unsupported or unstable target is reportable physics, not automatically an illegal placement. Interior attachments are now required at original-reference quarter points only, for every element family; compatible subdivision/port laws must be validated before supported scored play. Distributed loads remain deferred. Unconnected elements are allowed but physical clashes are forbidden; projected crossing never connects automatically. See [placement criteria](placement-criteria.md).
 
 ## 3. Deck 2: six-DOF connection design
 
@@ -114,7 +119,7 @@ Legality belongs to the game engine. The revised joint requirement demands compa
 
 A legal move may leave unconnected ends, introduce a mechanism, slacken a cable, cause uplift or exceed capacity. Those are physical outcomes. Proposed placement policy permits isolated elements and connecting previously placed ends. The final transaction determines assessment, not the sequence of provisional placements.
 
-Reapply persistent loads from the original reference geometry to current topology; preserve committed damage and explicit initial strain. This intentionally allows new members to attract existing loads and is not real staged construction. Keep strength exceedance separate from instability. No automatic dynamic collapse, removal or permanent deformation is implied.
+Proposed numerical turn policy reapplies persistent loads from reference geometry to current topology and preserves explicit initial strain. The confirmed standard game retains structures without automatic damage/removal; only an explicitly enabled future variant may commit damage. This intentionally allows new members to attract existing loads and is not real staged construction. Keep strength exceedance separate from instability. No automatic dynamic collapse, removal or permanent deformation is implied.
 
 Analyze the entire shared structure, isolating independent components. An optimization may reuse unchanged verified component results only when model/policy versions match. Report effects on opponents and existing members, including regions remote from the played card. Preserve verified results for unrelated stable components.
 
@@ -174,12 +179,12 @@ The following tests are required when implementing this design; they are not cur
 ## 9. Questions still to resolve
 
 1. Penalty eligibility beyond instability/overload, worsening thresholds and deferred verification. The 1-point amount, per-turn aggregation and no repeat/unknown penalties are confirmed.
-2. Repair: proposed base play repairs by adding members/connections; removal or modification of placed cards is not authorized. Placed connections remain immutable.
+2. Repair by additions, retained structure and clear repair reports are now confirmed; removal or modification of placed cards is not authorized. Exact issue thresholds and historical-penalty handling are tracked in [failure and repair](failure-repair-criteria.md).
 3. Foundations are confirmed setup-only; starting layout and column properties still need definition.
 4. Card economy: opening hand, retention/cap/discard/exchange, deck sizes, load-to-element ratio, connection frequencies and exhaustion.
 5. Loads: magnitudes, eligible targets, self-weight and removal. Persistent downward gravity only is confirmed for the base deck.
-6. Placement: lengths, isolated elements and interior attachment. Shared access to existing joints is confirmed.
-7. Match: setup/order, turn limit/end condition, reaction scoring, penalty interaction and victory/ties.
+6. Placement: grid/diagonal and original-quarter-only attachment across all families, no physical clashes and assembly card economy are confirmed. Board/tolerances, fitting geometry and validated quarter analytical laws remain to define; see [placement](placement-criteria.md).
+7. Match: fixed rounds and final load-share percentage minus accumulated penalties, highest adjusted score wins, are confirmed. Exact round count, load/uplift/zero/unknown policy and ties remain in [scoring](scoring-match-criteria.md).
 8. Joint compatibility: first-attachment/setup-profile establishment, elastic stiffness equality, canonical frame conventions, numerical matching tolerances and legacy mixed-profile handling. Common freedoms and fully fixed foundation defaults are confirmed; the enforcement/migration details remain proposed.
 
 Documentation review checked the named member families against `voxelInput.ts`/`voxelSections.ts` and the solver requirements; the local card lifecycle is implemented, with numerical verification pending.

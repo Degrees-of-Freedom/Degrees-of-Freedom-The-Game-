@@ -2,6 +2,7 @@
 title: "Structural Solver"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/game-completion-criteria.md
   - README.md
   - packages/solver-contract/src/index.ts
   - packages/solver-contract/README.md
@@ -113,3 +114,7 @@ For each implementation milestone, add analytical or independently trusted refer
 ## Joint freedoms and visualization boundary
 
 The owner’s later [joint DOF decision](joint-dof-criteria.md) requires matching freedoms for all end attachments at the same intentional shared joint. Current Shared table and adapter records still store profiles per end and do not enforce that rule. Future compatibility must account for physical direction, not just matching local flags; elastic stiffness matching and migration remain open. Fully fixed foundations are the confirmed default, with ground restraint kept separate from relative connection freedom. The permissions overlay reads definitions, and the distinct instability overlay reads versioned solver evidence; neither may infer physics from glyphs.
+
+## Quarter ports, assembly plays and retained structures
+
+The later [completion criteria](game-completion-criteria.md) require original-reference quarter-point attachments on every family, including springs/cables, and authorize one assembly card per element play with a connector card for each external attachment. [Placement criteria](placement-criteria.md) require physical clash checks and continuity/rest-state/load/mass-preserving quarter interfaces. A simple two-terminal spring or an equivalent assembly beam does not by itself support arbitrary interior loads. The standard game retains geometry without automatic destructive failure and reports verified repair. These are new targets, not current solver support or numerical validation.

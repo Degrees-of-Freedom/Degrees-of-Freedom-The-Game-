@@ -2,6 +2,7 @@
 title: "3D Viewer"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
   - docs/kb/avatar-criteria.md
@@ -36,3 +37,7 @@ See [animation and sound criteria](animation-criteria.md) for the owner-confirme
 ## Structural element geometry requirements
 
 [Element representation criteria](element-representation-criteria.md) specify recognizable column/section geometry, axial helical springs, planar two-chord and triangular three-chord trusses, wide flanges, square/rectangular HSS, round HSS and cables. Default sections are slightly enlarged for readability with true-scale inspection. The current renderer primarily uses capsules/boxes with style-dependent widths; it does not meet the full profile/assembly criteria. Procedural shared meshes, LOD, section roll, exposed hollow ends, assembly identity and truthful deformation are future requirements, not shipped behavior.
+
+## Controls, physical clashes and repair feedback
+
+[Controls/camera criteria](controls-camera-criteria.md) define input parity, target disambiguation, reference-grid/quarter selection, safe navigation and accessible inspection. [Placement](placement-criteria.md) distinguishes physical reference clash geometry from enlarged meshes and intentional port contacts. [Failure/repair](failure-repair-criteria.md) requires clear resolved/improved/persistent/unknown markers while retained structures continue in play. The viewer must not infer these rules or claim physical validity from mesh contact.

@@ -2,6 +2,7 @@
 title: "Development and Testing"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
   - docs/kb/avatar-criteria.md
@@ -66,3 +67,7 @@ The [joint DOF criteria](joint-dof-criteria.md) are documentation only. They rev
 ## Element geometry criteria validation scope
 
 [Element representation criteria](element-representation-criteria.md) are a documentation specification. Required future checks include section dimensions/openings, helix parameters, planar/trichord panel topology, local roll, true-scale versus readable display, assembly identity, valid deformation, LOD, picking and measured resource/performance budgets. No geometry generator, solver or runtime test was added by the criteria change; documentation links and consistency were checked.
+
+## Whole-game completion criteria scope
+
+[Core completion criteria](game-completion-criteria.md) cover all eight requested design areas. [Release acceptance](release-acceptance-criteria.md) defines the end-to-end setup/draw/build/quarter-attach/analyze/assess/commit/handoff/final-score/save-reload matrix, supported-scope declaration and failure-injection/privacy/accessibility evidence. These are future gates, not added runtime tests or demonstrated numerical support. This documentation change validates links, source consistency and separation of confirmed decisions from proposed parameters.

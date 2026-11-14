@@ -2,6 +2,7 @@
 title: "Game Architecture and Turn Dynamics"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/game-completion-criteria.md
   - docs/kb/avatar-criteria.md
   - prototypes/timburr-companion/README.md
   - docs/kb/animation-criteria.md
@@ -27,7 +28,7 @@ The owner has now confirmed the core turn rules in [turn, deck and connection cr
 
 [Solver criteria sections 4 and 9](solver-criteria.md#4-turn-resolution-and-failure) propose 2–4 players and an initial foundation and column per player. The newer [turn criteria](turn-criteria.md) define the confirmed draw/play limits and proposed detailed transaction/assessment policy. The proposed completed-turn transaction reapplies persistent loads to current topology from reference geometry, preserves committed damage and explicit initial strain, and records a stable model/version ID. Preview must not mutate committed state or trigger penalties. This turn policy is not implemented by the voxel editing loop.
 
-Fully fixed foundations, shared access and persistent gravity are confirmed defaults. Full reanalysis, retaining unstable geometry on the grid and no automatic collapse remain proposed solver-facing policies. Interior attachments, self-weight/uplift scoring, penalty worsening thresholds, permanent failure and repair, permanent deformed geometry, and cumulative scoring still require owner decisions. Keep these policies outside the physics kernel. An unverified component must not receive a new authoritative reaction score; optional failure release/removal requires a bounded deterministic reanalysis policy, not a dynamic-collapse claim.
+Fully fixed foundations, shared access and persistent gravity are confirmed defaults. Full reanalysis, retaining unstable geometry on the grid and no automatic collapse remain proposed solver-facing policies. Quarter-only interior attachment on every family, additive repair without automatic destruction, and final-only attraction scoring are now confirmed by the completion criteria. Quarter numerical laws, self-weight/uplift scoring, worsening thresholds and exact catalogue parameters remain to define; permanent damage/deformed geometry belongs only to a future separately approved variant. Keep these policies outside the physics kernel. An unverified component must not receive a new authoritative reaction score; optional failure release/removal requires a bounded deterministic reanalysis policy, not a dynamic-collapse claim.
 
 ## Action presentation requirements
 
@@ -36,3 +37,7 @@ See [animation and sound criteria](animation-criteria.md) for setup, draws, stag
 ## Avatar reactions
 
 [Timburr avatar criteria](avatar-criteria.md) define personality and public-event reactions independently of game state. Automatic Conkeldurr transformation requires a compatible verified serious-issue event; the current experimental turn report is insufficient. The avatar specification does not introduce penalties, collapse or match rules. Implementation is deferred; see the [prototype handoff](../../prototypes/timburr-companion/README.md).
+
+## Core match rules and completion criteria
+
+The later [completion decision register](game-completion-criteria.md) confirms fixed rounds and final-only load-share percentage minus accumulated penalties, highest adjusted score wins, plus first-release local hot-seat privacy. [Placement](placement-criteria.md) confirms grid/diagonal placement, quarter attachments on every family, clash-free geometry and one assembly card per element play with separately paid external connections. [Repair](failure-repair-criteria.md) retains structures and resolves issues through additions without automatic destruction. These supersede earlier contrary proposals; exact thresholds, definitions and numerical integration remain pending.

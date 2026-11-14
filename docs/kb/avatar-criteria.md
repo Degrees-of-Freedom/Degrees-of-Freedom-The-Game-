@@ -2,6 +2,7 @@
 title: "Timburr Avatar Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/game-completion-criteria.md
   - "Project owner avatar request, prominence choice and criteria-first correction, 2026-11-14"
   - docs/kb/animation-criteria.md
   - docs/kb/turn-criteria.md
@@ -163,3 +164,7 @@ Recommended order for a later implementation run:
 - Exact timing, cooldown, companion placement and chatter frequency after playtesting.
 - Master audio/settings integration, optional voice assets, language/localization and volume defaults.
 - Whether later board cameos or additional evolutions are wanted. They are outside the first confirmed compact-companion scope.
+
+## 11. Later core-game decisions
+
+The later [completion criteria](game-completion-criteria.md) define fixed rounds, final-only adjusted load-share scoring and retained structures repaired through additions. Timburr may acknowledge verified repair and a real final outcome, but should not bank provisional load shares, infer a winner from missing reactions or trigger destructive behavior. Quarter-port/assembly interactions remain tied to actual public game events and cannot reveal hidden cards. Historical prototype behavior does not override these newer criteria.

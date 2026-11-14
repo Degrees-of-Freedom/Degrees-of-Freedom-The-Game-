@@ -2,6 +2,7 @@
 title: "Animation and Sound Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/game-completion-criteria.md
   - docs/kb/avatar-criteria.md
   - prototypes/timburr-companion/README.md
   - "Project owner animation direction and follow-up decisions, 2026-11-14"
@@ -29,7 +30,7 @@ The owner confirmed:
 - Use glow, pulse and ghosted deformation modes for structural feedback; actual bending or breaking must correspond to verified game outcomes. Glow/pulse should be configurable.
 - Keep the presentation tasteful, engaging and readable.
 
-The numerical budgets, setting defaults, effect recipes and implementation sequence below are proposals for review and playtesting. Animation never defines a game rule or supplies missing physics. [Turn criteria](turn-criteria.md) govern actions and penalties; [solver criteria](solver-criteria.md) govern physical validity. Match endings, scoring thresholds, permanent failure and other unresolved rules remain unresolved here.
+The numerical budgets, setting defaults, effect recipes and implementation sequence below are proposals for review and playtesting. Animation never defines a game rule or supplies missing physics. [Turn criteria](turn-criteria.md) govern actions and penalties; [solver criteria](solver-criteria.md) govern physical validity. Later completion criteria now confirm fixed rounds and final adjusted-share scoring; exact thresholds and other parameters remain open. The standard game retains structures without automatic destruction.
 
 ## 2. Visual language and hierarchy
 
@@ -186,3 +187,7 @@ Update this page, [3D viewer](3d-viewer.md) and [development and testing](develo
 ## 12. Joint DOF overlays
 
 [Joint DOF criteria](joint-dof-criteria.md) define the still-by-default motion compass, brief schematic translation/twist demonstrations, separate foundation-restraint subject and independent solver-instability overlay. Demonstration is not a calculated displacement, structural edit or failure event. The newer shared-joint rule requires matching incoming freedoms; connection animations must not imply automatic upgrades or attachment by coincidence.
+
+## 13. Final scoring, quarter attachments and repair events
+
+Later [core game criteria](game-completion-criteria.md) confirm attraction scored only at match end, fixed rounds, accumulated penalties and retained structures repaired through additions. Animate provisional shares as estimates, not banked attraction points. [Placement](placement-criteria.md) requires explicit quarter ports and one-assembly-card plays with separately paid external attachments. [Repair](failure-repair-criteria.md) needs clearly resolved/improved/persistent/unknown feedback, without automatic collapse. [Hot-seat handoff](multiplayer-criteria.md) must conceal private content immediately before any incoming reveal, regardless of decorative animation duration.

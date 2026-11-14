@@ -2,6 +2,7 @@
 title: "Structural State and Persistence"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
   - packages/solver-contract/src/structural-state.ts
   - packages/solver-contract/src/structural-state-service.ts
@@ -100,3 +101,7 @@ Start with axial tension/compression, cantilever bending and torsion, a simply s
 ## Future element representation definitions
 
 [Element representation criteria](element-representation-criteria.md) require versioned section dimensions/roll, spring parameters, planar/trichord assembly topology, stable parent/part/interface IDs and cable geometry metadata as appropriate. Current browser member types and preliminary analytical definitions do not cover that complete catalogue. Extend validated schemas deliberately before persistence or numerical use; readable thickness, selection targets and LOD are presentation preferences and must not change authoritative physical data. Migration, assembly cards and solver mapping remain future work.
+
+## Complete match and quarter-interface requirements
+
+[Saved-match criteria](saved-match-criteria.md) extend the target beyond a structural snapshot: private decks/hands, draws, phase/draft, rules/catalogue versions, model/evidence lineage, penalty ledger, final score and atomic/recoverable head commits. [Placement criteria](placement-criteria.md) require parent-relative quarter ports and assembly part mappings across all families. Existing snapshot v1 joint/endpoint/two-terminal member records do not establish complete quarter-interface, assembly or match-transaction support. Do not reinterpret legacy snapshots silently; migrate explicitly or keep them read-only.

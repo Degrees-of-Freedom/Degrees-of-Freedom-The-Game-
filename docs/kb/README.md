@@ -11,6 +11,7 @@ validated_against:
   - docs/kb/element-representation-criteria.md
   - docs/kb/solver-criteria.md
   - docs/kb/turn-criteria.md
+  - docs/kb/game-completion-criteria.md
   - docs/kb/joint-dof-criteria.md
   - docs/kb/animation-criteria.md
   - docs/kb/avatar-criteria.md
@@ -41,6 +42,15 @@ This is the canonical entry point for durable project knowledge. The early web p
 | [solver-criteria.md](solver-criteria.md) | Reading the owner-supplied proposed solver requirements, acceptance gates, implementation order, and open gameplay decisions. |
 | [solver-criteria-gap-analysis.md](solver-criteria-gap-analysis.md) | Comparing current code and tests with the criteria and planning implementation milestones. |
 | [turn-criteria.md](turn-criteria.md) | Defining the two decks, turn phases, six-DOF connection cards, issue assessment and penalty decisions. |
+| [game-completion-criteria.md](game-completion-criteria.md) | Entry point for eight completion specifications, confirmed decisions, proposals and implementation dependencies. |
+| [scoring-match-criteria.md](scoring-match-criteria.md) | Defining fixed rounds, final-only load share minus penalties, outcome validity and ties. |
+| [placement-criteria.md](placement-criteria.md) | Defining grid/diagonal placement, quarter attachments, clashes, assembly plays and external connections. |
+| [card-definition-criteria.md](card-definition-criteria.md) | Authoring versioned physical properties, spring/assembly/cable laws, catalogue capabilities and decks. |
+| [failure-repair-criteria.md](failure-repair-criteria.md) | Assessing verified issues, recording one-point penalties, retaining geometry and clearly reporting repair. |
+| [controls-camera-criteria.md](controls-camera-criteria.md) | Specifying mouse/keyboard/touch workflows, precision targeting, camera behavior and accessibility. |
+| [multiplayer-criteria.md](multiplayer-criteria.md) | Specifying first-release local hot-seat, private handoff, information visibility and future authority boundaries. |
+| [saved-match-criteria.md](saved-match-criteria.md) | Saving/recovering complete matches, atomic commits, replay, migration and private exports. |
+| [release-acceptance-criteria.md](release-acceptance-criteria.md) | Validating a complete playable match with evidence, numerical/performance gates and supported scope. |
 | [game-dynamics.md](game-dynamics.md) | Working on game state, turns, rules, or modes. |
 | [avatar-criteria.md](avatar-criteria.md) | Defining Timburr’s personality, compact presence, reactions, Conkeldurr transformation, model sources and deferred implementation handoff. |
 | [animation-criteria.md](animation-criteria.md) | Defining all-action animation and sound requirements, optional structural glow/pulse, accessibility, timing and acceptance scenarios. |
@@ -48,11 +58,15 @@ This is the canonical entry point for durable project knowledge. The early web p
 | [3d-viewer.md](3d-viewer.md) | Working on the 3D grid, interaction, or visual feedback. |
 | [development-and-testing.md](development-and-testing.md) | Finding current setup, commands, and test coverage. |
 
+## Completion rules and decisions
+
+Start with [core game completion criteria](game-completion-criteria.md) for the eight new specifications and decision register. The owner confirmed fixed rounds, final load-share percentage minus accumulated penalties, local hot-seat privacy, grid/diagonal and quarter-point attachments for all families, no physical clashes, one assembly card per element play, and retained structures repaired through additions. These supersede older contrary proposals; implementation and numerical acceptance remain pending.
+
 ## Turn rules: source of truth
 
 Start with [turn criteria](turn-criteria.md#1-status-and-confirmed-rules) for the owner's confirmed two-deck rules. The page includes the card families, six-DOF connection profile table, turn lifecycle, whole-structure issue comparison, 1-point penalty policy, a worked example, persistence requirements and acceptance scenarios.
 
-The confirmed decisions are distinct from the proposed connection presets and unresolved balance choices. [Questions still to resolve](turn-criteria.md#9-questions-still-to-resolve) tracks opening hands, deck balance, load magnitudes, placement limits, scoring and match endings. The Shared table implements the card lifecycle and explicit attachments. Verified issue assessment and penalties remain pending. Later confirmed turn decisions supersede earlier gameplay proposals in the solver criteria; numerical solver requirements remain in [solver criteria](solver-criteria.md).
+The confirmed decisions are distinct from the proposed connection presets and unresolved balance choices. [Questions still to resolve](turn-criteria.md#9-questions-still-to-resolve) tracks remaining parameters; the [completion decision register](game-completion-criteria.md#2-owner-confirmed-decision-register) now resolves the main scoring, match-format, placement and repair choices. The Shared table implements the card lifecycle and explicit attachments. Verified issue assessment and penalties remain pending. Later confirmed turn decisions supersede earlier gameplay proposals in the solver criteria; numerical solver requirements remain in [solver criteria](solver-criteria.md).
 
 ## Animation and sound direction
 
