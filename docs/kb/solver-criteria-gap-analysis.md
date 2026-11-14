@@ -2,6 +2,7 @@
 title: "Solver Criteria Gap Analysis and Milestones"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
   - docs/kb/turn-criteria.md
@@ -117,3 +118,7 @@ The later [joint DOF criteria](joint-dof-criteria.md) supersede any earlier inte
 ## Later element representation catalogue
 
 [Element representation criteria](element-representation-criteria.md) add a required visual catalogue and lightweight generation/LOD/true-scale requirements. The historical table remains a baseline review, not evidence of these capabilities. Current style-dependent capsule/box meshes do not provide full profile/assembly fidelity; the preliminary contract and service also lack standalone spring/assembly definitions and per-section properties. Numerical integration, identity mapping, card rules, geometry fixtures and performance evidence remain future work.
+
+## Core-game and quarter-attachment targets
+
+The later [completion decisions](game-completion-criteria.md) confirm final-only adjusted load-share scoring, fixed rounds, clash-free placement, all-family quarter interfaces, assembly-card economy, retained issues and additive repair. These do not complete historical milestones. Current prototypes lack demonstrated full quarter spring/cable/assembly laws, common-profile enforcement, verified issue matching/penalties, final scoring and complete hot-seat recovery/release acceptance. Use [release criteria](release-acceptance-criteria.md) and the individual specifications to scope implementation evidence.

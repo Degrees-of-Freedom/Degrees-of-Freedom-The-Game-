@@ -2,6 +2,7 @@
 title: "Joint Degrees of Freedom Visualization Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/game-completion-criteria.md
   - "Project owner joint-DOF visualization answers and shared-joint rule revision, 2026-11-14"
   - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria.md
@@ -59,7 +60,7 @@ Proposed placement workflow, preserving placed-card immutability:
 3. Accept compatible freedoms. Reject an incompatible attachment with the conflicting axes identified; retain the draft/card and explain how to choose a compatible card or another joint.
 4. Never upgrade, rotate or rewrite earlier connections to make an incoming card fit. Validate the complete transaction independently of staging order.
 
-The first-attachment workflow and exact matching tolerances are recommendations, not newly confirmed deck rules. Elastic components must match the required free/locked/elastic category and directions; whether stiffness values must also be identical is an open policy decision. Capacity remains distinct from kinematic freedom; identical freedoms do not establish identical strength. Do not silently choose stiffness/capacity combination rules.
+The first-attachment workflow and exact matching tolerances are recommendations, not newly confirmed deck rules. Elastic components must match the required free/locked/elastic category and physical directions. The owner confirmed that their stiffness values may differ; store and analyze each connector’s actual stiffness rather than imposing equality or averaging them. Capacity remains distinct from kinematic freedom; identical freedoms do not establish identical strength. Do not silently choose stiffness/capacity combination rules.
 
 Legacy saves with mixed profiles must show **incompatible joint profiles**, identify the affected ends and avoid a false unified glyph. Migration/rejection rules and setup-profile establishment require design before enforcement. Preserve old data; do not silently coerce profiles or connect coincident geometry. Configurable support masks outside the default game remain explicit overrides, never rendered as fully fixed merely because the object is called a foundation.
 
@@ -81,7 +82,7 @@ Anchor one compact glyph to the shared joint, with a central dot and three colou
 | Unknown / unavailable | Question-mark badge and neutral placeholder, no confident arrow state | Not available |
 | Incompatible profiles | Split-profile warning badge, no fabricated common state | Conflicting attached-end freedoms |
 
-Retain all six entries in the inspector even when board glyphs are simplified. Locked components should remain legible rather than disappear; absence must not mean locked. Colour identifies axis, shape identifies state, and text explains meaning. Keep selection accent, player identity, result warning and axis colours distinguishable without relying on colour alone. Do not encode stiffness by an arbitrary spring length or opacity without a numerical legend.
+Retain all six entries in the inspector even when board glyphs are simplified. When elastic values differ across attached ends, the common glyph says “elastic — stiffness varies”; selecting a connector shows its actual values/units. Do not display a fabricated common stiffness or infer it by averaging. Locked components should remain legible rather than disappear; absence must not mean locked. Colour identifies axis, shape identifies state, and text explains meaning. Keep selection accent, player identity, result warning and axis colours distinguishable without relying on colour alone. Do not encode stiffness by an arbitrary spring length or opacity without a numerical legend.
 
 Foundation detail is a separate **Ground restraints** row/group with an anchored-base icon and six lock marks by default. If connection permissions are also inspected at that foundation, label both groups explicitly. A fully fixed base and a ball connection are representable without contradiction.
 
@@ -146,9 +147,13 @@ Recommended later implementation order: reconcile shared-joint schema/validation
 
 ## 10. Open decisions and current gaps
 
-- Whether elastic stiffness values must match as well as freedom states; treatment of capacities and any coupled connection laws.
+- Elastic stiffness equality is not required; numerical tolerance for matching directions/freedom states, capacity treatment and any coupled connection laws still need definition.
 - Final canonical joint-frame initialization, profile establishment and compatibility tolerances; handling existing mixed-profile saves and setup joints.
 - Visual approval of sizes, colours, labels, occlusion treatment and demonstration amplitudes after playtesting.
 - Solver support for valid component-scoped modes, transformed connection laws and reliable near-mechanism grading. Do not manufacture these from current limited results.
 
 Current Shared table stores connection profiles per end (`fixed`/`ball`) and does not enforce the newly confirmed uniform-profile rule at a shared joint. The preliminary shared contract likewise supports fixed/pinned ends, not arbitrary six-axis elastic laws or a canonical joint profile. Existing joint markers/result overlays are not evidence that this specification is implemented. See [3D viewer](3d-viewer.md), [structural solver](structural-solver.md) and the [gap analysis](solver-criteria-gap-analysis.md) for implementation context.
+
+## 11. Quarter ports and common interface freedoms
+
+The later [placement criteria](placement-criteria.md) require original-reference quarter interfaces on all element families. A port is not automatically a ground support or free connector: incoming attachments still consume cards and must match the common interface freedoms. Explicit internal parent continuity must survive analytical subdivision; do not apply an incoming release law to split the original member into unintended hinges. Distinguish internal continuity from external attachment laws in the schema/inspector. Physical clashes use reference geometry, not this glyph’s visual volume.

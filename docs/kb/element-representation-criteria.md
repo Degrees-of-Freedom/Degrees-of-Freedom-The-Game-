@@ -2,10 +2,13 @@
 title: "Structural Element Representation Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/game-completion-criteria.md
   - "Project owner element catalogue and geometry answers, 2026-11-14"
   - docs/kb/structural-solver.md
   - docs/kb/solver-criteria.md
   - docs/kb/turn-criteria.md
+  - docs/kb/placement-criteria.md
+  - docs/kb/card-definition-criteria.md
   - docs/kb/joint-dof-criteria.md
   - apps/web/src/viewer/structureMeshes.ts
   - apps/web/src/viewer/sceneGeometry.ts
@@ -70,7 +73,7 @@ Keep one stable assembly/card parent identity and stable identities for constitu
 
 A rendering mesh does not establish a solver formulation. Before numerical use, choose and validate either an explicitly expanded analytical assembly or an appropriate equivalent model with documented limits. Expansion must preserve parent identity, material/section properties, loads, self-weight and results mapping without double-counting. Never replace the whole assembly with an arbitrary beam stiffness because it looks beam-like.
 
-Selecting an assembly should show its parent and component detail without implying every web is independently playable. Whether one card places an assembly, how its endpoints consume connection cards, whether interior attachment is allowed, and how capacity/cost/failure are assessed remain game-policy decisions. The current one-member-per-element-card rule is not overridden by this visual request.
+Selecting an assembly should show its parent and component detail without implying every web is independently playable. Later owner decisions now authorize one assembly card using one element play and one connection card per external attachment, and require original-quarter-point interior attachments on every family. See [placement criteria](placement-criteria.md). Internal topology, valid quarter-port load transfer, capacities/costs and numerical mapping remain to define; appearance alone does not validate them.
 
 ### Cables
 
@@ -142,6 +145,10 @@ Recommended implementation stages: define versioned profiles/assembly data and s
 
 - Actual section dimensions/material families and whether named W/H sections are authored or drawn from a particular catalogue; treatment of fillets and tube corners.
 - Spring stiffness/law, physical versus schematic coil dimensions, rest state and end attachments.
-- Planar/trichord templates, panel layout, assembly end interfaces, internal analytical model and future card/connection economy.
+- Planar/trichord templates, panel layout, assembly end/quarter interfaces, internal analytical model and catalogue balance within the confirmed one-assembly-play/per-external-connection economy.
 - Final readable enlargement factor, inspection workflow, LOD thresholds and supported-device budgets.
 - Cable fittings and validated curve/deformation support; no additional cable physics is approved merely by this presentation request.
+
+## 10. Later card and quarter-interface decisions
+
+The owner subsequently authorized one planar/trichord assembly card per element play, with one card per external connection, and original-quarter-point attachment on every family including cables/springs. [Placement criteria](placement-criteria.md) define stable fractions, physical clashes, continuity and validated multi-port mapping. Update definition/card previews to expose real target ports; do not draw a trichord attachment in empty space or let a coil mesh certify a spring’s interior-load response. The visual requirements remain independent of numerical/card implementation.
