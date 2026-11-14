@@ -1,5 +1,9 @@
 .structure-library { display: flex; gap: 1.2rem; align-items: center; padding: 1rem; margin: 1rem 0; border: 1px solid #c5d1c7; border-radius: 12px; background: #f2f5f2; }
 .structure-library img { object-fit: contain; border-radius: 8px; flex-shrink: 0; }
+.environment .structure-library { flex-direction: column; align-items: stretch; margin: 0; color: #233d4d; }
+.environment .structure-library img { width: 100%; height: auto; }
+.environment .structure-library button, .environment .structure-library select { background: #e1e8e1; color: #233d4d; border: 1px solid #a8b9ac; padding: .45rem .6rem; border-radius: 6px; }
+.environment .structure-library a { color: #245d71; }
 .structure-library p { margin: .5rem 0; }
 .structure-library select { max-width: 100%; }
 .library-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .7rem; margin: .7rem 0; }

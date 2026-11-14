@@ -69,10 +69,14 @@ export function alphaCr(ctx: Context, sol: Solved) {
     put(dB, dA, -1);
   }
   if (!comp) return Infinity;
-  const W = new Float64Array(nf * nf);
+  const active = sol.activeDofs, n = active.length;
+  const W = new Float64Array(n * n);
   const pd = (lam: number) => {
-    for (let i = 0; i < W.length; i++) W[i] = sol.K0[i] + lam * Kg[i];
-    return cholesky(W, nf, ctx.bw);
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const source = active[i] * nf + active[j];
+      W[i * n + j] = sol.K0[source] + lam * Kg[source];
+    }
+    return cholesky(W, n, n - 1);
   };
   if (!pd(1)) {
     let lo = 0,

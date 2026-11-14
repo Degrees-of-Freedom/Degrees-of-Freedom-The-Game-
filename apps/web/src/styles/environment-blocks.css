@@ -1,0 +1,916 @@
+/* Visual source: ftroshani prototype blocks (2b72967). Scoped to the shared React runtime. */
+
+.environment[data-style="blocks"] {
+  --cream: #fdf6ea;
+  --cream-deep: #f5e8d3;
+  --cream-line: #ead9c1;
+  --ink: #2f3640;
+  --ink-soft: #636b78;
+  --persimmon: #e8735a;
+  --persimmon-deep: #c9553d;
+  --hub: #3b4252;
+  --load: #c9413a;
+  --mist: #b8b2bf;
+  --ax-x: #d2594a;
+  --ax-y: #3f9477;
+  --ax-z: #5578c2;
+  --shadow:
+    0 10px 26px rgba(118, 66, 40, 0.2), 0 2px 6px rgba(118, 66, 40, 0.14);
+  --shadow-soft: 0 4px 12px rgba(118, 66, 40, 0.16);
+  --font:
+    ui-rounded, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+.environment[data-style="blocks"] * {
+  box-sizing: border-box;
+}
+.environment[data-style="blocks"] [hidden] {
+  display: none !important;
+}
+.environment[data-style="blocks"],
+.environment[data-style="blocks"] {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: linear-gradient(#d9c7e3, #f7d9c4 45%, #fbe9d7);
+  color: var(--ink);
+  font: 500 13.5px/1.35 var(--font);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+.environment[data-style="blocks"] #stage {
+  position: fixed;
+  inset: 0;
+}
+.environment[data-style="blocks"] #stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  touch-action: none;
+}
+.environment[data-style="blocks"] #labels {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.environment[data-style="blocks"] button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.environment[data-style="blocks"] button:focus-visible {
+  outline: 2.5px solid var(--persimmon);
+  outline-offset: 2px;
+}
+
+.environment[data-style="blocks"] .chip {
+  background: var(--cream);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+.environment[data-style="blocks"] .row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+}
+.environment[data-style="blocks"] .sep {
+  width: 1.5px;
+  align-self: stretch;
+  margin: 7px 5px;
+  background: var(--cream-line);
+  border-radius: 1px;
+}
+
+.environment[data-style="blocks"] .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    transform 0.14s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.environment[data-style="blocks"] .btn.icon {
+  width: 38px;
+  padding: 0;
+}
+.environment[data-style="blocks"] .btn:hover {
+  background: var(--cream-deep);
+}
+.environment[data-style="blocks"] .btn:active {
+  transform: scale(0.94);
+}
+.environment[data-style="blocks"] .btn[disabled] {
+  opacity: 0.35;
+  pointer-events: none;
+}
+.environment[data-style="blocks"] .btn.on {
+  background: var(--ink);
+  color: var(--cream);
+}
+.environment[data-style="blocks"] .btn.on:hover {
+  background: #3d4654;
+}
+.environment[data-style="blocks"] svg.i {
+  width: 21px;
+  height: 21px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---- brand ---- */
+.environment[data-style="blocks"] #brand {
+  position: fixed;
+  left: 16px;
+  top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 10px;
+}
+.environment[data-style="blocks"] #brand strong {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+}
+.environment[data-style="blocks"] #brand span {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* ---- top right ---- */
+.environment[data-style="blocks"] #top-right {
+  position: fixed;
+  right: 16px;
+  top: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+}
+.environment[data-style="blocks"] #turn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 5px 5px 13px;
+}
+.environment[data-style="blocks"] #turn .who {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.environment[data-style="blocks"] #turn .who b {
+  font-weight: 700;
+  font-size: 13.5px;
+}
+.environment[data-style="blocks"] #turn .who small {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.environment[data-style="blocks"] #turn .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #f2c078;
+  box-shadow: inset 0 0 0 2px rgba(47, 54, 64, 0.18);
+}
+.environment[data-style="blocks"] #turn .btn {
+  background: var(--cream-deep);
+  height: 34px;
+}
+.environment[data-style="blocks"] #turn .btn:hover {
+  background: var(--cream-line);
+}
+
+/* ---- help ---- */
+.environment[data-style="blocks"] #help {
+  position: fixed;
+  left: 16px;
+  top: 76px;
+  width: 262px;
+  padding: 11px 14px 11px;
+  font-size: 12.5px;
+}
+.environment[data-style="blocks"] #help h2 {
+  margin: 0 0 7px;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.environment[data-style="blocks"] #help table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.environment[data-style="blocks"] #help td {
+  padding: 2.5px 0;
+  vertical-align: top;
+}
+.environment[data-style="blocks"] #help td:first-child {
+  white-space: nowrap;
+  padding-right: 12px;
+  color: var(--ink);
+  font-weight: 700;
+}
+.environment[data-style="blocks"] #help kbd + kbd {
+  margin-left: 2px;
+}
+.environment[data-style="blocks"] #help td:last-child {
+  color: var(--ink-soft);
+}
+.environment[data-style="blocks"] #help .x {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--ink-soft);
+}
+.environment[data-style="blocks"] #help .x:hover {
+  background: var(--cream-deep);
+  color: var(--ink);
+}
+.environment[data-style="blocks"] kbd {
+  font: 700 12px/1 var(--font);
+  display: inline-block;
+  padding: 3px 5px;
+  border-radius: 6px;
+  background: var(--cream-deep);
+  box-shadow: inset 0 -1.5px 0 var(--cream-line);
+}
+
+/* ---- demo banner + legend ---- */
+.environment[data-style="blocks"] #demo {
+  position: fixed;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  pointer-events: none;
+}
+.environment[data-style="blocks"] #demo .banner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 16px;
+  border-radius: 14px;
+  background: var(--ink);
+  color: #fff3df;
+  font-size: 14.5px;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+}
+.environment[data-style="blocks"] #demo .banner svg {
+  stroke: #f2c078;
+}
+.environment[data-style="blocks"] #legend {
+  padding: 8px 12px 7px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+.environment[data-style="blocks"] #legend .bar {
+  width: 100%;
+  min-width: 230px;
+  height: 12px;
+  border-radius: 6px;
+  margin: 4px 0 3px;
+}
+.environment[data-style="blocks"] #legend .ticks {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* ---- bottom ---- */
+.environment[data-style="blocks"] #bottom {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 14px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: 12px;
+  pointer-events: none;
+}
+.environment[data-style="blocks"] #left-group {
+  justify-self: start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.environment[data-style="blocks"] #centre-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.environment[data-style="blocks"] #right-group {
+  justify-self: end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.environment[data-style="blocks"] #axis {
+  width: 84px;
+  height: 84px;
+  margin-left: 2px;
+  pointer-events: none;
+}
+.environment[data-style="blocks"] #axis text {
+  font: 700 12px var(--font);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.environment[data-style="blocks"] .env-tools {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 24px;
+}
+.environment[data-style="blocks"] .tool {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 84px;
+  height: 62px;
+  border-radius: 18px;
+  font-weight: 600;
+  font-size: 13px;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    transform 0.16s cubic-bezier(0.3, 1.6, 0.5, 1),
+    box-shadow 0.12s;
+}
+.environment[data-style="blocks"] .tool svg.i {
+  width: 24px;
+  height: 24px;
+}
+.environment[data-style="blocks"] .tool:hover {
+  background: var(--cream-deep);
+  transform: translateY(-2px);
+}
+.environment[data-style="blocks"] .tool:active {
+  transform: scale(0.95);
+}
+.environment[data-style="blocks"] .tool.active {
+  background: var(--persimmon);
+  color: #fff8ee;
+  box-shadow: 0 5px 12px rgba(201, 85, 61, 0.38);
+}
+.environment[data-style="blocks"] .tool .key {
+  position: absolute;
+  top: 5px;
+  right: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.5;
+}
+.environment[data-style="blocks"] .tool.active .key {
+  opacity: 0.8;
+}
+
+.environment[data-style="blocks"] #hint {
+  max-width: 620px;
+  padding: 6px 14px;
+  border-radius: 13px;
+  background: rgba(253, 246, 234, 0.86);
+  box-shadow: var(--shadow-soft);
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+}
+.environment[data-style="blocks"] #hint.warn {
+  background: #fbe3dc;
+  color: #8f2f22;
+}
+
+.environment[data-style="blocks"] #stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+  padding: 6px 13px;
+  border-radius: 13px;
+  background: rgba(253, 246, 234, 0.86);
+  box-shadow: var(--shadow-soft);
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  pointer-events: none;
+}
+.environment[data-style="blocks"] #stats b {
+  color: var(--ink);
+  font-weight: 700;
+}
+.environment[data-style="blocks"] #loose {
+  white-space: nowrap;
+  padding: 6px 13px;
+  border-radius: 13px;
+  background: #e9e4ee;
+  color: #57506a;
+  box-shadow: var(--shadow-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* ---- load options (brush) and shared load controls ---- */
+.environment[data-style="blocks"] .opts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 18px;
+}
+.environment[data-style="blocks"] .opts-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.environment[data-style="blocks"] .pick {
+  display: flex;
+  gap: 3px;
+}
+.environment[data-style="blocks"] .pick button {
+  min-width: 40px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  transition:
+    background 0.12s,
+    transform 0.14s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.environment[data-style="blocks"] .pick button:hover {
+  background: var(--cream-deep);
+  transform: translateY(-1px);
+}
+.environment[data-style="blocks"] .pick button.sel {
+  background: var(--load);
+  color: #fff3ea;
+}
+.environment[data-style="blocks"] .pick button[disabled] {
+  opacity: 0.3;
+  pointer-events: none;
+}
+.environment[data-style="blocks"] .pick button svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.environment[data-style="blocks"] .unit {
+  font-size: 12px;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+/* ---- cards ---- */
+.environment[data-style="blocks"] #leader {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 4;
+  pointer-events: none;
+  display: none;
+}
+.environment[data-style="blocks"] #leader line {
+  stroke: #2f3640;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 7;
+  opacity: 0.75;
+}
+.environment[data-style="blocks"] #leader circle {
+  fill: #2f3640;
+  opacity: 0.75;
+}
+.environment[data-style="blocks"] .card {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 246px;
+  padding: 11px;
+  z-index: 5;
+  transform-origin: 0 50%;
+}
+.environment[data-style="blocks"] .card.pop {
+  animation: blocks-card-pop 0.22s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+@keyframes blocks-card-pop {
+  from {
+    opacity: 0;
+    scale: 0.9;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+.environment[data-style="blocks"] .card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  margin-bottom: 2px;
+}
+.environment[data-style="blocks"] .card-head .t {
+  flex: 1;
+  min-width: 0;
+}
+.environment[data-style="blocks"] .card-head b {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 700;
+}
+.environment[data-style="blocks"] .card-head small {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.environment[data-style="blocks"] .card .x {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--ink-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.environment[data-style="blocks"] .card .x svg.i {
+  width: 16px;
+  height: 16px;
+}
+.environment[data-style="blocks"] .card .x:hover {
+  background: var(--cream-deep);
+  color: var(--ink);
+}
+.environment[data-style="blocks"] .field {
+  margin-top: 8px;
+}
+.environment[data-style="blocks"] .field.inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.environment[data-style="blocks"] .field.inline > .lab {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.environment[data-style="blocks"] .field.inline > .seg {
+  flex: 1;
+}
+.environment[data-style="blocks"] .field > label,
+.environment[data-style="blocks"] .field > .lab {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+.environment[data-style="blocks"] .seg {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--cream-deep);
+}
+.environment[data-style="blocks"] .seg button {
+  flex: 1;
+  height: 28px;
+  border-radius: 9px;
+  font-weight: 700;
+  font-size: 12.5px;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    transform 0.14s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.environment[data-style="blocks"] .seg button:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+.environment[data-style="blocks"] .seg button:active {
+  transform: scale(0.94);
+}
+.environment[data-style="blocks"] .seg button.sel {
+  background: var(--ink);
+  color: var(--cream);
+}
+.environment[data-style="blocks"] .dofs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+.environment[data-style="blocks"] .dof {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  height: 58px;
+  border-radius: 12px;
+  background: #fffdf8;
+  box-shadow: inset 0 0 0 1.5px var(--cream-line);
+  position: relative;
+  transition:
+    background 0.14s,
+    color 0.14s,
+    transform 0.16s cubic-bezier(0.3, 1.6, 0.5, 1),
+    box-shadow 0.14s;
+}
+.environment[data-style="blocks"] .dof:hover {
+  transform: translateY(-2px);
+  box-shadow: inset 0 0 0 1.5px var(--ink-soft);
+}
+.environment[data-style="blocks"] .dof:active {
+  transform: scale(0.94);
+}
+.environment[data-style="blocks"] .dof svg {
+  width: 33px;
+  height: 33px;
+  fill: none;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.environment[data-style="blocks"] .dof[data-axis="x"] svg {
+  stroke: var(--ax-x);
+}
+.environment[data-style="blocks"] .dof[data-axis="y"] svg {
+  stroke: var(--ax-y);
+}
+.environment[data-style="blocks"] .dof[data-axis="z"] svg {
+  stroke: var(--ax-z);
+}
+.environment[data-style="blocks"] .dof .lock {
+  display: none;
+}
+.environment[data-style="blocks"] .dof .nm {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.environment[data-style="blocks"] .dof .nm i {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.environment[data-style="blocks"] .dof.locked {
+  background: var(--hub);
+  color: #fdf6ea;
+  box-shadow: none;
+}
+.environment[data-style="blocks"] .dof.locked:hover {
+  box-shadow: inset 0 0 0 1.5px #8a93a6;
+}
+.environment[data-style="blocks"] .dof.locked svg {
+  stroke: #7d8698;
+}
+.environment[data-style="blocks"] .dof.locked .lock {
+  display: block;
+  stroke: #fdf6ea;
+  fill: #fdf6ea;
+}
+.environment[data-style="blocks"] .dof.locked .nm i {
+  color: #b9c0cd;
+}
+.environment[data-style="blocks"] .dof.free:hover .mv {
+  animation: blocks-wiggle 0.5s ease-in-out infinite alternate;
+}
+@keyframes blocks-wiggle {
+  from {
+    translate: -1.5px 0;
+  }
+  to {
+    translate: 1.5px 0;
+  }
+}
+.environment[data-style="blocks"] .note {
+  margin-top: 7px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.3;
+}
+.environment[data-style="blocks"] .card-foot {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.environment[data-style="blocks"] .card-foot .btn {
+  flex: 1;
+  height: 32px;
+  background: var(--cream-deep);
+  font-size: 12.5px;
+}
+.environment[data-style="blocks"] .card-foot .btn:hover {
+  background: var(--cream-line);
+}
+.environment[data-style="blocks"] .card-foot .btn.danger:hover {
+  background: #f7d6cf;
+  color: #8f2f22;
+}
+.environment[data-style="blocks"] #load-card {
+  width: 232px;
+}
+.environment[data-style="blocks"] #load-card .pick {
+  flex-wrap: wrap;
+}
+.environment[data-style="blocks"] #load-card #lc-dirs button {
+  flex: 1 0 30%;
+}
+.environment[data-style="blocks"] #load-card #lc-amounts button {
+  flex: 1 0 20%;
+  min-width: 0;
+}
+
+/* ---- solver drawer ---- */
+.environment[data-style="blocks"] #drawer {
+  position: fixed;
+  right: 16px;
+  top: 76px;
+  bottom: 132px;
+  width: 400px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  z-index: 6;
+}
+.environment[data-style="blocks"] #drawer.pop {
+  animation: blocks-drawer-in 0.26s cubic-bezier(0.3, 1.3, 0.5, 1);
+}
+@keyframes blocks-drawer-in {
+  from {
+    opacity: 0;
+    translate: 30px 0;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+.environment[data-style="blocks"] #drawer header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.environment[data-style="blocks"] #drawer header b {
+  flex: 1;
+  font-size: 14.5px;
+}
+.environment[data-style="blocks"] #drawer header .btn {
+  height: 32px;
+  background: var(--cream-deep);
+  font-size: 12.5px;
+}
+.environment[data-style="blocks"] #drawer header .btn:hover {
+  background: var(--cream-line);
+}
+.environment[data-style="blocks"] #drawer p {
+  margin: 6px 0 8px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.environment[data-style="blocks"] #drawer pre {
+  flex: 1;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  border-radius: 12px;
+  background: #2f3640;
+  color: #f3e9d7;
+  font: 12px/1.45 var(--mono);
+  user-select: text;
+  white-space: pre;
+}
+
+/* ---- scene labels ---- */
+.environment[data-style="blocks"] .pill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 2px 8px 3px;
+  border-radius: 9px;
+  background: #fdf6ea;
+  color: #2f3640;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(80, 40, 30, 0.25);
+  will-change: transform;
+  transition: opacity 0.15s;
+}
+.environment[data-style="blocks"] .pill.hot {
+  box-shadow:
+    0 0 0 2.5px var(--load),
+    0 2px 6px rgba(80, 40, 30, 0.25);
+}
+.environment[data-style="blocks"] .pill.sel {
+  background: var(--load);
+  color: #fff3ea;
+}
+.environment[data-style="blocks"] #tag {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 4;
+  padding: 4px 9px 5px;
+  border-radius: 10px;
+  background: var(--ink);
+  color: #fdf6ea;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow-soft);
+}
+.environment[data-style="blocks"] #tag.bad {
+  background: #a8342a;
+}
+.environment[data-style="blocks"] #tag b {
+  font-weight: 700;
+  color: #ffd9a8;
+}
+
+/* ---- boot / fallback ---- */
+.environment[data-style="blocks"] #boot {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  z-index: 20;
+  pointer-events: none;
+}
+.environment[data-style="blocks"] #boot div {
+  max-width: 460px;
+  padding: 18px 22px;
+  border-radius: 18px;
+  background: var(--cream);
+  box-shadow: var(--shadow);
+  font-size: 14px;
+}
+.environment[data-style="blocks"] #boot b {
+  display: block;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 1180px) {
+  .environment[data-style="blocks"] .tool {
+    width: 72px;
+  }
+  .environment[data-style="blocks"] .btn .wide {
+    display: none;
+  }
+}

@@ -4,9 +4,8 @@ import { useGameStore } from '../game/store';
 import '../styles/library.css';
 
 /** Explicit loads and wrapped cycling keep browsing separate from edited geometry. */
-export function StructureLibrary() {
+export function StructureLibrary({ index, setIndex }: { index: number; setIndex: (index: number) => void }) {
   const [records, setRecords] = useState<StructureRecord[]>([]);
-  const [index, setIndex] = useState(0);
   const [error, setError] = useState('');
   const load = useGameStore(s => s.loadLibraryModel);
   useEffect(() => {
@@ -42,7 +41,7 @@ export function StructureLibrary() {
           <a href={structureAsset(record.preview)} download>PNG</a>
           <a href={structureAsset('structures.sqlite')} download>SQLite database</a>
         </div>
-        <small>Loads into the dedicated Library workspace. Use Run analysis to solve. Intent is qualitative; previews show undeformed geometry.</small>
+        <small>Loads into the dedicated Library workspace. Use Run simulation to solve. Intent is qualitative; previews show undeformed geometry.</small>
       </div>
     </>}
   </section>;

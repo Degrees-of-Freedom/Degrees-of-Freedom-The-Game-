@@ -19,7 +19,7 @@ The workspace has 20 deterministic voxel specimens, from a one-member column to 
 
 Use the Structure library selector to browse previews, then **Load structure**. **Previous & load** and **Next & load** cycle with wraparound. Geometry is copied into a dedicated `library` level; other challenge and sandbox saves are preserved. Each load within the library is undoable. Editing does not mutate the source records. The library has one browser save slot, not a save per specimen. The viewer fits the camera when a specimen loads. The selector describes the selected source preview; after editing, it is not a live thumbnail of the model.
 
-Use **Run analysis** for the existing voxel analysis and configured OpenSees check. OpenSees requires the separate service and its current capability limits still apply. Loading a specimen does not solve it. Old analysis is invalidated by model identity when cycling.
+Open **Structure library** in the environment action bar. Use **Run simulation** for the existing voxel analysis and configured OpenSees check. OpenSees requires the separate service and its current capability limits still apply. Loading a specimen does not solve it. Old analysis is invalidated by model identity when cycling. The library uses the challenge-mode persistence slot and retains the selected presentation style; it preserves creative/repair saves and the current multiplayer turn state.
 
 ## Records and previews
 
@@ -48,6 +48,8 @@ Some imported specimens intentionally exceed interactive member-length limits (n
 | 19–20 | Supported plus floating, unsupported cube | Partial-result scope and no-foundation diagnostics |
 
 `expectation` is qualitative design intent. Cable specimens are marked `review`. The captured voxel run detects the released portal mechanism, the two floating nodes in case 19, and missing foundations in case 20. The cantilever and pyramid exceed prototype utilization 1. These failures are useful specimens, not import failures. Mechanism displacements from the approximate solver are not valid physical results; the baseline omits them. Case 19's numbers apply only to its supported component.
+
+The library was integrated with upstream `main` at `6900f96`. That solver removes the previous diagonal regularization, reduces inactive unloaded rotational coordinates, and rejects unconverged cable active sets. The initial baseline comparison detected displacement changes in ten specimens and all four combinations becoming failed for the released portal; the baseline was deliberately refreshed for this implementation. This records a version change, not independent numerical validation.
 
 ## Regenerate and verify
 

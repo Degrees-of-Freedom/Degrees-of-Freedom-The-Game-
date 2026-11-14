@@ -50,6 +50,7 @@ export type ElementForce = {
 export type Solved = {
   u: Float64Array;
   K0: Float64Array;
+  activeDofs: number[];
   active: Map<Element, boolean>;
   ef: Map<Element, ElementForce>;
 };
@@ -75,6 +76,8 @@ export type Combo = {
 export interface VoxelAnalysis {
   error?: string;
   mechanism: boolean;
+  /** Strength and stability checks require the factored design combinations. */
+  designChecksAvailable?: boolean;
   floating: string[];
   unstable: Set<string>;
   objectives: { ok: boolean; label: string; detail: string; warn?: boolean }[];

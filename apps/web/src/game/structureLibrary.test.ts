@@ -59,6 +59,17 @@ describe('structure library', () => {
     useGameStore.getState().undo();
     expect(useGameStore.getState().model).toEqual(records[0].save.model);
   });
+  it('leaves a shared-table game intact when opening the library', () => {
+    useGameStore.getState().setMode('multiplayer');
+    const turn = useGameStore.getState().turn;
+    useGameStore.getState().loadLibraryModel(records[0].save.model);
+    expect(useGameStore.getState().mode).toBe('challenge');
+    expect(useGameStore.getState().levelId).toBe('library');
+    expect(useGameStore.getState().turn).toBe(turn);
+    useGameStore.getState().setMode('multiplayer');
+    expect(useGameStore.getState().turn).toBe(turn);
+    useGameStore.getState().setMode('challenge');
+  });
   for (const record of records) it(`analyzes ${record.id} against the observed voxel baseline`, () => {
     const result = analyzeGame(record.save.model, LEVELS.library);
     const maxD = result.combos.flatMap(c => c.maxD === undefined ? [] : [c.maxD]);

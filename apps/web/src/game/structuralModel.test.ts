@@ -72,6 +72,16 @@ describe('game model to solver contract', () => {
     expect(model.analysis).toBeUndefined();
   });
 
+  it('preserves partial restraint masks and directional loads in SI units', () => {
+    const translated = toStructuralModel({ ...frame, attrs: {
+      ...frame.attrs,
+      '0,0,0': { found: true, restraint: [true, false, true, false, false, true] },
+      '1,0,2': { load: 12, loadDirection: '-Y', joint: true },
+    } }).model;
+    expect(translated.supports).toEqual([{ nodeId: '0,0,0', restrained: [true, false, true, false, false, true] }]);
+    expect(translated.loads).toEqual([{ nodeId: '1,0,2', force: [0, -12000, 0], moment: [0, 0, 0] }]);
+  });
+
   it('fixes foundations and applies point loads downwards in newtons', () => {
     expect(model.supports).toEqual([
       { nodeId: '0,0,0', restrained: [true, true, true, true, true, true] },

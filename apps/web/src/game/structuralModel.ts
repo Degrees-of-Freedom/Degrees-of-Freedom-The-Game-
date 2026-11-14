@@ -6,10 +6,14 @@ import type {
   Vector3,
 } from '@dof/solver-contract';
 import { ITEMS, type BeamSection } from '../solver/voxelSections';
-import { allNodeKeys, CELL_SIZE, parseNodeKey, type GameModel, type Member } from './model';
+import { allNodeKeys, CELL_SIZE, parseNodeKey, type GameModel, type LoadDirection, type Member } from './model';
 
 /** Game point loads are stored in kN; the contract uses newtons. */
 const NEWTONS_PER_KILONEWTON = 1e3;
+/** Unit vector of each selectable point-load direction, in global axes. */
+const LOAD_DIRECTIONS: Record<LoadDirection, Vector3> = {
+  '-Z': [0, 0, -1], '+Z': [0, 0, 1], '+X': [1, 0, 0], '-X': [-1, 0, 0], '+Y': [0, 1, 0], '-Y': [0, -1, 0],
+};
 /**
  * The voxel catalog states stiffness in kN/m^2 (E, G), force in kN (P0) and
  * weight in kN/m; the contract is SI. 1 kN/m^2 = 1e3 Pa and 1 kN/m = 1e3 N/m,
@@ -99,8 +103,9 @@ function voxelLocalY(a: Vector3, b: Vector3): Vector3 {
  *   (`joint`); otherwise translations and torsion stay locked and both bending
  *   rotations are free, exactly as the voxel solver condenses them.
  *   Cable ends are axial, so rotational laws mean nothing to them.
- * - A foundation restrains all six degrees of freedom.
- * - Point loads placed on nodes act along -Z.
+ * - A foundation restrains all six degrees of freedom unless it carries an
+ *   explicit restraint mask, which is passed through unchanged.
+ * - Point loads act along their selected axis, -Z when none is selected.
  *
  * Analysis options are left at the contract defaults (nonlinear, no
  * self-weight). The model carries no `version`: the game has no model
@@ -152,14 +157,17 @@ export function toStructuralModel(game: GameModel): StructuralModelTranslation {
     if (attrs.found)
       model.supports.push({
         nodeId: key,
-        restrained: [true, true, true, true, true, true],
+        restrained: attrs.restraint ? [...attrs.restraint] : [true, true, true, true, true, true],
       });
-    if (attrs.load)
+    if (attrs.load) {
+      const newtons = attrs.load * NEWTONS_PER_KILONEWTON;
+      const [x, y, z] = LOAD_DIRECTIONS[attrs.loadDirection ?? '-Z'];
       model.loads.push({
         nodeId: key,
-        force: [0, 0, -attrs.load * NEWTONS_PER_KILONEWTON],
+        force: [x * newtons, y * newtons, z * newtons],
         moment: [0, 0, 0],
       });
+    }
   }
 
   const notes: string[] = [

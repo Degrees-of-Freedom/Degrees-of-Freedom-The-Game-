@@ -170,7 +170,7 @@ export function checkDesign(
         d.dmax = Math.max(d.dmax, x.dy || 0, x.dz || 0);
       }
     }
-    const checks = out.mechanism
+    const checks = out.mechanism || !out.designChecksAvailable
       ? {}
       : checkMember(e.it, d, e.L, e.rigidA, e.rigidB);
     const g = govern(checks);
@@ -179,10 +179,10 @@ export function checkDesign(
       demand: d,
       checks,
       util: g.util,
-      gov: g.gov,
+      gov: out.designChecksAvailable ? g.gov : 'Not assessed',
       slack,
     };
-    if (!out.mechanism) {
+    if (!out.mechanism && out.designChecksAvailable) {
       maxU = Math.max(maxU, g.util);
       if (g.util > 1) failing++;
       if (checks.connection) connMax = Math.max(connMax, checks.connection);
@@ -192,10 +192,12 @@ export function checkDesign(
       }
     }
   }
-  out.maxU = maxU;
-  out.avgU = nB ? sumU / nB : 0;
-  out.failing = failing;
-  out.connMax = connMax;
+  if (out.designChecksAvailable) {
+    out.maxU = maxU;
+    out.avgU = nB ? sumU / nB : 0;
+    out.failing = failing;
+    out.connMax = connMax;
+  }
 
   // ---- foundations
   let foundMax = 0;
@@ -222,6 +224,6 @@ export function checkDesign(
     out.found[k] = { util: u, r: worst, locked };
     foundMax = Math.max(foundMax, u);
   }
-  out.foundMax = foundMax;
+  if (out.designChecksAvailable) out.foundMax = foundMax;
   return { maxU, failing, connMax, foundMax };
 }

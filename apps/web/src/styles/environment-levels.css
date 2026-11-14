@@ -1,0 +1,1195 @@
+/* Visual source: ftroshani prototype levels (2b72967). Scoped to the shared React runtime. */
+
+.environment[data-style="levels"] {
+  --paper: #efeae0;
+  --paper-deep: #e2ddd2;
+  --card: #ffffff;
+  --card-soft: #fbf9f4;
+  --rule: #d9d2c3;
+  --rule-soft: #ebe6da;
+  --ink: #2f3640;
+  --ink-deep: #2f3b52;
+  --ink-mute: #6b675e;
+  --ink-faint: #9a9488;
+  --blue: #5b84b1;
+  --blue-soft: #9ec3e6;
+  --blue-wash: #edf4fb;
+  --column: #3f5d8a;
+  --beam: #6f8fb8;
+  --brace: #c98a5a;
+  --sage: #7d9b84;
+  --terracotta: #c8553d;
+  --terracotta-wash: #fbeee9;
+  --float: #c9c4bb;
+  --font:
+    ui-rounded, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --mono:
+    ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono",
+    monospace;
+  --shadow:
+    0 1px 0 rgba(47, 54, 64, 0.04), 0 10px 26px -14px rgba(47, 54, 64, 0.3);
+}
+.environment[data-style="levels"] * {
+  box-sizing: border-box;
+}
+.environment[data-style="levels"] [hidden] {
+  display: none !important;
+}
+.environment[data-style="levels"],
+.environment[data-style="levels"] {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+.environment[data-style="levels"] {
+  font: 13px/1.35 var(--font);
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.environment[data-style="levels"] button {
+  font: inherit;
+  color: inherit;
+}
+.environment[data-style="levels"] #app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  overflow: clip; /* clip: the page can never be scrolled, even by focus */
+  background: radial-gradient(
+    ellipse 78% 74% at 46% 50%,
+    #f3eee5 0%,
+    var(--paper) 44%,
+    var(--paper-deep) 100%
+  );
+}
+.environment[data-style="levels"] #scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  outline: none;
+  touch-action: none;
+  cursor: default;
+}
+.environment[data-style="levels"] #app.panning #scene {
+  cursor: grabbing;
+}
+.environment[data-style="levels"] #app.space #scene {
+  cursor: grab;
+}
+
+/* ---------- shared pieces ---------- */
+.environment[data-style="levels"] .card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  box-shadow: var(--shadow);
+}
+.environment[data-style="levels"] .cap {
+  font-size: 12px;
+  color: var(--ink-mute);
+  line-height: 1.25;
+}
+.environment[data-style="levels"] kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 4px;
+  border: 1px solid var(--rule);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--card-soft);
+  font: 600 12px/1 var(--mono);
+  color: var(--ink-mute);
+}
+.environment[data-style="levels"] .btn {
+  height: 34px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    transform 0.08s,
+    color 0.12s;
+}
+.environment[data-style="levels"] .btn:hover {
+  background: #f5f2ea;
+  border-color: #c8c0ad;
+}
+.environment[data-style="levels"] .btn:active {
+  transform: translateY(1px);
+}
+.environment[data-style="levels"] .btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: var(--card);
+  border-color: var(--rule);
+  transform: none;
+}
+.environment[data-style="levels"] .btn:focus-visible,
+.environment[data-style="levels"] .tool:focus-visible,
+.environment[data-style="levels"] .st-row:focus-visible,
+.environment[data-style="levels"] .dof:focus-visible,
+.environment[data-style="levels"] .seg button:focus-visible,
+.environment[data-style="levels"] .pad button:focus-visible,
+.environment[data-style="levels"] .chips button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.environment[data-style="levels"] .btn.icon {
+  width: 34px;
+  padding: 0;
+}
+.environment[data-style="levels"] .btn.small {
+  height: 28px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+.environment[data-style="levels"] .btn svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.environment[data-style="levels"] .btn.shadowed {
+  box-shadow: var(--shadow);
+}
+
+/* ---------- brand ---------- */
+.environment[data-style="levels"] #brand {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  height: 46px;
+  padding: 0 14px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.environment[data-style="levels"] #brand svg {
+  width: 28px;
+  height: 28px;
+  flex: none;
+}
+.environment[data-style="levels"] .brand-name {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.15;
+  color: var(--ink-deep);
+}
+.environment[data-style="levels"] .brand-sub {
+  font-size: 12px;
+  line-height: 1.25;
+  color: var(--ink-mute);
+}
+
+/* ---------- tools ---------- */
+.environment[data-style="levels"] .env-tools {
+  position: absolute;
+  left: 16px;
+  top: 74px;
+  width: 78px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.environment[data-style="levels"] .tool {
+  position: relative;
+  height: 60px;
+  padding: 6px 0 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.environment[data-style="levels"] .tool svg {
+  width: 24px;
+  height: 24px;
+}
+.environment[data-style="levels"] .tool kbd {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+.environment[data-style="levels"] .tool:hover {
+  background: #f3f0e8;
+}
+.environment[data-style="levels"] .tool.active {
+  background: var(--ink-deep);
+  color: #fff;
+}
+.environment[data-style="levels"] .tool.active kbd,
+.environment[data-style="levels"] .tool.erase.on kbd {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: transparent;
+  color: #fff;
+}
+.environment[data-style="levels"] .tool-rule {
+  height: 1px;
+  margin: 2px 4px;
+  background: var(--rule-soft);
+}
+.environment[data-style="levels"] .tool.erase.on {
+  background: var(--terracotta);
+  color: #fff;
+}
+
+/* ---------- load brush panel (shown with the load tool) ---------- */
+.environment[data-style="levels"] #loadpanel {
+  position: absolute;
+  left: 102px;
+  top: 74px;
+  width: 178px;
+  padding: 9px 12px 11px;
+}
+.environment[data-style="levels"] .panel-title {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink-deep);
+}
+.environment[data-style="levels"] .panel-sub {
+  font-size: 12px;
+  color: var(--ink-mute);
+  margin-bottom: 4px;
+}
+.environment[data-style="levels"] .pad {
+  position: relative;
+  width: 152px;
+  height: 132px;
+  margin: 2px auto 6px;
+}
+.environment[data-style="levels"] .pad::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px;
+  border-radius: 3px;
+  background: #fff;
+  border: 2px solid var(--ink-deep);
+}
+.environment[data-style="levels"] .pad button {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 30px;
+  margin: -15px 0 0 -23px;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+.environment[data-style="levels"] .pad button svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+.environment[data-style="levels"] .pad button:hover {
+  background: var(--terracotta-wash);
+  border-color: #e0a99b;
+}
+.environment[data-style="levels"] .pad button.on {
+  background: var(--terracotta);
+  border-color: var(--terracotta);
+  color: #fff;
+}
+.environment[data-style="levels"] .pad button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.environment[data-style="levels"] .chips {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.environment[data-style="levels"] .chips button {
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+.environment[data-style="levels"] .chips button:hover {
+  background: var(--terracotta-wash);
+  border-color: #e0a99b;
+}
+.environment[data-style="levels"] .chips button.on {
+  background: var(--terracotta);
+  border-color: var(--terracotta);
+  color: #fff;
+}
+.environment[data-style="levels"] .chips-unit {
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--ink-mute);
+}
+
+/* ---------- actions (top right) ---------- */
+.environment[data-style="levels"] #actions {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.environment[data-style="levels"] .btn-group {
+  display: flex;
+  box-shadow: var(--shadow);
+  border-radius: 7px;
+}
+.environment[data-style="levels"] .btn-group .btn {
+  border-radius: 0;
+}
+.environment[data-style="levels"] .btn-group .btn:first-child {
+  border-radius: 7px 0 0 7px;
+}
+.environment[data-style="levels"] .btn-group .btn:last-child {
+  border-radius: 0 7px 7px 0;
+  margin-left: -1px;
+}
+.environment[data-style="levels"] #actions > .btn {
+  box-shadow: var(--shadow);
+}
+.environment[data-style="levels"] .switch {
+  width: 26px;
+  height: 14px;
+  flex: none;
+  border-radius: 8px;
+  background: #d3ccbc;
+  position: relative;
+  transition: background 0.15s;
+}
+.environment[data-style="levels"] .switch::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+.environment[data-style="levels"] .btn[aria-pressed="true"] .switch {
+  background: var(--terracotta);
+}
+.environment[data-style="levels"] .btn[aria-pressed="true"] .switch::after {
+  transform: translateX(12px);
+}
+.environment[data-style="levels"] #btn-sound.muted .wave {
+  display: none;
+}
+.environment[data-style="levels"] #btn-sound:not(.muted) .cross {
+  display: none;
+}
+
+/* ---------- hint line and demo banner ---------- */
+.environment[data-style="levels"] #hint {
+  position: absolute;
+  left: calc(50% - 60px);
+  top: 68px;
+  transform: translateX(-50%);
+  max-width: min(620px, calc(100vw - 700px));
+  padding: 6px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.93);
+  box-shadow: var(--shadow);
+  text-align: center;
+  pointer-events: none;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+.environment[data-style="levels"] #hint.bad {
+  border-color: #dba595;
+  background: #fff7f4;
+  color: #963822;
+}
+.environment[data-style="levels"] #demo {
+  position: absolute;
+  left: calc(50% - 60px);
+  top: 108px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+.environment[data-style="levels"] .demo-flag {
+  padding: 7px 18px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 15px;
+  color: #fff;
+  white-space: nowrap;
+  background: repeating-linear-gradient(
+    -45deg,
+    #c8553d 0 12px,
+    #b84a33 12px 24px
+  );
+  box-shadow: 0 8px 20px -8px rgba(200, 85, 61, 0.7);
+  border: 1px solid #a8402b;
+}
+.environment[data-style="levels"] .demo-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.environment[data-style="levels"] .demo-legend .ramp {
+  position: relative;
+  width: 150px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid rgba(47, 54, 64, 0.18);
+}
+.environment[data-style="levels"] .demo-legend .ramp i {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 66.66%;
+  width: 2px;
+  background: var(--ink-deep);
+}
+.environment[data-style="levels"] .demo-legend b {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* ---------- level stepper (right edge) ---------- */
+.environment[data-style="levels"] #stepper {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 204px;
+}
+.environment[data-style="levels"] .st-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 10px 8px 12px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.environment[data-style="levels"] .st-level {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.environment[data-style="levels"] .st-num {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 0.95;
+  color: var(--ink-deep);
+  font-variant-numeric: tabular-nums;
+  min-width: 20px;
+}
+.environment[data-style="levels"] .st-level .cap b {
+  display: block;
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 700;
+}
+.environment[data-style="levels"] .st-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.environment[data-style="levels"] .st-keys .btn {
+  height: 26px;
+  width: 58px;
+  padding: 0 6px 0 4px;
+  gap: 4px;
+  justify-content: space-between;
+}
+.environment[data-style="levels"] .st-keys .btn svg {
+  width: 14px;
+  height: 14px;
+}
+.environment[data-style="levels"] .st-rows {
+  position: relative;
+  padding: 8px 8px;
+}
+.environment[data-style="levels"] .st-rows svg {
+  position: absolute;
+  left: 40px;
+  top: 8px;
+  pointer-events: none;
+  overflow: visible;
+}
+.environment[data-style="levels"] .st-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 26px;
+  padding: 0 0 0 2px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
+  color: var(--ink-mute);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.environment[data-style="levels"] .st-row .n {
+  width: 24px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+.environment[data-style="levels"] .st-row:hover {
+  background: var(--blue-wash);
+  color: var(--ink-deep);
+}
+.environment[data-style="levels"] .st-row.active .n {
+  background: var(--blue);
+  color: #fff;
+}
+.environment[data-style="levels"] #elev-band {
+  transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.environment[data-style="levels"] .st-view {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 8px;
+  border-top: 1px solid var(--rule-soft);
+}
+.environment[data-style="levels"] .st-view .btn {
+  height: 30px;
+  padding: 0 7px;
+  gap: 5px;
+}
+.environment[data-style="levels"] .st-view .btn svg {
+  width: 16px;
+  height: 16px;
+}
+.environment[data-style="levels"] #gizmo {
+  width: 64px;
+  height: 60px;
+  overflow: visible;
+}
+.environment[data-style="levels"] #gizmo text {
+  font: 700 12px var(--font);
+  fill: var(--ink-deep);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* ---------- title block (bottom right) ---------- */
+.environment[data-style="levels"] #titleblock {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+}
+.environment[data-style="levels"] #titleblock .cell {
+  padding: 7px 13px 8px;
+  border-left: 1px solid var(--rule-soft);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 66px;
+}
+.environment[data-style="levels"] #titleblock .cell:first-child {
+  border-left: 0;
+}
+.environment[data-style="levels"] #titleblock .val {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ink-deep);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.environment[data-style="levels"] #titleblock .val small {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-mute);
+}
+.environment[data-style="levels"] #titleblock .cell.cursor {
+  min-width: 92px;
+}
+.environment[data-style="levels"] #titleblock .cell.cursor .val {
+  font-family: var(--mono);
+  font-size: 14px;
+}
+.environment[data-style="levels"] #titleblock .cap em {
+  font-style: normal;
+  margin-left: 4px;
+  padding: 0 5px;
+  border: 1px dashed #c9bfa8;
+  border-radius: 8px;
+  color: var(--ink-mute);
+}
+.environment[data-style="levels"] #titleblock .cell.end {
+  padding: 0 10px;
+  background: var(--card-soft);
+}
+.environment[data-style="levels"] #notice {
+  position: absolute;
+  right: 16px;
+  bottom: 76px;
+  padding: 5px 11px 5px 9px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.93);
+  border: 1px dashed #b9b2a4;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--ink);
+  pointer-events: none;
+}
+.environment[data-style="levels"] #notice i {
+  width: 22px;
+  height: 0;
+  border-top: 3px dashed var(--float);
+}
+
+/* ---------- controls help (bottom left) ---------- */
+.environment[data-style="levels"] #help {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  width: 200px;
+  padding: 6px 10px 8px;
+}
+.environment[data-style="levels"] .help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+.environment[data-style="levels"] .help-head b {
+  font-size: 13px;
+  color: var(--ink-deep);
+}
+.environment[data-style="levels"] .help-head .btn {
+  height: 22px;
+  padding: 0 2px 0 7px;
+  font-size: 12px;
+  gap: 5px;
+  border-color: transparent;
+  margin-right: -4px;
+}
+.environment[data-style="levels"] .help-head .btn kbd {
+  min-width: 17px;
+  height: 17px;
+}
+.environment[data-style="levels"] .help-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0 9px;
+  align-items: center;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.environment[data-style="levels"] .help-grid > div {
+  height: 19px;
+  display: flex;
+  align-items: center;
+}
+.environment[data-style="levels"] .help-grid .k {
+  gap: 3px;
+}
+.environment[data-style="levels"] .help-grid .k span {
+  font-weight: 700;
+  color: var(--ink-deep);
+}
+.environment[data-style="levels"] .help-grid .k span + span::before {
+  content: "/ ";
+  font-weight: 400;
+  color: var(--ink-mute);
+}
+.environment[data-style="levels"] .help-grid .k kbd {
+  min-width: 17px;
+  height: 17px;
+}
+.environment[data-style="levels"] .help-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 9px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--rule-soft);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.environment[data-style="levels"] .help-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.environment[data-style="levels"] .help-key i {
+  width: 16px;
+  height: 6px;
+  border-radius: 2px;
+}
+.environment[data-style="levels"] .help-key i.dash {
+  height: 0;
+  border-top: 3px dashed var(--float);
+  border-radius: 0;
+}
+
+/* ---------- labels that live in the scene ---------- */
+.environment[data-style="levels"] #labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  overflow: clip;
+}
+.environment[data-style="levels"] #leaders {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.environment[data-style="levels"] #leaders path {
+  fill: none;
+  stroke: var(--ink-deep);
+  stroke-width: 1.25;
+  stroke-dasharray: 3 3;
+  opacity: 0.7;
+}
+.environment[data-style="levels"] .tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  will-change: transform;
+}
+.environment[data-style="levels"] .level-tag {
+  padding: 2px 8px 3px;
+  border-radius: 4px;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  box-shadow: 0 0 0 3px rgba(158, 195, 230, 0.35);
+}
+.environment[data-style="levels"] .level-tag small {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-left: 5px;
+}
+.environment[data-style="levels"] .load-tag {
+  padding: 1px 7px 2px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #e2b3a6;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 3px rgba(47, 54, 64, 0.14);
+  transition:
+    opacity 0.2s,
+    box-shadow 0.12s,
+    border-color 0.12s,
+    background 0.12s;
+}
+.environment[data-style="levels"] .load-tag.faded {
+  opacity: 0.38;
+}
+.environment[data-style="levels"] .load-tag.pickable {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.environment[data-style="levels"] .load-tag.pickable:hover,
+.environment[data-style="levels"] .load-tag.hot {
+  border-color: var(--terracotta);
+  background: var(--terracotta-wash);
+  box-shadow: 0 0 0 3px rgba(200, 85, 61, 0.18);
+}
+.environment[data-style="levels"] .load-tag.selected {
+  background: var(--terracotta);
+  border-color: var(--terracotta);
+  color: #fff;
+}
+.environment[data-style="levels"] .note-tag {
+  padding: 3px 9px 4px;
+  border-radius: 5px;
+  background: var(--ink-deep);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px -4px rgba(47, 59, 82, 0.5);
+}
+.environment[data-style="levels"] .note-tag b {
+  font-variant-numeric: tabular-nums;
+}
+.environment[data-style="levels"] .note-tag.bad {
+  background: var(--terracotta);
+}
+.environment[data-style="levels"] .note-tag.soft {
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  box-shadow: var(--shadow);
+}
+
+/* ---------- DOF card and load card ---------- */
+.environment[data-style="levels"] .pop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 30;
+  transform-origin: 0 40%;
+}
+.environment[data-style="levels"] .pop.show {
+  animation: levels-pop-in 0.2s cubic-bezier(0.2, 1.3, 0.4, 1);
+}
+@keyframes levels-pop-in {
+  from {
+    opacity: 0;
+    scale: 0.9;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+.environment[data-style="levels"] .env-card {
+  width: 258px;
+}
+.environment[data-style="levels"] .dc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 8px 8px 12px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.environment[data-style="levels"] .dc-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink-deep);
+}
+.environment[data-style="levels"] .dc-title span {
+  font: 600 12px var(--mono);
+  color: var(--ink-mute);
+  margin-left: 6px;
+}
+.environment[data-style="levels"] .dc-sub {
+  font-size: 12px;
+  color: var(--ink-mute);
+}
+.environment[data-style="levels"] .dc-close {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink-mute);
+}
+.environment[data-style="levels"] .dc-close:hover {
+  background: #f1eee6;
+  color: var(--ink);
+}
+.environment[data-style="levels"] .dc-label {
+  padding: 8px 12px 0;
+  font-size: 12px;
+  color: var(--ink-mute);
+  display: flex;
+  justify-content: space-between;
+}
+.environment[data-style="levels"] .dc-dofs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 6px 12px 10px;
+}
+.environment[data-style="levels"] .dof {
+  position: relative;
+  height: 70px;
+  padding: 2px 0 4px;
+  border: 1.5px solid #a9c3de;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--blue);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform 0.1s,
+    box-shadow 0.12s,
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+.environment[data-style="levels"] .dof svg {
+  width: 36px;
+  height: 36px;
+}
+.environment[data-style="levels"] .dof .nm {
+  font: 700 12px/1.1 var(--mono);
+  color: var(--ink-deep);
+}
+.environment[data-style="levels"] .dof .state {
+  font-size: 12px;
+  line-height: 1.15;
+  font-weight: 600;
+}
+.environment[data-style="levels"] .dof.locked {
+  background: var(--ink-deep);
+  border-color: var(--ink-deep);
+  color: #fff;
+}
+.environment[data-style="levels"] .dof.locked .nm {
+  color: #fff;
+}
+.environment[data-style="levels"] .dof:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 10px -5px rgba(47, 59, 82, 0.55);
+  border-color: var(--blue);
+}
+.environment[data-style="levels"] .dof .lock {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  opacity: 0;
+}
+.environment[data-style="levels"] .dof.locked .lock {
+  opacity: 0.9;
+}
+.environment[data-style="levels"] .dc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+}
+.environment[data-style="levels"] .dc-row .lab {
+  width: 50px;
+  flex: none;
+  font-size: 12px;
+  color: var(--ink-mute);
+}
+.environment[data-style="levels"] .seg {
+  display: flex;
+  flex: 1;
+}
+.environment[data-style="levels"] .seg button {
+  flex: 1;
+  height: 30px;
+  padding: 0 2px;
+  border: 1px solid var(--rule);
+  background: #fff;
+  margin-left: -1px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  position: relative;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.environment[data-style="levels"] .seg button:first-child {
+  margin-left: 0;
+  border-radius: 6px 0 0 6px;
+}
+.environment[data-style="levels"] .seg button:last-child {
+  border-radius: 0 6px 6px 0;
+}
+.environment[data-style="levels"] .seg button:hover {
+  background: #f5f2ea;
+}
+.environment[data-style="levels"] .seg button.on {
+  background: var(--ink-deep);
+  border-color: var(--ink-deep);
+  color: #fff;
+  z-index: 1;
+}
+.environment[data-style="levels"] .dc-note {
+  padding: 3px 12px 10px;
+  font-size: 12px;
+  color: var(--ink-mute);
+  line-height: 1.35;
+}
+.environment[data-style="levels"] .dc-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 10px;
+}
+.environment[data-style="levels"] .env-card {
+  width: 200px;
+  padding-bottom: 10px;
+}
+.environment[data-style="levels"] .env-card .pad {
+  margin-top: 6px;
+}
+.environment[data-style="levels"] .env-card .chips {
+  padding: 0 12px;
+}
+.environment[data-style="levels"] .env-card .dc-foot {
+  padding: 8px 12px 0;
+}
+
+/* ---------- solver input drawer ---------- */
+.environment[data-style="levels"] #drawer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: min(470px, 94vw);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-left: 1px solid var(--rule);
+  box-shadow: -24px 0 48px -30px rgba(47, 54, 64, 0.45);
+  transform: translateX(104%);
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  visibility: hidden;
+}
+.environment[data-style="levels"] #drawer.open {
+  transform: none;
+  visibility: visible;
+}
+.environment[data-style="levels"] .dr-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 12px 8px 16px;
+}
+.environment[data-style="levels"] .dr-head b {
+  font-size: 15px;
+  color: var(--ink-deep);
+  margin-right: auto;
+}
+.environment[data-style="levels"] .dr-note {
+  padding: 0 16px 10px;
+  font-size: 12px;
+  color: var(--ink-mute);
+  border-bottom: 1px solid var(--rule-soft);
+}
+.environment[data-style="levels"] #drawer pre {
+  flex: 1;
+  margin: 0;
+  padding: 12px 16px 24px;
+  overflow: auto;
+  background: var(--card-soft);
+  font: 12px/1.5 var(--mono);
+  color: var(--ink);
+  user-select: text;
+  -webkit-user-select: text;
+  tab-size: 2;
+}
+
+/* ---------- loading and failure veil ---------- */
+.environment[data-style="levels"] #veil {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  transition: opacity 0.35s;
+}
+.environment[data-style="levels"] #veil.done {
+  opacity: 0;
+  pointer-events: none;
+}
+.environment[data-style="levels"] .veil-box {
+  max-width: 440px;
+  padding: 18px 22px;
+  text-align: center;
+}
+.environment[data-style="levels"] .veil-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink-deep);
+  margin-bottom: 4px;
+}
+.environment[data-style="levels"] .veil-msg {
+  font-size: 13px;
+  color: var(--ink-mute);
+  line-height: 1.45;
+}
+.environment[data-style="levels"] #veil.failed .veil-box {
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+@media (max-height: 700px) {
+  .environment[data-style="levels"] #help {
+    display: none;
+  }
+}

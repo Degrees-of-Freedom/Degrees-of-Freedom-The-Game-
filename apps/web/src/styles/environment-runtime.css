@@ -1,0 +1,1032 @@
+/* React composition around the original ftroshani environment styles.
+   No model or solver behavior is encoded in these presentation rules. */
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+* {
+  box-sizing: border-box;
+}
+.environment {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+.environment #stage,
+.environment .scene {
+  position: absolute;
+  inset: 0;
+}
+.environment .scene canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.environment #ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.environment #ui > * {
+  pointer-events: auto;
+}
+.environment button,
+.environment select,
+.environment input {
+  font: inherit;
+}
+.environment button {
+  cursor: pointer;
+}
+.environment button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.environment a {
+  color: inherit;
+  text-decoration: none;
+}
+.environment button:focus-visible,
+.environment a:focus-visible,
+.environment select:focus-visible,
+.environment input:focus-visible {
+  outline: 2px solid #4f9da6;
+  outline-offset: 3px;
+}
+.environment #brand a {
+  display: flex;
+  align-items: center;
+}
+.environment #brand svg {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+.environment #brand b {
+  display: block;
+}
+.environment .env-tools .tool.active {
+  background: var(--ink);
+  color: var(--cream);
+}
+.environment[data-style="grow-dusk"] .env-tools .tool[aria-pressed="true"] {
+  background: var(--amber);
+  color: var(--ink);
+}
+.environment[data-style="grow-dusk"] .env-tools .tool[aria-pressed="true"] kbd {
+  background: #22313f24;
+  color: var(--ink);
+}
+.environment .env-tools svg {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+.environment .env-tools {
+  background: var(--cream, #faf7f0);
+  box-shadow: var(--shadow, 0 6px 18px #404e9220);
+  border-radius: 16px;
+}
+.environment .env-tools .tool svg {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.environment .env-tray .token.selected {
+  transform: translateY(-4px);
+  background: rgba(243, 234, 216, 0.13);
+  box-shadow: 0 0 0 1.5px var(--cream) inset;
+}
+.environment .env-tray .token {
+  max-width: 145px;
+  min-width: 50px;
+}
+.environment .env-tray .token svg {
+  width: 34px;
+  height: 34px;
+  color: var(--player, #e3b04b);
+}
+.environment .env-tray .token small {
+  max-width: 138px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.environment .env-tray {
+  max-width: 94vw;
+  overflow: auto;
+}
+.environment .env-card {
+  position: absolute;
+  z-index: 12;
+  display: block;
+  left: auto;
+  top: 105px;
+  right: 18px;
+  width: 262px;
+  padding: 12px;
+  max-height: calc(100vh - 240px);
+  overflow: auto;
+  color: var(--ink);
+  background: var(--cream);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+.environment .dc-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.environment .dc-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+.environment .dc-sub,
+.environment .dc-note {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin: 5px 0 9px;
+}
+.environment .dc-close {
+  font-size: 22px;
+  width: 25px;
+  height: 25px;
+}
+.environment .dc-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 12px 0 5px;
+}
+.environment .dc-dofs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+.environment .dc-dofs .dof {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 58px;
+  border-radius: 10px;
+  border: 1px solid #c5d4de;
+  background: #fff;
+}
+.environment .dc-dofs .dof.locked {
+  background: var(--pin, #3f4654);
+  color: #fff;
+  border-color: var(--pin, #3f4654);
+}
+.environment .dc-row {
+  margin-top: 10px;
+}
+.environment .dc-row > .lab {
+  position: static;
+  display: block;
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.environment .dc-row .seg {
+  display: flex;
+  gap: 4px;
+}
+.environment .dc-row .seg button {
+  flex: 1;
+  padding: 8px 4px;
+  background: #f0e8d8;
+  border-radius: 8px;
+}
+.environment .dc-row .seg button.on {
+  background: var(--ink);
+  color: var(--cream);
+}
+.environment .dc-foot {
+  margin-top: 12px;
+}
+.environment .chips {
+  display: flex;
+  gap: 4px;
+}
+.environment .chips button {
+  flex: 1;
+  padding: 9px 5px;
+  border-radius: 8px;
+  background: #f0e8d8;
+}
+.environment .chips button.on {
+  background: var(--ink);
+  color: var(--cream);
+}
+.environment .env-pad {
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--cream);
+  box-shadow: var(--shadow);
+}
+.environment .env-pad .pad {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+.environment .env-pad .pad button {
+  padding: 8px;
+  border-radius: 8px;
+}
+.environment .environment-switch {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 14px;
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+}
+.environment .environment-switch select {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  max-width: 110px;
+  padding: 6px;
+}
+.environment .environment-switch .btn {
+  padding: 0 8px;
+  font-size: 12px;
+}
+.environment #stats .roles {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  margin-top: 3px;
+}
+.environment #stats i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 3px;
+}
+.environment #drawer {
+  position: absolute;
+  z-index: 30;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(430px, 94vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--cream);
+  color: var(--ink);
+  transform: none;
+  border-radius: 16px 0 0 16px;
+  box-shadow: -8px 0 30px #2226;
+  padding: 0;
+}
+.environment .drawer-heading {
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #d9d2c3;
+}
+.environment .drawer-heading h2 {
+  font: 700 16px var(--font);
+  margin: 0;
+}
+.environment .drawer-content {
+  padding: 16px;
+  overflow: auto;
+  flex: 1;
+  font-size: 12px;
+}
+.environment .drawer-content p {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.environment .drawer-content pre {
+  font-size: 11px;
+  max-height: 45vh;
+  overflow: auto;
+  padding: 12px;
+  background: #fff8;
+  border-radius: 8px;
+}
+.environment .drawer-content button {
+  padding: 8px;
+  border-radius: 8px;
+  background: #ece5d6;
+  margin: 3px;
+}
+.environment .drawer-content .member-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 6px;
+  border: 1px solid #b8aa93;
+  background: #ece5d6;
+  color: var(--ink);
+  text-align: left;
+  line-height: 1.4;
+}
+.environment .drawer-content .member-result:hover {
+  background: #e0d4bf;
+}
+.environment .drawer-content .member-result:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+.environment .drawer-content .view-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(145px, 100%), 1fr));
+  gap: 10px 14px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #b8aa93;
+}
+.environment .drawer-content .view-options label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+  line-height: 1.4;
+}
+.environment .drawer-content .view-options label:has(select),
+.environment .drawer-content .view-options label:has(input[type="range"]),
+.environment .drawer-content .view-options > div {
+  grid-column: 1 / -1;
+}
+.environment .drawer-content .view-options select,
+.environment .drawer-content .view-options input[type="range"] {
+  flex: 1 1 155px;
+  min-width: 0;
+}
+.environment .drawer-content .view-options input[type="checkbox"] {
+  flex: none;
+  margin: 0;
+  accent-color: #a76b1a;
+}
+.environment[data-style="kit"] .drawer-content .member-result {
+  border-color: #768998;
+  background: #334958;
+  color: var(--cream);
+}
+.environment[data-style="kit"] .drawer-content .member-result:hover {
+  background: #425d70;
+}
+.environment .drawer-content select,
+.environment .drawer-content input {
+  border: 1px solid #d9d2c3;
+  border-radius: 6px;
+  padding: 6px;
+  max-width: 100%;
+}
+.environment .drawer-content .coordinate-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 8px 0;
+}
+.environment .drawer-content .coordinate-row input {
+  width: 54px;
+}
+.environment .drawer-content textarea {
+  display: block;
+  width: 100%;
+  min-height: 150px;
+  margin-top: 10px;
+  font: 11px monospace;
+}
+.environment .drawer-content summary {
+  cursor: pointer;
+  font-weight: 700;
+  margin: 12px 0;
+}
+.environment .drawer-content .stat {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid #d9d2c3;
+}
+.environment .drawer-content .turn-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.environment .drawer-content .turn-card small {
+  display: block;
+}
+.environment .storage-alert {
+  position: absolute;
+  left: 50%;
+  top: 80px;
+  transform: translateX(-50%);
+  max-width: 80vw;
+  padding: 9px 16px;
+  z-index: 40;
+}
+.environment .turn-pips {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px;
+  font-size: 11px;
+}
+.environment .turn-pips .spent {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+.environment .shared-hand {
+  position: absolute;
+  bottom: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.environment[data-style="grow"] #dock,
+.environment[data-style="grow-dusk"] #dock {
+  bottom: 18px;
+}
+.environment[data-style="grow"] #cornerleft,
+.environment[data-style="grow-dusk"] #cornerleft {
+  bottom: 105px;
+}
+.environment[data-style="grow"] .environment-switch,
+.environment[data-style="grow-dusk"] .environment-switch {
+  bottom: 105px;
+}
+.environment[data-style="levels"] #dock {
+  position: static;
+}
+.environment[data-style="levels"] .env-tools {
+  position: absolute;
+  left: 14px;
+  top: 90px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+}
+.environment[data-style="levels"] .env-tools .tool {
+  width: 74px;
+}
+.environment[data-style="levels"] .env-pad {
+  position: absolute;
+  left: 100px;
+  top: 96px;
+}
+.environment[data-style="levels"] #cornerleft {
+  position: absolute;
+  left: 14px;
+  bottom: 16px;
+  padding: 10px 15px;
+  background: var(--paper, #faf7f0);
+  border-radius: 7px;
+  box-shadow: 0 3px 12px #2f3b5226;
+}
+.environment[data-style="levels"] .env-card {
+  right: 230px;
+}
+.environment[data-style="levels"] #help {
+  left: 105px;
+  top: 90px;
+  bottom: auto;
+}
+.environment[data-style="levels"] #stepper {
+  top: 100px;
+}
+.environment[data-style="blocks"] #dock {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.environment[data-style="blocks"] .env-tools {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 24px;
+}
+.environment[data-style="blocks"] .env-tools .tool.active {
+  background: var(--persimmon);
+  color: #fff8ee;
+}
+.environment[data-style="blocks"] .env-tools kbd {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 10px;
+  padding: 2px;
+}
+.environment[data-style="blocks"] #hint {
+  background: var(--cream);
+  padding: 6px 12px;
+  border-radius: 10px;
+}
+.environment[data-style="blocks"] #cornerleft {
+  position: absolute;
+  bottom: 105px;
+  left: 16px;
+  padding: 9px 12px;
+  border-radius: 14px;
+  background: var(--cream);
+}
+.environment[data-style="blocks"] .environment-switch {
+  bottom: 105px;
+}
+.environment[data-style="blocks"] #top-right {
+  padding: 5px;
+  border-radius: 18px;
+}
+.environment[data-style="kit"] #ui {
+  color: var(--cream);
+}
+.environment[data-style="kit"] #corner {
+  bottom: 130px;
+  align-items: flex-start;
+  flex-direction: column;
+}
+.environment[data-style="kit"] #brand {
+  display: flex;
+  gap: 8px;
+}
+.environment[data-style="kit"] #hint {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--slate);
+  border: 1px solid var(--warm-line);
+}
+.environment[data-style="kit"] .env-tray {
+  display: flex;
+  gap: 6px;
+  padding: 7px;
+  border-radius: 18px;
+  background: linear-gradient(
+    180deg,
+    rgba(40, 57, 72, 0.94),
+    rgba(26, 38, 50, 0.94)
+  );
+}
+.environment[data-style="kit"] .env-card {
+  background: var(--slate-solid);
+  color: var(--cream);
+  border: 1px solid var(--warm-line);
+}
+.environment[data-style="kit"] .environment-switch {
+  background: var(--slate);
+  color: var(--cream);
+  border: 1px solid var(--warm-line);
+  bottom: 130px;
+}
+.environment[data-style="kit"] #drawer {
+  background: var(--slate-solid);
+  color: var(--cream);
+}
+.environment[data-style="kit"] .drawer-content button {
+  background: #334958;
+  color: var(--cream);
+}
+.environment[data-style="kit"] .drawer-content pre {
+  background: #15212a;
+  color: var(--cream);
+}
+.environment[data-style="kit"] #banner {
+  top: 62px;
+  height: 44px;
+}
+.environment[data-style="kit"] .strip {
+  top: 70px;
+}
+.environment[data-style="kit"] #help {
+  top: 126px;
+}
+.environment[data-style="kit"] .env-card .dc-note,
+.environment[data-style="kit"] .env-card .dc-sub {
+  color: var(--cream-dim);
+}
+@media (max-width: 1100px) {
+  .environment #topleft {
+    flex-direction: column;
+  }
+  .environment #actions,
+  .environment #top-right {
+    max-width: calc(100vw - 290px);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .environment #actions .btn,
+  .environment #top-right .btn {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .environment[data-style="kit"] #banner {
+    top: 110px;
+  }
+  .environment #stats .roles {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .environment #brand {
+    padding: 5px 8px;
+  }
+  .environment #brand b {
+    font-size: 12px;
+  }
+  .environment #brand span {
+    font-size: 10px;
+  }
+  .environment #actions,
+  .environment #top-right {
+    top: 65px;
+    left: 8px;
+    right: 8px;
+    max-width: none;
+    justify-content: center;
+  }
+  .environment #top-left {
+    top: 10px;
+  }
+  .environment #dock {
+    max-width: 98vw;
+  }
+  .environment .env-tools .tool {
+    min-width: 0;
+    width: 62px;
+    padding: 6px;
+    font-size: 11px;
+    height: 52px;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .environment .env-tools .tool kbd {
+    display: none;
+  }
+  .environment .env-tools .tool svg {
+    width: 23px;
+    height: 23px;
+  }
+  .environment #cornerleft,
+  .environment[data-style="kit"] #corner {
+    bottom: 95px;
+    left: 8px;
+  }
+  .environment #stats {
+    font-size: 10px;
+  }
+  .environment .environment-switch {
+    bottom: 95px;
+    right: 8px;
+  }
+  .environment .environment-switch .btn {
+    font-size: 10px;
+    height: 27px;
+    padding: 4px;
+  }
+  .environment .environment-switch select {
+    max-width: 78px;
+    font-size: 10px;
+  }
+  .environment[data-style="levels"] .env-tools {
+    top: 125px;
+    left: 8px;
+  }
+  .environment[data-style="levels"] #stepper {
+    right: 8px;
+    top: 132px;
+    width: 125px;
+  }
+  .environment[data-style="levels"] #stepper .st-rows {
+    display: none;
+  }
+  .environment[data-style="levels"] .env-card {
+    right: 8px;
+    top: 245px;
+    max-height: calc(100vh - 350px);
+  }
+  .environment #help {
+    top: 130px;
+    left: 10px;
+    max-width: calc(100vw - 20px);
+  }
+  .environment .env-card {
+    top: 130px;
+    right: 8px;
+  }
+  .environment[data-style="kit"] #banner {
+    top: 112px;
+    max-width: 96vw;
+    font-size: 10px;
+  }
+  .environment[data-style="kit"] .strip {
+    display: none;
+  }
+  .environment[data-style="kit"] #banner .tag {
+    display: none;
+  }
+  .environment[data-style="kit"] .env-tray {
+    max-height: 110px;
+  }
+  .environment[data-style="kit"] .environment-switch {
+    bottom: 130px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .environment *,
+  .environment *::before,
+  .environment *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+/* The renderer observes this full-screen box, never a zero-height HUD wrapper. */
+.environment .scene {
+  position: absolute !important;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.environment .scene [aria-label="Camera controls"] {
+  z-index: 3;
+  bottom: 150px !important;
+  padding: 5px;
+  border-radius: 12px;
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.environment .scene [aria-label="Camera controls"] button {
+  padding: 7px 9px;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+}
+.environment[data-style="kit"] .scene [aria-label="Camera controls"] {
+  /* Leave room for the stacked brand and statistics below the camera bar. */
+  bottom: 260px !important;
+  background: var(--slate);
+  color: var(--cream);
+}
+.environment[data-style="levels"] .scene [aria-label="Camera controls"] {
+  left: auto !important;
+  right: 22px;
+  bottom: 90px !important;
+}
+.environment[data-style="levels"] {
+  --cream: var(--card);
+  --ink-soft: var(--ink-mute);
+}
+.environment[data-style="levels"] .env-tools .tool.active {
+  color: #fff;
+}
+.environment[data-style="levels"] #stepper {
+  top: 50%;
+}
+.environment[data-style="levels"] .st-rows {
+  height: 198px;
+}
+.environment[data-style="levels"] #stepper .st-view {
+  justify-content: space-around;
+  padding: 12px;
+}
+@media (max-width: 700px) {
+  .environment[data-style="levels"] #stepper {
+    top: 135px;
+    transform: none;
+  }
+}
+.environment .scene-fallback {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  width: min(430px, 90vw);
+  padding: 24px;
+  border-radius: 16px;
+  background: var(--cream, #fff);
+  color: var(--ink, #22313f);
+  box-shadow: var(--shadow);
+}
+.environment .scene-fallback p {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.environment .dc-dofs .dof svg {
+  width: 34px;
+  height: 28px;
+}
+.environment .dc-dofs .dof small {
+  font-size: 10px;
+}
+.environment .dc-dofs .dof {
+  height: 69px;
+}
+.environment[data-style="kit"] #banner > .tag {
+  position: static;
+  transform: none;
+  margin: 9px;
+  height: 22px;
+  align-self: center;
+}
+.environment[data-style="kit"] #corner #stats {
+  position: static;
+}
+
+.environment .scene-axes {
+  position: absolute;
+  z-index: 2;
+  left: 20px;
+  bottom: 215px;
+  width: 68px;
+  height: 68px;
+  color: var(--ink);
+  pointer-events: none;
+  font: 750 12px var(--font);
+}
+.environment[data-style="kit"] .scene-axes {
+  bottom: 325px;
+  color: var(--cream);
+}
+.environment[data-style="levels"] .scene-axes {
+  left: auto;
+  right: 24px;
+  bottom: 150px;
+}
+@media (max-width: 700px) {
+  .environment .scene-axes {
+    width: 52px;
+    height: 52px;
+    left: 8px;
+  }
+  .environment[data-style="levels"] .scene-axes {
+    left: auto;
+    right: 8px;
+  }
+}
+
+.environment[data-style="kit"] #corner {
+  bottom: 150px;
+  gap: 6px;
+}
+.environment[data-style="kit"] #corner #brand,
+.environment[data-style="kit"] #corner #stats {
+  position: static;
+}
+.environment[data-style="kit"] .env-tray {
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+}
+.environment[data-style="kit"] .env-tray .well {
+  flex: 0 0 auto;
+  min-width: 106px;
+  align-items: flex-start;
+}
+.environment[data-style="kit"] .env-tray .well h4 {
+  flex-basis: 100%;
+}
+.environment .env-tray .tray-empty {
+  width: 150px;
+  margin: 8px 4px;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.environment .env-tray .tray-empty small {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  opacity: 0.8;
+}
+.environment[data-style="kit"] .env-tray .token {
+  flex-shrink: 0;
+  min-width: 57px;
+}
+@media (max-width: 600px) {
+  .environment[data-style] #topleft {
+    top: max(8px, env(safe-area-inset-top));
+    left: 8px;
+    z-index: 6;
+  }
+  .environment[data-style] #actions,
+  .environment[data-style] #top-right {
+    top: 53px;
+    gap: 3px;
+  }
+  .environment[data-style="kit"] #top-left {
+    top: max(8px, env(safe-area-inset-top));
+    left: 8px;
+    right: 8px;
+    justify-content: center;
+  }
+  .environment[data-style="kit"] #top-right {
+    top: 51px;
+  }
+  .environment[data-style] #dock,
+  .environment[data-style="kit"] #dock {
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: min(calc(100% - 12px), 460px);
+  }
+  .environment[data-style] #hint {
+    max-width: calc(100vw - 20px);
+    text-align: center;
+    white-space: normal;
+  }
+  .environment[data-style] #cornerleft {
+    left: 8px;
+    bottom: 138px;
+  }
+  .environment[data-style] .environment-switch {
+    right: 8px;
+    bottom: 138px;
+  }
+  .environment[data-style="kit"] #corner,
+  .environment[data-style="kit"] .environment-switch {
+    bottom: 176px;
+  }
+  .environment[data-style="kit"] #corner #brand {
+    display: none;
+  }
+  .environment[data-style="kit"] .env-tray {
+    max-width: 100%;
+    max-height: none;
+    width: max-content;
+    justify-content: flex-start;
+    overscroll-behavior-inline: contain;
+  }
+  .environment[data-style="kit"] .env-tray .token small {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .environment[data-style="kit"] .scene-axes,
+  .environment[data-style="blocks"] .scene-axes {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .environment[data-style="levels"] #hint {
+    position: fixed;
+    top: auto;
+    bottom: 58px;
+    left: 50%;
+    right: auto;
+    width: max-content;
+    max-width: calc(100vw - 26px);
+    transform: translateX(-50%);
+  }
+  .environment[data-style="levels"] #actions {
+    top: 55px;
+  }
+  .environment[data-style="levels"] .env-tools {
+    top: 142px;
+    padding: 3px;
+  }
+  .environment[data-style="levels"] .env-tools .tool {
+    width: 49px;
+    height: 48px;
+  }
+  .environment[data-style="levels"] .env-tools .tool span {
+    font-size: 9px;
+  }
+  .environment[data-style="levels"] #stepper {
+    top: 142px;
+  }
+}
+
+/* OpenSees stability check inside the analysis drawer. */
+.stability-check .verdict {
+  font-size: 12px;
+  font-weight: 700;
+}
+.stability-check .verdict.good {
+  color: #3f7a4f;
+}
+.stability-check .verdict.bad {
+  color: #b5473c;
+}
+.stability-check .verdict.unknown,
+.stability-check .warning {
+  color: #9a6a1c;
+}
+.stability-check .component-list {
+  margin: 8px 0;
+  padding-left: 0;
+  list-style: none;
+  font-size: 11px;
+}
+.stability-check .component-list small {
+  display: block;
+  opacity: 0.75;
+}
