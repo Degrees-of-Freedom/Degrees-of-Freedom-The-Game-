@@ -8,7 +8,10 @@ import { COMBOS, GAMMA } from '../solver/voxelLoads';
 const gridKey = z.string().regex(/^(0|[1-9]\d*),(0|[1-9]\d*),(0|[1-9]\d*)$/);
 const number = z.number().finite();
 const memberType = z.enum(['shs', 'glulam', 'ipe', 'heb', 'cable']);
-const attrs = z.strictObject({ found: z.boolean().optional(), joint: z.boolean().optional(), load: number.optional(), locked: z.boolean().optional(), target: z.boolean().optional() });
+const attrs = z.strictObject({ found: z.boolean().optional(), joint: z.boolean().optional(), load: number.positive().optional(), locked: z.boolean().optional(), target: z.boolean().optional(), restraint: z.tuple([z.boolean(), z.boolean(), z.boolean(), z.boolean(), z.boolean(), z.boolean()]).optional(), loadDirection: z.enum(['-Z', '+Z', '+X', '-X', '+Y', '-Y']).optional() }).superRefine((value, ctx) => {
+  if (value.restraint && !!value.found !== value.restraint.some(Boolean)) ctx.addIssue({ code: 'custom', message: 'Support flags do not match restraints.' });
+  if (value.loadDirection && !value.load) ctx.addIssue({ code: 'custom', message: 'A load direction requires a load.' });
+});
 const modelSchema = z.strictObject({
   members: z.array(z.strictObject({ id: z.number().int().positive().safe(), a: gridKey, b: gridKey, type: memberType })),
   attrs: z.record(gridKey, attrs),

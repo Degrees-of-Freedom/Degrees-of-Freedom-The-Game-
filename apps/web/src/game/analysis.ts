@@ -10,11 +10,17 @@ export function toVoxelInput(
   model: GameModel,
   level: Level,
 ): { model: VoxelModel; level: VoxelLevel } {
+  for (const attrs of Object.values(model.attrs)) {
+    if (attrs.restraint && attrs.restraint.some(Boolean) && !attrs.restraint.every(Boolean))
+      throw new Error('The experimental solver does not support partial restraints.');
+    if (attrs.load && attrs.loadDirection && attrs.loadDirection !== '-Z')
+      throw new Error('The experimental solver does not support directional point loads.');
+  }
   return {
     model: {
       members: model.members.map((member) => ({ ...member })),
       attrs: Object.fromEntries(
-        Object.entries(model.attrs).map(([key, attrs]) => [key, { ...attrs }]),
+        Object.entries(model.attrs).map(([key, { restraint: _restraint, loadDirection: _direction, ...attrs }]) => [key, attrs]),
       ),
       nextId: model.nextId,
     },

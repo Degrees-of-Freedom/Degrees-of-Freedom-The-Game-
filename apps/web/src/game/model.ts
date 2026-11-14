@@ -11,6 +11,8 @@ export type LevelId =
   | 'pickupR'
   | 'sandbox';
 export type GridPoint = [number, number, number];
+export type Restraint = [boolean, boolean, boolean, boolean, boolean, boolean];
+export type LoadDirection = '-Z' | '+Z' | '+X' | '-X' | '+Y' | '-Y';
 export interface Member {
   id: number;
   a: string;
@@ -23,6 +25,10 @@ export interface NodeAttributes {
   load?: number;
   locked?: boolean;
   target?: boolean;
+  /** Explicit prototype support restraints in Tx, Ty, Tz, Rx, Ry, Rz order. */
+  restraint?: Restraint;
+  /** Point-load direction; absent means downward gravity. */
+  loadDirection?: LoadDirection;
 }
 export interface GameModel {
   members: Member[];

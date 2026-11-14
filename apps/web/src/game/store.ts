@@ -5,6 +5,8 @@ import {
   parseNodeKey,
   type GameModel,
   type GridPoint,
+  type Restraint,
+  type LoadDirection,
   type LevelId,
   type MemberType,
   type NodeItem,
@@ -67,12 +69,14 @@ interface GameState {
   swapAllOfType: (from: MemberType, to: MemberType) => number;
   toggleAttr: (p: GridPoint, type: NodeItem) => string | null;
   setNodeLoad: (key: string, magnitude: number) => string | null;
+  setNodeRestraint: (key: string, restraint: Restraint) => string | null;
+  setNodeLoadDirection: (key: string, direction: LoadDirection) => string | null;
   removeNodeAttrs: (key: string) => void;
 }
 const clone = (model: GameModel): GameModel => ({
   members: model.members.map((m) => ({ ...m })),
   attrs: Object.fromEntries(
-    Object.entries(model.attrs).map(([k, v]) => [k, { ...v }]),
+    Object.entries(model.attrs).map(([k, v]) => [k, { ...v, ...(v.restraint ? { restraint: [...v.restraint] as Restraint } : {}) }]),
   ),
   nextId: model.nextId,
 });
@@ -82,6 +86,8 @@ function cleanup(model: GameModel) {
       delete a.joint;
       if (!a.locked) delete a.load;
     }
+    if (!a.load) delete a.loadDirection;
+    if (!a.found) delete a.restraint;
     if (!a.found && !a.joint && !a.load && !a.locked) delete model.attrs[key];
   }
 }
@@ -379,7 +385,7 @@ export const useGameStore = create<GameState>((set, get) => {
         key = nodeKey(...p),
         a = model.attrs[key] ?? (model.attrs[key] = {});
       if (type === 'load') a.load = a.load ? undefined : 50;
-      else a[type] = !a[type];
+      else { a[type] = !a[type]; if (type === 'found') delete a.restraint; }
       cleanup(model);
       commit(model);
       return null;
@@ -392,6 +398,29 @@ export const useGameStore = create<GameState>((set, get) => {
       if (attrs.load === magnitude) return null;
       const model = clone(s.model);
       model.attrs[key].load = magnitude;
+      commit(model);
+      return null;
+    },
+    setNodeRestraint: (key, restraint) => {
+      const s = get(), attrs = s.model.attrs[key];
+      if (s.mode !== 'creative') return 'Custom supports are available in creative mode only';
+      if (!Array.isArray(restraint) || restraint.length !== 6 || !restraint.every((value) => typeof value === 'boolean')) return 'A support requires six boolean restraints';
+      if (!nodeValid(LEVELS[s.levelId], parseNodeKey(key))) return 'Invalid position';
+      if (attrs?.locked) return 'This support is locked';
+      const model = clone(s.model), next = model.attrs[key] ?? (model.attrs[key] = {});
+      next.found = restraint.some(Boolean);
+      next.restraint = [...restraint];
+      cleanup(model);
+      commit(model);
+      return null;
+    },
+    setNodeLoadDirection: (key, direction) => {
+      const s = get(), attrs = s.model.attrs[key];
+      if (s.mode !== 'creative') return 'Directional loads are available in creative mode only';
+      if (!attrs?.load || attrs.locked) return 'Choose an editable load';
+      if (!['-Z', '+Z', '+X', '-X', '+Y', '-Y'].includes(direction)) return 'Invalid load direction';
+      const model = clone(s.model);
+      model.attrs[key].loadDirection = direction;
       commit(model);
       return null;
     },
