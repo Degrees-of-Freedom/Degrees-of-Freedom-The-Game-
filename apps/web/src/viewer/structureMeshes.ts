@@ -94,7 +94,7 @@ export function buildStructure(
       const mesh = new THREE.Mesh(
         isRound
           ? new THREE.CapsuleGeometry(radius, Math.max(0.01, span - radius * 2), 6, 12)
-          : new THREE.BoxGeometry(s.style === 'levels' ? CELL_SIZE * 0.17 : width, span, width),
+          : new THREE.BoxGeometry(s.style === 'levels' ? CELL_SIZE * 0.17 : width, span, s.style === 'levels' ? CELL_SIZE * 0.17 : width),
         new THREE.MeshStandardMaterial({
           color,
           transparent: isGhost,
@@ -119,7 +119,8 @@ export function buildStructure(
       attrs = s.model.attrs[key] || {};
     if (s.style !== 'engineering' && !attrs.target) {
       paintedJoint(structure, p, s.selected?.type === 'node' && s.selected.key === key,
-        !!attrs.joint && s.mode !== 'multiplayer');
+        !!attrs.joint && s.mode !== 'multiplayer', palette.hub,
+        s.style === 'levels' && parseNodeKey(key)[2] > s.workK);
       if (attrs.found) paintedSupport(structure, p, attrs, s.style);
       if (attrs.load) paintedLoad(structure, p, attrs, s.style);
       continue;

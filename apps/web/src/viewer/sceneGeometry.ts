@@ -106,6 +106,14 @@ export function buildGuides(
   if (plane.axis === 'z' && plane.value === 0 && style !== 'engineering') return;
   const pts: THREE.Vector3[] = [],
     size = CELL_SIZE;
+  if (style === 'levels' && plane.axis === 'z') {
+    const sheet = new THREE.Mesh(
+      new THREE.PlaneGeometry(level.nx * size, level.ny * size),
+      new THREE.MeshBasicMaterial({ color: '#9ec3e6', transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    sheet.position.set(level.nx * size / 2, level.ny * size / 2, plane.value * size);
+    guides.add(sheet);
+  }
   const stride = style === 'blocks' ? 2 : 1;
   if (plane.axis === 'z') {
     for (let i = 0; i <= level.nx; i += stride)

@@ -55,8 +55,9 @@ export function Scene({
     refresh.current();
   }, [result, combo, deformed, scale, utilization, loads, loadPath]);
   const workK = useGameStore((state) => state.workK);
+  const style = useGameStore((state) => state.style);
   const host = useRef<HTMLDivElement>(null);
-  const cameraActions = useRef({ fit: () => {}, orbit: (_step: number) => {} });
+  const cameraActions = useRef({ fit: () => {}, orbit: (_step: number) => {}, tilt: () => {} });
   useEffect(() => {
     const element = host.current;
     if (!element) return;
@@ -101,7 +102,15 @@ export function Scene({
       new THREE.BufferGeometry(),
       new THREE.LineBasicMaterial({ color: 0x31aa78, depthTest: false }),
     );
-    scene.add(preview);
+    const stickGhost = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.055 * CELL_SIZE, 1, 6, 12),
+      new THREE.MeshLambertMaterial({ color: '#31aa78', transparent: true, opacity: 0.58, depthWrite: false }),
+    );
+    const ghostStart = new THREE.Vector3(), ghostEnd = new THREE.Vector3(), ghostDelta = new THREE.Vector3();
+    const up = new THREE.Vector3(0, 1, 0);
+    stickGhost.visible = false;
+    stickGhost.renderOrder = 24;
+    scene.add(preview, stickGhost);
     preview.visible = false;
     const point = (key: string) => displayPoint(key, view.current);
     const particles = createFlowParticles(scene, point);
@@ -109,6 +118,7 @@ export function Scene({
     let orthoSpan = 20;
     let previousTurn: number | undefined;
     let cameraSwing = 0;
+    let kitHigh = false;
     const interaction = bindSceneInteraction(
       renderer.domElement,
       () => camera,
@@ -132,12 +142,17 @@ export function Scene({
         cameraSwing = 0;
         camera = state.style === 'levels' ? orthographic : perspective;
         controls.object = camera;
-        controls.minPolarAngle = state.style === 'kit' ? 0.92 : 0;
-        controls.maxPolarAngle = state.style === 'kit' ? 0.92 : Math.PI * 0.495;
+        controls.minPolarAngle = state.style === 'kit' ? kitHigh ? 0.84 : 1.25 : 0;
+        controls.maxPolarAngle = state.style === 'kit' ? kitHigh ? 0.84 : 1.25 : Math.PI * 0.495;
         camera.zoom = 1;
         orthoSpan = Math.max(level.nx, level.ny, level.nz) * CELL_SIZE * 0.86;
         sky.material.uniforms.top.value.set(palette.sky);
         sky.material.uniforms.horizon.value.set(palette.horizon);
+        const isDusk = state.style === 'grow-dusk' || state.style === 'kit';
+        sky.material.uniforms.mid.value.set(isDusk ? '#7f8fa6' : state.style === 'blocks' ? '#f7d9c4' : palette.horizon);
+        sky.material.uniforms.band.value.set(...(isDusk
+          ? [0, 0.113, 0.087, 0.259] as const
+          : state.style === 'blocks' ? [0, 0.024, 0.012, 0.11] as const : [0, 0.06, -0.04, 0.42] as const));
         scene.fog = palette.fog ? new THREE.FogExp2(palette.horizon, palette.fog) : null;
         fill.color.set(palette.fill);
         fill.groundColor.set(palette.ground);
@@ -210,6 +225,12 @@ export function Scene({
         }
         controls.update();
       },
+      tilt() {
+        kitHigh = !kitHigh;
+        const angle = kitHigh ? 0.84 : 1.25;
+        controls.minPolarAngle = controls.maxPolarAngle = angle;
+        controls.update();
+      },
       orbit(step) {
         const offset = camera.position.clone().sub(controls.target);
         offset.applyAxisAngle(camera.up, step * Math.PI / 2);
@@ -231,8 +252,28 @@ export function Scene({
       }
       controls.update();
       particles.tick(time);
+      const state = useGameStore.getState();
+      const line = preview.geometry.getAttribute('position');
+      stickGhost.visible = preview.visible && !!line && state.style !== 'engineering' &&
+        (ghost.visible || state.tool === 'brace');
+      if (stickGhost.visible) {
+        ghostStart.fromBufferAttribute(line, 0);
+        ghostEnd.fromBufferAttribute(line, 1);
+        ghostDelta.subVectors(ghostEnd, ghostStart);
+        stickGhost.scale.y = Math.max(0.001, ghostDelta.length() / (1 + 0.11 * CELL_SIZE));
+        stickGhost.position.copy(ghostStart).lerp(ghostEnd, 0.5);
+        stickGhost.quaternion.setFromUnitVectors(up, ghostDelta.normalize());
+        stickGhost.material.color.copy(preview.material.color);
+      }
       for (const object of terrain.children) object.userData.animate?.(time);
+      for (const guide of guides.children) {
+        if (typeof guide.userData.growFrom !== 'number') continue;
+        const progress = THREE.MathUtils.clamp((performance.now() - guide.userData.growFrom) / 155, 0, 1);
+        guide.scale.setScalar(1 - 0.35 * (1 - progress) ** 3);
+      }
       sky.position.copy(camera.position);
+      sky.material.uniforms.rimDip.value = state.style === 'grow-dusk' || state.style === 'kit'
+        ? Math.atan2(Math.max(0, camera.position.z + CELL_SIZE), 145) : 0;
       renderer.render(scene, camera);
     });
     return () => {
@@ -247,6 +288,8 @@ export function Scene({
       particles.dispose();
       sky.geometry.dispose();
       sky.material.dispose();
+      stickGhost.geometry.dispose();
+      stickGhost.material.dispose();
       ghost.geometry.dispose();
       ghost.material.dispose();
       preview.geometry.dispose();
@@ -256,16 +299,17 @@ export function Scene({
     };
   }, []);
   return (
-    <div className="scene" style={{ position: 'relative' }}>
+    <div className="scene">
       <div
         ref={host}
-        style={{ position: 'absolute', inset: 0 }}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'auto' }}
         aria-label="3D workspace. Drag to orbit, scroll to zoom, and click to build."
       />
-      <div role="group" aria-label="Camera controls" style={{ position: 'absolute', left: 12, bottom: 12, display: 'flex', gap: 5 }}>
+      <div role="group" aria-label="Camera controls" style={{ position: 'absolute', left: 12, bottom: 12, display: 'flex', gap: 5, zIndex: 2, pointerEvents: 'auto' }}>
         <button type="button" title="Fit view (F)" onClick={() => cameraActions.current.fit()}>Fit</button>
         <button type="button" title="Rotate left (Q)" aria-label="Rotate left" onClick={() => cameraActions.current.orbit(-1)}>↶</button>
         <button type="button" title="Rotate right (E)" aria-label="Rotate right" onClick={() => cameraActions.current.orbit(1)}>↷</button>
+        {style === 'kit' && <button type="button" onClick={() => cameraActions.current.tilt()}>View</button>}
         <button type="button" title="Lower working plane (Page Down)" aria-label="Lower working plane" onClick={() => useGameStore.getState().setWorkK(workK - 1)}>−</button>
         <button type="button" title="Raise working plane (Page Up)" aria-label="Raise working plane" onClick={() => useGameStore.getState().setWorkK(workK + 1)}>+</button>
       </div>

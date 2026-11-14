@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { CELL_SIZE } from '../game/model';
+import { bayEdges } from '../game/bay';
+import { nodeKey, CELL_SIZE } from '../game/model';
 import { useGameStore } from '../game/store';
 import { createTurnGame, projectTurnModel, stageElement } from '../game/turns';
-import { previewBay } from './bayPreview';
+import { pickBayFace, previewBay } from './bayPreview';
 import { growthTargets } from './growthTargets';
 import { turnConnectionTargets, turnPointIssue } from './turnPicking';
 
@@ -45,6 +46,17 @@ describe('scene interaction candidates', () => {
     expect(outOfBounds.issue).toMatch(/Outside/);
     preview.geometry.dispose();
     preview.material.dispose();
+  });
+
+  it('chooses a volume above the closest visible bay top', () => {
+    const state = { ...blankState(), model: {
+      members: bayEdges([0, 0, 0], [2, 2, 2]).map(([a, b], i) => ({
+        id: i + 1, a: nodeKey(...a), b: nodeKey(...b), type: 'shs' as const,
+      })),
+      attrs: {}, nextId: 13,
+    } };
+    const ray = new THREE.Ray(new THREE.Vector3(CELL_SIZE, CELL_SIZE, 20), new THREE.Vector3(0, 0, -1));
+    expect(pickBayFace(state, ray, [2, 2, 2])).toEqual([0, 0, 2]);
   });
 
   it('picks only eligible connection ends and rejects off-board element previews', () => {

@@ -46,7 +46,9 @@ const dusk = {
   ground: '#93a3b0',
   sun: '#ffdcb4',
   intensity: 2.5,
-  grid: '#9e8566',
+  grid: '#bca987',
+  hub: '#f3ead8',
+  roles: ['#e9806e', '#6a9bd8', '#8cc7b5'],
 } as const;
 
 export const SCENE_STYLES = {
@@ -57,25 +59,28 @@ export const SCENE_STYLES = {
     ...daylight,
     sky: '#e1e6ee',
     horizon: '#e1e6ee',
-    land: '#f1ebde',
-    side: '#d3cbba',
+    land: '#faf7f0',
+    side: '#e6dfd0',
     water: '#95b2c8',
     offset: [1.15, -1.35, 1.5],
-    grid: '#648694',
-    roles: null,
+    grid: '#a79f8c',
+    hub: '#ffffff',
+    roles: ['#3f5d8a', '#6f8fb8', '#c98a5a'],
     fog: 0,
   },
   blocks: {
     ...daylight,
-    sky: '#eae2f3',
-    horizon: '#eee7df',
+    sky: '#d9c7e3',
+    horizon: '#fbe9d7',
+    water: '#82aeb2',
     land: '#f3e3cf',
     side: '#dcc7ab',
     offset: [1.25, -1.4, 1.25],
     grid: '#8b74a5',
-    roles: ['#d2594a', '#3f9477', '#5578c2'],
+    hub: '#3b4252',
+    roles: ['#fbf3e6', '#fbf3e6', '#e8735a'],
   },
-  kit: { ...dusk, offset: [1.2, -1.5, 1.25], roles: null },
+  kit: { ...dusk, offset: [-1.17, -2.6, 1.25], roles: null },
 } as const;
 
 export type SceneStyle = keyof typeof SCENE_STYLES;
@@ -94,6 +99,9 @@ export function createSky() {
     uniforms: {
       top: { value: new THREE.Color() },
       horizon: { value: new THREE.Color() },
+      mid: { value: new THREE.Color() },
+      band: { value: new THREE.Vector4() },
+      rimDip: { value: 0 },
     },
     vertexShader: `
       varying vec3 direction;
@@ -105,10 +113,15 @@ export function createSky() {
     fragmentShader: `
       uniform vec3 top;
       uniform vec3 horizon;
+      uniform vec3 mid;
+      uniform vec4 band;
+      uniform float rimDip;
       varying vec3 direction;
       void main() {
-        float t = smoothstep(-0.04, 0.54, direction.z);
-        gl_FragColor = vec4(mix(horizon, top, t), 1.0);
+        float elevation = normalize(direction).z + rimDip;
+        vec3 tint = mix(horizon, mid, smoothstep(band.x, band.y, elevation));
+        tint = mix(tint, top, smoothstep(band.z, band.w, elevation));
+        gl_FragColor = vec4(tint, 1.0);
         #include <colorspace_fragment>
       }
     `,

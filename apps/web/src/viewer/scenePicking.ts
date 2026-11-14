@@ -17,7 +17,7 @@ import { memberIssue, nodeItemIssue } from '../game/placementRules';
 import { basePoint } from './sceneResults';
 import type { BuildPlane } from './sceneGeometry';
 
-import { DEFAULT_BAY_SIZE, previewBay, type BayHit } from './bayPreview';
+import { DEFAULT_BAY_SIZE, pickBayFace, previewBay, type BayHit } from './bayPreview';
 import { GROWTH_ROLE_INDEX, growthTargets } from './growthTargets';
 import { isGrowthStyle, SCENE_STYLES } from './sceneStyle';
 import { memberEndPosition } from './turnGuides';
@@ -181,7 +181,9 @@ export function createPicker(
       const isGrowing = !!start && isMember && !card && isGrowthStyle(s.style);
       const reachable = isGrowing ? closestGrowthTarget() : null;
       if (!card && s.style === 'blocks' && isMember && intersection) {
-        hit = previewBay(s, intersection, getView().baySize ?? DEFAULT_BAY_SIZE, tool as MemberType, preview);
+        const baySize = getView().baySize ?? DEFAULT_BAY_SIZE;
+        const face = pickBayFace(s, ray.ray, baySize);
+        hit = previewBay(s, intersection, baySize, tool as MemberType, preview, face);
       } else if (reachable || (!isGrowing && (intersection || nearNode))) {
         const useExisting = nearNode && nearNode !== s.chainStart && (
           s.style !== 'levels' || parseNodeKey(nearNode)[2] === plane.value

@@ -46,6 +46,7 @@ function addSea(group: THREE.Group, position: readonly [number, number, number],
       glint: { value: new THREE.Color(dusk ? '#6c8e99' : '#d5e9eb') },
       limits: { value: new THREE.Vector2(halfWidth, halfHeight) },
       time: { value: 0 },
+      ripple: { value: dusk ? 0.43 : 0.85 },
     },
     vertexShader: `
       varying vec2 local;
@@ -60,6 +61,7 @@ function addSea(group: THREE.Group, position: readonly [number, number, number],
       uniform vec3 glint;
       uniform vec2 limits;
       uniform float time;
+      uniform float ripple;
       varying vec2 local;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       void main() {
@@ -72,7 +74,7 @@ function addSea(group: THREE.Group, position: readonly [number, number, number],
           smoothstep(0.15, 0.32, fract(p.x)) * (1.0 - smoothstep(0.69, 0.86, fract(p.x))) *
           smoothstep(0.36, 0.49, fract(p.y)) * (1.0 - smoothstep(0.55, 0.67, fract(p.y)));
         vec3 color = mix(base, horizon, far);
-        color = mix(color, glint, (0.42 * wake + 0.19 * shimmer) * (1.0 - far));
+        color = mix(color, glint, (ripple * (0.42 * wake + 0.19 * shimmer)) * (1.0 - far));
         color *= 0.82 + 0.18 * smoothstep(0.0, 1.8, nearWall);
         gl_FragColor = vec4(color, 1.0);
         #include <colorspace_fragment>
@@ -140,6 +142,35 @@ function addPrintedLattice(group: THREE.Group, level: Level, deck: number, style
   group.add(markers);
 }
 
+function addTurntable(group: THREE.Group, width: number, height: number, deck: number) {
+  const radius = Math.max(width, height) * 0.97;
+  const top = deck - CELL_SIZE * 0.23;
+  for (const [r, h, z, color, cap] of [
+    [radius, 0.46, top - CELL_SIZE * 0.23, '#7f6a4e', '#a48a66'],
+    [radius * 0.62, 0.5, top - CELL_SIZE * 0.7, '#5d4f3c', '#5d4f3c'],
+  ] as const) {
+    const cylinder = new THREE.Mesh(
+      new THREE.CylinderGeometry(r, r * 0.97, h * CELL_SIZE, 72),
+      [color, cap, color].map((paint) => new THREE.MeshLambertMaterial({ color: paint })),
+    );
+    cylinder.rotation.x = Math.PI / 2;
+    cylinder.position.set(width / 2, height / 2, z);
+    cylinder.receiveShadow = true;
+    group.add(cylinder);
+  }
+  for (let i = 0; i < 8; i++) {
+    const angle = i * Math.PI / 4;
+    const mark = new THREE.Mesh(
+      new THREE.BoxGeometry(0.32 * CELL_SIZE, 0.066 * CELL_SIZE, 0.012),
+      new THREE.MeshLambertMaterial({ color: i === 1 ? '#6a9bd8' : i === 5 ? '#e9806e' : '#d9c7a2' }),
+    );
+    mark.position.set(width / 2 + Math.cos(angle) * radius * 0.94,
+      height / 2 + Math.sin(angle) * radius * 0.94, top + 0.012);
+    mark.rotation.z = angle;
+    group.add(mark);
+  }
+}
+
 export function buildDiorama(group: THREE.Group, level: Level, style: SceneStyle, palette: ScenePalette) {
   const width = level.nx * CELL_SIZE, height = level.ny * CELL_SIZE;
   const margin = (style === 'blocks' ? 0.75 : 0.85) * CELL_SIZE;
@@ -151,8 +182,9 @@ export function buildDiorama(group: THREE.Group, level: Level, style: SceneStyle
   const radius = (style === 'levels' ? 0.035 : style === 'blocks' ? 0.64 : 0.5) * CELL_SIZE;
   const hasTerrain = level.type === 'bridge' || (level.lakes?.length ?? 0) > 0;
   if (style !== 'levels') {
-    addSea(group, [width / 2, height / 2, deck - thickness * 0.84], width / 2 + margin, height / 2 + margin, palette, style === 'grow-dusk' || style === 'kit');
+    addSea(group, [width / 2, height / 2, deck - thickness * (style === 'kit' ? 4.1 : 0.84)], width / 2 + margin, height / 2 + margin, palette, style === 'grow-dusk' || style === 'kit');
   }
+  if (style === 'kit') addTurntable(group, width, height, deck);
   if (hasTerrain) {
     // Preserve the visible shoreline and relief of challenge-specific terrain.
     for (let x = 0; x < level.nx; x++) for (let y = 0; y < level.ny; y++) {

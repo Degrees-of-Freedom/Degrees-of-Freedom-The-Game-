@@ -7,7 +7,7 @@ export function paintedSupport(group: THREE.Group, position: THREE.Vector3, attr
   const height = (style === 'blocks' ? 0.38 : style === 'levels' ? 0.21 : 0.28) * scale;
   const locks = attrs.restraint;
   const hasRotation = !locks || locks.slice(3).some(Boolean);
-  const color = style === 'kit' ? '#4b5360' : '#505967';
+  const color = style === 'levels' ? '#6f8a73' : style === 'grow-dusk' || style === 'kit' ? '#22313f' : '#505967';
   const material = new THREE.MeshLambertMaterial({ color });
   const base = new THREE.Mesh(new THREE.CylinderGeometry(scale * 0.19, scale * 0.2, scale * 0.055, 20), material);
   base.position.copy(position).z -= height - scale * 0.025;
@@ -44,7 +44,7 @@ export function paintedLoad(group: THREE.Group, position: THREE.Vector3, attrs: 
   if (!attrs.load) return;
   const direction = visualLoadDirection(attrs.loadDirection);
   const scale = CELL_SIZE;
-  const color = '#d94f3d';
+  const color = style === 'grow-dusk' ? '#f2b134' : style === 'levels' ? '#c8553d' : '#d94f3d';
   if (style === 'kit' && direction.z < 0) {
     const token = new THREE.Mesh(
       new THREE.CylinderGeometry(0.17 * scale, 0.22 * scale, 0.22 * scale, 20),
@@ -60,11 +60,11 @@ export function paintedLoad(group: THREE.Group, position: THREE.Vector3, attrs: 
   }
 }
 
-export function paintedJoint(group: THREE.Group, position: THREE.Vector3, selected: boolean, fixed: boolean) {
+export function paintedJoint(group: THREE.Group, position: THREE.Vector3, selected: boolean, fixed: boolean, baseColor: string, faded: boolean) {
   const radius = CELL_SIZE * (fixed ? 0.15 : 0.115);
   const body = new THREE.Mesh(
     fixed ? new THREE.BoxGeometry(radius * 1.7, radius * 1.7, radius * 1.7) : new THREE.SphereGeometry(radius, 18, 12),
-    new THREE.MeshLambertMaterial({ color: selected ? '#efae42' : fixed ? '#647389' : '#fbf7ed' }),
+    new THREE.MeshLambertMaterial({ color: selected ? '#efae42' : faded ? '#c9c4bb' : baseColor, transparent: faded, opacity: faded ? 0.42 : 1, depthWrite: !faded }),
   );
   body.position.copy(position);
   body.castShadow = true;
