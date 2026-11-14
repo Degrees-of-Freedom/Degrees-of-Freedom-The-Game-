@@ -2,17 +2,33 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { useGameStore } from "../game/store";
-import { allNodeKeys, CELL_SIZE } from "../game/model";
+import {
+  allNodeKeys,
+  CELL_SIZE,
+  nodeKey,
+  parseNodeKey,
+  type LoadDirection,
+  type Restraint,
+} from "../game/model";
+import { getSettings } from "../menu/settings";
 import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
 import { addResultArrows, displayPoint } from "./sceneResults";
 import { createFlowParticles } from "./flowParticles";
 import { buildStructure } from "./structureMeshes";
 import { bindSceneInteraction } from "./sceneInteraction";
 import { sceneLevel } from "./sceneLevel";
-import type { SceneView } from "./sceneView";
-import { createSky, SCENE_STYLES } from "./sceneStyle";
+import type { SceneHover, SceneView } from "./sceneView";
+import { createSky, isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
 import { buildTurnGuides } from "./turnGuides";
-import { buildGrowthGuides } from "./growthGuides";
+import { createGrowthBloom, type ScenePointer } from "./growthBloom";
+import { createDofGizmo, DOF_AXIS_COLORS } from "./dofGizmo";
+import { visualLoadDirection } from "./scenePieces";
+
+const FREE: Restraint = [false, false, false, false, false, false];
+const FIXED: Restraint = [true, true, true, true, true, true];
+const ROLE_INDEX = { column: 0, beam: 1, brace: 2 } as const;
+const trimLength = (value: number) =>
+  (Math.round(value * 100) / 100).toString();
 /** Three.js owns only presentation and picking; the game store owns the model and rules. */
 export function Scene({
   result,
@@ -58,6 +74,7 @@ export function Scene({
   const style = useGameStore((state) => state.style);
   const host = useRef<HTMLDivElement>(null);
   const axisHost = useRef<SVGSVGElement>(null);
+  const labelHost = useRef<HTMLDivElement>(null);
   const cameraActions = useRef({
     fit: () => {},
     orbit: (_step: number) => {},
@@ -83,6 +100,8 @@ export function Scene({
     orthographic.up.set(0, 0, 1);
     camera.up.set(0, 0, 1);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
+    // The joint gizmo is drawn as a second pass over the structure, so clearing is explicit.
+    renderer.autoClear = false;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -140,6 +159,38 @@ export function Scene({
     let cameraSwing = 0;
     let aspectCompensation = 1;
     let kitHigh = false;
+    // Growth-style overlays: the reachable-point bloom, the selected joint's
+    // six-DOF gizmo, and the pointer state they follow.
+    const bloom = createGrowthBloom(scene);
+    const gizmo = createDofGizmo();
+    const pointer: ScenePointer = { x: -9999, y: -9999, inside: false };
+    let hover: SceneHover | null = null;
+    let lastFrame = 0;
+    let lengthLabelKey = "";
+    const projected = new THREE.Vector3();
+    const prefersStill =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const trackPointer = (event: PointerEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = event.clientX - rect.left;
+      pointer.y = event.clientY - rect.top;
+      pointer.inside = true;
+    };
+    const releasePointer = () => {
+      pointer.inside = false;
+    };
+    renderer.domElement.addEventListener("pointermove", trackPointer);
+    renderer.domElement.addEventListener("pointerdown", trackPointer);
+    renderer.domElement.addEventListener("pointerleave", releasePointer);
+    function draw() {
+      renderer.clear();
+      renderer.render(scene, camera);
+      if (gizmo.visible) {
+        renderer.clearDepth();
+        renderer.render(gizmo.overlay, camera);
+      }
+    }
     const interaction = bindSceneInteraction(
       renderer.domElement,
       () => camera,
@@ -150,6 +201,9 @@ export function Scene({
       () => view.current,
       rebuild,
       () => cameraActions.current,
+      (next) => {
+        hover = next;
+      },
     );
     function rebuild() {
       const state = useGameStore.getState();
@@ -164,10 +218,25 @@ export function Scene({
         cameraSwing = 0;
         camera = state.style === "levels" ? orthographic : perspective;
         controls.object = camera;
+        // Growth styles use the prototype's lens and limits: a 30 degree
+        // field of view, kept above the quay and within a sensible zoom range.
+        const growthView = isGrowthStyle(state.style);
+        perspective.fov = growthView ? 30 : 42;
         controls.minPolarAngle =
-          state.style === "kit" ? (kitHigh ? 0.84 : 1.25) : 0;
+          state.style === "kit" ? (kitHigh ? 0.84 : 1.25) : growthView ? 0.15 : 0;
         controls.maxPolarAngle =
-          state.style === "kit" ? (kitHigh ? 0.84 : 1.25) : Math.PI * 0.495;
+          state.style === "kit"
+            ? kitHigh
+              ? 0.84
+              : 1.25
+            : growthView
+              ? Math.PI / 2 - 0.07
+              : Math.PI * 0.495;
+        controls.minDistance = growthView ? 5 * CELL_SIZE : 0;
+        // The far limit scales with the board so large levels still fit.
+        controls.maxDistance = growthView
+          ? 8 * Math.max(level.nx, level.ny, level.nz) * CELL_SIZE
+          : Infinity;
         camera.zoom = 1;
         orthoSpan = Math.max(level.nx, level.ny, level.nz) * CELL_SIZE * 0.86;
         sky.material.uniforms.top.value.set(palette.sky);
@@ -245,11 +314,11 @@ export function Scene({
         palette,
         state.style,
       );
-      buildGrowthGuides(guides, state, palette);
+      bloom.sync(state, palette, performance.now());
       buildTurnGuides(guides, state, point);
       // Publish the new environment even while background tabs throttle animation frames.
       sky.position.copy(camera.position);
-      renderer.render(scene, camera);
+      draw();
     }
     refresh.current = rebuild;
     const unsubscribe = useGameStore.subscribe((state, previous) => {
@@ -381,13 +450,18 @@ export function Scene({
         const toCamera = camera.quaternion.clone().invert();
         for (let axis = 0; axis < 3; axis++) {
           const p = new THREE.Vector3().setComponent(axis, 1).applyQuaternion(toCamera);
-          const x = p.x * 21, y = -p.y * 21;
+          // Growth styles draw the prototype's disc with a lettered ball per axis.
+          const ball = axisHost.current.querySelector('circle[data-axis="' + axis + '"]');
+          const reach = ball ? 25 : 21;
+          const x = p.x * reach, y = -p.y * reach;
           const line = axisHost.current.querySelector('line[data-axis="' + axis + '"]');
           const label = axisHost.current.querySelector('text[data-axis="' + axis + '"]');
           line?.setAttribute("x2", String(x));
           line?.setAttribute("y2", String(y));
-          label?.setAttribute("x", String(x * 1.33));
-          label?.setAttribute("y", String(y * 1.33));
+          ball?.setAttribute("cx", String(x));
+          ball?.setAttribute("cy", String(y));
+          label?.setAttribute("x", String(ball ? x : x * 1.33));
+          label?.setAttribute("y", String(ball ? y : y * 1.33));
         }
       }
       sky.position.copy(camera.position);
@@ -395,14 +469,186 @@ export function Scene({
         state.style === "grow-dusk" || state.style === "kit"
           ? Math.atan2(Math.max(0, camera.position.z + CELL_SIZE), 145)
           : 0;
-      renderer.render(scene, camera);
+      updateGrowthOverlays(state, time);
+      draw();
     });
+    /**
+     * Per-frame presentation for the growth styles, following the Grow Dusk
+     * prototype: bloom, height guide, hover / armed / selected rings, the
+     * length label, the joint gizmo with its card, and the load pad arrows.
+     * It reads the store and writes only to the scene and to overlay elements.
+     */
+    function updateGrowthOverlays(
+      state: ReturnType<typeof useGameStore.getState>,
+      time: number,
+    ) {
+      const dt = Math.min(250, Math.max(0, time - lastFrame));
+      lastFrame = time;
+      const growth = isGrowthStyle(state.style);
+      // Shared table keeps its own card-driven picking and ghost.
+      const solo = growth && state.mode !== "multiplayer";
+      const width = renderer.domElement.clientWidth,
+        height = renderer.domElement.clientHeight;
+      const toScreen = (position: THREE.Vector3) => {
+        projected.copy(position).project(camera);
+        return {
+          x: (projected.x * 0.5 + 0.5) * width,
+          y: (-projected.y * 0.5 + 0.5) * height,
+          ok: projected.z > -1 && projected.z < 1,
+        };
+      };
+      const labels = labelHost.current;
+      const place = (id: string, position: THREE.Vector3 | null) => {
+        const ring = labels?.querySelector<HTMLElement>("#" + id);
+        if (!ring) return;
+        const at = position ? toScreen(position) : null;
+        ring.classList.toggle("show", !!at?.ok);
+        if (at)
+          ring.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px)`;
+      };
+      // Rings replace the plain hover sphere in the growth styles.
+      ghost.material.visible = !solo;
+      const chainPoint =
+        solo && state.chainStart ? parseNodeKey(state.chainStart) : null;
+      const hovered = solo && pointer.inside ? hover : null;
+      const target = chainPoint && hovered?.role ? hovered : null;
+      bloom.update(
+        camera,
+        width,
+        height,
+        renderer.getPixelRatio(),
+        pointer,
+        target ? nodeKey(...target.p) : null,
+        time,
+        dt,
+      );
+      bloom.setGuide(hovered ? hovered.p : null, target ? chainPoint : null);
+      place(
+        "rhover",
+        hovered && !target
+          ? new THREE.Vector3(...hovered.p).multiplyScalar(CELL_SIZE)
+          : null,
+      );
+      place("rarmed", solo && state.chainStart ? point(state.chainStart) : null);
+      const selectedKey =
+        solo && state.selected?.type === "node" ? state.selected.key : null;
+      place("rsel", selectedKey ? point(selectedKey) : null);
+
+      // Length, role and coordinates of the member about to be placed.
+      const lengthLabel = labels?.querySelector<HTMLElement>("#growth-length");
+      if (lengthLabel) {
+        const role = target?.role ?? null;
+        if (target && role && chainPoint && stickGhost.visible) {
+          const at = toScreen(
+            new THREE.Vector3(...target.p).multiplyScalar(CELL_SIZE),
+          );
+          const key = [state.chainStart, target.p.join(","), target.stack].join(
+            "|",
+          );
+          if (key !== lengthLabelKey) {
+            lengthLabelKey = key;
+            const length =
+              Math.hypot(
+                target.p[0] - chainPoint[0],
+                target.p[1] - chainPoint[1],
+                target.p[2] - chainPoint[2],
+              ) * CELL_SIZE;
+            const roles: readonly string[] | null =
+              SCENE_STYLES[state.style].roles;
+            const joins = allNodeKeys(state.model).includes(
+              nodeKey(...target.p),
+            );
+            const lengthText = lengthLabel.querySelector("span");
+            const dot = lengthLabel.querySelector<HTMLElement>("i");
+            const detail = lengthLabel.querySelector("small");
+            if (lengthText) lengthText.textContent = trimLength(length) + " m";
+            if (dot) dot.style.background = roles ? roles[ROLE_INDEX[role]] : "";
+            if (detail)
+              detail.textContent =
+                `${role} · [${target.p.join(", ")}]` +
+                (joins ? " · joins a joint" : "") +
+                (target.stack ? ` · ${target.stack} (wheel or [ ])` : "");
+          }
+          lengthLabel.style.display = at.ok ? "" : "none";
+          lengthLabel.style.transform = `translate(${Math.round(at.x + 20)}px, ${Math.round(at.y - 34)}px)`;
+        } else {
+          lengthLabel.style.display = "none";
+          lengthLabelKey = "";
+        }
+      }
+
+      // Six ground-restraint components of the selected joint (connection tool).
+      const gizmoKey = selectedKey && state.tool !== "load" ? selectedKey : null;
+      const attrs = gizmoKey ? state.model.attrs[gizmoKey] : undefined;
+      gizmo.update(
+        gizmoKey
+          ? {
+              key: gizmoKey,
+              position: point(gizmoKey),
+              restraint: attrs?.restraint ?? (attrs?.found ? FIXED : FREE),
+            }
+          : null,
+        camera,
+        time / 1000,
+        prefersStill || getSettings().reducedMotion,
+      );
+      labels?.querySelectorAll<HTMLElement>(".axl").forEach((label, axis) => {
+        const tip = gizmo.visible ? gizmo.tips[axis] : undefined;
+        const at = tip ? toScreen(tip) : null;
+        label.style.display = at?.ok ? "" : "none";
+        if (at)
+          label.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px) translate(-50%, -50%)`;
+      });
+      // The joint card sits beside its joint, clear of the gizmo arrows.
+      const card = gizmoKey ? document.getElementById("card") : null;
+      if (card && gizmoKey) {
+        const at = toScreen(point(gizmoKey));
+        const cardWidth = card.offsetWidth,
+          cardHeight = card.offsetHeight;
+        let right = 50,
+          left = 50;
+        for (const tip of gizmo.tips) {
+          const tipAt = toScreen(tip);
+          right = Math.max(right, tipAt.x - at.x);
+          left = Math.max(left, at.x - tipAt.x);
+        }
+        let x = at.x + right + 30;
+        if (x + cardWidth > width - 12) x = at.x - left - 30 - cardWidth;
+        x = THREE.MathUtils.clamp(x, 12, Math.max(12, width - cardWidth - 12));
+        // Between the top bar and the dock.
+        const y = THREE.MathUtils.clamp(
+          at.y - cardHeight / 2,
+          66,
+          Math.max(66, height - cardHeight - 118),
+        );
+        card.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+      }
+      // Load pad arrows point the way each direction runs on screen.
+      if (growth && state.tool === "load") {
+        const toCamera = camera.quaternion.clone().invert();
+        document
+          .querySelectorAll<SVGElement>(".env-pad .dir svg[data-dir]")
+          .forEach((arrow) => {
+            const direction = visualLoadDirection(
+              arrow.dataset.dir as LoadDirection,
+            ).applyQuaternion(toCamera);
+            const reach = Math.hypot(direction.x, direction.y);
+            const angle = (Math.atan2(-direction.y, direction.x) * 180) / Math.PI;
+            arrow.style.transform = `rotate(${angle.toFixed(1)}deg) scale(${(0.5 + 0.5 * reach).toFixed(2)})`;
+          });
+      }
+    }
     return () => {
       refresh.current = () => {};
       unsubscribe();
       observer.disconnect();
       renderer.setAnimationLoop(null);
       interaction.dispose();
+      renderer.domElement.removeEventListener("pointermove", trackPointer);
+      renderer.domElement.removeEventListener("pointerdown", trackPointer);
+      renderer.domElement.removeEventListener("pointerleave", releasePointer);
+      bloom.dispose();
+      gizmo.dispose();
       controls.removeEventListener("end", cameraChanged);
       controls.dispose();
       [terrain, structure, guides].forEach(disposeGroup);
@@ -432,6 +678,73 @@ export function Scene({
         }}
         aria-label="3D workspace. Drag to orbit, scroll to zoom, and click to build."
       />
+      {isGrowthStyle(style) && (
+        <>
+          {/* Scene labels of the growth styles, positioned every frame by the render loop. */}
+          <div
+            id="labels"
+            ref={labelHost}
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              overflow: "hidden",
+              pointerEvents: "none",
+            }}
+          >
+            <div className="ring" id="rhover" />
+            <div className="ring" id="rarmed" />
+            <div className="ring" id="rsel" />
+            {["x", "y", "z"].map((axis, i) => (
+              <div
+                key={axis}
+                className="lab axl"
+                style={{ color: DOF_AXIS_COLORS[i], display: "none" }}
+              >
+                {axis}
+              </div>
+            ))}
+            <div
+              className="lab pill len"
+              id="growth-length"
+              style={{ display: "none" }}
+            >
+              <span />
+              <i />
+              <small />
+            </div>
+          </div>
+          <svg
+            ref={axisHost}
+            className="scene-axes"
+            viewBox="-38 -38 76 76"
+            role="img"
+            aria-label="Model axes"
+          >
+            <circle r="36" fill="rgba(251,247,239,.82)" />
+            {["X", "Y", "Z"].map((axis, i) => (
+              <g key={axis}>
+                <line
+                  data-axis={i}
+                  stroke={DOF_AXIS_COLORS[i]}
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                />
+                <circle data-axis={i} r="7.5" fill={DOF_AXIS_COLORS[i]} />
+                <text
+                  data-axis={i}
+                  fill="#fff"
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                >
+                  {axis}
+                </text>
+              </g>
+            ))}
+            <circle r="3.5" fill="#3f4654" />
+          </svg>
+        </>
+      )}
       {["levels", "blocks", "kit"].includes(style) && (
         <svg ref={axisHost} className="scene-axes" viewBox="-34 -34 68 68" role="img" aria-label="Model axes">
           {["X", "Y", "Z"].map((axis, i) => {
@@ -485,22 +798,27 @@ export function Scene({
             View
           </button>
         )}
-        <button
-          type="button"
-          title="Lower working plane (Page Down)"
-          aria-label="Lower working plane"
-          onClick={() => useGameStore.getState().setWorkK(workK - 1)}
-        >
-          −
-        </button>
-        <button
-          type="button"
-          title="Raise working plane (Page Up)"
-          aria-label="Raise working plane"
-          onClick={() => useGameStore.getState().setWorkK(workK + 1)}
-        >
-          +
-        </button>
+        {/* The growth styles start members from joints and quay dots, so they show no working plane. */}
+        {!isGrowthStyle(style) && (
+          <>
+            <button
+              type="button"
+              title="Lower working plane (Page Down)"
+              aria-label="Lower working plane"
+              onClick={() => useGameStore.getState().setWorkK(workK - 1)}
+            >
+              −
+            </button>
+            <button
+              type="button"
+              title="Raise working plane (Page Up)"
+              aria-label="Raise working plane"
+              onClick={() => useGameStore.getState().setWorkK(workK + 1)}
+            >
+              +
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

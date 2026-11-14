@@ -54,7 +54,8 @@ const dusk = {
 export const SCENE_STYLES = {
   engineering,
   grow: daylight,
-  "grow-dusk": dusk,
+  // Opening view of the Grow Dusk prototype: three-quarter from the front right.
+  "grow-dusk": { ...dusk, offset: [1.78, -1.59, 1.25] },
   levels: {
     ...daylight,
     sky: "#f4f0e7",
