@@ -17,6 +17,8 @@ Record the intended gameplay and the decisions governing game state and turns.
 
 Players take turns placing structural members and connections, applying loads, and developing a structure over time. The README proposes goal-based challenges and a mode that continues until instability or failure. Rules, scoring, and additional modes remain open.
 
+The owner wants NPCs in the game. Their roles, behavior, and relationship to turns and structures remain to be designed.
+
 Zustand is under consideration for client state management; it has not been selected or implemented.
 
 ## Open questions
@@ -25,3 +27,4 @@ Zustand is under consideration for client state management; it has not been sele
 - When does analysis run, and how do results affect subsequent turns and victory or failure?
 - How are players, game state, history, persistence, and any multiplayer behavior represented?
 - What are the precise objectives, scoring, and constraints for each mode?
+- What do NPCs do, and how do they interact with players and structures?

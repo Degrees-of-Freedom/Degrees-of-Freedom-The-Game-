@@ -15,7 +15,7 @@ Record the intended visual interface and its relationship to the game and solver
 
 ## Documented intent
 
-The game is envisioned on a 3D grid and aims to make structural behavior visible and understandable, including load paths, instability, and failures. Visual presentation and interaction details are not yet specified.
+The game is envisioned on a 3D grid and aims to make structural behavior visible and understandable, including load paths, instability, and failures. The owner wants a visual feel inspired by Townscaper and an all-steel structural palette; the specific art direction and interaction details are not yet specified.
 
 The project owner has identified WebGL as the intended rendering platform. Three.js and React Three Fiber are under consideration for the viewer; their selection is not yet settled or implemented.
 

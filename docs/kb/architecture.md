@@ -21,7 +21,7 @@ Orient work around the intended parts of the project. The three-area organizatio
 | Game architecture and turn dynamics | Represent game state, player actions, turns, rules, and modes. | [Game dynamics](game-dynamics.md) |
 | 3D viewer | Present the grid and structure and support visual interaction. | [3D viewer](3d-viewer.md) |
 
-These are conceptual boundaries, not a commitment to separate processes or packages. The owner intends to use WebGL for the viewer; other technology choices remain under consideration. A future design should define how game state supplies a structural model to the solver and how results and state are presented in the viewer.
+These are conceptual boundaries, not a commitment to separate processes or packages. The owner wants TypeScript and intends to use WebGL for the viewer; other technology choices remain under consideration. A future design should define how game state supplies a structural model to the solver and how results and state are presented in the viewer.
 
 ## Open questions
 
