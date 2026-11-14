@@ -75,3 +75,8 @@ The [joint DOF criteria](joint-dof-criteria.md) are documentation only. They rev
 ## Correction follow-up decisions validation scope
 
 The follow-up criteria record retained historical penalties, unequal elastic stiffnesses with matching freedoms/axes, verified-component final awards and game-owned automatic correction for both instability and overload. Future evidence must cover physical repair definitions, original-versus-corrected attribution, component validity, idempotent persistence, explanatory UI and bounded failure behavior. No implementation or solver-capability validation is introduced by these documentation updates.
+
+
+## Permanent local neutral repair validation scope
+
+The owner confirmed neutral system scaffolding/ground anchors, no player attraction award, permanent in-match lifetime and local direct intervention. Criteria checks must distinguish local edits from indirect global redistribution and independently measure verified neutral share versus unverified/unawarded scope. Future tests must verify whole-structure equilibrium/capacities, persistent repair IDs after reinforcement/reload, unchanged player cards and one historical penalty event. Only documentation was changed; no automatic repair, physical locality guarantee or numerical validation is implemented here.

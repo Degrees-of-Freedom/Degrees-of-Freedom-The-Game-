@@ -122,3 +122,8 @@ The later [completion criteria](game-completion-criteria.md) require original-re
 ## Automatic game-owned correction versus numerical solving
 
 The owner requires the game to retain a move and apply recorded game-owned repairs for instability/overload, explained by Timburr. The game policy generates a new explicit physical model; the solver verifies its equilibrium/capacities and returns honest validity. A numerical stabilization spring, load deletion or invented reaction is not a physical repair. Shared-joint elastic values may differ with matching freedoms/axes. Final fallback awards attraction from verified components only against total gravity, retaining unavailable force scope; see [repair](failure-repair-criteria.md) and [scoring](scoring-match-criteria.md).
+
+
+## Permanent neutral local repairs
+
+The latest owner decision allows neutral system scaffolding/ground anchors that stay for the rest of the match. This is a system-only exception to setup-only player foundations. Restrict direct player-object intervention to the affected element/connection, but reanalyze real global redistribution and every relevant capacity. Neutral reactions count in equilibrium and earn no player points; retain total applied gravity as denominator. See [local intervention and lifetime](failure-repair-criteria.md#7-permanent-neutral-repairs-with-local-intervention). Exact geometry, local envelopes and validated repair catalogue remain future implementation work.

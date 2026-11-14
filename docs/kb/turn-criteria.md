@@ -39,7 +39,7 @@ The owner confirmed:
 - Shared access permits new loads and end attachments on the shared structure, including opponents' members. Placed connections cannot be edited or replaced, including by their owner; new members may frame into an existing joint through their own new connection cards.
 - All member ends attached to a shared joint use the same connection freedoms; matching must respect physical axis orientation. Placed connections remain immutable.
 - Foundations are fully fixed by default (six ground restraints locked). Connection releases are a separate subject from ground restraints.
-- Each player has only their starting foundation. Foundations are not drawable or playable cards.
+- Each player has only their starting foundation. Player foundations are not drawable/playable cards. Neutral system-repair scaffolding/ground anchors are an explicit owner-confirmed exception, earn no player attraction points and remain for the match; they are not a new player foundation.
 - Base-game load cards are persistent downward gravity loads only; no lateral-force or moment cards.
 
 Remaining rules are proposals unless explicitly confirmed. Recommendations make the draft reviewable; they are not silently finalized rules. A playable match must configure its unresolved policies first.
@@ -147,7 +147,7 @@ Proposed game responsibility: attribute verified adverse changes between consecu
 
 Do not infer a physical penalty from timeout, numerical error or `unresolved`. Proposed unresolved policy retains the legal move with unknown scope, schedules bounded reanalysis, withholds new authoritative reaction scoring for that scope, and applies no physical-issue penalty without verification. Whether later verification produces a deferred penalty attached to the originating turn remains open. Prior results must retain their historical version, never masquerade as current valid reactions.
 
-Return signed six-component foundation reactions with validity. Load attraction, uplift/self-weight treatment and cumulative scoring remain game policies. Do not normalize unavailable components into a full 100% share. Retained geometry remains available for repair; permanent releases/removal require an explicitly enabled bounded failure policy.
+Return signed six-component foundation reactions with validity. Final-only load-share percentage minus historical penalties is confirmed; uplift/self-weight parameters remain game policies. Neutral repair-support reactions earn no player attraction, and total gravity stays the denominator. Do not normalize unavailable components into a full 100% share. Retained geometry remains available for repair; permanent releases/removal require an explicitly enabled bounded failure policy.
 
 ### Worked turn example
 
@@ -179,8 +179,8 @@ The following tests are required when implementing this design; they are not cur
 ## 9. Questions still to resolve
 
 1. Penalty eligibility beyond instability/overload, worsening thresholds and deferred verification. The 1-point amount, per-turn aggregation and no repeat/unknown penalties are confirmed.
-2. Retained structure and recorded game-owned automatic correction for instability and overload are now confirmed, with Timburr explanation; player additions may also repair issues. Removal or modification of placed player cards is not authorized. Historical penalties are now confirmed to remain after repair. Exact issue thresholds and the requested game-owned automatic correction of instability/overload and its remaining support/lifetime policies are tracked in [failure and repair](failure-repair-criteria.md).
-3. Foundations are confirmed setup-only; starting layout and column properties still need definition.
+2. Retained structure and recorded game-owned automatic correction for instability and overload are now confirmed, with Timburr explanation; player additions may also repair issues. Removal or modification of placed player cards is not authorized. Historical penalties are now confirmed to remain after repair. Exact issue thresholds and the requested game-owned automatic correction of instability/overload and the permanent neutral support/local-intervention policy are tracked in [failure and repair](failure-repair-criteria.md).
+3. Player foundations are confirmed setup-only; neutral repair anchors are an explicit system-only exception, permanent and unscored for players. Starting layout/column properties and repair-anchor geometry still need definition.
 4. Card economy: opening hand, retention/cap/discard/exchange, deck sizes, load-to-element ratio, connection frequencies and exhaustion.
 5. Loads: magnitudes, eligible targets, self-weight and removal. Persistent downward gravity only is confirmed for the base deck.
 6. Placement: grid/diagonal and original-quarter-only attachment across all families, no physical clashes and assembly card economy are confirmed. Board/tolerances, fitting geometry and validated quarter analytical laws remain to define; see [placement](placement-criteria.md).

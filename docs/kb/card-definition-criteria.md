@@ -66,3 +66,8 @@ Proposed deck-1 mix starts near equal element/load counts; define nonzero family
 | Seeded full matches | Declared deck sizing/exhaustion, usable UI and recorded balance evidence, not a claim of proven optimal balance. |
 
 Open: actual section/material numbers and trusted sources, spring law/limits, cable initial state, assembly templates, connection stiffness/capacity tiers, opening hand/retention/exhaustion, printed load magnitudes and deck frequencies. These should become a versioned reviewed catalogue, not developer-invented defaults hidden in renderer code.
+
+
+## 6. System repair definitions are not player cards
+
+Permanent neutral repair objects require their own versioned physical/visual catalogue, local-contact/ground-anchor permissions and capacity/geometry limits. They do not create dealt player instances or consume the player's turn allowances, and their reactions cannot be credited to a nearby card owner. Keep original player properties immutable. A reset of camera/theme or later player reinforcement cannot delete an accepted in-match repair. Whether new player cards may target system repair objects remains an explicit release-rule parameter.

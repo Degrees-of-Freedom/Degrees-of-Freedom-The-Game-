@@ -172,3 +172,8 @@ The later [completion criteria](game-completion-criteria.md) define fixed rounds
 ## 12. Automatic repair explanation
 
 The owner confirmed game-owned automatic correction for both instability and overload while retaining the player move and historical penalty. Timburr explains the original issue, the specific recorded repair and its score/ownership effect; [repair criteria](failure-repair-criteria.md#6-automatic-correction-transaction) own the transaction and numerical verification. The avatar presents game events rather than modifying physics from an animation callback. Show “verified repaired”, “pending” or “could not verify” accurately, and expose the same explanation without sound/avatar motion. No repaired issue refunds its historical penalty.
+
+
+## 13. Permanent local neutral scaffolding explanation
+
+The owner confirmed permanent neutral system repairs with no player attraction award. Timburr identifies the local affected element/connection, shows the actual added prop/anchor, explains that it remains for the match and that its carried load earns nobody points, and preserves the historical penalty explanation. Do not promise that other foundation reactions are unchanged: a local physical repair can redistribute forces globally. The normal inspector must show neutral ownership, local contacts, verified reactions and remaining unavailable scope even when Timburr is hidden.
