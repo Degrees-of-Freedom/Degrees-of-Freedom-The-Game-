@@ -1,8 +1,8 @@
-import type { GameModel, Level, Member, MemberType } from '../game/model';
-type BeamType = Exclude<MemberType, 'cable'>;
-type Section = typeof ITEMS[MemberType];
+import type { VoxelModel, VoxelLevel, VoxelMember, VoxelMemberType } from './voxelInput';
+type BeamType = Exclude<VoxelMemberType, 'cable'>;
+type Section = typeof ITEMS[VoxelMemberType];
 type BeamSection = typeof ITEMS[BeamType];
-type Element = { m: Member; it: Section; L: number; R: number[][]; ex: number[]; a: number; b: number; k: Float64Array; rel: number[]; kgl: Float64Array; dofs: number[]; cable: boolean; rigidA: boolean; rigidB: boolean };
+type Element = { m: VoxelMember; it: Section; L: number; R: number[][]; ex: number[]; a: number; b: number; k: Float64Array; rel: number[]; kgl: Float64Array; dofs: number[]; cable: boolean; rigidA: boolean; rigidB: boolean };
 type Context = { keys: string[]; pos: number[][]; act: number[]; NA: number; eq: Int32Array; nf: number; els: Element[]; bw: number };
 type Demand = { Nt: number; Nc: number; Vy: number; Vz: number; My: number; Mz: number; endF: number[]; endM: number[]; dEIy: number; dEIz: number; dmax: number };
 type ElementForce = { f: Float64Array; ul: Float64Array; slack?: boolean };
@@ -53,10 +53,10 @@ const COMBOS: LoadCombo[] = [
 ];
 
 
-type AutoDesignResult = {model: GameModel; analysis: VoxelAnalysis; changed: boolean};
-function runVoxel(model: GameModel, LV: Level, autoDesign: false): VoxelAnalysis;
-function runVoxel(model: GameModel, LV: Level, autoDesign: true): AutoDesignResult;
-function runVoxel(model: GameModel, LV: Level, autoDesign: boolean): VoxelAnalysis | AutoDesignResult {
+type AutoDesignResult = {model: VoxelModel; analysis: VoxelAnalysis; changed: boolean};
+function runVoxel(model: VoxelModel, LV: VoxelLevel, autoDesign: false): VoxelAnalysis;
+function runVoxel(model: VoxelModel, LV: VoxelLevel, autoDesign: true): AutoDesignResult;
+function runVoxel(model: VoxelModel, LV: VoxelLevel, autoDesign: boolean): VoxelAnalysis | AutoDesignResult {
 const key = (i: number,j: number,k: number) => `${i},${j},${k}`;
 const parse = (s: string) => s.split(',').map(Number);
 function allNodeKeys(){
@@ -65,7 +65,7 @@ function allNodeKeys(){
  for(const k in model.attrs){ const a=model.attrs[k]; if(a.found||a.joint||a.load) keys.add(k); }
  return [...keys];
 }
-function makeElement(m: Member, pa: number[], pb: number[], a: number, b: number, eq: Int32Array): Element{
+function makeElement(m: VoxelMember, pa: number[], pb: number[], a: number, b: number, eq: Int32Array): Element{
   const it: Section=ITEMS[m.type];
   const d=[pb[0]-pa[0],pb[1]-pa[1],pb[2]-pa[2]], L=Math.hypot(...d);
   const ex=d.map(v=>v/L), R=localAxes(ex);
@@ -434,6 +434,6 @@ return { model, analysis, changed: changedAny };
 }
 
 /** Run the original prototype's game-specific analysis. */
-export function analyzeVoxel(model: GameModel, level: Level): VoxelAnalysis { return runVoxel(model, level, false); }
+export function analyzeVoxel(model: VoxelModel, level: VoxelLevel): VoxelAnalysis { return runVoxel(model, level, false); }
 /** Resize beam sections from available supply and reanalyse, without mutating the input. */
-export function autoDesignVoxel(model: GameModel, level: Level): { model: GameModel; analysis: VoxelAnalysis; changed: boolean } { return runVoxel(model, level, true); }
+export function autoDesignVoxel(model: VoxelModel, level: VoxelLevel): { model: VoxelModel; analysis: VoxelAnalysis; changed: boolean } { return runVoxel(model, level, true); }
