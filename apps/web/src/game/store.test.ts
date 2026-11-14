@@ -7,6 +7,15 @@ describe('voxel game rules', () => {
     useGameStore.getState().setLevel('tower1');
     useGameStore.getState().reset();
   });
+  it('places and removes challenge foundations on solid ground, with undo', () => {
+    const game = useGameStore.getState();
+    expect(game.toggleAttr([0, 0, 0], 'found')).toBeNull();
+    expect(useGameStore.getState().model.attrs['0,0,0']?.found).toBe(true);
+    expect(useGameStore.getState().toggleAttr([0, 0, 0], 'found')).toBeNull();
+    expect(useGameStore.getState().model.attrs['0,0,0']?.found).toBeFalsy();
+    useGameStore.getState().undo();
+    expect(useGameStore.getState().model.attrs['0,0,0']?.found).toBe(true);
+  });
   it('validates placement, duplicates and supply, and restores supply on undo', () => {
     const s = useGameStore.getState();
     expect(s.addMember([0, 0, 0], [0, 0, 3], 'ipe')).toBeNull();

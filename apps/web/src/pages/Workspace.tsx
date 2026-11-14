@@ -355,6 +355,8 @@ export function Workspace() {
                   ? "Choose the next point · Esc to release"
                   : game.tool === "joint"
                     ? "Click a joint to explore its degrees of freedom"
+                    : game.tool === "found"
+                      ? "Click solid ground to place or remove a foundation"
                     : game.tool === "load"
                       ? "Click a joint to place or edit a load"
                       : isBlocks
