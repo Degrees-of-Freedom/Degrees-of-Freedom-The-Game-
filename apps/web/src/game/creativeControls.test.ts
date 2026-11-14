@@ -11,8 +11,9 @@ describe('creative restraints and loads', () => {
     game.reset();
     expect(game.addMember([1, 1, 0], [1, 1, 2], 'shs')).toBeNull();
     expect(game.setNodeRestraint('1,1,0', [true, true, true, false, false, false])).toBeNull();
+    game.setLoadBrush(20, '+X');
     expect(game.toggleAttr([1, 1, 2], 'load')).toBeNull();
-    expect(game.setNodeLoadDirection('1,1,2', '+X')).toBeNull();
+    expect(useGameStore.getState().model.attrs['1,1,2']).toMatchObject({ load: 20, loadDirection: '+X' });
     const model = useGameStore.getState().model;
     const save = createGameSave('sandbox', model);
     expect(readGameSave(JSON.parse(JSON.stringify(save)), 'sandbox').save.model).toEqual(model);

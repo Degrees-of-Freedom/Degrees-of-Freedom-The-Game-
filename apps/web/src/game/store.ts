@@ -36,6 +36,8 @@ interface GameState {
   style: PresentationStyle;
   turn: TurnState | null;
   selectedCardId: string | null;
+  loadBrush: { magnitude: number; direction: LoadDirection };
+  setLoadBrush: (magnitude: number, direction: LoadDirection) => void;
   selectCard: (id: string | null) => void;
   playConnection: (cardId: string, memberId: number, end: 'a' | 'b', jointId?: string) => string | null;
   cancelDraft: () => string | null;
@@ -144,6 +146,11 @@ export const useGameStore = create<GameState>((set, get) => {
     style: session.style,
     turn: session.turn,
     selectedCardId: null,
+    loadBrush: { magnitude: 50, direction: '-Z' },
+    setLoadBrush: (magnitude, direction) => {
+      if (!Number.isFinite(magnitude) || magnitude <= 0 || !['-Z', '+Z', '+X', '-X', '+Y', '-Y'].includes(direction)) return;
+      set({ loadBrush: { magnitude, direction } });
+    },
     selectCard: (id) => set((s) => ({ selectedCardId: id && s.turn && activeTurnHand(s.turn).some((c) => c.id === id) ? id : null, chainStart: null })),
     playConnection: (cardId, memberId, end, jointId) => {
       const s = get();
@@ -384,7 +391,10 @@ export const useGameStore = create<GameState>((set, get) => {
       const model = clone(s.model),
         key = nodeKey(...p),
         a = model.attrs[key] ?? (model.attrs[key] = {});
-      if (type === 'load') a.load = a.load ? undefined : 50;
+      if (type === 'load') {
+        a.load = a.load ? undefined : s.mode === 'creative' ? s.loadBrush.magnitude : 50;
+        if (a.load && s.mode === 'creative') a.loadDirection = s.loadBrush.direction;
+      }
       else { a[type] = !a[type]; if (type === 'found') delete a.restraint; }
       cleanup(model);
       commit(model);
