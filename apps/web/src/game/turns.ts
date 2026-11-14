@@ -1,3 +1,4 @@
+import { structuralAnalysisResultSchema, type StructuralAnalysisResult } from '@dof/solver-contract';
 import {
   nodeKey,
   parseNodeKey,
@@ -68,7 +69,7 @@ type Event =
       end: "a" | "b";
       jointId?: string;
     }
-  | { kind: "end"; turn: number; status?: TurnReport["status"] };
+  | { kind: "end"; turn: number; status?: TurnReport["status"]; analysis?: StructuralAnalysisResult };
 
 export type TurnReport = {
   turn: number;
@@ -76,6 +77,7 @@ export type TurnReport = {
   status: "stable" | "unstable" | "partial" | "unresolved";
   reason: string;
   penalty: 0;
+  analysis?: StructuralAnalysisResult;
 };
 
 export interface TurnState {
@@ -391,6 +393,7 @@ export function endTurn(
   state: TurnState,
   expectedTurn = state.turn,
   status: TurnReport["status"] = "unresolved",
+  analysis?: StructuralAnalysisResult,
 ): Transition {
   if (state.finished || expectedTurn !== state.turn)
     return fail("This turn has already ended.");
@@ -407,6 +410,7 @@ export function endTurn(
       unresolved: "The experimental solve did not produce a result for this turn.",
     }[status],
     penalty: 0,
+    ...(analysis && { analysis }),
   };
   const finished = state.turn === KIT_PLAYTEST.players * KIT_PLAYTEST.rounds;
   const committed: TurnState = {
@@ -429,7 +433,7 @@ export function endTurn(
     },
     draft: emptyDraft(),
     reports: [...state.reports, report],
-    events: [...state.events, { kind: "end", turn: state.turn, status }],
+    events: [...state.events, { kind: "end", turn: state.turn, status, ...(analysis && { analysis }) }],
   };
   return { ok: true, state: finished ? committed : draw(committed) };
 }
@@ -485,7 +489,25 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
   if (event.kind === "end" && typeof event.turn === "number") {
     if (event.status !== undefined && event.status !== "stable" && event.status !== "unstable" &&
       event.status !== "partial" && event.status !== "unresolved") return null;
-    return endTurn(state, event.turn, event.status);
+    if (event.analysis === undefined) return endTurn(state, event.turn, event.status);
+    const parsed = structuralAnalysisResultSchema.safeParse(event.analysis);
+    if (!parsed.success) return null;
+    const analysis = parsed.data;
+    const snapshot = analysis.request.snapshot;
+    const prior = state.reports.at(-1)?.analysis?.request.snapshot;
+    if (
+      analysis.purpose !== "turn" ||
+      analysis.turn?.matchId !== snapshot.modelId ||
+      analysis.turn.turnId !== String(state.turn) ||
+      analysis.turn.playerId !== activePlayer(state).id ||
+      analysis.turn.rulesVersion !== String(state.version) ||
+      state.reports.some(report => report.analysis?.runId === analysis.runId) ||
+      snapshot.revisionId !== "turn-" + state.turn ||
+      analysis.status !== (event.status === "stable" ? "success" : event.status === "unstable" ? "unstable" : "unresolved") ||
+      snapshot.parentRevisionId !== prior?.revisionId ||
+      (prior && prior.modelId !== snapshot.modelId)
+    ) return null;
+    return endTurn(state, event.turn, event.status, analysis);
   }
   if (typeof event.cardId !== "string") return null;
   if (

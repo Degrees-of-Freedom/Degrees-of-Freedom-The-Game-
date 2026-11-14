@@ -5,7 +5,7 @@ import type { GameMode, PresentationStyle } from "./modes";
 const key = "dof-runtime:session";
 const validatedWrites = new WeakMap<Storage, string>();
 const envelope = z.strictObject({
-  version: z.literal(1),
+  version: z.union([z.literal(1), z.literal(2)]),
   mode: z.enum([
     "challenge",
     "creative",
@@ -67,7 +67,7 @@ export function writeSession(storage: Storage, session: Session): boolean {
     if (raw !== null && raw !== validatedWrites.get(storage) &&
       decodeSession(raw).status === "invalid") return false;
     const serialized = JSON.stringify({
-      version: 1,
+      version: 2,
       mode: session.mode,
       style: session.style,
       turn: session.turn && {

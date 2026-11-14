@@ -26,6 +26,12 @@ const checks = z.strictObject({
   compatibilityVerified: z.boolean(),
   activeLawsVerified: z.boolean(),
 });
+function passesChecks(check: z.infer<typeof checks> | undefined): boolean {
+  return !!check?.converged && check.compatibilityVerified && check.activeLawsVerified &&
+    check.normalizedForceResidual <= check.forceTolerance &&
+    check.normalizedMomentResidual <= check.momentTolerance;
+}
+
 const component = z.strictObject({
   id, jointIds: z.array(id), endpointIds: z.array(id), memberIds: z.array(id),
   classification: z.enum(['stable', 'marginal', 'unstable', 'unknown']),
@@ -89,10 +95,8 @@ export const structuralAnalysisResultSchema = z.strictObject({
       const member = model.members.find(v => v.id === memberId);
       if (member && (!c.endpointIds.includes(member.start.id) || !c.endpointIds.includes(member.end.id))) error(`Component ${c.id} must include both endpoints of member ${memberId}.`);
     }
-    if (c.validity === 'verified' && c.classification === 'stable') {
-      const checks = c.checks;
-      if (!checks?.converged || !checks.compatibilityVerified || !checks.activeLawsVerified || checks.normalizedForceResidual > checks.forceTolerance || checks.normalizedMomentResidual > checks.momentTolerance) error(`Verified stable component ${c.id} requires passing equilibrium and compatibility checks.`);
-    }
+    if (c.validity === 'verified' && (c.classification === 'stable' || c.classification === 'marginal') && !passesChecks(c.checks))
+      error(`Verified equilibrium classification for ${c.id} requires passing equilibrium and compatibility checks.`);
     if (c.validity === 'verified' && c.classification === 'unknown') error(`Verified component ${c.id} cannot have unknown classification.`);
     if (c.validity === 'unavailable' && c.classification !== 'unknown') error(`Unavailable component ${c.id} must have unknown classification.`);
     if (c.validity !== 'verified' && !c.reasonCodes.length) error(`Component ${c.id} needs a reason code.`);
@@ -102,9 +106,9 @@ export const structuralAnalysisResultSchema = z.strictObject({
     const c = components.get(componentId);
     if (!c) { error(`Unknown component ${componentId}.`); return; }
     if (!verified(value)) return;
-    const check = c.checks;
-    if (c.validity !== 'verified' || c.classification !== 'stable' || !check?.converged || !check.compatibilityVerified || !check.activeLawsVerified || check.normalizedForceResidual > check.forceTolerance || check.normalizedMomentResidual > check.momentTolerance)
-      error(`Verified equilibrium quantity requires a verified stable component and completed checks: ${componentId}.`);
+    // Marginality describes stability reserve. It does not invalidate a checked equilibrium.
+    if (c.validity !== 'verified' || (c.classification !== 'stable' && c.classification !== 'marginal') || !passesChecks(c.checks))
+      error(`Verified equilibrium quantity requires verified stable or marginal scope and completed checks: ${componentId}.`);
   };
   const unique = new Set<string>();
   const checkEntry = (kind: string, objectId: string, componentId: string, known: Set<string>, belongs: (c: z.infer<typeof component>) => boolean) => {

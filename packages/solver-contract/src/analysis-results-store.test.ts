@@ -50,6 +50,11 @@ describe('analysis result storage', () => {
     expect(store.write({ ...run, runId: 'run-2', request: { ...run.request, snapshot: { ...snapshot, loads: [{ ...snapshot.loads[0], force: [0, 0, -200] }] } } }).status).toBe('error');
     expect(store.read('m')).toMatchObject({ status: 'found', results: [{ runId: 'run-1' }] });
   });
+  it('retains verified equilibrium in a marginal component', () => {
+    const marginal = structuredClone(run);
+    marginal.components[0].classification = 'marginal';
+    expect(parseStructuralAnalysisResult(marginal).foundations[0].reaction.validity).toBe('verified');
+  });
   it('rejects verified values without valid scoped equilibrium checks and rejects unknown IDs', () => {
     const bad = structuredClone(run); bad.components[0].checks.normalizedForceResidual = 1;
     expect(() => parseStructuralAnalysisResult(bad)).toThrow();

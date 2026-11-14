@@ -27,7 +27,7 @@ status: partial
 
 The [structure library](structure-library.md) supplies 20 voxel specimens, PNG previews, a generated SQLite catalog and observed regression baselines. Its SQLite file is a portable catalog, not a state persistence service.
 
-This page describes the shared solver-neutral structural snapshot and revision storage, plus the existing experimental voxel saves. The shared snapshot is a data contract, not a numerical solver or complete turn system. The workspace can manually run a limited OpenSees analysis of a shared request; the active game model is not automatically converted to it. Nonlinear physics and full criteria validation remain work to do. The state service does not use SQLite or a remote service; the separate structure library distributes a SQLite index.
+This page describes the shared solver-neutral structural snapshot and revision storage, plus the existing experimental voxel saves. The shared snapshot is a data contract, not a numerical solver or complete turn system. Shared table compiles a structural request from explicit turn attachments and stores it with experimental reactions. The workspace also offers a limited manual OpenSees workflow. Nonlinear physics and full criteria validation remain work to do. The state service does not use SQLite or a remote service; the separate structure library distributes a SQLite index.
 
 ## Shared structural snapshot v1
 
@@ -43,7 +43,7 @@ This page describes the shared solver-neutral structural snapshot and revision s
 
 `structuralAnalysisRequestSchema` pairs one snapshot with linear-static or geometric-nonlinear-static analysis and an ordered load path. Each stage lists absolute factors by load case; unlisted cases have zero factor. Its explicit self-weight factor multiplies the saved gravity load and must be zero if self-weight is disabled. A limited experimental OpenSees adapter consumes a subset of this request; unsupported features are rejected explicitly. Adapters must validate feature support and return unsupported or unresolved rather than change meanings. No conversion from old voxel snapshots is automatic because coincident joints, loads and catalog assumptions cannot always be recovered safely.
 
-`createStructuralStateService(storage)` stores validated immutable revisions under encoded model/revision keys using a synchronous `getItem`/`setItem` interface. It refuses to overwrite a different or corrupt revision, checks parent existence within the model, and returns explicit outcomes; loading validates again. Each revision is one storage write. This is not an atomic multiplayer turn transaction, conflict-free multi-tab store, directory index, SQLite database or cloud service. The application does not yet call it. Back up browser data independently; storage quotas and deletion remain browser-controlled.
+`createStructuralStateService(storage)` stores validated immutable revisions under encoded model/revision keys using a synchronous `getItem`/`setItem` interface. It refuses to overwrite a different or corrupt revision, checks parent existence within the model, and returns explicit outcomes; loading validates again. Each revision is one storage write. This is not an atomic multiplayer turn transaction, conflict-free multi-tab store, directory index, SQLite database or cloud service. The manual workspace analysis uses this service. Shared table embeds its structural revision and evidence together in the match session. Back up browser data independently; storage quotas and deletion remain browser-controlled.
 
 ## Browser saves
 
@@ -104,7 +104,7 @@ Start with axial tension/compression, cantilever bending and torsion, a simply s
 
 [Element representation criteria](element-representation-criteria.md) require versioned section dimensions/roll, spring parameters, planar/trichord assembly topology, stable parent/part/interface IDs and cable geometry metadata as appropriate. Current browser member types and preliminary analytical definitions do not cover that complete catalogue. Extend validated schemas deliberately before persistence or numerical use; readable thickness, selection targets and LOD are presentation preferences and must not change authoritative physical data. Migration, assembly cards and solver mapping remain future work.
 
-Solver outputs are stored separately from model revisions; see [structural analysis results](analysis-results.md) for the run contract, validity and transactional limits.
+See [structural analysis results](analysis-results.md) for the standalone run archive, embedded turn evidence, and transactional limits.
 
 ## Complete match and quarter-interface requirements
 

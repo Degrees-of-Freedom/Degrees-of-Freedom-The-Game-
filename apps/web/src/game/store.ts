@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { assessTurn } from "./turnAnalysis";
+import { analyzeCompletedTurn } from "./turnAnalysis";
 import { exampleModel } from "./examples";
 import {
   nodeKey,
@@ -279,9 +279,14 @@ export const useGameStore = create<GameState>((set, get) => {
     },
     endTurn: () => {
       const s = get();
-      return s.mode === "multiplayer" && s.turn
-        ? turnTransition(endTurn(s.turn, s.turn.turn, assessTurn(s.turn)))
-        : "No multiplayer game is active";
+      if (s.mode !== "multiplayer" || !s.turn) return "No multiplayer game is active";
+      if (s.turn.finished) return "This turn has already ended.";
+      try {
+        const { status, analysis } = analyzeCompletedTurn(s.turn);
+        return turnTransition(endTurn(s.turn, s.turn.turn, status, analysis));
+      } catch {
+        return "Could not prepare the turn analysis. The draft is still open.";
+      }
     },
     newMatch: () => {
       const s = get();
