@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model core checks</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 32px; color: #2f3640; background: #f6f1e7; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  #summary { font-weight: 600; margin: 0 0 16px; }
+  #summary.ok { color: #2f7d5b; }
+  #summary.bad { color: #b3402f; }
+  li { margin: 2px 0; }
+  li.fail { color: #b3402f; font-weight: 600; }
+  li.pass { color: #5b6470; }
+  code { background: #ebe3d2; padding: 0 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<h1>Model core checks</h1>
+<p>Open this page in a browser to run the checks for <code>model-core.js</code>. No install needed.</p>
+<p id="summary">Running...</p>
+<ul id="log"></ul>
+
+<script src="model-core.js"></script>
+<script>
+(function () {
+  'use strict';
+  const results = { passed: 0, failed: 0, failures: [] };
+  const log = document.getElementById('log');
+
+  function record(name, ok, detail) {
+    const li = document.createElement('li');
+    li.className = ok ? 'pass' : 'fail';
+    li.textContent = (ok ? 'pass  ' : 'FAIL  ') + name + (ok || !detail ? '' : ' - ' + detail);
+    log.appendChild(li);
+    if (ok) results.passed++;
+    else { results.failed++; results.failures.push(name + (detail ? ' - ' + detail : '')); }
+  }
+
+  function test(name, fn) {
+    try { fn(); record(name, true); }
+    catch (error) { record(name, false, error && error.message); }
+  }
+
+  function assert(condition, message) { if (!condition) throw new Error(message || 'assertion failed'); }
+  function equal(actual, expected, message) {
+    const a = JSON.stringify(actual), e = JSON.stringify(expected);
+    if (a !== e) throw new Error((message || 'not equal') + ': got ' + a + ', expected ' + e);
+  }
+
+  const make = (options) => DOFCore.createModel(options);
+  const elementsOf = (model, memberId) => model.toSolverInput().elements.filter((e) => e.member === memberId);
+
+  test('a member creates a node at each end', () => {
+    const m = make();
+    const r = m.addMember([0, 0, 0], [0, 0, 3]);
+    assert(r.ok, 'addMember failed');
+    equal(m.nodes.length, 2);
+    equal(m.members[0].length, 3);
+    equal(m.members[0].role, 'column');
+  });
+
+  test('ground nodes get a pinned support, raised nodes are free', () => {
+    const m = make();
+    m.addMember([0, 0, 0], [0, 0, 3]);
+    equal(m.nodeAt([0, 0, 0]).support, 'pinned');
+    equal(m.nodeAt([0, 0, 0]).restraint, [true, true, true, false, false, false]);
+    equal(m.nodeAt([0, 0, 3]).support, 'free');
+  });
+
+  test('auto ground support can be switched off', () => {
+    const m = make({ autoGroundSupport: null });
+    m.addMember([0, 0, 0], [0, 0, 3]);
+    equal(m.nodeAt([0, 0, 0]).support, 'free');
+  });
+
+  test('members are classified as column, beam or brace', () => {
+    const m = make();
+    m.addMember([0, 0, 0], [0, 0, 2]);
+    m.addMember([0, 0, 2], [2, 0, 2]);
+    m.addMember([0, 0, 0], [2, 0, 2]);
+    equal(m.members.map((x) => x.role), ['column', 'beam', 'brace']);
+    equal(m.members[2].length, 2.8284);
+  });
+
+  test('invalid members are refused without changing the model', () => {
+    const m = make();
+    m.addMember([0, 0, 0], [0, 0, 3]);
+    const before = JSON.stringify(m.snapshot());
+    equal(m.addMember([0, 0, 0], [0, 0, 0]).reason, 'zero-length');
+    equal(m.addMember([0, 0, 0], [0, 0, 99]).reason, 'out-of-bounds');
+    equal(m.addMember([0, 0, 0], [0, 0, -1]).reason, 'out-of-bounds');
+    equal(m.addMember([0, 0, 3], [0, 0, 0]).reason, 'overlap', 'exact duplicate');
+    equal(m.addMember([0, 0, 1], [0, 0, 4]).reason, 'overlap', 'partial overlap');
+    equal(m.addMember([0, 0, 1], [0, 0, 2]).reason, 'overlap', 'inside an existing member');
+    equal(m.addMember([0.5, 0, 0], [1, 0, 0]).reason, 'invalid-point');
+    equal(JSON.stringify(m.snapshot()), before);
+  });
+
+  test('a member can continue in line from the end of another', () => {
+    const m = make();
+    m.addMember([0, 0, 0], [0, 0, 2]);
+    assert(m.addMember([0, 0, 2], [0, 0, 4]).ok);
+    equal(m.nodes.length, 3);
+  });
+
+  test('direction and length limits are optional', () => {
+    const free = make();
+    assert(free.addMember([0, 0, 0], [1, 2, 0]).ok, 'any direction by default');
+    const strict = make({ directions: '26', maxSteps: 3 });
+    equal(strict.addMember([0, 0, 0], [1, 2, 0]).reason, 'direction');
+    equal(strict.addMember([0, 0, 0], [0, 0, 4]).reason, 'too-long');
+    assert(strict.addMember([0, 0, 0], [3, 3, 3]).ok, 'space diagonal allowed');
+  });
+
+  test('a member ending on another splits it into two continuous elements', () => {
+    const m = make();
+    const column = m.addMember([0, 0, 0], [0, 0, 4]).id;
+    m.addMember([2, 0, 2], [0, 0, 2]);
+    equal(m.nodes.length, 4, 'two column ends, the junction and the far beam end');
+    const parts = elementsOf(m, column);
+    equal(parts.length, 2);
+    equal(parts.map((e) => e.length), [2, 2]);
+    equal(parts[0].nodeJ, parts[1].nodeI, 'elements share the junction node');
+    equal(parts[0].releaseJ, [false, false, false, false, false, false]);
+  });
+
+  test('members crossing on a lattice point are joined there', () => {
+    const m = make();
+    const a = m.addMember([0, 2, 0], [4, 2, 0]).id;
+    const b = m.addMember([2, 0, 0], [2, 4, 0]).id;
+    assert(m.nodeAt([2, 2, 0]), 'junction node exists');
+    equal(m.nodes.length, 5);
+    equal(elementsOf(m, a).length, 2);
+    m.removeMember(b);
+    equal(m.nodeAt([2, 2, 0]), null, 'junction goes away with the crossing member');
+    equal(elementsOf(m, a).length, 1);
+  });
+
+  test('members crossing between lattice points are not joined', () => {
+    const m = make();
+    m.addMember([0, 0, 0], [1, 0, 1]);
+    m.addMember([1, 0, 0], [0, 0, 1]);
+    equal(m.nodes.length, 4);
+    equal(m.toSolverInput().elements.length, 2);
+  });
+
+  test('a pinned joint releases member ends but not members running through', () => {
+    const m = make();
+    const column = m.addMember([0, 0, 0], [0, 0, 4]).id;
+    const beam = m.addMember([0, 0, 2], [3, 0, 2]).id;
+    const joint = m.nodeAt([0, 0, 2]).id;
+    equal(m.toggleJoint(joint).joint, 'pinned');
+    const pinned = [false, false, false, false, true, true];
+    const none = [false, false, false, false, false, false];
+    const beamEnd = elementsOf(m, beam)[0];
+    equal(beamEnd.nodeI, joint);
+    equal(beamEnd.releaseI, pinned, 'beam end at the joint is released');
+    equal(beamEnd.releaseJ, none, 'far beam end is on a rigid node');
+    for (const part of elementsOf(m, column)) {
+      equal(part.releaseI, none, 'column stays continuous');
+      equal(part.releaseJ, none, 'column stays continuous');
+    }
+  });
+
+  test('supports: presets, cycling and single-DOF toggles', () => {
+    const m = make();
+    m.addMember([0, 0, 0], [0, 0, 3]);
+    const base = m.nodeAt([0, 0, 0]).id;
+    equal(m.cycleSupport(base).support, 'fixed');
+    equal(m.node(base).restraint, [true, true, true, true, true, true]);
+    equal(m.cycleSupport(base).support, 'roller');
+    equal(m.node(base).restraint, [false, false, true, false, false, false]);
+    equal(m.cycleSupport(base).support, 'free');
+    equal(m.cycleSupport(base).support, 'pinned');
+    m.toggleDof(base, 'Rz');
+    equal(m.node(base).restraint, [true, true, true, false, false, true]);
+    equal(m.node(base).support, 'custom');
+    m.toggleDof(base, 0);
+    equal(m.node(base).restraint[0], false);
+    equal(m.toggleDof(base, 9).reason, 'invalid-dof');
+    equal(m.setSupport(base, 'welded').reason, 'invalid-preset');
+  });
+
+  test('loads: place, replace, redirect and remove', () => {
+    const m = make();
+    m.addMember([0, 0, 0], [0, 0, 3]);
+    const top = m.nodeAt([0, 0, 3]).id;
+    const a = m.addLoad(top, '-Z', 10).id;
+    equal(m.loads[0].force, [0, 0, -10]);
+    equal(m.addLoad(top, '-Z', 20).id, a, 'same direction replaces the magnitude');
+    equal(m.loads.length, 1);
+    equal(m.loads[0].magnitude, 20);
+    const c = m.addLoad(top, [2, 0, 0], 5).id;
+    equal(m.load(c).direction, [1, 0, 0], 'direction is normalised');
+    equal(m.updateLoad(c, { direction: '-Z' }).reason, 'direction-taken');
+    assert(m.updateLoad(c, { direction: '+Y', magnitude: 50 }).ok);
+    equal(m.load(c).force, [0, 50, 0]);
+    equal(m.addLoad(top, '-Z', 0).reason, 'invalid-magnitude');
+    equal(m.addLoad(top, 'sideways', 5).reason, 'invalid-direction');
+    equal(m.addLoad('n999', '-Z', 5).reason, 'no-node');
+    m.removeLoad(a);
+    equal(m.loads.length, 1);
+    equal(m.toSolverInput().loads[0].moment, [0, 0, 0]);
+  });
+
+  test('a load part-way along a member adds a node and splits the member', () => {
+    const m = make();
+    const beam = m.addMember([0, 0, 2], [4, 0, 2]).id;
+    const load = m.addLoad([2, 0, 2], '-Z', 10).id;
+    assert(m.nodeAt([2, 0, 2]), 'node under the load');
+    equal(elementsOf(m, beam).map((e) => e.length), [2, 2]);
+    m.removeLoad(load);
+    equal(m.nodeAt([2, 0, 2]), null, 'node goes away with the load');
+    equal(elementsOf(m, beam).length, 1);
+  });
+
+  test('an explicit connection point stays until it is removed', () => {
+    const m = make();
+    const beam = m.addMember([0, 0, 2], [4, 0, 2]).id;
+    const mid = m.ensureNode([1, 0, 2]).id;
+    equal(elementsOf(m, beam).map((e) => e.length), [1, 3]);
+    assert(m.setSupport(mid, 'roller').ok);
+    assert(m.removeNode(mid).ok);
+    equal(m.nodeAt([1, 0, 2]), null);
+    equal(m.members.length, 1, 'the member running through survives');
+  });
+
+  test('removing a node removes the members that end on it and its loads', () => {
+    const m = make();
+    m.addMember([0, 0, 0], [0, 0, 2]);
+    m.addMember([0, 0, 2], [2, 0, 2]);
+    m.addLoad([0, 0, 2], '-Z', 10);
+    m.removeNode(m.nodeAt([0, 0, 2]).id);
+    equal(m.members.length, 0);
+    equal(m.loads.length, 0);
+    equal(m.nodes.length, 0);
+  });
+
+  test('undo and redo restore the model exactly', () => {
+    const m = make();
+    m.addMember([0, 0, 0], [0, 0, 3]);
+    const one = JSON.stringify(m.snapshot());
+    m.addMember([0, 0, 3], [3, 0, 3]);
+    m.addLoad([3, 0, 3], '-Z', 10);
+    const three = JSON.stringify(m.snapshot());
+    assert(m.undo() && m.undo());
+    equal(JSON.stringify(m.snapshot()), one);
+    assert(m.redo() && m.redo());
+    equal(JSON.stringify(m.snapshot()), three);
+    assert(!m.canRedo);
+    m.undo(); m.undo(); m.undo();
+    equal(m.members.length, 0);
+    assert(!m.undo(), 'nothing left to undo');
+  });
+
+  test('a batch is one undo step and one change event', () => {
+    const m = make();
+    let events = 0;
+    m.on('change', () => events++);
+    m.batch(() => {
+      m.addMember([0, 0, 0], [0, 0, 3]);
+      m.addMember([3, 0, 0], [3, 0, 3]);
+      m.addMember([0, 0, 3], [3, 0, 3]);
+    });
+    equal(events, 1);
+    equal(m.members.length, 3);
+    m.undo();
+    equal(m.members.length, 0);
+  });
+
+  test('change events report what was added and removed', () => {
+    const m = make();
+    const seen = [];
+    const off = m.on('change', (change) => seen.push(change));
+    const id = m.addMember([0, 0, 0], [0, 0, 3]).id;
+    equal(seen[0].reason, 'addMember');
+    equal(seen[0].added.members, [id]);
+    equal(seen[0].added.nodes.length, 2);
+    m.removeMember(id);
+    equal(seen[1].removed.members, [id]);
+    equal(seen[1].removed.nodes.length, 2);
+    m.undo();
+    equal(seen[2].reason, 'undo');
+    equal(seen[2].added.members, [id]);
+    off();
+    m.clear();
+    equal(seen.length, 3, 'unsubscribed');
+  });
+
+  test('ids are not reused after clear', () => {
+    const m = make();
+    const first = m.addMember([0, 0, 0], [0, 0, 3]).id;
+    m.clear();
+    const second = m.addMember([0, 0, 0], [0, 0, 3]).id;
+    assert(first !== second, 'member id was reused');
+  });
+
+  test('connectivity finds pieces with no path to a support', () => {
+    const m = make();
+    m.addMember([0, 0, 0], [0, 0, 3]);
+    assert(m.connectivity().allGrounded);
+    const floating = m.addMember([4, 4, 2], [6, 4, 2]).id;
+    const c = m.connectivity();
+    assert(!c.allGrounded);
+    equal(c.floatingMembers, [floating]);
+    equal(c.floatingNodes.length, 2);
+    m.cycleSupport(m.nodeAt([0, 0, 0]).id); // fixed
+    m.cycleSupport(m.nodeAt([0, 0, 0]).id); // roller still holds Tz
+    equal(m.connectivity().floatingMembers, [floating]);
+    m.cycleSupport(m.nodeAt([0, 0, 0]).id); // free
+    equal(m.connectivity().floatingMembers.length, 2);
+  });
+
+  test('solver input is plain JSON and internally consistent', () => {
+    const m = make();
+    m.loadExample('tower');
+    const doc = m.toSolverInput();
+    equal(JSON.parse(JSON.stringify(doc)), doc, 'survives a JSON round trip');
+    equal(doc.schema, 'dof-game/solver-input@0-draft');
+    equal(doc.dofOrder, ['Tx', 'Ty', 'Tz', 'Rx', 'Ry', 'Rz']);
+    const nodeIds = new Set(doc.nodes.map((n) => n.id));
+    equal(nodeIds.size, doc.nodes.length, 'node ids are unique');
+    const positions = new Set(doc.nodes.map((n) => n.grid.join()));
+    equal(positions.size, doc.nodes.length, 'one node per lattice point');
+    for (const e of doc.elements) {
+      assert(nodeIds.has(e.nodeI) && nodeIds.has(e.nodeJ), 'element ' + e.id + ' has unknown nodes');
+      assert(e.nodeI !== e.nodeJ, 'element ' + e.id + ' is zero length');
+      equal(e.releaseI.length, 6);
+      equal(e.releaseJ.length, 6);
+    }
+    for (const member of doc.members) {
+      const parts = doc.elements.filter((e) => e.member === member.id);
+      equal(parts.map((e) => e.id), member.elements);
+      const total = parts.reduce((sum, e) => sum + e.length, 0);
+      assert(Math.abs(total - member.length) < 1e-3, 'elements of ' + member.id + ' do not add up to its length');
+      equal(parts[0].nodeI, member.nodeI);
+      equal(parts[parts.length - 1].nodeJ, member.nodeJ);
+    }
+    for (const load of doc.loads) assert(nodeIds.has(load.node), 'load on unknown node');
+    for (const n of doc.nodes) {
+      equal(n.restraint.length, 6);
+      equal(n.position, n.grid.map((c) => c * doc.grid.spacing));
+    }
+  });
+
+  test('the tower example has the features it is meant to show', () => {
+    const m = make();
+    assert(m.loadExample('tower').ok);
+    const s = m.stats();
+    equal(s.members, 20);
+    equal(s.loads, 2);
+    equal(s.supports, 4);
+    equal(s.pinnedJoints, 1);
+    equal(m.nodeAt([3, 3, 0]).support, 'fixed');
+    assert(m.connectivity().allGrounded);
+    const doc = m.toSolverInput();
+    const continuous = doc.members.filter((x) => x.elements.length === 2 && x.role === 'column');
+    equal(continuous.length, 2, 'two columns run through the first floor');
+    const released = doc.elements.filter((e) => e.releaseI[4] || e.releaseJ[4]);
+    equal(released.length, 2, 'arm and prop are pinned at the tip');
+    m.undo();
+    equal(m.members.length, 0, 'the example is one undo step');
+    assert(m.loadExample('portal').ok);
+    equal(m.stats().members, 3);
+    equal(m.loadExample('castle').reason, 'no-example');
+  });
+
+  test('placeholder results cover every member and node and say they are fake', () => {
+    const m = make();
+    m.loadExample('tower');
+    const r = m.mockResults();
+    equal(r.mock, true);
+    equal(r.stable, null);
+    equal(Object.keys(r.members).sort(), m.members.map((x) => x.id).sort());
+    equal(Object.keys(r.nodes).sort(), m.nodes.map((x) => x.id).sort());
+    for (const id in r.members) {
+      const u = r.members[id].utilization;
+      assert(u >= 0 && u <= 1.5 && Number.isFinite(r.members[id].axial), 'bad value for ' + id);
+    }
+    const base = m.nodeAt([3, 3, 0]).id;
+    equal(r.nodes[base].displacement, [0, 0, 0], 'a restrained node does not move');
+    equal(JSON.parse(JSON.stringify(r)), r);
+  });
+
+  test('snapshot and restore round-trip the game state', () => {
+    const m = make();
+    m.loadExample('portal');
+    m.endTurn();
+    const saved = m.snapshot();
+    const other = make();
+    let reset = null;
+    other.on('change', (change) => { reset = change.reset; });
+    assert(other.restore(saved).ok);
+    equal(reset, true);
+    equal(other.snapshot(), saved);
+    equal(other.turn, { player: 2, number: 2 });
+    equal(other.restore({}).reason, 'invalid-snapshot');
+  });
+
+  test('turns alternate between players and tag new pieces', () => {
+    const m = make();
+    const a = m.addMember([0, 0, 0], [0, 0, 3]).id;
+    equal(m.endTurn().turn, { player: 2, number: 2 });
+    const c = m.addMember([3, 0, 0], [3, 0, 3]).id;
+    equal(m.member(a).player, 1);
+    equal(m.member(c).player, 2);
+    equal(m.endTurn().turn, { player: 1, number: 3 });
+  });
+
+  test('reachable points follow the lattice directions, bounds and existing members', () => {
+    const m = make();
+    const fromCorner = m.reachableFrom([0, 0, 0], { maxSteps: 2 });
+    equal(fromCorner.length, 14, 'seven directions stay inside the corner, two lengths each');
+    assert(fromCorner.every((r) => r.point.every((c) => c >= 0)));
+    const diagonal = fromCorner.find((r) => r.point.join() === '2,2,2');
+    equal(diagonal.steps, 2);
+    equal(diagonal.length, 3.4641);
+    equal(diagonal.node, null);
+    m.addMember([0, 0, 0], [0, 0, 2]);
+    const after = m.reachableFrom([0, 0, 0], { maxSteps: 2 });
+    equal(after.length, 12, 'the occupied vertical direction is no longer offered');
+    const top = m.nodeAt([0, 0, 2]).id;
+    const toTop = m.reachableFrom([2, 0, 2], { maxSteps: 2 }).find((r) => r.point.join() === '0,0,2');
+    equal(toTop.node, top, 'reports the node already on a reachable point');
+    equal(m.reachableFrom([4, 4, 3], { minSteps: 3, maxSteps: 3 }).every((r) => r.steps === 3), true);
+    equal(m.reachableFrom([99, 0, 0]).length, 0);
+  });
+
+  test('view data stored with setMeta follows undo and stays out of the solver input', () => {
+    const m = make();
+    m.batch(() => {
+      m.setMeta('cells', [[0, 0, 0]]);
+      m.addMember([0, 0, 0], [0, 0, 1]);
+    });
+    equal(m.getMeta('cells'), [[0, 0, 0]]);
+    m.setMeta('cells', [[0, 0, 0], [1, 0, 0]]);
+    m.undo();
+    equal(m.getMeta('cells'), [[0, 0, 0]]);
+    m.undo();
+    equal(m.getMeta('cells'), undefined);
+    m.redo();
+    equal(m.getMeta('cells'), [[0, 0, 0]]);
+    assert(!JSON.stringify(m.toSolverInput()).includes('cells'));
+    m.clear();
+    equal(m.getMeta('cells'), undefined);
+  });
+
+  test('stats measure size without any analysis', () => {
+    const m = make();
+    m.loadExample('portal');
+    const s = m.stats();
+    equal(s.members, 3);
+    equal(s.totalLength, 9);
+    equal(s.totalLoad, 15);
+    equal(s.supports, 2);
+    equal(s.nodes, 5);
+  });
+
+  const summary = document.getElementById('summary');
+  summary.textContent = results.failed === 0
+    ? 'All ' + results.passed + ' checks passed.'
+    : results.failed + ' of ' + (results.passed + results.failed) + ' checks FAILED.';
+  summary.className = results.failed === 0 ? 'ok' : 'bad';
+  window.__coreTest = results;
+})();
+</script>
+</body>
+</html>
