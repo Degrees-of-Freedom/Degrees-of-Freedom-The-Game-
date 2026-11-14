@@ -22,6 +22,8 @@ Separate a versioned card definition from its unique dealt instance, the physica
 
 ## 2. Minimum definition contract
 
+In the current playtest, every printing has a definition ID and version, and every dealt card has a separate instance ID. New Shared tables use the four implemented frame families with card-gravity verification. Presetless version-one saves replay their historical five-family deck, including experimental cables. The frame sections retain the existing voxel properties and expose SI physical definitions and nominal geometry. The provisional CHS, helical spring, planar and trichord definitions in `game/cardCatalogue.ts` await family-specific verification. See the [criteria ledger](criteria-ledger.md).
+
 | Record | Required authored data |
 | --- | --- |
 | All cards | Stable definition ID/version, family/category, name, description, allowed choices, required rules/solver capabilities, public preview and any instance-to-object mappings. |

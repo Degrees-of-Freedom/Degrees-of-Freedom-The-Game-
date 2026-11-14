@@ -64,7 +64,11 @@ export function resolveCardDefinition(definitionId: string, version: string): Re
 export function printedCards(index: number, catalogue: CatalogueId) {
   const types = memberDeckTypes(catalogue);
   const type = types[index % types.length];
-  const maxSteps = 1 + index % 4;
+  // Shift the reach once per four-card block in the scored deck so each of
+  // its four families is dealt at all four printed reaches. Legacy shuffling
+  // retains the original five-family pattern and all its instance identities.
+  const reachIndex = catalogue === SCORED_CATALOGUE ? index + Math.floor(index / types.length) : index;
+  const maxSteps = 1 + reachIndex % 4;
   const load = GRAVITY_CARDS_KN[index % GRAVITY_CARDS_KN.length];
   const profile = index % 2 === 0 ? 'fixed' : 'ball';
   return {

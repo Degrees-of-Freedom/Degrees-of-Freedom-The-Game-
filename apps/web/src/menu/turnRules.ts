@@ -24,6 +24,7 @@ export const PLAYTEST_SETTINGS = [
   "Each player starts with one foundation and a connected column.",
   "Unplayed cards stay in hand.",
   "Connection cards are fixed or ball.",
+  "New matches deal SHS, glulam, IPE and HEB members. Cables remain available in older playtests. Springs, round HSS and truss assemblies are candidate definitions awaiting validation.",
 ];
 
 /** What the current playtest does not enforce yet, stated next to the rules. */

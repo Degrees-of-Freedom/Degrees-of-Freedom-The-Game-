@@ -1,6 +1,7 @@
 import { useGameStore } from "../game/store";
 import { activeTurnHand, KIT_PLAYTEST } from "../game/turns";
 import { TurnQuarterTargets } from "./TurnQuarterTargets";
+import { CardDefinitionDetails } from "./CardDefinitionDetails";
 import { connectionLocations, findPort, portLabel } from "../game/turnPorts";
 
 type Game = ReturnType<typeof useGameStore.getState>;
@@ -75,6 +76,7 @@ export function TurnPanel({
                   ? "Choose an unconnected member end below. Other players’ ends are available too."
                   : "Select a card to play it."}
           </p>
+          {selectedCard && <CardDefinitionDetails card={selectedCard} />}
           {selectedCard && <TurnQuarterTargets key={selectedCard.id} game={game} card={selectedCard} onMessage={onMessage} />}
           {selectedCard?.kind === "connection" && (
             <div className="turn-cards">
