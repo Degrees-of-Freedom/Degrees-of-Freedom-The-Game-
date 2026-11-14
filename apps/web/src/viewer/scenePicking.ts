@@ -10,6 +10,7 @@ import {
   type Tool,
 } from '../game/model';
 import { groundK } from '../game/terrain';
+import { bayBraceCandidates } from '../game/bayBrace';
 import { sceneLevel } from './sceneLevel';
 import { MEMBER_TYPES, remaining } from '../game/inventory';
 import { memberIssue, nodeItemIssue } from '../game/placementRules';
@@ -25,6 +26,7 @@ import type { SceneView } from './sceneView';
 
 type Hit =
   | BayHit
+  | { kind: 'brace'; a: GridPoint; b: GridPoint; issue: string | null }
   | ({ kind: 'connection' } & ConnectionTarget)
   | { kind: 'point'; p: GridPoint; issue: string | null }
   | { kind: 'member'; id: number }
@@ -108,6 +110,25 @@ export function createPicker(
       if (hit) {
         ghost.material.color.set('#f6ad49');
         ghost.visible = true;
+      }
+    } else if (tool === 'brace') {
+      let closest = 16;
+      for (const [a, b] of bayBraceCandidates(s.model, getView().baySize ?? DEFAULT_BAY_SIZE)) {
+        const from = new THREE.Vector3(...a).multiplyScalar(CELL_SIZE);
+        const to = new THREE.Vector3(...b).multiplyScalar(CELL_SIZE);
+        const [ax, ay, az] = screen(from);
+        const [bx, by, bz] = screen(to);
+        const dx = bx - ax, dy = by - ay;
+        const t = THREE.MathUtils.clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1), 0.12, 0.88);
+        const distance = Math.hypot(ax + t * dx - x, ay + t * dy - y);
+        if (az < -1 || az >= 1 || bz < -1 || bz >= 1 || distance >= closest) continue;
+        closest = distance;
+        const issue = memberIssue(level, s.model, a, b, 'shs');
+        hit = { kind: 'brace', a, b, issue };
+        preview.geometry.dispose();
+        preview.geometry = new THREE.BufferGeometry().setFromPoints([from, to]);
+        preview.material.color.set(issue ? '#e75151' : '#5578c2');
+        preview.visible = true;
       }
     } else if (tool === 'inspect' || tool === 'delete' || tool === 'swap') {
       if (
@@ -231,7 +252,9 @@ export function createPicker(
           ? `Member ${hit.id}`
           : hit?.kind === 'node'
             ? `Node ${hit.key}`
-            : hit?.kind === 'connection'
+            : hit?.kind === 'brace'
+              ? hit.issue ?? 'Place panel brace'
+              : hit?.kind === 'connection'
               ? ["Connect member", hit.memberId, "end", hit.end.toUpperCase()].join(" ")
               : '';
     return hit;

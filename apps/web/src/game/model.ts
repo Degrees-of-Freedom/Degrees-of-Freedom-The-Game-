@@ -1,6 +1,6 @@
 export type MemberType = 'shs' | 'glulam' | 'ipe' | 'heb' | 'cable';
 export type NodeItem = 'joint' | 'found' | 'load';
-export type Tool = MemberType | NodeItem | 'inspect' | 'delete' | 'swap';
+export type Tool = MemberType | NodeItem | 'brace' | 'inspect' | 'delete' | 'swap';
 export type LevelId =
   | 'tower1'
   | 'tower2'

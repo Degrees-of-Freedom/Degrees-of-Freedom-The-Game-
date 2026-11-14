@@ -131,6 +131,8 @@ export function bindSceneInteraction(
         s.setSelected({ type: 'node', key });
         getView().onMessage?.('');
       } else getView().onMessage?.(hit.issue);
+    } else if (hit?.kind === 'brace') {
+      getView().onMessage?.(hit.issue ?? s.addMember(hit.a, hit.b, 'shs') ?? '');
     } else if (hit?.kind === 'bay') {
       getView().onMessage?.(hit.issue ?? s.addBay(hit.p, hit.size, hit.type) ?? '');
     } else if (hit?.kind === 'point' && hit.issue)
@@ -140,8 +142,12 @@ export function bindSceneInteraction(
         const issue = s.chainStart ? s.addMember(parseNodeKey(s.chainStart), hit.p, s.tool as MemberType) : null;
         getView().onMessage?.(issue ?? '');
         if (!issue) s.setChainStart(nodeKey(...hit.p));
-      } else
-        getView().onMessage?.(s.toggleAttr(hit.p, s.tool as NodeItem) ?? '');
+      } else {
+        const issue = s.toggleAttr(hit.p, s.tool as NodeItem);
+        if (!issue && s.style !== 'engineering' && s.tool === 'load')
+          s.setSelected({ type: 'node', key: nodeKey(...hit.p) });
+        getView().onMessage?.(issue ?? '');
+      }
     }
     pick(e);
   };
