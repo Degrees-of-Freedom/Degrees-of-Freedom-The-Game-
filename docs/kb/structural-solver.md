@@ -16,6 +16,8 @@ validated_against:
   - docs/kb/solver-criteria.md
   - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria-gap-analysis.md
+  - "Tania branch commit de5d5be: docs/kb/structural-solver.md"
+  - "Tania branch commit b795342: prototypes/voxel-struct/README.md"
 owner: unknown
 status: partial
 ---
@@ -31,6 +33,16 @@ One backend does implement the shared contract: an OpenSees service in `services
 The owner-supplied [solver criteria](solver-criteria.md) are the proposed implementation requirements. They specify intentional member-end connectivity, six-axis connection laws, exact rigid constraints, verified linear and nonlinear physics, component-scoped stability and validity, signed reactions, and deterministic turn analysis. Their gameplay defaults, numerical gates, and performance targets remain proposals. The [gap analysis and milestones](solver-criteria-gap-analysis.md) compare them with current code and tests; no milestone is accepted as complete.
 
 The [turn criteria](turn-criteria.md) now define the confirmed two-deck draw/play limits and per-end connection-card model. End-turn assessment compares the full shared structure with the prior committed baseline. The game engine owns issue responsibility and penalties; the solver returns physical classifications and validity. This system is not implemented.
+
+## Member and connection direction from Tania's branch
+
+Tania's `tania` branch records design discussion in commit `de5d5be` and a separate standalone prototype in `b795342`. The branch has not been merged into this baseline. Its discussion records the owner's wish for beams and all combinations of the six independent connection restraints; it also records team interest in tension-only cables and springs with a limited set of stiffnesses, and no compression-only struts. Spring stiffness values, directions, units and behavior remain undefined. Truss bars were discussed there without explicit confirmation. Surface elements were outside the proposed hackathon scope. These are design inputs, not evidence of implemented physics or a finalized deck.
+
+The newer [solver criteria](solver-criteria.md#2-core-model-requirements) propose beam-column elements, axial braces and tension-only cables. The [turn criteria](turn-criteria.md#2-match-setup-and-deck-1) list the current voxel SHS, glulam, IPE, HEB and cable as examples, not finalized cards. An axial brace in those criteria is not a decision to add a compression-only strut; its exact section and allowed force behavior still need definition. The criteria do not currently settle how a **standalone spring element** fits into the deck or solver; elastic connection laws are not automatically a substitute. Reconcile Tania's spring proposal and the later axial-brace proposal with the owner before fixing the general element catalog.
+
+Tania's six independently restrained/released axes yield 64 binary combinations; the newer [connection proposal](turn-criteria.md#3-deck-2-six-dof-connection-design) extends each axis to free, locked or elastic behavior and describes example presets. Those presets are proposals, not a finalized deck or proof that all combinations are implemented. One confirmed connection card attaches one member end to a shared joint; independent end laws, axes, exact locks and per-card stiffness/capacity remain necessary. The current voxel node-wide joint flag and OpenSees fixed/pinned end choices do not cover them.
+
+Tania's standalone branch prototype exposes one beam/column and one cable, displays springs as planned but not placeable, and retains legacy section data; its solver uses provisional fixed properties and pinned/moment behavior. This is a separate prototype, not the merged web app's catalog and not a change to the current state schema.
 
 ## Model and interface today
 

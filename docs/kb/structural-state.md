@@ -11,6 +11,9 @@ validated_against:
   - apps/web/src/solver/voxelSections.ts
   - apps/web/src/solver/voxelLoads.ts
   - docs/kb/solver-criteria.md
+  - docs/kb/turn-criteria.md
+  - docs/kb/structural-solver.md
+  - apps/web/src/game/structuralModel.ts
 owner: unknown
 status: partial
 ---
@@ -45,6 +48,22 @@ Member IDs are positive unique integers below `nextId`; endpoints are distinct n
 `toVoxelInput` resolves a game model and level into the current solver's model and level inputs. `createVoxelAnalysisSnapshot` validates and copies those inputs into a separate JSON envelope: `format: dof-voxel-analysis`, `version: 1`, `model`, `level`, and `solverProfile`. The level records resolved loading and objective inputs, including target ground heights; unlimited budget is JSON null and restored to Infinity. The snapshot excludes results and UI state. `recomposeVoxelAnalysis` validates the envelope, reconstructs independent input objects, and refuses a profile mismatch. Both analysis and auto-design use this path.
 
 The profile records the experimental algorithm identifier plus current grid size, section catalog, load combinations and load factors. Since the solver reads those values from code, the profile prevents replay after their values differ; it does not run an old solver or independently capture every source-code dependency. Any behavior-changing solver edit must bump the algorithm identifier before claiming compatible replay. Store the application/solver revision with any benchmark run; cross-version numerical equivalence is not guaranteed. The voxel solver is approximate and uses metres and kN; its output is not a verified engineering result.
+
+## Review against the latest criteria
+
+The v1 save and voxel snapshot preserve only the current prototype. They cannot yet serve as authoritative turn or general solver state:
+
+| Requirement | Current state and gap |
+| --- | --- |
+| Member families and card properties | Five fixed voxel names are stored. Beam-column and cable have experimental implementations; no distinct axial brace or standalone spring is representable. A section name refers to code-defined values, not per-card resolved properties, section orientation, or versioned card identity. The voxel profile records a catalog but does not make it a portable independent solver model. The spring and brace decisions are described in [member direction](structural-solver.md#member-and-connection-direction-from-tanias-branch). |
+| Cable state | The voxel solver uses catalog pretension; snapshots do not record per-card cable rest length, initial strain or pretension. Cable active-set behavior is experimental and is not verified nonlinear cable physics. |
+| Explicit connections | A boolean joint at a coordinate affects all attached ends. There are no connection IDs, independently connectable member-end interfaces, six-axis free/locked/elastic laws, orientation, stiffness, capacity, or detached coincident joints. The v1 format cannot express the confirmed per-end card rule. |
+| Foundation and load identities | Foundation and scalar load attributes are keyed by coordinates; there are no separate stable IDs, ownership or explicit member-end targets. Configurable six-DOF restraints, general forces/moments, persistent load-card identities and self-weight policy are absent. |
+| Base-game loading | The confirmed turn rules use persistent downward gravity cards. The legacy voxel solver also generates wind, load combinations and other level loads; replaying it does not implement the base-game load policy. |
+| Committed turns and replay | Neither save includes turn/model revision IDs, card and deck state, ownership, parent revision, analysis options, issue baseline, penalties or atomic turn commits. A detached solver snapshot is not a complete deterministic turn record. |
+| Other solvers | `dof-voxel-analysis` is not the shared SI contract. The current OpenSees stability translation discards section and several load details and treats cables as two-way ties, with a warning. It is not a lossless recomposition of saved voxel state or a general analysis adapter. |
+
+Preserve old saves as legacy prototype data. A future general schema must explicitly model per-end connections and attachments, resolved properties and orientations, loads, and stable object/revision IDs; migrate only when the original meaning is recoverable. An adapter must reject or explicitly label unsupported features. No general schema migration or benchmark fixture suite exists today.
 
 ## General structural snapshot: proposed next schema
 
