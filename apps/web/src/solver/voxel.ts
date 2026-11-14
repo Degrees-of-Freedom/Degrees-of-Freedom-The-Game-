@@ -38,6 +38,7 @@ export function analyzeVoxel(
     floating: [],
     unstable: new Set<string>(),
     mechanism: false,
+    designChecksAvailable: level.loadCase !== 'applied',
   };
   if (!keys.length) {
     out.error = 'Nothing built yet.';
@@ -127,6 +128,10 @@ export function analyzeVoxel(
     const { F, vis } = buildLoads(model, level, ctx, combo);
     const sol = solveCombo(ctx, F);
     if ('fail' in sol) {
+      if (sol.reason) {
+        out.error = sol.reason;
+        return out;
+      }
       out.mechanism = true;
       out.combos.push({ combo, F, vis, fail: true });
       continue;
@@ -178,9 +183,9 @@ export function analyzeVoxel(
   const aMin = out.alpha.length
     ? Math.min(...out.alpha.map((a) => (a === null ? Infinity : a)))
     : Infinity;
-  out.alphaMin = aMin;
+  if (out.designChecksAvailable) out.alphaMin = aMin;
   const amp = aMin > 1 && aMin < 10 ? 1 / (1 - 1 / aMin) : 1;
-  out.amp = amp;
+  if (out.designChecksAvailable) out.amp = amp;
   for (const c of out.combos) delete c.sol; // free memory
   const design = checkDesign(model, ctx, out, amp);
   evaluateObjectives(model, level, ctx, out, aMin, amp, design);

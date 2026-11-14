@@ -91,7 +91,7 @@ export function evaluateObjectives(
       ? 'Structure moves freely: add bracing (triangles) or moment connections'
       : '',
   );
-  if (!out.mechanism) {
+  if (!out.mechanism && out.designChecksAvailable) {
     const aTxt =
       aMin === Infinity
         ? 'no compression'
@@ -191,10 +191,10 @@ export function evaluateObjectives(
     if (targets.some((k) => aid[idx.get(k)!] >= 0))
       add(worst <= 1, 'Weights move ≤ height/250 (SLS)', txt);
   }
-  out.success =
+  out.success = out.designChecksAvailable && (
     O.every((o) => o.ok) && LV.type !== 'sandbox'
       ? true
-      : LV.type === 'sandbox' && O.every((o) => o.ok);
+      : LV.type === 'sandbox' && O.every((o) => o.ok));
   out.cost = costOf(model);
   out.mass = massOf(model);
   out.stars =

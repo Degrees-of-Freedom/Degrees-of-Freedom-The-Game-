@@ -23,12 +23,13 @@ function assemble(ctx: Context, active: Map<Element, boolean>) {
 export function solveCombo(
   ctx: Context,
   F: Float64Array,
-): { fail: true } | Solved {
+): { fail: true; reason?: string } | Solved {
   const { nf, eq, els, NA } = ctx;
   const cables = els.filter((e) => e.cable);
   const active = new Map(cables.map((e) => [e, true]));
   let u = new Float64Array(NA * 6),
     K0 = new Float64Array(nf * nf), solvedDofs: number[] = [];
+  let converged = false;
   for (let iter = 0; iter < 10; iter++) {
     const K = assemble(ctx, active);
     K0 = K.slice();
@@ -82,8 +83,11 @@ export function solveCombo(
         changed = true;
       }
     }
-    if (!changed) break;
+    if (!changed) { converged = true; break; }
   }
+  // The last displacements correspond to the previous active set if it
+  // changes on the final iteration; they must not be reported as a solution.
+  if (!converged) return { fail: true, reason: 'Cable active-set iteration did not converge.' };
   const ef = new Map<Element, ElementForce>();
   for (const e of els) {
     if (e.cable && !active.get(e)) {

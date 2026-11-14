@@ -76,6 +76,8 @@ export type Combo = {
 export interface VoxelAnalysis {
   error?: string;
   mechanism: boolean;
+  /** Strength and stability checks require the factored design combinations. */
+  designChecksAvailable?: boolean;
   floating: string[];
   unstable: Set<string>;
   objectives: { ok: boolean; label: string; detail: string; warn?: boolean }[];

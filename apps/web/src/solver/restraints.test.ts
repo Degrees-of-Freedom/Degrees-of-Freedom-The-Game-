@@ -20,6 +20,11 @@ describe('experimental support and load assembly', () => {
     const theoretical = 10 * 4 ** 3 / (3 * ITEMS.shs.E * ITEMS.shs.Iy);
     expect(combo.u![tip * 6 + axis]).toBeCloseTo(sign * theoretical, 5);
     expect(combo.reac![base][axis]).toBeCloseTo(-sign * 10, 6);
+    expect(result.designChecksAvailable).toBe(false);
+    expect(result.maxU).toBeUndefined();
+    expect(result.alphaMin).toBeUndefined();
+    expect(result.objectives.some((o) => /buckling|capacity|design checks|Connections OK|Foundations OK/i.test(o.label))).toBe(false);
+    expect(result.success).toBe(false);
   });
   it('applies a pinned support mask and reports reactions only on locked axes', () => {
     const model = cantilever('-Z');
