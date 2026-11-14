@@ -75,7 +75,7 @@ export function buildStructure(
         ? playerColors[owner]
         : (palette.roles?.[role] ?? ITEMS[member.type].color);
     let color =
-      v.utilization && result && !result.error
+      v.utilization && result && !result.error && result.designChecksAvailable !== false
         ? result.mechanism
           ? "#9b6bff"
           : u === undefined

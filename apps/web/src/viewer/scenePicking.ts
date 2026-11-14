@@ -319,14 +319,20 @@ export function createPicker(
       return closest;
     }
     function memberTitle(id: number) {
-      const results = getView().result;
-      const demand = results?.error || results?.mechanism ? undefined : results?.members[id];
-      if (!demand) return ['Member', id].join(' ');
-      return [
-        'Member ' + id,
-        (demand.util * 100).toFixed(0) + '% utilization',
-        demand.gov,
-      ].filter(Boolean).join(' · ');
+      const view = getView();
+      const result = view.result;
+      const label = "Member " + id;
+      if (!result || result.error || result.mechanism) return label;
+      const member = result.members[id];
+      if (!member) return label;
+      if (result.designChecksAvailable === false) {
+        const force = result.combos[view.combo]?.ef?.get(member.e)?.f;
+        if (!force) return label;
+        const axial = Math.max(Math.abs(force[0]), Math.abs(force[6]));
+        return [label, "|N| " + axial.toFixed(1) + " kN"].join(" · ");
+      }
+      return [label, (member.util * 100).toFixed(0) + "% utilization", member.gov]
+        .filter(Boolean).join(" · ");
     }
     canvas.title =
       hit?.kind === "point" || hit?.kind === "bay"
