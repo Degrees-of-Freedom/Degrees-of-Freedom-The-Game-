@@ -307,7 +307,7 @@
     <div id="help" class="chip">
       <h3>Controls <button class="btn icon" id="b-help-close" title="Hide (H)" style="height:26px;width:26px">&times;</button></h3>
       <table>
-        <tr><td>1 &middot; Member</td><td>Click a joint, a point on a member or a quay dot. Points bloom; click one to place. Keep clicking to carry on. Or drag from a point and let go.</td></tr>
+        <tr><td>1 &middot; Member</td><td>Click a joint, a point on a member or a quay dot. Points bloom; click one to place. Keep clicking to carry on. Or drag from a point and let go. Members can run between any two grid points up to 4 steps apart. Where points overlap on screen, the wheel or <b>[</b> and <b>]</b> picks the one in front or behind.</td></tr>
         <tr><td>2 &middot; Connection</td><td>Click a joint to open its six degrees of freedom. Click it again to step its type. Click a point on a member to add a joint.</td></tr>
         <tr><td>3 &middot; Load</td><td>Pick direction and amount, click a joint. Click a load to edit it; wheel over it steps the amount.</td></tr>
         <tr><td>Remove</td><td>Right-click, Alt+click, or point and press Delete.</td></tr>
@@ -470,7 +470,7 @@ function main() {
   /** Radius of the sea around the quay. Its rim melts into the sky's horizon band, which keeps the sky in view from above. */
   const SEA_R = 30;
   const REASONS = {
-    'overlap': 'a member is already there', 'direction': 'not on a straight or 45 degree line',
+    'overlap': 'a member is already there',
     'too-long': 'longer than 4 steps', 'out-of-bounds': 'outside the quay', 'zero-length': 'same point'
   };
 
@@ -524,7 +524,7 @@ function main() {
   function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (error) { /* fine */ } }
   document.documentElement.classList.toggle('rm', settings.reducedMotion);
 
-  const core = DOF.createModel({ directions: '26', maxSteps: 4, players: playerCount });
+  const core = DOF.createModel({ directions: 'any', maxSteps: 4, players: playerCount });
   const B = core.options.bounds;
 
   // ================================================ 3. renderer, camera
@@ -1156,7 +1156,8 @@ function main() {
   }
 
   // ================================================ 9a. member tool: bloom
-  const BLOOM_MAX = 128;
+  const BLOOM_MAX = 760; // 9 x 9 x 9 - 1 points are reachable at most
+  const STACK_PX = 3.5; // points this close (px) to the nearest one count as one overlapping stack
   const bloomGeo = new THREE.BufferGeometry();
   const bAttr = {
     position: new THREE.BufferAttribute(new Float32Array(BLOOM_MAX * 3), 3),
@@ -1207,30 +1208,32 @@ function main() {
   scene.add(spokeLines);
 
   /** armed: the lattice point the next member starts from. items: its reachable points. */
-  const mt = { armed: null, origin: new V3(), items: [], spokes: [], byKey: new Map(), t0: 0, target: null, blocked: null };
+  const mt = { armed: null, origin: new V3(), items: [], spokes: [], byKey: new Map(), t0: 0, target: null, blocked: null, stack: [], pin: null };
 
   function arm(p, opts = {}) {
     const quiet = !!opts.quiet;
     mt.armed = p.slice();
     mt.origin.set(...core.position(p));
-    const reach = core.reachableFrom(p, { maxSteps: 4 });
+    const reach = core.reachableFrom(p, { maxSteps: 4, directions: 'any' });
     mt.byKey = new Map();
     const spokes = new Map();
     mt.items = reach.slice(0, BLOOM_MAX).map((r) => {
       const role = roleOf(p, r.point);
       const it = {
-        r, key: keyOf(r.point), dkey: r.direction.join(','), pos: new V3(...core.position(r.point)), role,
+        r, key: keyOf(r.point), dkey: r.direction.join(','), principal: r.direction.every((c) => Math.abs(c) <= 1), pos: new V3(...core.position(r.point)), role,
         delay: quiet ? -1e6 : (r.steps - 1) * 48 + Math.random() * 30, size: 0, alpha: 0, dist: 1
       };
       mt.byKey.set(it.key, it);
       const s = spokes.get(it.dkey);
-      if (!s || r.steps > s.steps) spokes.set(it.dkey, { dkey: it.dkey, steps: r.steps, end: it.pos, role, alpha: 0 });
+      if (it.principal && (!s || r.steps > s.steps)) spokes.set(it.dkey, { dkey: it.dkey, steps: r.steps, end: it.pos, role, alpha: 0 });
       return it;
     });
     mt.spokes = [...spokes.values()];
     if (!quiet) { mt.t0 = now; sfx('arm'); }
     mt.target = null;
     mt.blocked = null;
+    mt.stack = [];
+    mt.pin = null;
     bloomPts.visible = spokeLines.visible = true;
     hoverDirty = true;
   }
@@ -1240,19 +1243,46 @@ function main() {
     mt.items = [];
     mt.spokes = [];
     mt.target = mt.blocked = null;
+    mt.stack = [];
+    mt.pin = null;
     bloomPts.visible = spokeLines.visible = false;
     hoverDirty = true;
   }
+  /**
+   * Of all reachable points, the one under the pointer. Points within STACK_PX of the nearest
+   * one overlap on screen: the one nearest the camera wins, and mt.pin (set by the wheel or [ ])
+   * can choose another of the stack. mt.stack lists them, nearest the camera first.
+   */
   function pickArmed() {
-    const cands = [];
+    const near = [];
+    let dmin = Infinity;
     for (const it of mt.items) {
       const h = pointDist(it.pos, it.r.point);
-      if (h && h.d <= PICK_TARGET) cands.push({ d: h.d, z: h.z, bonus: 14 + (it.r.node ? 5 : 0) + (mt.target === it ? 4 : 0), item: it });
+      if (h && h.d <= PICK_TARGET) { near.push({ d: h.d, z: h.z, item: it }); if (h.d < dmin) dmin = h.d; }
+    }
+    const cands = [];
+    mt.stack = [];
+    if (near.length) {
+      const stack = near.filter((c) => c.d <= dmin + STACK_PX).sort((a, b) => a.z - b.z || a.d - b.d);
+      mt.stack = stack.map((c) => c.item);
+      let pick = mt.pin && stack.find((c) => c.item.key === mt.pin);
+      if (!pick) { mt.pin = null; pick = stack[0]; }
+      cands.push({ d: pick.d, z: pick.z, bonus: 14 + (pick.item.r.node ? 5 : 0), item: pick.item });
     }
     for (const c of anchorCands({ node: 1, member: 1, ground: 1 }, mt.byKey)) { c.bonus /= 2; cands.push(c); }
     const best = pickBest(cands);
+    if (!best || !best.item) mt.stack = [];
     if (!best) return null;
     return best.item ? { type: 'target', item: best.item, d: best.d } : { type: 'anchor', anchor: best.anchor, d: best.d };
+  }
+  /** Step to the next deeper (+1) or shallower (-1) point of the overlapping stack under the pointer. */
+  function cycleStack(step) {
+    if (tool !== 'member' || !mt.armed || mt.stack.length < 2) return false;
+    const n = mt.stack.length, at = Math.max(0, mt.stack.indexOf(mt.target));
+    mt.pin = mt.stack[(at + step + n) % n].key;
+    computeHover();
+    sfx('click');
+    return true;
   }
 
   const _q = new V3();
@@ -1260,15 +1290,19 @@ function main() {
     if (!mt.armed) return;
     const zRef = camera.position.distanceTo(mt.origin);
     const k = 1 - Math.exp(-dt / 70);
-    const tSpoke = mt.target ? mt.target.dkey : null;
+    const tSpoke = mt.target && mt.target.principal ? mt.target.dkey : null;
+    const stackSet = mt.stack.length > 1 ? new Set(mt.stack) : null;
     for (const it of mt.items) {
       it.dist = camera.position.distanceTo(it.pos);
       const s = scr(it.pos);
       const near = clamp(Math.pow(zRef / it.dist, 1.3), 0.6, 1.7);
       const dC = ptr.inside ? Math.hypot(ptr.x - s.x, ptr.y - s.y) : 160;
-      const isT = mt.target === it, onSpoke = tSpoke === it.dkey;
-      const wantSize = (it.r.node ? 24 : 13) * near * (isT ? 1.85 : onSpoke ? 1.2 : 1);
-      const wantAlpha = isT || onSpoke ? 1 : 0.3 + 0.7 * (1 - smooth(70, 260, dC));
+      const isT = mt.target === it, onSpoke = it.principal && tSpoke === it.dkey;
+      // Points on the 26 principal directions stay a little more prominent; off-angle ones show only near the pointer.
+      const base = it.principal ? (it.r.node ? 24 : 13) : (it.r.node ? 17 : 8.5);
+      const wantSize = base * near * (isT ? 1.85 : onSpoke ? 1.2 : 1);
+      const fade = it.principal ? 0.3 + 0.7 * (1 - smooth(70, 260, dC)) : 0.02 + 0.8 * (1 - smooth(22, 150, dC));
+      const wantAlpha = isT || onSpoke ? 1 : stackSet && stackSet.has(it) ? 0.95 : fade;
       it.size += (wantSize - it.size) * k;
       it.alpha += (wantAlpha - it.alpha) * k;
       const t = (now - mt.t0 - it.delay) / 280;
@@ -1279,7 +1313,7 @@ function main() {
       bAttr.position.setXYZ(n, it.pos.x, it.pos.y, it.pos.z);
       const c = ROLE_COLOR[it.role];
       bAttr.aColor.setXYZ(n, c.r, c.g, c.b);
-      bAttr.aSize.setX(n, it.size * it.intro);
+      bAttr.aSize.setX(n, it.alpha < 0.015 ? 0 : it.size * it.intro);
       bAttr.aAlpha.setX(n, it.alpha * Math.min(1, it.intro * 2));
       bAttr.aKind.setX(n, it.r.node ? 1 : 0);
     });
@@ -1291,7 +1325,7 @@ function main() {
       _q.copy(mt.origin).lerp(s.end, grow);
       sPos.setXYZ(n * 2, mt.origin.x, mt.origin.y, mt.origin.z);
       sPos.setXYZ(n * 2 + 1, _q.x, _q.y, _q.z);
-      const want = tSpoke === s.dkey ? 0.85 : tSpoke ? 0.14 : 0.3;
+      const want = tSpoke === s.dkey ? 0.85 : mt.target ? 0.14 : 0.3;
       s.alpha += (want - s.alpha) * k;
       const c = ROLE_COLOR[s.role];
       sCol.setXYZW(n * 2, c.r * 0.7, c.g * 0.7, c.b * 0.7, s.alpha);
@@ -1343,7 +1377,8 @@ function main() {
   function updateGhost(dt) {
     const tgt = mt.armed ? (mt.target ? mt.target.pos : mt.blocked ? mt.blocked.anchor.pos : null) : null;
     if (!tgt) { ghost.visible = ghostHub.visible = false; ghostFor = null; lenLabel.style.display = 'none'; return; }
-    const key = keyOf(mt.armed) + (mt.target ? mt.target.key : 'x' + mt.blocked.anchor.key);
+    const stackPos = mt.target && mt.stack.length > 1 ? mt.stack.indexOf(mt.target) + 1 : 0;
+    const key = keyOf(mt.armed) + (mt.target ? mt.target.key + '|' + stackPos + '/' + mt.stack.length : 'x' + mt.blocked.anchor.key);
     if (!ghostFor) ghostEnd.copy(tgt); // first appearance: no swing
     else ghostEnd.lerp(tgt, 1 - Math.exp(-dt / 38)); // then it swings to the new point
     if (ghostFor !== key) {
@@ -1353,7 +1388,7 @@ function main() {
         ghostMat.color.copy(ROLE_COLOR[mt.target.role]);
         ghostMat.opacity = 0.66;
         lenLabel.className = 'lab pill len';
-        lenLabel.innerHTML = `${reduceLen(r.length)} m<i style="background:${COL[mt.target.role]}"></i><small>${mt.target.role}${r.node ? ' &middot; joins a joint' : ''}</small>`;
+        lenLabel.innerHTML = `${reduceLen(r.length)} m<i style="background:${COL[mt.target.role]}"></i><small>${mt.target.role} &middot; [${r.point.join(', ')}]${r.node ? ' &middot; joins a joint' : ''}${stackPos ? ` &middot; ${stackPos} of ${mt.stack.length} overlap (wheel or [ ])` : ''}</small>`;
       } else {
         ghostMat.color.set(COL.bad);
         ghostMat.opacity = 0.3;
@@ -1731,7 +1766,7 @@ function main() {
         pick = pickArmed();
         if (pick && pick.type === 'anchor') {
           if (samePoint(pick.anchor.p, mt.armed)) pick.self = true;
-          else pick.reason = core.checkMember(mt.armed, pick.anchor.p).reason || 'direction';
+          else pick.reason = core.checkMember(mt.armed, pick.anchor.p).reason || 'overlap';
         }
       } else {
         const a = pickBest(anchorCands({ node: 1, member: 1, ground: 1 }));
@@ -1769,7 +1804,8 @@ function main() {
     const p = hover.pick;
     if (tool === 'member') {
       if (mt.armed) {
-        if (mt.target) t = 'Click to place this member. The far end becomes the next start.';
+        if (mt.target && mt.stack.length > 1) t = 'Several points overlap here. Wheel or [ ] picks which one, click places it.';
+        else if (mt.target) t = 'Click to place this member. The far end becomes the next start.';
         else if (p && p.self) t = 'Click the start again to let go.';
         else if (mt.blocked) t = 'No member can go there from this start. Click to start from this point instead.';
         else t = 'Click a blooming point to place a member. Drag empty space to look around. Esc or right-click lets go.';
@@ -1914,6 +1950,11 @@ function main() {
       if (Math.abs(wheelAcc) >= 50 && now - wheelAt > 110) { stepLoad(hover.load, wheelAcc < 0); wheelAcc = 0; wheelAt = now; }
       return;
     }
+    if (tool === 'member' && mt.armed && mt.stack.length > 1) { // over an ambiguous stack the wheel picks the point
+      wheelAcc += dy;
+      if (Math.abs(wheelAcc) >= 50 && now - wheelAt > 110) { cycleStack(wheelAcc > 0 ? 1 : -1); wheelAcc = 0; wheelAt = now; }
+      return;
+    }
     cam.tween = null;
     cam.wantDist = clamp(cam.wantDist * Math.exp(clamp(dy, -240, 240) * 0.0011), cam.minDist, cam.maxDist);
   }, { capture: true, passive: false });
@@ -1944,6 +1985,8 @@ function main() {
       if (!busy) openMenu();
     } else if (k === 'p') openMenu();
     else if (k === 'f') reframe(true);
+    else if (k === '[') cycleStack(-1);
+    else if (k === ']') cycleStack(1);
     else if (k === 'h' || k === '?') toggleHelp();
     else if (k === 'delete' || k === 'backspace') { e.preventDefault(); secondary(); computeHover(); }
   });
