@@ -8,6 +8,8 @@ import { StructureInspector } from '../components/StructureInspector';
 import { AnalysisPanel } from '../components/AnalysisPanel';
 import { analyzeGame, autoDesignGame } from '../game/analysis';
 import type { VoxelAnalysis } from '../solver/voxel';
+import { SessionBar, ModeObjective, ModelIO, CoordinateEditor } from '../components/RuntimeControls';
+import { TurnPanel } from '../components/TurnPanel';
 
 export function Workspace() {
   const game = useGameStore();
@@ -29,6 +31,11 @@ export function Workspace() {
       ? analysis.result
       : null;
   function run() {
+    if (game.mode === 'multiplayer') {
+      setAnalysis(null);
+      setMessage('Individual end connections require a compatible solver. Analysis remains unresolved.');
+      return;
+    }
     try {
       setAnalysis({
         model: game.model,
@@ -61,6 +68,7 @@ export function Workspace() {
     return () => window.removeEventListener('keydown', onKey);
   });
   function autoDesign() {
+    if (game.mode !== 'challenge' && game.mode !== 'creative') return;
     try {
       const source = game.model;
       const designed = autoDesignGame(source, level);
@@ -91,19 +99,23 @@ export function Workspace() {
     }
   }
   return (
-    <main className="workspace">
+    <main className="workspace" data-style={game.style}>
       {game.persistenceError && <p role="alert">{game.persistenceError}</p>}
       <div className="heading">
         <div>
-          <p className="eyebrow">● &nbsp; THE WORKSPACE / VOXEL STRUCT</p>
+          <p className="eyebrow">● &nbsp; YOUR STRUCTURAL PLAYGROUND</p>
           <h1>
             Build something <em>brilliant.</em>
           </h1>
           <p>Explore structures, one connection at a time.</p>
         </div>
-        <span className="draft">EXPERIMENTAL PROTOTYPE</span>
+        <span className="draft">EXPERIMENTAL ANALYSIS</span>
       </div>
+      <SessionBar game={game} />
+      <ModeObjective game={game} result={result} />
+      <TurnPanel game={game} onMessage={setMessage} />
       <div className="workspace-actions">
+        {game.mode === 'challenge' && <>
         <label>
           Challenge{' '}
           <select
@@ -129,17 +141,22 @@ export function Workspace() {
         {level.random && (
           <button onClick={() => game.newLayout()}>New layout</button>
         )}
+        </>}
+        {game.mode !== 'multiplayer' && <>
         <button onClick={game.undo} disabled={!game.history.length}>
           Undo
         </button>
+        <button onClick={game.redo} disabled={!game.future.length}>Redo</button>
         <button onClick={game.reset}>Clear</button>
-        <button onClick={autoDesign}>Auto-design beams</button>
+        {(game.mode === 'creative' || game.mode === 'challenge') && <button onClick={autoDesign}>Auto-design beams</button>}
         <button className="primary-action" onClick={run}>
           Run analysis
         </button>
+        </>}
       </div>
+      {message && <p className="runtime-status" role="status">{message}</p>}
       <div className="layout">
-        <BuildTools game={game} />
+        <BuildTools game={game}><CoordinateEditor game={game} onMessage={setMessage} /></BuildTools>
         <section className="viewport" aria-label="Structural workspace">
           <Scene
             loadPath={loadPath}
@@ -153,7 +170,7 @@ export function Workspace() {
             loads={loads}
           />
           <div className="view-label">
-            ● &nbsp; 3D VIEW <span>PERSPECTIVE</span>
+            ● &nbsp; 3D VIEW <span>{game.style === 'levels' ? 'WORKING LEVEL' : game.style === 'kit' ? 'TABLETOP' : 'PERSPECTIVE'}</span>
           </div>
           <div className="plane-controls">
             <button onClick={() => game.setWorkK(game.workK - 1)}>−</button>
@@ -184,6 +201,7 @@ export function Workspace() {
           />
         </StructureInspector>
       </div>
+      <ModelIO game={game} onMessage={setMessage} />
       <footer>
         DESIGNED FOR CURIOUS MINDS ✳{' '}
         <span>A PLAYGROUND FOR STRUCTURAL THINKING</span>

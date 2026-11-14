@@ -46,7 +46,7 @@ export function StructureInspector({
           <p>
             {ITEMS[selected.type].label} · {selected.a} → {selected.b}
           </p>
-          <label>
+          {game.mode !== 'multiplayer' && <><label>
             Swap to{' '}
             <select
               value={selected.type}
@@ -68,6 +68,7 @@ export function StructureInspector({
           <button onClick={() => game.removeMember(selected.id)}>
             Remove member
           </button>
+          </>}
           {result?.members[selected.id] && (
             <>
               <h3>Design checks</h3>
@@ -100,6 +101,9 @@ export function StructureInspector({
               .map(([k]) => k)
               .join(', ') || 'none'}
           </p>
+          {game.mode !== 'multiplayer' && !!game.model.attrs[game.selected.key]?.load && !game.model.attrs[game.selected.key]?.locked && <label>Gravity load (kN)<input aria-label="Gravity load magnitude" type="number" min="0.001" step="1" value={game.model.attrs[game.selected.key].load} onChange={(event) => {
+            if (game.selected?.type === 'node') setMessage(game.setNodeLoad(game.selected.key, Number(event.target.value)) ?? '');
+          }} /></label>}
         </div>
       )}
       {children}

@@ -2,6 +2,7 @@ import { useGameStore } from '../game/store';
 import { ITEMS, MEMBER_TYPES, remaining } from '../game/inventory';
 import { LEVELS } from '../game/levels';
 import { type MemberType, type Tool } from '../game/model';
+import type { ReactNode } from 'react';
 type Game = ReturnType<typeof useGameStore.getState>;
 const tools: { id: Tool; label: string }[] = [
   { id: 'inspect', label: 'Inspect' },
@@ -12,14 +13,14 @@ const tools: { id: Tool; label: string }[] = [
     label: item.label,
   })),
 ];
-export function BuildTools({ game }: { game: Game }) {
+export function BuildTools({ game, children }: { game: Game; children?: ReactNode }) {
   const level = LEVELS[game.levelId];
   return (
     <aside className="panel">
       <div className="panel-title">01 &nbsp; BUILD TOOLS</div>
       <h2>Your toolkit</h2>
       <p className="muted">{level.desc}</p>
-      <div className="tool-list">
+      {game.mode !== 'multiplayer' ? <div className="tool-list">
         {tools
           .filter((t) => t.id !== 'load' || level.type === 'sandbox')
           .map((t) => {
@@ -48,7 +49,7 @@ export function BuildTools({ game }: { game: Game }) {
               </button>
             );
           })}
-      </div>
+      </div> : <p className="muted">Choose a card from your hand above, then place it here. Placed connections remain attached to their member ends.</p>}
       {game.tool === 'swap' && (
         <label className="control-label">
           Swap to{' '}
@@ -69,6 +70,7 @@ export function BuildTools({ game }: { game: Game }) {
         Select Inspect to examine members. R runs analysis; D toggles
         deformation.
       </div>
+      {children}
     </aside>
   );
 }
