@@ -59,6 +59,13 @@ const VAR_DU: usize = 0;
 const VAR_SPIN: [usize; 2] = [3, 6];
 const VAR_Q: usize = 9;
 
+/// Differentiation variable of connection variable `i`. Only the laws that
+/// have a variable are numbered, so an element with a few releases
+/// differentiates in a few extra variables instead of twelve.
+fn connection_variable(g: &SegGeom, i: usize) -> usize {
+    VAR_Q + g.conn_var[..i].iter().filter(|v| **v).count()
+}
+
 /// Orientation of the connection axes at one node: the undeformed local
 /// axes turned with the node, as a function of the node's incremental spin.
 ///
@@ -99,7 +106,7 @@ fn node_triad<T: Scalar>(g: &SegGeom, s: &SegState, k: usize) -> M3<T> {
 fn end_kinematics<T: Scalar>(g: &SegGeom, s: &SegState, q: &[f64; 12], k: usize) -> (Option<V3<T>>, M3<T>) {
     let b = 6 * k;
     let triad = node_triad::<T>(g, s, k);
-    let variable = |i: usize| if g.conn_var[b + i] { T::variable(q[b + i], VAR_Q + b + i) } else { T::cst(q[b + i]) };
+    let variable = |i: usize| if g.conn_var[b + i] { T::variable(q[b + i], connection_variable(g, b + i)) } else { T::cst(q[b + i]) };
     let slides = g.conn_var[b] || g.conn_var[b + 1] || g.conn_var[b + 2];
     let slide = slides.then(|| mat_vec(&triad, &[variable(0), variable(1), variable(2)]));
     let turns = g.conn_var[b + 3] || g.conn_var[b + 4] || g.conn_var[b + 5];
@@ -157,7 +164,7 @@ pub fn seg_energy<T: Scalar>(g: &SegGeom, s: &SegState, q: &[f64; 12]) -> T {
         + bending(a[2], b[2], g.eiz, g.phi_z, g.l0);
     for i in 0..12 {
         if g.conn_var[i] && g.conn_k[i] != 0.0 {
-            let v = T::variable(q[i], VAR_Q + i);
+            let v = T::variable(q[i], connection_variable(g, i));
             energy = energy + (v * v).scale(0.5 * g.conn_k[i]);
         }
     }
@@ -193,19 +200,21 @@ impl SegDerivatives {
 
 /// Each of the 24 element variables as a differentiation variable and a
 /// sign: the two node translations are minus and plus the relative one.
-fn element_variable(a: usize) -> (usize, f64) {
+fn element_variable(g: &SegGeom, a: usize) -> (usize, f64) {
     match a {
         0..=2 => (VAR_DU + a, -1.0),
         3..=5 => (VAR_SPIN[0] + a - 3, 1.0),
         6..=8 => (VAR_DU + a - 6, 1.0),
         9..=11 => (VAR_SPIN[1] + a - 9, 1.0),
-        _ => (VAR_Q + a - 12, 1.0),
+        _ if g.conn_var[a - 12] => (connection_variable(g, a - 12), 1.0),
+        // A rigid law has no variable.
+        _ => (usize::MAX, 0.0),
     }
 }
 
 fn differentiate<const N: usize, const H: usize>(g: &SegGeom, s: &SegState, q: &[f64; 12]) -> SegDerivatives {
     let e = seg_energy::<Dual2<N, H>>(g, s, q);
-    let map: [(usize, f64); 24] = std::array::from_fn(element_variable);
+    let map: [(usize, f64); 24] = std::array::from_fn(|a| element_variable(g, a));
     let mut out = SegDerivatives { energy: e.v, g: [0.0; 24], h: [0.0; 300] };
     let mut k = 0;
     for a in 0..24 {
@@ -225,12 +234,14 @@ fn differentiate<const N: usize, const H: usize>(g: &SegGeom, s: &SegState, q: &
 }
 
 /// Differentiate a beam element at the given state. Elements without
-/// connection variables use the cheaper nine-variable evaluation.
+/// connection variables use the cheapest, nine-variable evaluation.
 pub fn seg_derivatives(g: &SegGeom, s: &SegState, q: &[f64; 12]) -> SegDerivatives {
-    if g.conn_var.iter().any(|v| *v) {
-        differentiate::<21, 231>(g, s, q)
-    } else {
-        differentiate::<9, 45>(g, s, q)
+    // Pick the smallest evaluation that holds this element's variables.
+    match g.conn_var.iter().filter(|v| **v).count() {
+        0 => differentiate::<9, 45>(g, s, q),
+        1..=4 => differentiate::<13, 91>(g, s, q),
+        5..=8 => differentiate::<17, 153>(g, s, q),
+        _ => differentiate::<21, 231>(g, s, q),
     }
 }
 
@@ -241,15 +252,16 @@ pub fn seg_gradient(g: &SegGeom, s: &SegState, q: &[f64; 12]) -> (f64, [f64; 24]
     fn run<const N: usize>(g: &SegGeom, s: &SegState, q: &[f64; 12]) -> (f64, [f64; 24]) {
         let e = seg_energy::<Dual1<N>>(g, s, q);
         let gradient = std::array::from_fn(|a| {
-            let (index, sign) = element_variable(a);
+            let (index, sign) = element_variable(g, a);
             if index < N { sign * e.g[index] } else { 0.0 }
         });
         (e.v, gradient)
     }
-    if g.conn_var.iter().any(|v| *v) {
-        run::<21>(g, s, q)
-    } else {
-        run::<9>(g, s, q)
+    match g.conn_var.iter().filter(|v| **v).count() {
+        0 => run::<9>(g, s, q),
+        1..=4 => run::<13>(g, s, q),
+        5..=8 => run::<17>(g, s, q),
+        _ => run::<21>(g, s, q),
     }
 }
 
