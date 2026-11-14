@@ -2,6 +2,8 @@
 title: "Development and Testing"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/avatar-criteria.md
+  - prototypes/timburr-companion/README.md
   - package.json
   - apps/web/package.json
   - packages/solver-contract/package.json
@@ -44,3 +46,7 @@ Validated the criteria documentation against main baseline `b01a30e` and the own
 | Local documentation links and anchors | Pass: 27 links/anchors across the root README and KB pages resolve. |
 
 The [gap analysis](solver-criteria-gap-analysis.md) records the unimplemented and unverified requirements. No new numerical capability, benchmark result or accuracy claim is introduced by this update.
+
+## Deferred avatar prototype evidence — 2026-11-14
+
+The [Timburr avatar criteria](avatar-criteria.md) are design requirements, not current test coverage. The [prototype handoff](../../prototypes/timburr-companion/README.md#evidence-recorded-before-work-stopped) records the experiment’s build/test evidence, browser WebGL failure and unfinished fallback. The code/assets are preserved in an unapplied patch and removed from the active app. Its reported 94 passing tests predate the final fallback edits; neither live character rendering nor complete avatar compliance has been established. Future work must validate the patch against current main and complete the criteria’s acceptance scenarios.

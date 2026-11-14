@@ -2,6 +2,8 @@
 title: "Animation and Sound Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/avatar-criteria.md
+  - prototypes/timburr-companion/README.md
   - "Project owner animation direction and follow-up decisions, 2026-11-14"
   - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria.md
@@ -175,3 +177,7 @@ Update this page, [3D viewer](3d-viewer.md) and [development and testing](develo
 - Final timing/volume defaults after playtesting and supported-device performance profiles.
 - Hot-seat privacy handoff, spectator/replay presentation and future network synchronization details.
 - Any permanent failure/removal policy remains with the game and solver criteria. A verified overload alone does not authorize a breaking/removal transition.
+
+## 11. Avatar-specific criteria
+
+[Timburr avatar criteria](avatar-criteria.md) extend this presentation specification with the owner-confirmed recurring character and compact cross-screen placement, proposed reactions, rare Conkeldurr foreman mode, model provenance and acceptance scenarios. Read that page for avatar-specific decisions and the distinction between a cosmetic demonstration and a verified game-triggered reaction. Implementation is deferred and preserved in the [prototype handoff](../../prototypes/timburr-companion/README.md), not enabled in the app.

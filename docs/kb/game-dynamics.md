@@ -2,6 +2,8 @@
 title: "Game Architecture and Turn Dynamics"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/avatar-criteria.md
+  - prototypes/timburr-companion/README.md
   - docs/kb/animation-criteria.md
   - apps/web/src/game/model.ts
   - apps/web/src/game/store.ts
@@ -29,3 +31,7 @@ Proposed defaults are fixed foundations, cross-player connections, persistent gr
 ## Action presentation requirements
 
 See [animation and sound criteria](animation-criteria.md) for setup, draws, staging, per-end attachments, loads, analysis, issue/score feedback, handoff and match-outcome presentation. Animation must follow versioned authoritative events, preserve private information and never consume cards, apply penalties or decide outcomes through completion callbacks. Proposed timings and dramatic cues do not change turn rules or resolve open scoring/end-condition policies.
+
+## Avatar reactions
+
+[Timburr avatar criteria](avatar-criteria.md) define personality and public-event reactions independently of game state. Automatic Conkeldurr transformation requires a compatible verified serious-issue event; the current experimental turn report is insufficient. The avatar specification does not introduce penalties, collapse or match rules. Implementation is deferred; see the [prototype handoff](../../prototypes/timburr-companion/README.md).
