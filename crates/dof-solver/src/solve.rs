@@ -170,8 +170,13 @@ fn classify(sys: &System, factor: &Factor, load: &[f64]) -> Nulls {
     nulls
 }
 
-/// Number of rigid-body motions the foundations leave free: six minus the
-/// rank of the restraints seen as constraints on a rigid motion.
+/// Number of rigid-body motions of the component that the foundations leave
+/// free and that move at least one of its DOFs.
+///
+/// The restraints are constraints on a rigid motion (translation plus
+/// rotation); its null space is the set of permitted rigid motions. A
+/// permitted motion that moves nothing, such as a rotation about the line
+/// through the nodes of a single guyed cable, does not count.
 fn free_rigid_motions(sys: &System) -> usize {
     let scale = sys.size.max(sys.lc).max(1e-9);
     let mut rows: Vec<[f64; 6]> = Vec::new();
@@ -187,23 +192,57 @@ fn free_rigid_motions(sys: &System) -> usize {
             rows.push(if i < 3 { [axis[0], axis[1], axis[2], arm[0], arm[1], arm[2]] } else { [0.0, 0.0, 0.0, axis[0], axis[1], axis[2]] });
         }
     }
-    let mut rank = 0;
+    // Reduced row echelon form, recording the pivot column of each row.
+    let mut pivots: Vec<usize> = Vec::new();
     for column in 0..6 {
+        let rank = pivots.len();
         let Some(best) = (rank..rows.len()).max_by(|a, b| rows[*a][column].abs().total_cmp(&rows[*b][column].abs())) else { break };
         if rows[best][column].abs() < 1e-8 {
             continue;
         }
         rows.swap(rank, best);
-        let pivot = rows[rank];
-        for row in rows.iter_mut().skip(rank + 1) {
-            let ratio = row[column] / pivot[column];
-            for k in 0..6 {
-                row[k] -= ratio * pivot[k];
+        let pivot = rows[rank].map(|v| v / rows[rank][column]);
+        rows[rank] = pivot;
+        for (r, row) in rows.iter_mut().enumerate() {
+            if r != rank {
+                let ratio = row[column];
+                for k in 0..6 {
+                    row[k] -= ratio * pivot[k];
+                }
             }
         }
-        rank += 1;
+        pivots.push(column);
     }
-    6 - rank
+    // One permitted motion per free column, expressed on the system's DOFs.
+    let mut motions: Vec<Vec<f64>> = Vec::new();
+    for free in (0..6).filter(|c| !pivots.contains(c)) {
+        let mut motion = [0.0; 6];
+        motion[free] = 1.0;
+        for (r, &column) in pivots.iter().enumerate() {
+            motion[column] = -rows[r][free];
+        }
+        let (t, w) = ([motion[0], motion[1], motion[2]], [motion[3], motion[4], motion[5]]);
+        let mut on_dofs = Vec::new();
+        for node in &sys.anodes {
+            let u = add(&t, &cross(&w, &node.pos.map(|v| v / scale)));
+            for i in 0..6 {
+                if node.eq[i] >= 0 {
+                    on_dofs.push(if i < 3 { u[i] } else { w[i - 3] });
+                }
+            }
+        }
+        // Keep it only if it is independent of the motions already found.
+        for kept in &motions {
+            let along = dot_n(&on_dofs, kept);
+            on_dofs.iter_mut().zip(kept).for_each(|(x, k)| *x -= along * k);
+        }
+        let size = dot_n(&on_dofs, &on_dofs).sqrt();
+        if size > 1e-8 {
+            on_dofs.iter_mut().for_each(|x| *x /= size);
+            motions.push(on_dofs);
+        }
+    }
+    motions.len()
 }
 
 struct LinearStage {

@@ -381,7 +381,7 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
                     ("freeDofs", sys.neq.into()),
                     ("unusedDofs", sys.unused_dofs.into()),
                     ("mechanisms", outcome.mechanisms.into()),
-                    ("rigidBodyModes", outcome.rigid_body_modes.min(outcome.mechanisms).into()),
+                    ("rigidBodyModes", outcome.rigid_body_modes.into()),
                     ("internalMechanisms", internal.into()),
                     ("spinModes", outcome.spin_modes.into()),
                     ("staticIndeterminacy", determinacy.into()),
