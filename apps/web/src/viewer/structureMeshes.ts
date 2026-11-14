@@ -3,7 +3,8 @@ import { analyzeConnectivity } from '../game/connectivity';
 import { ITEMS } from '../game/inventory';
 import { allNodeKeys, CELL_SIZE, parseNodeKey } from '../game/model';
 import type { useGameStore } from '../game/store';
-import { SCENE_STYLES } from './sceneStyle';
+import { paintedJoint, paintedLoad, paintedSupport, visualLoadDirection } from './scenePieces';
+import { isGrowthStyle, SCENE_STYLES } from './sceneStyle';
 import {
   computeLoadPath,
   traceToGround,
@@ -20,7 +21,7 @@ export function buildStructure(
   const result = v.result;
   const palette = SCENE_STYLES[s.style];
   const turn = s.mode === 'multiplayer' ? s.turn : null;
-  const playerColors = ['#e37f59', '#5b94d3'];
+  const playerColors = ['#e9806e', '#6a9bd8'];
   const turnOwners = new Map(turn ? [...turn.board.members, ...turn.draft.members].map((member) => [member.id, member.owner]) : []);
   const unsupported = new Set(s.style !== 'engineering' ? analyzeConnectivity(s.model, turn).unsupportedMembers : []);
   const activeMembers = new Set(turn?.draft.members.map(({ id }) => id));
@@ -88,10 +89,12 @@ export function buildStructure(
       const delta = end.clone().sub(start);
       const span = delta.length();
       const isGhost = pending || aboveSlice || unsupported.has(member.id);
+      const isRound = isGrowthStyle(s.style) || s.style === 'kit' || s.style === 'blocks';
+      const radius = v.loadPath ? width / 2 : CELL_SIZE * (s.style === 'kit' ? 0.1 : 0.072);
       const mesh = new THREE.Mesh(
-        palette.roles && s.style !== 'blocks'
-          ? new THREE.CylinderGeometry(width / 2, width / 2, span, 10)
-          : new THREE.BoxGeometry(width, span, width),
+        isRound
+          ? new THREE.CapsuleGeometry(radius, Math.max(0.01, span - radius * 2), 6, 12)
+          : new THREE.BoxGeometry(s.style === 'levels' ? CELL_SIZE * 0.17 : width, span, width),
         new THREE.MeshStandardMaterial({
           color,
           transparent: isGhost,
@@ -106,12 +109,21 @@ export function buildStructure(
       );
       mesh.position.copy(start).add(end).multiplyScalar(0.5);
       mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.normalize());
+      mesh.castShadow = !isGhost && s.style !== 'engineering';
+      mesh.receiveShadow = s.style !== 'engineering';
       structure.add(mesh);
     }
   }
   for (const key of allNodeKeys(s.model)) {
     const p = point(key),
       attrs = s.model.attrs[key] || {};
+    if (s.style !== 'engineering' && !attrs.target) {
+      paintedJoint(structure, p, s.selected?.type === 'node' && s.selected.key === key,
+        !!attrs.joint && s.mode !== 'multiplayer');
+      if (attrs.found) paintedSupport(structure, p, attrs, s.style);
+      if (attrs.load) paintedLoad(structure, p, attrs, s.style);
+      continue;
+    }
     const node = new THREE.Mesh(
       new THREE.SphereGeometry(trace?.nodes.has(key) ? 0.26 : 0.16, 12, 8),
       new THREE.MeshStandardMaterial({
@@ -184,8 +196,8 @@ export function buildStructure(
     } else if (attrs.load)
       structure.add(
         new THREE.ArrowHelper(
-          new THREE.Vector3(0, 0, -1),
-          p.clone().add(new THREE.Vector3(0, 0, 2)),
+          visualLoadDirection(attrs.loadDirection),
+          p.clone().addScaledVector(visualLoadDirection(attrs.loadDirection), -2),
           1.8,
           0xe74e50,
           0.5,

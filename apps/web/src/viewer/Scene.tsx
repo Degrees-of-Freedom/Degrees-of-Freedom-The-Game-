@@ -69,6 +69,8 @@ export function Scene({
     orthographic.up.set(0, 0, 1);
     camera.up.set(0, 0, 1);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     element.appendChild(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -79,7 +81,12 @@ export function Scene({
     scene.add(fill);
     const sun = new THREE.DirectionalLight(0xffffff, 2);
     sun.position.set(-20, -20, 40);
-    scene.add(sun);
+    scene.add(sun, sun.target);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1536, 1536);
+    sun.shadow.bias = -0.00022;
+    sun.shadow.normalBias = 0.065;
+    sun.shadow.radius = 4;
     const terrain = new THREE.Group(),
       structure = new THREE.Group(),
       guides = new THREE.Group();
@@ -136,7 +143,14 @@ export function Scene({
         fill.groundColor.set(palette.ground);
         sun.color.set(palette.sun);
         sun.intensity = palette.intensity;
-        buildTerrain(terrain, level, camera, controls, palette);
+        buildTerrain(terrain, level, camera, controls, palette, state.style);
+        sun.castShadow = state.style !== 'engineering';
+        const span = Math.max(level.nx, level.ny) * CELL_SIZE * 0.86;
+        sun.target.position.set(level.nx * CELL_SIZE / 2, level.ny * CELL_SIZE / 2, 0);
+        sun.position.copy(sun.target.position).add(new THREE.Vector3(-span, -span * 0.52, span * 1.24));
+        Object.assign(sun.shadow.camera, { left: -span, right: span, top: span, bottom: -span, near: 0.3, far: span * 5 });
+        sun.shadow.camera.updateProjectionMatrix();
+        orthoSpan = span * 0.72;
         resize();
       }
       if (state.style === 'kit' && turnIndex !== undefined && previousTurn !== undefined && turnIndex !== previousTurn) {
@@ -149,7 +163,7 @@ export function Scene({
       particles.reset();
       buildStructure(structure, state, view.current, point, particles.add);
       addResultArrows(structure, view.current, point);
-      buildGuides(guides, level, interaction.buildPlane(), palette);
+      buildGuides(guides, level, interaction.buildPlane(), palette, state.style);
       buildGrowthGuides(guides, state, palette);
       buildTurnGuides(guides, state, point);
     }
@@ -217,6 +231,7 @@ export function Scene({
       }
       controls.update();
       particles.tick(time);
+      for (const object of terrain.children) object.userData.animate?.(time);
       sky.position.copy(camera.position);
       renderer.render(scene, camera);
     });

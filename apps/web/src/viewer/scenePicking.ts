@@ -147,7 +147,7 @@ export function createPicker(
               h.object instanceof THREE.Mesh &&
               h.face &&
               h.face.normal.z > 0.5 &&
-              h.object.geometry instanceof THREE.BoxGeometry,
+              h.object.userData.pickTerrain === true,
           );
         if (
           terrainHit &&

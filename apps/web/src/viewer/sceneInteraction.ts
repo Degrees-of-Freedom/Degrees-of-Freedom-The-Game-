@@ -122,6 +122,15 @@ export function bindSceneInteraction(
           );
         } else getView().onMessage?.(s.swapMember(hit.id, s.swapTarget) ?? '');
       }
+    } else if (hit?.kind === 'point' && s.style !== 'engineering' && (
+      s.tool === 'load' && s.model.attrs[nodeKey(...hit.p)]?.load ||
+      s.tool === 'joint' || s.tool === 'found'
+    )) {
+      const key = nodeKey(...hit.p);
+      if (!hit.issue || s.model.attrs[key]) {
+        s.setSelected({ type: 'node', key });
+        getView().onMessage?.('');
+      } else getView().onMessage?.(hit.issue);
     } else if (hit?.kind === 'bay') {
       getView().onMessage?.(hit.issue ?? s.addBay(hit.p, hit.size, hit.type) ?? '');
     } else if (hit?.kind === 'point' && hit.issue)
