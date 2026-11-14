@@ -9,6 +9,7 @@ export type LevelId =
   | 'pickup1'
   | 'pickup2'
   | 'pickupR'
+  | 'environment'
   | 'sandbox';
 export type GridPoint = [number, number, number];
 export type Restraint = [boolean, boolean, boolean, boolean, boolean, boolean];

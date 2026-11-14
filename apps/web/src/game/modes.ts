@@ -4,13 +4,14 @@ export type GameMode = 'challenge' | 'creative' | 'multiplayer' | 'forensics' | 
 export type PresentationStyle = 'engineering' | 'grow' | 'grow-dusk' | 'levels' | 'blocks' | 'kit';
 
 import { initialModel } from './layout';
+import { environmentExample } from './environmentExamples';
 import { LEVELS } from './levels';
 import type { GameModel, LevelId } from './model';
 import type { VoxelAnalysis } from '../solver/voxel';
 
 /** Starting layouts are experiments, not verified engineering exercises. */
 export function modeSetup(mode: GameMode): { levelId: LevelId; model: GameModel } {
-  const levelId: LevelId = mode === 'load-space' ? 'pickup1' : mode === 'challenge' ? 'tower1' : 'sandbox';
+  const levelId: LevelId = mode === 'load-space' ? 'pickup1' : mode === 'challenge' ? 'tower1' : 'environment';
   if (mode === 'forensics') {
     // The isolated member is a visible connectivity fault. A rigid joint at
     // each end lets a new member connect it to the supported column.
@@ -24,7 +25,7 @@ export function modeSetup(mode: GameMode): { levelId: LevelId; model: GameModel 
     };
     return { levelId, model };
   }
-  return { levelId, model: initialModel(LEVELS[levelId]) };
+  return { levelId, model: mode === 'creative' ? environmentExample('tower') : initialModel(LEVELS[levelId]) };
 }
 
 /** Interpret only available prototype results; never treat an error as success. */

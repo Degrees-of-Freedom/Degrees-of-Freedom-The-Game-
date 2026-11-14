@@ -15,13 +15,13 @@ describe('creative restraints and loads', () => {
     expect(game.toggleAttr([1, 1, 2], 'load')).toBeNull();
     expect(useGameStore.getState().model.attrs['1,1,2']).toMatchObject({ load: 20, loadDirection: '+X' });
     const model = useGameStore.getState().model;
-    const save = createGameSave('sandbox', model);
-    expect(readGameSave(JSON.parse(JSON.stringify(save)), 'sandbox').save.model).toEqual(model);
-    expect(() => analyzeGame(model, LEVELS.sandbox)).toThrow(/partial restraints/);
+    const save = createGameSave('environment', model);
+    expect(readGameSave(JSON.parse(JSON.stringify(save)), 'environment').save.model).toEqual(model);
+    expect(() => analyzeGame(model, LEVELS.environment)).toThrow(/partial restraints/);
     expect(game.setNodeRestraint('1,1,0', [true, true, true, true, true, true])).toBeNull();
-    expect(() => analyzeGame(useGameStore.getState().model, LEVELS.sandbox)).toThrow(/directional point loads/);
+    expect(() => analyzeGame(useGameStore.getState().model, LEVELS.environment)).toThrow(/directional point loads/);
     expect(game.setNodeLoadDirection('1,1,2', '-Z')).toBeNull();
-    expect(() => analyzeGame(useGameStore.getState().model, LEVELS.sandbox)).not.toThrow();
+    expect(() => analyzeGame(useGameStore.getState().model, LEVELS.environment)).not.toThrow();
     game.setMode('challenge');
   });
   it('rejects malformed saved restraint and direction values', () => {

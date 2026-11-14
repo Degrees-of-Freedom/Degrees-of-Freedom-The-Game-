@@ -24,7 +24,7 @@ const modelSchema = z.strictObject({
     ids.add(member.id);
   }
 });
-const levelId = z.enum(['tower1', 'tower2', 'bridge1', 'bridge2', 'pickup1', 'pickup2', 'pickupR', 'sandbox']);
+const levelId = z.enum(['tower1', 'tower2', 'bridge1', 'bridge2', 'pickup1', 'pickup2', 'pickupR', 'sandbox', 'environment']);
 const gameSaveSchema = z.strictObject({ format: z.literal('dof-voxel-save'), version: z.literal(1), levelId, model: modelSchema });
 const inventory = z.strictObject({ shs: number.optional(), glulam: number.optional(), ipe: number.optional(), heb: number.optional(), cable: number.optional(), joint: number.optional(), found: number.optional() });
 const solverLevel = z.strictObject({

@@ -47,6 +47,13 @@ describe('shared editor runtime', () => {
     const result = { error: 'No result', mechanism: false, floating: [], unstable: new Set<string>(), members: {}, nodes: {}, found: {}, objectives: [], combos: [] };
     expect(modeProgress('forensics', result)).toBe('unavailable');
   });
+  it('starts creative mode with the prototype tower on its compact board', () => {
+    const setup = modeSetup('creative');
+    expect(setup.levelId).toBe('environment');
+    expect([LEVELS.environment.nx, LEVELS.environment.ny, LEVELS.environment.nz]).toEqual([8, 8, 6]);
+    expect(setup.model.members.length).toBeGreaterThan(0);
+    expect(LEVELS.sandbox.nx).toBe(16);
+  });
   it('detects and repairs the disconnected forensics fixture with the experimental solver', () => {
     const { model, levelId } = modeSetup('forensics');
     const before = analyzeVoxel(model, LEVELS[levelId]);

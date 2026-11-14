@@ -138,6 +138,17 @@ export const LEVELS: Record<LevelId, Level> = {
     },
     desc: 'Connect a random set of weights to the ground.',
   },
+  environment: {
+    name: 'Environment · unlimited',
+    type: 'sandbox',
+    nx: 8,
+    ny: 8,
+    nz: 6,
+    q0: 0.5,
+    budget: Infinity,
+    inv: null,
+    desc: 'A compact prototype building board with unlimited supply.',
+  },
   sandbox: {
     name: 'Sandbox · unlimited',
     type: 'sandbox',
