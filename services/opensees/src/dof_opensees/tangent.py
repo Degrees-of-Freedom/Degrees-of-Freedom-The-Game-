@@ -39,6 +39,33 @@ def extract_tangent() -> np.ndarray:
     return np.array(ops.printA("-ret"), dtype=float).reshape((size, size))
 
 
+def is_positive_definite() -> bool:
+    """Cheap test of the current tangent, without reading the matrix.
+
+    Runs the same zero-length ``GimmeMCK`` step with the banded symmetric
+    positive definite solver, whose Cholesky factorisation fails exactly when
+    the tangent has a direction of negative stiffness. Cost is one banded
+    factorisation instead of a dense read and a dense factorisation.
+
+    This detects loss of stability along a load path: passing a buckling load
+    makes an eigenvalue negative. It does NOT reliably detect an exactly
+    singular matrix, because rounding can leave a zero pivot slightly
+    positive. Mechanisms at the reference state must still be found with
+    :func:`extract_tangent` and ``stability.assess``.
+
+    Like :func:`extract_tangent` it leaves the state of the domain untouched
+    and replaces the analysis objects. The domain must have free DOFs.
+    """
+    ops.wipeAnalysis()
+    ops.system("BandSPD")
+    ops.numberer("RCM")
+    ops.constraints("Transformation")
+    ops.algorithm("Linear")
+    ops.integrator("GimmeMCK", 0.0, 0.0, 1.0)
+    ops.analysis("Transient")
+    return ops.analyze(1, 0.0) == 0
+
+
 def equation_numbers(node_tag: int) -> list[int]:
     """Equation number of each DOF of a node, -1 where the DOF is not free.
 

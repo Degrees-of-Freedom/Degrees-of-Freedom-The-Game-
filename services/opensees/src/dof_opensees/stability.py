@@ -61,6 +61,10 @@ class Assessment:
     #: Smallest scaled eigenvalue, or None when the fast path proved the matrix
     #: comfortably positive definite without computing it.
     min_eigenvalue: float | None = None
+    #: Set by a caller that knows the matrix is not positive definite from a
+    #: failed factorisation, without having computed the spectrum. The mode
+    #: lists are then empty even though the state is unstable.
+    indefinite: bool = False
 
     @property
     def mechanisms(self) -> int:
@@ -69,7 +73,7 @@ class Assessment:
     @property
     def positive_definite(self) -> bool:
         """No mechanism and no direction of negative stiffness."""
-        return self.mechanisms == 0 and not self.negative_modes
+        return self.mechanisms == 0 and not self.negative_modes and not self.indefinite
 
     @property
     def stable(self) -> bool:
