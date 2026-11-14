@@ -1,4 +1,25 @@
-# Game logic and modes (planning draft)
+# Game logic and modes (superseded planning draft)
+
+> **Superseded.** The team's confirmed rules are in the knowledge base and
+> take priority over everything below: [turn criteria](../kb/turn-criteria.md),
+> [joint DOF criteria](../kb/joint-dof-criteria.md),
+> [game dynamics](../kb/game-dynamics.md) and
+> [unified runtime](../kb/unified-runtime.md). This file is an earlier
+> proposal kept for reference. Where it differs, it is wrong:
+>
+> - **Modes.** The app has five: Creative, Engineering challenges, Forensics,
+>   Load in space and Shared table. This draft describes four.
+> - **Turns.** Confirmed: draw two cards from each of two decks; play up to
+>   one element, one load and two connections, or pass. This draft has no
+>   decks or cards.
+> - **Scoring.** Confirmed: a turn that introduces or worsens an issue costs
+>   1 point. This draft proposes scoring by share of load on a foundation.
+> - **Connections.** Confirmed: one card attaches one member end; a placed
+>   connection cannot be edited; all ends at a shared joint use the same
+>   freedoms. This draft leaves per-end versus per-node open.
+> - **Loads and foundations.** Confirmed: players play downward gravity
+>   loads from cards; each player has one fully fixed starting foundation.
+>   This draft has the scenario place the loads.
 
 Status: proposal for discussion. Nothing here is implemented or decided.
 Numbers (penalties, actions per turn, round counts) are placeholders chosen

@@ -514,9 +514,10 @@
         '<li>Play up to one member, one downward load and two end connections, or pass.</li>' +
         '<li>Unplayed cards stay in hand.</li>' +
         '<li>One connection card attaches one member end to a shared joint (fixed or ball) and cannot be changed afterwards.</li>' +
+        '<li>All member ends attached to one shared joint use the same connection freedoms.</li>' +
         '<li>You may load and attach to other players’ structures.</li>' +
-        '<li>Each player starts with one fixed foundation and a connected column.</li>' +
-        '<li>Eight rounds.</li></ul>' +
+        '<li>Each player starts with one fully fixed foundation and a connected column. Foundations are never drawn or played as cards.</li>' +
+        '</ul><p style="margin:12px 0 0;font-size:15px;color:var(--cream-dim)">Source: the team’s turn criteria and joint criteria in <code>docs/kb</code>. Player count and number of rounds are playtest settings, not confirmed rules.</p>' +
         '<p style="margin:12px 0 0;font-size:15px;color:var(--cream-dim)">At turn end the structure is simulated. The one-point penalty for a new or worsened issue is not applied yet.</p></div></div>';
     } else {
       var lv = LEVELS[mode], sel = lv.some(function (l) { return l.id === s.level; }) ? s.level : lv[0].id;
