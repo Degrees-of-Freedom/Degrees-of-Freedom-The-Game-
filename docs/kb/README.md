@@ -7,6 +7,7 @@ validated_against:
   - docs/kb/architecture.md
   - docs/kb/code-standards.md
   - docs/kb/structural-solver.md
+  - docs/kb/rust-solver.md
   - docs/kb/solver-criteria.md
   - docs/kb/solver-criteria-gap-analysis.md
   - docs/kb/development-and-testing.md
@@ -18,7 +19,7 @@ status: partial
 
 ## Purpose and status
 
-This is the canonical entry point for durable project knowledge. The game remains at the concept stage with an initial web scaffold. The workspace includes experimental voxel building, challenges, and approximate numerical analysis alongside a shared solver contract. One backend implements that contract: an OpenSees service in `services/opensees`, which the workspace calls for a stability and degree-of-freedom check when it is running. The project does not implement a turn system, and the voxel analysis is not an implementation of the shared adapter. Distinguish documented intent and proposed experiments from implemented behavior and decisions.
+This is the canonical entry point for durable project knowledge. The game remains at the concept stage with an initial web scaffold. The workspace includes experimental voxel building, challenges, and approximate numerical analysis alongside a shared solver contract. Two backends implement that contract. A Rust solver in `crates/dof-solver` runs in the browser as WebAssembly and is the workspace's default for its stability and degree-of-freedom check. An OpenSees service in `services/opensees` can be selected instead. The Rust solver also implements a detailed contract written against the solver criteria, which the game does not use yet. The project does not implement a turn system, and the voxel analysis is not an implementation of the shared adapter. Distinguish documented intent and proposed experiments from implemented behavior and decisions.
 
 ## Pages
 
@@ -28,6 +29,7 @@ This is the canonical entry point for durable project knowledge. The game remain
 | [architecture.md](architecture.md) | Understanding the three intended areas, current frameworks, and modular boundaries. |
 | [code-standards.md](code-standards.md) | Applying TypeScript, folder structure, modularity, React, Zustand, and routing standards. |
 | [structural-solver.md](structural-solver.md) | Working on the model, the OpenSees service, stability assessment, adapter boundaries, or solver tests. |
+| [rust-solver.md](rust-solver.md) | Working on the Rust WebAssembly solver: its coverage of the criteria, test evidence, timings, and open decisions. |
 | [solver-criteria.md](solver-criteria.md) | Reading the owner-supplied proposed solver requirements, acceptance gates, implementation order, and open gameplay decisions. |
 | [solver-criteria-gap-analysis.md](solver-criteria-gap-analysis.md) | Comparing current code and tests with the criteria and planning implementation milestones. |
 | [game-dynamics.md](game-dynamics.md) | Working on game state, turns, rules, or modes. |
