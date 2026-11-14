@@ -22,6 +22,8 @@ A reported strength exceedance, instability or disconnected region is a conditio
 
 ## 2. Issue evidence and eligibility
 
+For the first versioned playtest preset the owner approved verified structural instability and verified member or connector overload, including system pieces. A capacity issue enters above utilization 1.001 and clears below 0.999. A further rise of 0.10 from the last charged level counts as worsening. Aggregate qualifying changes once per originating turn. Do not charge retroactive penalties. The [ledger](criteria-ledger.md) records implementation and verification separately.
+
 Each issue records stable ID/category, affected objects/component lineage, prior/current model/result/version, physical fidelity/validity, severity or utilization where available, governing limit state, comparison status and reason. Mark new, persistent, worsened, resolved and unknown separately. Identify remote effects on other players' pieces, not just the newly played card.
 
 Proposed initial penalty-eligible categories: verified structural instability and member/connection capacity exceedance. Eligibility for unsupported/disconnected geometry, near-mechanisms or excessive deformation must be explicitly approved; do not expand the confirmed generic issue penalty by inventing new categories. Ordinary slack, uplift, illegal input, rejected placement, timeout, nonconvergence and unavailable evidence are not automatically penalized.
@@ -85,6 +87,8 @@ If no permitted correction is physically feasible or verifiable within the budge
 Required future fixtures: new instability repaired by a real added load path; overload corrected without deleting weight or altering the printed player section; a repair causing another-region overload rejected/revised; incompatible system joint law/clash rejected; correction budget exhausted with truthful scope; penalty preserved even after successful correction; retry/crash/reload creates no duplicated repair/card/penalty; avatar-off/muted/reduced-motion view exposes the same repair explanation. The neutral no-player-award/permanent lifetime and local-intervention requirements in section 7 apply to every accepted correction; actual physical catalogue definitions remain to validate.
 
 ## 7. Permanent neutral repairs with local intervention
+
+For this preset the owner approved up to three candidate neutral steel props or braces running from the flagged end or original quarter port to real ground, within one grid cell horizontally. System objects are inspection-only. A candidate must pass clash, equilibrium and capacity checks, including consequences elsewhere, before it can be accepted.
 
 **Confirmed:** automatic repairs may add neutral safety scaffolding or ground anchors; these are game-owned, not another player foundation or a playable card. Ground support is an explicit system-only exception to the setup-only player-foundation rule; it is not additional neutral ownership for a player foundation. No player earns attraction from neutral support reactions; include all applied gravity in the same denominator. Once accepted, repair objects and their physical effects remain for the rest of the match, including after player-built reinforcement. Save/reload, a later safe result, view changes and replay do not retire them. A new match starts under its own setup and does not inherit old repairs.
 

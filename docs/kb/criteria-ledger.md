@@ -18,6 +18,8 @@ The owner approved a scored two-player, eight-round preset. Score signed verifie
 
 ## Structural model and numerical verification
 
+The owner approved two additional playtest decisions. A repair may try up to three explicit steel props or braces from a flagged incident end/original quarter port to ground within one cell horizontally. System objects are inspection-only and permanent. Verified instability and verified member/connector overload, including on system pieces, qualify for at most one deduction on the originating turn. Capacity entry is above 1.001, exit below 0.999 and worsening a further 0.10 from the last charged level. No retroactive deductions. The two preserved GLBs are approved for playtest and transformation preview.
+
 Source and acceptance references are [solver](solver-criteria.md) §§2–7, [card-definition](card-definition-criteria.md) §§2–6, [visualization](visualization-criteria.md) LP01–LP08 and [release-acceptance](release-acceptance-criteria.md) §§2,3,6. M and A IDs are the original solver identifiers. The numerical criteria are proposed in the KB and explicitly requested for validation in this run.
 
 | ID | Authority | Status | Observed behavior and owning module | Acceptance evidence or next check |

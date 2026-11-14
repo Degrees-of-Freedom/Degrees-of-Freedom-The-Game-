@@ -159,6 +159,8 @@ Recommended order for a later implementation run:
 
 ## 10. Open decisions
 
+The owner authorized the two preserved, attributed GLBs for playtesting and a labelled Conkeldurr transformation preview. Automatic serious-event eligibility and final pose approval remain distinct from that asset decision. Use the recorded issue/repair event for explanations.
+
 - Final serious-issue categories/severity threshold and the compatible verified event source. This blocks automatic evolution, not the design specification.
 - Approval of the candidate models, needed rig/pose work and the final transformation look.
 - Exact timing, cooldown, companion placement and chatter frequency after playtesting.
