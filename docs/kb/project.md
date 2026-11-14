@@ -19,5 +19,6 @@ An early TypeScript web scaffold now exists, with React, a Zustand store, React 
 
 Ownership, solver details, distribution, and precise game rules remain open.
 
-Separately, the standalone prototype in `prototypes/voxel-struct` includes tower, bridge and weight pickup challenges, a frame analysis and a load-path view. The workspace adapts the earlier game and viewer behavior and analysis; the later pickup and load-path features are being integrated. The experimental analysis does not implement the shared solver contract. See [its README](../../prototypes/voxel-struct/README.md).
+Separately, the standalone prototype in `prototypes/voxel-struct` includes tower, bridge and weight pickup challenges, a frame analysis and a load-path view. The workspace adapts these challenges, viewer behavior, and analysis. The experimental analysis does not implement the shared solver contract. See [its README](../../prototypes/voxel-struct/README.md).
+
 
