@@ -118,35 +118,50 @@ export function AnalysisPanel({
               </b>
             </div>
           )}
-          <h3>
-            {result.designChecksAvailable === false
-              ? "Member end forces"
-              : "Most utilised members"}
-          </h3>
-          {Object.entries(result.members)
-            .sort((a, b) => b[1].util - a[1].util)
-            .slice(0, result.designChecksAvailable === false ? undefined : 8)
-            .map(([id, member]) => (
-              <button
-                className="member-result"
-                key={id}
-                onClick={() => selectMember(Number(id))}
-              >
-                {result.designChecksAvailable === false ? (
-                  (() => {
-                    const force = result.combos[combo]?.ef?.get(member.e)?.f;
-                    return force && !result.mechanism
-                      ? `#${id} · |N| ${Math.max(Math.abs(force[0]), Math.abs(force[6])).toFixed(1)} kN · |V| ${Math.max(...[1, 2, 7, 8].map((i) => Math.abs(force[i]))).toFixed(1)} kN · |M| ${Math.max(...[4, 5, 10, 11].map((i) => Math.abs(force[i]))).toFixed(1)} kNm`
-                      : `#${id} · Forces unavailable`;
-                  })()
-                ) : (
-                  <>
-                    #{id} · {member.gov}{" "}
-                    <b>{(member.util * 100).toFixed(0)}%</b>
-                  </>
-                )}
-              </button>
-            ))}
+          <details className="member-forces">
+            <summary>
+              {result.designChecksAvailable === false
+                ? "Member end forces"
+                : "Most utilised members"}
+            </summary>
+            {result.designChecksAvailable === false && (
+              <p>
+                Maximum absolute axial force (N), shear component (V), and
+                bending moment component (M) at either end, in member-local
+                axes.
+              </p>
+            )}
+            {Object.entries(result.members)
+              .sort((a, b) => b[1].util - a[1].util)
+              .slice(0, result.designChecksAvailable === false ? undefined : 8)
+              .map(([id, member]) => (
+                <button
+                  className="member-result"
+                  key={id}
+                  onClick={() => selectMember(Number(id))}
+                >
+                  {result.designChecksAvailable === false ? (
+                    (() => {
+                      const force = result.combos[combo]?.ef?.get(member.e)?.f;
+                      return force && !result.mechanism
+                        ? `#${id} · |N| ${Math.max(Math.abs(force[0]), Math.abs(force[6])).toFixed(1)} kN · |V| ${Math.max(...[1, 2, 7, 8].map((i) => Math.abs(force[i]))).toFixed(1)} kN · |M| ${Math.max(...[4, 5, 10, 11].map((i) => Math.abs(force[i]))).toFixed(1)} kNm`
+                        : `#${id} · Forces unavailable`;
+                    })()
+                  ) : (
+                    <>
+                      #{id} · {member.gov}{" "}
+                      <b>{(member.util * 100).toFixed(0)}%</b>
+                    </>
+                  )}
+                </button>
+              ))}
+          </details>
+          {result.designChecksAvailable === false && (
+            <p>
+              Applied-load response includes self-weight. Capacity and buckling
+              checks require design load combinations.
+            </p>
+          )}
           <div className="view-options">
             <label>
               Load case{" "}
