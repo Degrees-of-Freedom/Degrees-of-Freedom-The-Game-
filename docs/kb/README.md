@@ -6,6 +6,8 @@ validated_against:
   - package.json
   - docs/kb/architecture.md
   - docs/kb/structural-solver.md
+  - docs/kb/solver-criteria.md
+  - docs/kb/solver-criteria-gap-analysis.md
   - docs/kb/development-and-testing.md
 owner: unknown
 status: partial
@@ -24,6 +26,8 @@ This is the canonical entry point for durable project knowledge. The game remain
 | [project.md](project.md) | Understanding the concept, status, and repository. |
 | [architecture.md](architecture.md) | Understanding the three intended areas, current frameworks, and modular boundaries. |
 | [structural-solver.md](structural-solver.md) | Working on the model, solver candidates, adapter boundaries, or proposed validation options. |
+| [solver-criteria.md](solver-criteria.md) | Reading the owner-supplied proposed solver requirements, acceptance gates, implementation order, and open gameplay decisions. |
+| [solver-criteria-gap-analysis.md](solver-criteria-gap-analysis.md) | Comparing current code and tests with the criteria and planning implementation milestones. |
 | [game-dynamics.md](game-dynamics.md) | Working on game state, turns, rules, or modes. |
 | [3d-viewer.md](3d-viewer.md) | Working on the 3D grid, interaction, or visual feedback. |
 | [development-and-testing.md](development-and-testing.md) | Finding current setup, commands, and test coverage. |
