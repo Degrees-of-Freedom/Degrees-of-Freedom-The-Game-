@@ -1,0 +1,232 @@
+{
+  "format": "dof-observed-voxel-baseline",
+  "version": 1,
+  "disclaimer": "Observed regression baseline, not an independent numerical oracle or OpenSees result. Timing deliberately excluded.",
+  "sourceRevision": "7dd5a671ac0d056c87eb6c3401b8c729ccb347c8",
+  "solverSourceSha256": "0ed957ed1b6dffdb7c68514d80b8211b7c3069e9392ea4b3a2a3352bcfa0342f",
+  "catalogSha256": "a26f118458550aa7e0e8367bf7a8eaa281197b5d33b1e2dcbd718814a3031bc6",
+  "relativeTolerance": 0.000001,
+  "absoluteTolerance": 1e-9,
+  "measurements": [
+    {
+      "id": "01-stocky-column",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.000016230396678879877,
+      "maxUtilization": 0.09233751917371599
+    },
+    {
+      "id": "02-slender-column",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.32927312029755734,
+      "maxUtilization": 0.18520259177452134
+    },
+    {
+      "id": "03-cantilever",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.5528963179416214,
+      "maxUtilization": 1.3519784053490502
+    },
+    {
+      "id": "04-rigid-portal",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.00850043019925504,
+      "maxUtilization": 0.4178310441517643
+    },
+    {
+      "id": "05-released-portal",
+      "scope": "unavailable",
+      "mechanism": true,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": null,
+      "maxUtilization": null
+    },
+    {
+      "id": "06-braced-portal",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.0020204245682373177,
+      "maxUtilization": 0.5238320341483519
+    },
+    {
+      "id": "07-timber-portal",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.011290994296529851,
+      "maxUtilization": 0.4781450875207616
+    },
+    {
+      "id": "08-space-frame",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.000032249129442883504,
+      "maxUtilization": 0.2785540294345095
+    },
+    {
+      "id": "09-two-storey",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.00012278067574958364,
+      "maxUtilization": 0.4178310441517643
+    },
+    {
+      "id": "10-braced-tower",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.00041282282208936514,
+      "maxUtilization": 0.5238320341483519
+    },
+    {
+      "id": "11-unbraced-tower",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.0006346956410728455,
+      "maxUtilization": 0.2785540294345095
+    },
+    {
+      "id": "12-midrise",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.00036689177180150714,
+      "maxUtilization": 0.5238320341483519
+    },
+    {
+      "id": "13-short-bridge",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.0009839381784499932,
+      "maxUtilization": 0.5238320341483519
+    },
+    {
+      "id": "14-long-bridge",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.0058189707700316475,
+      "maxUtilization": 0.5238320341483519
+    },
+    {
+      "id": "15-cable-bridge",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.03071420413959204,
+      "maxUtilization": 0.4178310441517643
+    },
+    {
+      "id": "16-roof-grid",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.09964243502123218,
+      "maxUtilization": 0.6699109256545992
+    },
+    {
+      "id": "17-pyramid",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.0008631267942043429,
+      "maxUtilization": 1.079907403437906
+    },
+    {
+      "id": "18-guyed-mast",
+      "scope": "whole-model",
+      "mechanism": false,
+      "floating": 0,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.0004032004390112875,
+      "maxUtilization": 0.16045522069076357
+    },
+    {
+      "id": "19-floating-component",
+      "scope": "supported-component-only",
+      "mechanism": false,
+      "floating": 2,
+      "error": null,
+      "combinations": 4,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": 0.00850043019925504,
+      "maxUtilization": 0.4178310441517643
+    },
+    {
+      "id": "20-no-foundation",
+      "scope": "unavailable",
+      "mechanism": false,
+      "floating": 8,
+      "error": "No foundation — place at least one foundation on the ground.",
+      "combinations": 0,
+      "failedCombinations": 0,
+      "maxDisplacementMetres": null,
+      "maxUtilization": null
+    }
+  ]
+}

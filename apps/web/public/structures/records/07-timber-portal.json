@@ -1,0 +1,93 @@
+{
+  "format": "dof-structure-record",
+  "version": 1,
+  "id": "07-timber-portal",
+  "name": "Timber portal",
+  "family": "frame",
+  "purpose": "Material color, section sizing and stiffness comparison.",
+  "complexity": "small",
+  "nodeCount": 7,
+  "memberCount": 6,
+  "extentMetres": [
+    8,
+    0,
+    4
+  ],
+  "expectation": {
+    "stability": "stable",
+    "basis": "Qualitative design intent; not a verified numerical reference."
+  },
+  "preview": "previews/07-timber-portal.png",
+  "save": {
+    "format": "dof-voxel-save",
+    "version": 1,
+    "levelId": "library",
+    "model": {
+      "members": [
+        {
+          "id": 1,
+          "a": "4,6,0",
+          "b": "4,6,2",
+          "type": "glulam"
+        },
+        {
+          "id": 2,
+          "a": "8,6,0",
+          "b": "8,6,2",
+          "type": "glulam"
+        },
+        {
+          "id": 3,
+          "a": "4,6,2",
+          "b": "5,6,2",
+          "type": "glulam"
+        },
+        {
+          "id": 4,
+          "a": "5,6,2",
+          "b": "6,6,2",
+          "type": "glulam"
+        },
+        {
+          "id": 5,
+          "a": "6,6,2",
+          "b": "7,6,2",
+          "type": "glulam"
+        },
+        {
+          "id": 6,
+          "a": "7,6,2",
+          "b": "8,6,2",
+          "type": "glulam"
+        }
+      ],
+      "attrs": {
+        "4,6,0": {
+          "found": true,
+          "joint": true
+        },
+        "4,6,2": {
+          "joint": true
+        },
+        "8,6,0": {
+          "found": true,
+          "joint": true
+        },
+        "8,6,2": {
+          "joint": true
+        },
+        "5,6,2": {
+          "joint": true
+        },
+        "6,6,2": {
+          "joint": true,
+          "load": 20
+        },
+        "7,6,2": {
+          "joint": true
+        }
+      },
+      "nextId": 7
+    }
+  }
+}
