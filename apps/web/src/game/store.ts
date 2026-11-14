@@ -133,6 +133,12 @@ function cleanup(model: GameModel) {
     if (!a.found && !a.joint && !a.load && !a.locked) delete model.attrs[key];
   }
 }
+/** Levels opens the prototype's example two grid levels above the ground. */
+function initialWorkK(style: PresentationStyle, levelId: LevelId, model: GameModel): number {
+  const level = LEVELS[levelId];
+  const ground = level.cliffH ?? 0;
+  return style === 'levels' && model.members.length ? Math.min(level.nz, ground + 2) : ground;
+}
 /** Pure game state and validated, undoable edits; renderer and solver are independent. */
 export const useGameStore = create<GameState>((set, get) => {
   const saveModel = (levelId: LevelId, model: GameModel, mode: GameMode) => {
@@ -326,7 +332,7 @@ export const useGameStore = create<GameState>((set, get) => {
             : null,
         history: [],
         future: [],
-        workK: LEVELS[setup.levelId].cliffH ?? 0,
+        workK: initialWorkK(prior.style, setup.levelId, mode === 'multiplayer' && turn ? projectTurnModel(turn) : validLoaded && loaded.status === 'found' ? loaded.model : setup.model),
         chainStart: null,
         selected: null,
       });
@@ -336,6 +342,7 @@ export const useGameStore = create<GameState>((set, get) => {
         saved = saveSession({ mode: s.mode, style, turn: s.turn });
       set({
         style,
+        ...(style === 'levels' && s.style !== 'levels' ? { workK: initialWorkK(style, s.levelId, s.model) } : {}),
         chainStart: null,
         selected: null,
         ...(saved
@@ -423,7 +430,7 @@ export const useGameStore = create<GameState>((set, get) => {
         };
       }),
     tool: "shs",
-    workK: LEVELS[levelId].cliffH ?? 0,
+    workK: initialWorkK(session.style, levelId, initialModelValue),
     chainStart: null,
     selected: null,
     setLevel: (levelId) => {
@@ -436,7 +443,7 @@ export const useGameStore = create<GameState>((set, get) => {
         persistenceError: loaded.error,
         history: [],
         future: [],
-        workK: LEVELS[levelId].cliffH ?? 0,
+        workK: initialWorkK(s.style, levelId, loaded.model),
         chainStart: null,
         selected: null,
         tool:

@@ -8,6 +8,18 @@ import { createTurnGame } from "./turns";
 import { analyzeVoxel } from "../solver/voxel";
 
 describe("shared editor runtime", () => {
+  it('opens Levels on the prototype example plane and respects the board bounds', () => {
+    const game = useGameStore.getState();
+    game.setMode('creative');
+    game.reset();
+    expect(game.addMember([1, 1, 0], [1, 1, 2], 'shs')).toBeNull();
+    game.setStyle('grow');
+    game.setStyle('levels');
+    expect(useGameStore.getState().workK).toBe(2);
+    game.setWorkK(100);
+    expect(useGameStore.getState().workK).toBe(LEVELS.environment.nz);
+    game.setMode('challenge');
+  });
   it("validates a whole bay before committing it and undoes and redoes it atomically", () => {
     const store = useGameStore.getState();
     store.setLevel("sandbox");

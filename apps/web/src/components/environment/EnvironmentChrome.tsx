@@ -2,7 +2,39 @@ import { Link } from "react-router-dom";
 import { useGameStore } from "../../game/store";
 import { analyzeConnectivity } from "../../game/connectivity";
 import { CELL_SIZE } from "../../game/model";
+import { LEVELS } from "../../game/levels";
 import { STYLE_CATALOG, MODE_CATALOG } from "../runtimeCatalog";
+
+function EnvironmentMark({ style }: { style: ReturnType<typeof useGameStore.getState>["style"] }) {
+  if (style === "levels") return (
+    <svg viewBox="0 0 28 28" aria-hidden="true" strokeWidth="1.4" strokeLinejoin="round">
+      <path d="M14 15.5 25 21l-11 5.5L3 21z M14 9 25 14.5 14 20 3 14.5z" fill="#f4f0e6" stroke="#2f3b52" />
+      <path d="M14 2.5 25 8 14 13.5 3 8z" fill="#9ec3e6" stroke="#5b84b1" />
+    </svg>
+  );
+  if (style === "blocks") return (
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="7" y="7" width="18" height="18" fill="none" stroke="#bda88a" strokeWidth="2" />
+      <path d="M7 25 25 7" stroke="#e8735a" strokeWidth="3.2" strokeLinecap="round" />
+      {[3, 21].flatMap((x) => [3, 21].map((y) => <rect key={x + "," + y} x={x} y={y} width="8" height="8" rx="2.2" fill="#3b4252" />))}
+    </svg>
+  );
+  if (style === "kit") return (
+    <svg viewBox="0 0 30 30" aria-hidden="true">
+      <path d="m4 23 10-15m2 15 10-15" fill="none" strokeWidth="4" strokeLinecap="round" stroke="#e9806e" />
+      <path d="m11 23 11-15" fill="none" strokeWidth="4" strokeLinecap="round" stroke="#6a9bd8" />
+    </svg>
+  );
+  return (
+    <svg viewBox="0 0 30 30" aria-hidden="true">
+      <path d="M7 23 15 7 23 23" fill="none" stroke={style === "grow-dusk" ? "#8cc7b5" : "#4f9da6"} strokeWidth="3.4" strokeLinecap="round" />
+      <path d="M7 23h16" stroke={style === "grow-dusk" ? "#6a9bd8" : "#e3b04b"} strokeWidth="3.4" strokeLinecap="round" />
+      <circle cx="15" cy="7" r="3.6" fill="#fbf7ef" stroke="#3f4654" strokeWidth="2" />
+      <circle cx="7" cy="23" r="3" fill="#6d7a8c" />
+      <circle cx="23" cy="23" r="3" fill="#6d7a8c" />
+    </svg>
+  );
+}
 
 export function EnvironmentBrand() {
   const game = useGameStore();
@@ -13,31 +45,7 @@ export function EnvironmentBrand() {
         title="Choose a mode or environment"
         aria-label="All environments"
       >
-        <svg width="30" height="30" viewBox="0 0 30 30">
-          <path
-            d="M7 23 15 7 23 23"
-            fill="none"
-            stroke="#4f9da6"
-            strokeWidth="3.4"
-            strokeLinecap="round"
-          />
-          <path
-            d="M7 23h16"
-            stroke="#e3b04b"
-            strokeWidth="3.4"
-            strokeLinecap="round"
-          />
-          <circle
-            cx="15"
-            cy="7"
-            r="3.6"
-            fill="#fbf7ef"
-            stroke="#3f4654"
-            strokeWidth="2"
-          />
-          <circle cx="7" cy="23" r="3" fill="#6d7a8c" />
-          <circle cx="23" cy="23" r="3" fill="#6d7a8c" />
-        </svg>
+        <EnvironmentMark style={game.style} />
       </Link>
       <div>
         <b className="brand-name">Degrees of Freedom</b>
@@ -86,6 +94,7 @@ export function EnvironmentStats() {
 export function EnvironmentStepper() {
   const game = useGameStore();
   if (game.style !== "levels" && game.style !== "engineering") return null;
+  const maxLevel = LEVELS[game.levelId].nz;
   return (
     <aside id="stepper" className="card" aria-label="Working level">
       <div className="st-head">
@@ -100,6 +109,7 @@ export function EnvironmentStepper() {
           <button
             className="btn"
             aria-label="Level up"
+            disabled={game.workK >= maxLevel}
             onClick={() => game.setWorkK(game.workK + 1)}
           >
             ↑ <kbd>W</kbd>
@@ -107,6 +117,7 @@ export function EnvironmentStepper() {
           <button
             className="btn"
             aria-label="Level down"
+            disabled={game.workK <= 0}
             onClick={() => game.setWorkK(game.workK - 1)}
           >
             ↓ <kbd>S</kbd>
@@ -120,14 +131,14 @@ export function EnvironmentStepper() {
           viewBox="0 0 150 182"
           aria-label="Elevation levels"
         >
-          {Array.from({ length: 8 }, (_, k) => (
-            <g key={k} onClick={() => game.setWorkK(k)}>
+          {Array.from({ length: maxLevel + 1 }, (_, k) => (
+            <g key={k} role="button" tabIndex={0} aria-label={`Go to level ${k}`} onClick={() => game.setWorkK(k)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); game.setWorkK(k); } }}>
               <path
-                d={`M10 ${160 - k * 20}h110`}
+                d={`M10 ${160 - k * 150 / Math.max(maxLevel, 1)}h110`}
                 stroke={game.workK === k ? "#5b84b1" : "#d9d2c3"}
                 strokeWidth={game.workK === k ? 3 : 1}
               />
-              <text x="130" y={164 - k * 20} fontSize="11" fill="#5b6472">
+              <text x="130" y={164 - k * 150 / Math.max(maxLevel, 1)} fontSize="11" fill="#5b6472">
                 {k}
               </text>
             </g>
