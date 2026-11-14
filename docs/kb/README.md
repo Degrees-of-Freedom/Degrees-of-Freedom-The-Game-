@@ -20,7 +20,7 @@ status: partial
 
 ## Purpose and status
 
-This is the canonical entry point for durable project knowledge. The early web prototype presents five environments in one application, with voxel editing, challenges, approximate numerical analysis and a local Shared table card playtest. Shared table turns commit with unresolved analysis pending solver support for individual member-end connections. Distinguish documented intent and proposed experiments from implemented behavior and decisions.
+This is the canonical entry point for durable project knowledge. The early web prototype presents five environments in one application, with voxel editing, challenges, approximate numerical analysis and a local Shared table card playtest. Shared table turns commit with experimental applied-load results where available. Distinguish documented intent and proposed experiments from implemented behavior and decisions.
 
 ## Pages
 

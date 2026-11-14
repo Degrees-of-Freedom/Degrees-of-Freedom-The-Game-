@@ -14,4 +14,4 @@ The React workspace uses Three.js for a Z-up voxel scene with terrain, orbit and
 
 The scene manages the renderer and lifecycle. Separate modules handle picking, input, mesh construction, result overlays, and particle animation.
 
-The full-screen workspace follows the layouts and palettes of Grow, Grow Dusk, Levels, Blocks and Kit from the environment prototype branch. The [unified runtime](unified-runtime.md#environment-mapping) records the mapping and remaining interaction differences. Solver overlays apply to supported voxel inputs. Shared table displays explicit end connections and graph reachability while numerical turn results are unresolved.
+The full-screen workspace follows the layouts and palettes of Grow, Grow Dusk, Levels, Blocks and Kit from the environment prototype branch. The [unified runtime](unified-runtime.md#environment-mapping) records the mapping and remaining interaction differences. Solver overlays apply to supported voxel inputs. Shared table displays explicit end connections, graph reachability, and experimental applied-load results.

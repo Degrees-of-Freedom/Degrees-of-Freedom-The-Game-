@@ -23,7 +23,7 @@ The game intends to communicate load paths, instability, member or connection fa
 
 The owner-supplied [solver criteria](solver-criteria.md) are the proposed implementation requirements. They specify intentional member-end connectivity, six-axis connection laws, exact rigid constraints, verified linear and nonlinear physics, component-scoped stability and validity, signed reactions, and deterministic turn analysis. Their gameplay defaults, numerical gates, and performance targets remain proposals. The [gap analysis and milestones](solver-criteria-gap-analysis.md) compare them with current code and tests; no milestone is accepted as complete.
 
-The [turn criteria](turn-criteria.md) now define the confirmed two-deck draw/play limits and per-end connection-card model. End-turn assessment compares the full shared structure with the prior committed baseline. The game engine owns issue responsibility and penalties; the solver returns physical classifications and validity. The Shared table implements card placement. Numerical end-turn assessment remains unavailable.
+The [turn criteria](turn-criteria.md) now define the confirmed two-deck draw/play limits and per-end connection-card model. End-turn assessment compares the full shared structure with the prior committed baseline. The game engine owns issue responsibility and penalties; the solver returns physical classifications and validity. The Shared table implements card placement. An experimental applied-load solve supports fixed and ball end connections. Verified issue comparison and penalties remain pending.
 
 ## Model and interface today
 
