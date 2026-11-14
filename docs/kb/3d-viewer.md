@@ -2,6 +2,7 @@
 title: "3D Viewer"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/animation-criteria.md
   - apps/web/src/viewer
   - apps/web/src/pages/Workspace.tsx
 owner: unknown
@@ -15,3 +16,7 @@ The React workspace uses Three.js for a Z-up voxel scene with terrain, orbit and
 The scene manages the renderer and lifecycle. Separate modules handle picking, input, mesh construction, result overlays, and particle animation.
 
 The full-screen workspace follows the layouts and palettes of Grow, Grow Dusk, Levels, Blocks and Kit from the environment prototype branch. The [unified runtime](unified-runtime.md#environment-mapping) records the mapping and remaining interaction differences. The shared scene renders computed deformation, utilization, load arrows and reaction labels when the current simulation provides those results. Grow Dusk labels applied loads in kN and positions weights above or below joints according to neighboring members. Shared table shows explicit end connections and reads solver positions for loose endpoints. Graph reachability remains available independently of numerical results.
+
+## Animation and sound requirements
+
+See [animation and sound criteria](animation-criteria.md) for the owner-confirmed magical arena direction, all-action coverage and coordinated sound. The specification includes configurable structural glow/pulse, reduced-motion alternatives, and a distinction between reference geometry, verified deformation and illustrative instability modes. Breaking/removal effects require a matching committed game transition. This is a presentation specification, not a claim that these effects or controls exist.
