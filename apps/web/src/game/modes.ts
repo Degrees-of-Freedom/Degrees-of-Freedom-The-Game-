@@ -14,12 +14,9 @@ export function modeSetup(mode: GameMode): { levelId: LevelId; model: GameModel 
   const levelId: LevelId = mode === 'load-space' ? 'pickup1' : mode === 'forensics' || mode === 'challenge' ? 'tower1' : 'sandbox';
   if (mode === 'forensics') {
     const model = exampleModel('tower1')!;
-    // Remove the first diagonal to give the player a repair exercise.
-    const diagonal = model.members.findIndex((m) => {
-      const a = m.a.split(',').map(Number), b = m.b.split(',').map(Number);
-      return a[2] !== b[2] && (a[0] !== b[0] || a[1] !== b[1]);
-    });
-    if (diagonal >= 0) model.members.splice(diagonal, 1);
+    // A deliberately disconnected member gives the experimental connectivity
+    // check a visible fault; connect its lower end to the existing frame.
+    model.members.push({ id: model.nextId++, a: '2,4,3', b: '2,4,4', type: 'shs' });
     return { levelId, model };
   }
   return { levelId, model: initialModel(LEVELS[levelId]) };

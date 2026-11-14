@@ -18,11 +18,21 @@ export function bayEdges(origin: GridPoint, size: GridPoint): [GridPoint, GridPo
   return edges;
 }
 
+/** Existing edges are shared by adjacent bays. */
+export function missingBayEdges(model: GameModel, origin: GridPoint, size: GridPoint): [GridPoint, GridPoint][] {
+  return bayEdges(origin, size).filter(([a, b]) => {
+    const ak = nodeKey(...a), bk = nodeKey(...b);
+    return !model.members.some((m) => (m.a === ak && m.b === bk) || (m.a === bk && m.b === ak));
+  });
+}
+
 /** Validate the whole bay against a temporary model, including inventory. */
 export function bayIssue(level: Level, model: GameModel, origin: GridPoint, size: GridPoint, type: MemberType): string | null {
   if (size.some((v) => !Number.isInteger(v) || v <= 0)) return 'Bay dimensions must be positive integers';
   const draft: GameModel = { ...model, members: [...model.members] };
-  for (const [a, b] of bayEdges(origin, size)) {
+  const edges = missingBayEdges(model, origin, size);
+  if (!edges.length) return 'This bay is already built';
+  for (const [a, b] of edges) {
     const issue = memberIssue(level, draft, a, b, type);
     if (issue) return issue;
     draft.members.push({ id: draft.nextId++, a: nodeKey(...a), b: nodeKey(...b), type });
