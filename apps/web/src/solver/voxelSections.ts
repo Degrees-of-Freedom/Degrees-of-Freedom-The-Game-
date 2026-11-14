@@ -149,3 +149,37 @@ export const ITEMS = {
     cost: 0,
   },
 } as const;
+
+/** Dimensions in metres. Sharp-corner display dimensions do not replace the
+ * section table's independently specified area, inertia or torsion constant.
+ * Wall/web/flange values are provisional printed playtest dimensions. */
+export const SECTION_GEOMETRY = {
+  shs: { kind: 'rectangular-hollow', width: 0.100, depth: 0.100, wall: 0.006 },
+  glulam: { kind: 'solid-rectangle', width: 0.200, depth: 0.400 },
+  ipe: { kind: 'wide-flange', width: 0.150, depth: 0.300, web: 0.0071, flange: 0.0107 },
+  heb: { kind: 'wide-flange', width: 0.300, depth: 0.300, web: 0.011, flange: 0.019 },
+  cable: { kind: 'cable', diameter: 0.024 },
+} as const satisfies Record<VoxelMemberType, { kind: string } & Record<string, number | string>>;
+
+/** Resolve one printed physical definition into SI (N, m, Pa). Native voxel
+ * moduli/stresses are kN/m²; areas and second moments are already in m²/m⁴.
+ * Cable pretension is referenced to the straight, placed length and positive
+ * in tension. An unstressed length is not the current deformed cable length. */
+export function resolveMemberLaw(type: VoxelMemberType, referenceLengthM: number) {
+  if (!Number.isFinite(referenceLengthM) || referenceLengthM <= 0) {
+    throw new RangeError('Physical reference length must be finite and positive.');
+  }
+  const section = ITEMS[type];
+  const elasticModulus = section.E * 1000;
+  if (section.kind === 'cable') {
+    const initialStrain = section.P0 / (section.E * section.A);
+    return {
+      kind: 'cable' as const, area: section.A, elasticModulus,
+      restLength: referenceLengthM / (1 + initialStrain),
+    };
+  }
+  return {
+    kind: 'frame' as const, area: section.A, elasticModulus,
+    shearModulus: section.G * 1000, iy: section.Iy, iz: section.Iz, torsionConstant: section.J,
+  };
+}

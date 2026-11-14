@@ -69,6 +69,7 @@ export function writeSession(storage: Storage, session: Session): boolean {
       style: session.style,
       turn: session.turn && {
         version: session.turn.version,
+        catalogue: session.turn.catalogue,
         seed: session.turn.seed,
         events: session.turn.events,
       },

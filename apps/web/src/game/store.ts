@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { SCORED_CATALOGUE } from "./cardCatalogue";
 import { assessTurn } from "./turnAnalysis";
 import { exampleModel } from "./examples";
 import {
@@ -304,7 +305,7 @@ export const useGameStore = create<GameState>((set, get) => {
         return "Finish the current match before starting another.";
       return turnTransition({
         ok: true,
-        state: createTurnGame(s.turn.seed + 1),
+        state: createTurnGame(s.turn.seed + 1, SCORED_CATALOGUE),
       });
     },
     setMode: (mode) => {
@@ -331,7 +332,7 @@ export const useGameStore = create<GameState>((set, get) => {
         loaded.status === "found" &&
         (mode !== "forensics" || hasForensicsFixture(loaded.model));
       const turn =
-        mode === "multiplayer" ? (prior.turn ?? createTurnGame()) : prior.turn;
+        mode === "multiplayer" ? (prior.turn ?? createTurnGame(1, SCORED_CATALOGUE)) : prior.turn;
       const saved = saveSession({ mode, style: prior.style, turn });
       set({
         mode,

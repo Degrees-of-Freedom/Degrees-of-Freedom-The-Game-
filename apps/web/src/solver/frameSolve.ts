@@ -1,4 +1,3 @@
-import { ITEMS } from './voxelSections';
 import type { FrameSystem, Element, ElementForce, Solved } from './voxelResults';
 import { recover } from './frameElement';
 import { cholesky, cholSolve } from './frameMath';
@@ -37,8 +36,8 @@ export function solveCombo(
     for (let d = 0; d < NA * 6; d++) if (eq[d] >= 0) Ff[eq[d]] += F[d];
     // cable pretension as initial strain: active cables pull their end nodes together
     for (const e of cables) {
-      if (!active.get(e)) continue;
-      const P = ITEMS.cable.P0;
+      if (!active.get(e) || e.it.kind !== 'cable') continue;
+      const P = e.it.P0;
       for (let c = 0; c < 3; c++) {
         const da = eq[e.a * 6 + c],
           db = eq[e.b * 6 + c];
@@ -74,10 +73,11 @@ export function solveCombo(
     for (let d = 0; d < NA * 6; d++) if (eq[d] >= 0) u[d] = x[eq[d]];
     let changed = false;
     for (const e of cables) {
+      if (e.it.kind !== 'cable') continue;
       let el = 0;
       for (let c = 0; c < 3; c++)
         el += e.ex[c] * (u[e.b * 6 + c] - u[e.a * 6 + c]);
-      const want = ITEMS.cable.P0 + ((e.it.E * e.it.A) / e.L) * el > 0;
+      const want = e.it.P0 + ((e.it.E * e.it.A) / e.L) * el > 0;
       if (want !== active.get(e)) {
         active.set(e, want);
         changed = true;
@@ -99,9 +99,9 @@ export function solveCombo(
       continue;
     }
     const r = recover(e, u);
-    if (e.cable) {
-      r.f[0] -= ITEMS.cable.P0;
-      r.f[6] += ITEMS.cable.P0;
+    if (e.it.kind === 'cable') {
+      r.f[0] -= e.it.P0;
+      r.f[6] += e.it.P0;
     }
     ef.set(e, r);
   }

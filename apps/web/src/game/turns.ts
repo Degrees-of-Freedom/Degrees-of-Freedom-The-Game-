@@ -3,27 +3,13 @@ import {
   parseNodeKey,
   type GameModel,
   type Member,
-  type MemberType,
 } from "./model";
+import { LEGACY_CATALOGUE, SCORED_CATALOGUE, printedCards, type CardDefinition, type CatalogueId } from "./cardCatalogue";
 import { conflictingJointAxes, CONNECTION_PROFILES } from "./jointFreedom";
 import { findPort, targetCoordinate } from "./turnPorts";
 export { CONNECTION_PROFILES } from "./jointFreedom";
 
-export type TurnCard =
-  | {
-      id: string;
-      kind: "element";
-      label: string;
-      type: MemberType;
-      maxSteps: number;
-    }
-  | { id: string; kind: "load"; label: string; magnitude: number }
-  | {
-      id: string;
-      kind: "connection";
-      label: string;
-      profile: "fixed" | "ball";
-    };
+export type TurnCard = CardDefinition & { id: string };
 
 export const KIT_PLAYTEST = {
   version: 1,
@@ -82,6 +68,7 @@ export type TurnReport = {
 
 export interface TurnState {
   version: typeof KIT_PLAYTEST.version;
+  catalogue: CatalogueId;
   seed: number;
   turn: number;
   playerIndex: number;
@@ -116,35 +103,14 @@ function shuffle(cards: TurnCard[], seed: number): TurnCard[] {
   return cards;
 }
 
-function createDecks(seed: number): TurnState["decks"] {
+function createDecks(seed: number, catalogue: CatalogueId): TurnState["decks"] {
   const deck1: TurnCard[] = [],
     deck2: TurnCard[] = [];
-  const types: MemberType[] = ["shs", "glulam", "ipe", "heb", "cable"];
   const count = KIT_PLAYTEST.players * KIT_PLAYTEST.rounds * 2;
   for (let i = 0; i < count; i++) {
-    const type = types[i % types.length];
-    const maxSteps = 1 + (i % 4);
-    const magnitude = [5, 10, 20, 50][i % 4];
-    const profile = i % 2 === 0 ? "fixed" : "ball";
-    deck1.push({
-      id: "element-" + i,
-      kind: "element",
-      type,
-      maxSteps,
-      label: type.toUpperCase() + " · up to " + maxSteps,
-    });
-    deck1.push({
-      id: "load-" + i,
-      kind: "load",
-      magnitude,
-      label: magnitude + " kN down",
-    });
-    deck2.push({
-      id: "connection-" + i,
-      kind: "connection",
-      profile,
-      label: profile === "fixed" ? "Fixed / moment" : "Ball joint",
-    });
+    const cards = printedCards(i, catalogue);
+    deck1.push(cards.element, cards.load);
+    deck2.push(cards.connection);
   }
   return [shuffle(deck1, seed), shuffle(deck2, seed ^ 0x9e3779b9)];
 }
@@ -165,7 +131,7 @@ function draw(state: TurnState): TurnState {
   };
 }
 
-export function createTurnGame(seed = 1): TurnState {
+export function createTurnGame(seed = 1, catalogue: CatalogueId = LEGACY_CATALOGUE): TurnState {
   const players = [
     { id: "player-1", score: 0, hand: [] },
     { id: "player-2", score: 0, hand: [] },
@@ -197,11 +163,12 @@ export function createTurnGame(seed = 1): TurnState {
   seed >>>= 0;
   return draw({
     version: KIT_PLAYTEST.version,
+    catalogue,
     seed,
     turn: 1,
     playerIndex: 0,
     players,
-    decks: createDecks(seed),
+    decks: createDecks(seed, catalogue),
     nextId: 3,
     draft: emptyDraft(),
     board,
@@ -517,7 +484,13 @@ export function replayTurnState(raw: unknown): Transition {
     raw.events.length > KIT_PLAYTEST.players * KIT_PLAYTEST.rounds * 5
   )
     return fail("Unrecognized match format or invalid replay header.");
-  let state = createTurnGame(raw.seed);
+  // Original version-one saves predate catalogue selection and keep their
+  // deterministic five-family hands, including experimental cables.
+  const catalogue = raw.catalogue === undefined ? LEGACY_CATALOGUE : raw.catalogue;
+  if (catalogue !== LEGACY_CATALOGUE && catalogue !== SCORED_CATALOGUE) {
+    return fail("Saved match requires an unsupported physical catalogue.");
+  }
+  let state = createTurnGame(raw.seed, catalogue);
   for (const event of raw.events) {
     const result = replayEvent(state, event);
     if (!result) return fail("Unrecognized saved turn action.");
