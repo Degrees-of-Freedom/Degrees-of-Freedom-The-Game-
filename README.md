@@ -10,6 +10,4 @@ The repository contains the web app in `apps/web`, the preliminary shared solver
 
 The workspace includes an experimental voxel building and analysis loop with tower, bridge and weight pickup challenges and a sandbox. Analysis is approximate, has not been independently validated, and is not for engineering design. A turn system is not implemented.
 
-A standalone, playable build-and-analyse prototype lives in [prototypes/voxel-struct](prototypes/voxel-struct/README.md); the original standalone version remains available for comparison.
-
-
+The [original prototype notes](prototypes/voxel-struct/README.md) link to the standalone version in Git history.

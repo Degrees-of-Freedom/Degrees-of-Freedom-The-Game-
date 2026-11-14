@@ -6,7 +6,7 @@ validated_against:
   - package.json
   - apps/web/package.json
   - apps/web/src
-  - prototypes/voxel-struct/index.html
+  - prototypes/voxel-struct/README.md
 owner: unknown
 status: partial
 ---
@@ -19,6 +19,4 @@ An early TypeScript web scaffold now exists, with React, a Zustand store, React 
 
 Ownership, solver details, distribution, and precise game rules remain open.
 
-Separately, the standalone prototype in `prototypes/voxel-struct` includes tower, bridge and weight pickup challenges, a frame analysis and a load-path view. The workspace adapts these challenges, viewer behavior, and analysis. The experimental analysis does not implement the shared solver contract. See [its README](../../prototypes/voxel-struct/README.md).
-
-
+The [original Voxel Struct prototype](../../prototypes/voxel-struct/README.md) is archived in Git history. The maintained implementation is in the workspace; its experimental analysis does not implement the shared solver contract.

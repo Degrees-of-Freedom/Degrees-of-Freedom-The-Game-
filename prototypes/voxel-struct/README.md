@@ -1,16 +1,6 @@
-# Voxel Struct prototype
+# Voxel Struct prototype archive
 
-A self-contained, single-file browser prototype of the build-and-analyse loop: players place structural items on a 3D voxel grid, run a structural analysis, and see stability and design results. It is independent of the TypeScript scaffold in `apps/web` and the solver contract in `packages/solver-contract`; nothing there depends on it.
-
-## Run
-
-Serve the folder over HTTP (ES modules and the Three.js import map do not load from `file://` or `data:` URLs), for example:
-
-```bash
-python -m http.server 8765 --directory prototypes/voxel-struct
-```
-
-Then open `http://localhost:8765`. Three.js 0.160.0 is loaded from the jsDelivr CDN, so an internet connection is required.
+This document records the original standalone experiment. The maintained version is the React workspace in `apps/web`; run it with `npm run dev` from the repository root. For historical comparison, see the [archived HTML at `0a40a92`](https://github.com/Degrees-of-Freedom/Degrees-of-Freedom-The-Game-/blob/0a40a9298887989a89cc91c3cdc759ac028e0d44/prototypes/voxel-struct/index.html). To run that version, check out the linked revision in a separate worktree and serve its `prototypes/voxel-struct` folder over HTTP. It loads Three.js from a CDN.
 
 ## Gameplay
 
