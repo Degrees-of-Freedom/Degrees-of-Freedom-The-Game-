@@ -1,211 +1,103 @@
 import { useEffect, useState } from 'react';
 import { Scene } from '../viewer/Scene';
 import { LEVELS } from '../game/levels';
-import { CELL_SIZE, type LevelId } from '../game/model';
 import { useGameStore } from '../game/store';
-import { BuildTools } from '../components/BuildTools';
-import { StructureInspector } from '../components/StructureInspector';
-import { AnalysisPanel } from '../components/AnalysisPanel';
-import { analyzeGame, autoDesignGame } from '../game/analysis';
+import { analyzeGame } from '../game/analysis';
+import { modeProgress } from '../game/modes';
+import { environmentExample } from '../game/environmentExamples';
+import { useEditorSound } from '../game/useEditorSound';
+import { createGameSave } from '../game/structuralState';
 import type { VoxelAnalysis } from '../solver/voxel';
-import { SessionBar, ModeObjective, ModelIO, CoordinateEditor } from '../components/RuntimeControls';
+import { AnalysisPanel } from '../components/AnalysisPanel';
+import { ConnectivityPanel } from '../components/ConnectivityPanel';
+import { CoordinateEditor, ModelIO } from '../components/RuntimeControls';
 import { TurnPanel } from '../components/TurnPanel';
+import { STYLE_CATALOG } from '../components/runtimeCatalog';
+import { EnvironmentTools, EnvironmentTray, EnvironmentInspector } from '../components/environment';
+import { EnvironmentBrand, EnvironmentStats, EnvironmentStepper, TurnBanner } from '../components/environment/EnvironmentChrome';
+import { EngineeringOptions } from '../components/environment/EngineeringOptions';
+import { SceneBoundary } from '../components/environment/SceneBoundary';
 
+type Drawer = 'analysis' | 'model' | 'build' | 'turn' | null;
+
+/** The environment variants compose the same store, scene and analysis boundary. */
 export function Workspace() {
   const game = useGameStore();
-  const level = LEVELS[game.levelId];
-  const [analysis, setAnalysis] = useState<{
-    model: typeof game.model;
-    level: LevelId;
-    result: VoxelAnalysis;
-  } | null>(null);
+  const [analysis, setAnalysis] = useState<{model: typeof game.model; result: VoxelAnalysis} | null>(null);
+  const [drawer, setDrawer] = useState<Drawer>(null);
   const [message, setMessage] = useState('');
+  const [help, setHelp] = useState(false);
   const [combo, setCombo] = useState(0);
   const [deformed, setDeformed] = useState(false);
   const [scale, setScale] = useState(1);
   const [utilization, setUtilization] = useState(true);
   const [loads, setLoads] = useState(true);
   const [loadPath, setLoadPath] = useState(false);
-  const result =
-    analysis?.model === game.model && analysis.level === game.levelId
-      ? analysis.result
-      : null;
+  const [exampleIndex, setExampleIndex] = useState(0);
+  const sound = useEditorSound(game.model);
+  const result = analysis?.model === game.model ? analysis.result : null;
+  const style = game.style === 'engineering' ? 'levels' : game.style;
+  const isKit = style === 'kit';
+  const isLevels = style === 'levels';
+  const isBlocks = style === 'blocks';
+  const progress = result ? modeProgress(game.mode, result) : null;
+
   function run() {
     if (game.mode === 'multiplayer') {
-      setAnalysis(null);
-      setMessage('Individual end connections require a compatible solver. Analysis remains unresolved.');
-      return;
+      setMessage('Individual end-connection analysis is unresolved. No penalty or reaction score is assigned.');
+      setDrawer('turn'); return;
     }
     try {
-      setAnalysis({
-        model: game.model,
-        level: game.levelId,
-        result: analyzeGame(game.model, level),
-      });
-      setMessage('');
-    } catch (error) {
-      setAnalysis(null);
-      setMessage(
-        `Analysis failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      setAnalysis({model:game.model,result:analyzeGame(game.model,LEVELS[game.levelId])});
+      setDrawer('analysis'); setMessage('Experimental analysis · results for the current model');
+    } catch(error) {
+      setAnalysis(null); setMessage(error instanceof Error ? error.message : 'Analysis failed'); setDrawer('analysis');
     }
+  }
+  function example() {
+    if (game.mode === 'creative') {
+      const model = environmentExample(exampleIndex % 2 === 0 ? 'tower' : 'portal');
+      setMessage(game.importModel(createGameSave(game.levelId, model)) ?? 'Example loaded');
+      setExampleIndex(exampleIndex + 1);
+    } else if (game.mode === 'forensics') { game.reset(); setMessage('Repair exercise restarted'); }
+    else setMessage(game.loadExample() ? 'Example loaded' : 'No example is available for this mode');
   }
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (
-        (event.target as HTMLElement)?.matches(
-          'input, select, textarea, button',
-        ) ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.altKey
-      )
-        return;
+    if (!message) return;
+    const timeout = window.setTimeout(() => setMessage(''), 5500);
+    return () => window.clearTimeout(timeout);
+  }, [message]);
+  useEffect(() => {
+    const keys = (event:KeyboardEvent) => {
+      if ((event.target as HTMLElement)?.matches('input, textarea, select, button') || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.key.toLowerCase() === 'h' || event.key === '?') setHelp((value)=>!value);
       if (event.key.toLowerCase() === 'r') run();
-      if (event.key.toLowerCase() === 'd') setDeformed((value) => !value);
+      if (event.key.toLowerCase() === 'm') void sound.toggle();
+      if (event.key === 'Escape') {setDrawer(null);game.setSelected(null);}
+      if (event.key === 'Enter' && game.mode === 'multiplayer') setMessage(game.endTurn() ?? 'Turn committed');
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown',keys); return ()=>window.removeEventListener('keydown',keys);
   });
-  function autoDesign() {
-    if (game.mode !== 'challenge' && game.mode !== 'creative') return;
-    try {
-      const source = game.model;
-      const designed = autoDesignGame(source, level);
-      if (designed.changed && game.applyAutoDesign(designed.model, source)) {
-        setAnalysis({
-          model: useGameStore.getState().model,
-          level: game.levelId,
-          result: designed.analysis,
-        });
-        setMessage('Beam sections updated.');
-      } else {
-        setAnalysis({
-          model: source,
-          level: game.levelId,
-          result: designed.analysis,
-        });
-        setMessage(
-          designed.analysis.error ??
-            (designed.analysis.mechanism
-              ? 'Resolve the mechanism before auto-design.'
-              : 'No beam sections changed.'),
-        );
-      }
-    } catch (error) {
-      setMessage(
-        `Auto-design failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-  return (
-    <main className="workspace" data-style={game.style}>
-      {game.persistenceError && <p role="alert">{game.persistenceError}</p>}
-      <div className="heading">
-        <div>
-          <p className="eyebrow">● &nbsp; YOUR STRUCTURAL PLAYGROUND</p>
-          <h1>
-            Build something <em>brilliant.</em>
-          </h1>
-          <p>Explore structures, one connection at a time.</p>
-        </div>
-        <span className="draft">EXPERIMENTAL ANALYSIS</span>
-      </div>
-      <SessionBar game={game} />
-      <ModeObjective game={game} result={result} />
-      <TurnPanel game={game} onMessage={setMessage} />
-      <div className="workspace-actions">
-        {game.mode === 'challenge' && <>
-        <label>
-          Challenge{' '}
-          <select
-            value={game.levelId}
-            onChange={(e) => game.setLevel(e.target.value as LevelId)}
-          >
-            {Object.entries(LEVELS).map(([id, l]) => (
-              <option key={id} value={id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          onClick={() => {
-            if (!game.loadExample())
-              setMessage('No example is available for this challenge.');
-            else setMessage('');
-          }}
-        >
-          Load example
-        </button>
-        {level.random && (
-          <button onClick={() => game.newLayout()}>New layout</button>
-        )}
-        </>}
-        {game.mode !== 'multiplayer' && <>
-        <button onClick={game.undo} disabled={!game.history.length}>
-          Undo
-        </button>
-        <button onClick={game.redo} disabled={!game.future.length}>Redo</button>
-        <button onClick={game.reset}>Clear</button>
-        {(game.mode === 'creative' || game.mode === 'challenge') && <button onClick={autoDesign}>Auto-design beams</button>}
-        <button className="primary-action" onClick={run}>
-          Run analysis
-        </button>
-        </>}
-      </div>
-      {message && <p className="runtime-status" role="status">{message}</p>}
-      <div className="layout">
-        <BuildTools game={game}><CoordinateEditor game={game} onMessage={setMessage} /></BuildTools>
-        <section className="viewport" aria-label="Structural workspace">
-          <Scene
-            loadPath={loadPath}
-            onToggleLoadPath={() => setLoadPath((value) => !value)}
-            onMessage={setMessage}
-            result={result}
-            combo={combo}
-            deformed={deformed}
-            scale={scale}
-            utilization={utilization}
-            loads={loads}
-          />
-          <div className="view-label">
-            ● &nbsp; 3D VIEW <span>{game.style === 'levels' ? 'WORKING LEVEL' : game.style === 'kit' ? 'TABLETOP' : 'PERSPECTIVE'}</span>
-          </div>
-          <div className="plane-controls">
-            <button onClick={() => game.setWorkK(game.workK - 1)}>−</button>
-            <span>Build plane: {game.workK * CELL_SIZE} m</span>
-            <button onClick={() => game.setWorkK(game.workK + 1)}>+</button>
-          </div>
-          <div className="view-help">
-            DRAG TO ORBIT &nbsp; SCROLL TO ZOOM <span>X / Y / Z</span>
-          </div>
-        </section>
-        <StructureInspector game={game} result={result} setMessage={setMessage}>
-          <AnalysisPanel
-            result={result}
-            message={message}
-            combo={combo}
-            setCombo={setCombo}
-            deformed={deformed}
-            setDeformed={setDeformed}
-            scale={scale}
-            setScale={setScale}
-            utilization={utilization}
-            setUtilization={setUtilization}
-            loads={loads}
-            setLoads={setLoads}
-            loadPath={loadPath}
-            setLoadPath={setLoadPath}
-            selectMember={(id) => game.setSelected({ type: 'member', id })}
-          />
-        </StructureInspector>
-      </div>
-      <ModelIO game={game} onMessage={setMessage} />
-      <footer>
-        DESIGNED FOR CURIOUS MINDS ✳{' '}
-        <span>A PLAYGROUND FOR STRUCTURAL THINKING</span>
-      </footer>
-    </main>
-  );
+  const historyActions = <><button className="btn icon" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!game.history.length || game.mode === 'multiplayer'} onClick={game.undo}>↶</button><button className="btn icon" aria-label="Redo" title="Redo (Ctrl+Y)" disabled={!game.future.length || game.mode === 'multiplayer'} onClick={game.redo}>↷</button><span className="sep"/><button className="btn" disabled={game.mode === 'multiplayer'} onClick={example}>Load example</button><button className="btn" disabled={game.mode === 'multiplayer'} onClick={game.reset}>{game.mode === 'forensics' ? 'Restart' : 'Clear'}</button></>;
+  const analysisActions = <><button className={`btn${result ? ' on' : ''}`} onClick={run}>Feedback preview</button><button className="btn" onClick={()=>setDrawer(drawer === 'model' ? null : 'model')}>Solver input</button><span className="sep"/><button className={`btn icon${sound.enabled ? ' on' : ''}`} title="Sound (M)" aria-label="Sound" aria-pressed={sound.enabled} onClick={()=>void sound.toggle()}>{sound.enabled ? '♪' : '♩'}</button><button className="btn icon" aria-label="Controls" title="Controls (H)" onClick={()=>setHelp(!help)}>?</button></>;
+  return <main className={`environment${game.turn?.playerIndex === 1 ? ' p2' : ''}`} data-style={style}>
+    <div id="stage"><SceneBoundary><Scene result={result} combo={combo} deformed={deformed} scale={scale} utilization={utilization} loads={loads} loadPath={loadPath} onToggleLoadPath={()=>setLoadPath(!loadPath)} onMessage={setMessage}/></SceneBoundary></div>
+    <div id="ui">
+      {isKit ? <><div id="top-left">{historyActions}</div><div id="top-right">{analysisActions}</div><TurnBanner onMessage={setMessage}/><div id="corner"><EnvironmentBrand/><EnvironmentStats/></div>{game.mode === 'multiplayer' && game.turn?.players.map((player,index)=><div key={player.id} id={`strip${index+1}`} className={`strip panel${game.turn?.playerIndex===index?' active':''}`}><i className="dot"/><div><b>Player {index+1}{game.turn?.playerIndex===index&&<em>to play</em>}</b><span>{game.turn?.board.members.filter((member)=>member.owner===player.id).length} sticks</span></div></div>)}</> : <><div id="topleft"><EnvironmentBrand/>{!isLevels&&<TurnBanner onMessage={setMessage}/>}</div><div id={isBlocks?'top-right':'actions'} className={isLevels?'':'chip row'}>{historyActions}{analysisActions}</div><div id="cornerleft"><EnvironmentStats/></div></>}
+      <div id="dock"><div id="hint" role="status">{game.mode==='forensics' ? (progress==='complete'?'Structure repaired · experimental checks passed':'Find the floating member and connect it to the supported frame') : game.mode==='load-space'?'Carry the suspended load to a foundation':game.chainStart ? 'Choose the next point · Esc to release' : game.tool==='joint'?'Click a joint to explore its degrees of freedom':game.tool==='load'?'Click a joint to place or edit a load':isBlocks?'Click a bay face to stack · choose Brace to stiffen':isKit?'Take a piece from the tray, then place it on the board':'Click a joint or a ground point to begin'}</div>{isKit?<EnvironmentTray style={game.style} onMessage={setMessage}/>:<EnvironmentTools style={game.style} onMessage={setMessage}/>}</div>
+      {isLevels&&<EnvironmentStepper/>}
+      {game.mode==='multiplayer'&&!isKit&&<div className="shared-hand"><EnvironmentTray style="kit" onMessage={setMessage}/></div>}
+      <EnvironmentInspector onMessage={setMessage}/>
+      <div className="environment-switch"><select aria-label="Building style" value={game.style} onChange={(event)=>{const selected=STYLE_CATALOG.find((item)=>item.id===event.target.value);if(selected)game.setStyle(selected.id);}}>{STYLE_CATALOG.map((item)=><option key={item.id} value={item.id}>{item.title}</option>)}</select><button className="btn" onClick={()=>setDrawer('build')}>Build options</button>{game.mode==='multiplayer'&&<button className="btn" onClick={()=>setDrawer('turn')}>Turn details</button>}</div>
+      {message&&<div id="toast" className="chip show" role="status">{message}</div>}
+      {game.persistenceError&&<div className="storage-alert chip" role="alert">{game.persistenceError}</div>}
+      {help&&<section id="help" className="chip card panel show"><h3>Controls <button className="btn icon" onClick={()=>setHelp(false)} aria-label="Close controls">×</button></h3><table><tbody><tr><td>Click</td><td>place or select</td></tr><tr><td>Drag · wheel</td><td>orbit · zoom</td></tr><tr><td>1 · 2 · 3</td><td>member · joint · load</td></tr><tr><td>X · I</td><td>erase · inspect</td></tr><tr><td>Q · E</td><td>turn the board</td></tr><tr><td>W · S</td><td>working level</td></tr><tr><td>F</td><td>fit structure</td></tr><tr><td>Ctrl Z · Ctrl Y</td><td>undo · redo</td></tr></tbody></table><p>Build options includes precise coordinates and the engineering catalog.</p></section>}
+      {drawer&&<aside id="drawer" className="show open panel" aria-label={`${drawer} drawer`}><div className="drawer-heading"><h2>{drawer==='analysis'?'Structural feedback':drawer==='model'?'Solver input':drawer==='turn'?'Shared table':'Build options'}</h2><button className="btn icon" aria-label="Close drawer" onClick={()=>setDrawer(null)}>×</button></div><div className="drawer-content">
+        {drawer==='analysis'&&<><p className="analysis-notice">Experimental analysis · not mock data</p><AnalysisPanel result={result} message={message} combo={combo} setCombo={setCombo} deformed={deformed} setDeformed={setDeformed} scale={scale} setScale={setScale} utilization={utilization} setUtilization={setUtilization} loads={loads} setLoads={setLoads} loadPath={loadPath} setLoadPath={setLoadPath} selectMember={(id)=>game.setSelected({type:'member',id})}/><ConnectivityPanel model={game.model} onSelectMember={(id)=>game.setSelected({type:'member',id})} onSelectNode={(key)=>game.setSelected({type:'node',key})}/></>}
+        {drawer==='model'&&<><p>Versioned shared model · {game.mode==='multiplayer'?'the turn log retains individual end connections':'grid coordinates are converted at the analysis boundary'}.</p><pre>{JSON.stringify(game.mode==='multiplayer'?game.turn:game.exportModel(),null,2)}</pre><ModelIO game={game} onMessage={setMessage}/></>}
+        {drawer==='build'&&<>{game.mode==='challenge'&&<label>Challenge<select value={game.levelId} onChange={(event)=>{const id=Object.keys(LEVELS).find((id)=>id===event.target.value);if(id&&id in LEVELS)game.setLevel(id as keyof typeof LEVELS);}}>{Object.entries(LEVELS).map(([id,level])=><option key={id} value={id}>{level.name}</option>)}</select></label>}<EngineeringOptions onMessage={setMessage}/><CoordinateEditor game={game} onMessage={setMessage}/><p>Point loads and support laws are edited by selecting their joint.</p>{game.mode!=='multiplayer'&&<button className="btn" onClick={()=>game.setTool('found')}>Place foundation</button>}<ConnectivityPanel model={game.model} turn={game.mode==='multiplayer'?game.turn:undefined} onSelectMember={(id)=>game.setSelected({type:'member',id})} onSelectNode={(key)=>game.setSelected({type:'node',key})}/></>}
+        {drawer==='turn'&&<TurnPanel game={game} onMessage={setMessage}/>}
+      </div></aside>}
+    </div>
+  </main>;
 }

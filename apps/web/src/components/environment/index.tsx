@@ -4,6 +4,7 @@ import { parseNodeKey, type MemberType, type Restraint, type LoadDirection } fro
 import type { PresentationStyle } from '../../game/modes';
 import { ITEMS, MEMBER_TYPES } from '../../game/inventory';
 import { activeTurnHand } from '../../game/turns';
+import { DofGlyph } from './DofGlyph';
 
 type Props = { style: PresentationStyle; onMessage: (message: string) => void };
 type IconKind = 'member' | 'connection' | 'load' | 'erase' | 'inspect' | 'block' | 'brace';
@@ -81,10 +82,11 @@ export function EnvironmentInspector({ onMessage }: Pick<Props, 'onMessage'>) {
     { name: 'Fixed', values: [true, true, true, true, true, true] },
   ];
   return <section className="env-card card pop" aria-label="Connection and load"><div className="dc-head"><div><div className="dc-title">Connection <span>[{key}]</span></div><div className="dc-sub">{attrs.found ? 'Foundation' : 'Shared node'}</div></div><button className="dc-close" aria-label="Close" onClick={() => game.setSelected(null)}>×</button></div>
-    <div className="dc-label"><span>Degrees of freedom</span><span>{restraint.filter(Boolean).length} of 6 locked</span></div><div className="dc-dofs">{['Tx', 'Ty', 'Tz', 'Rx', 'Ry', 'Rz'].map((axis, i) => <button type="button" disabled={!creative || attrs.locked} key={axis} className={`dof${restraint[i] ? ' locked' : ''}`} aria-pressed={restraint[i]} onClick={() => { const next: Restraint = [...restraint]; next[i] = !next[i]; preset(next); }}>{axis}</button>)}</div>
+    <div className="dc-label"><span>Degrees of freedom</span><span>{restraint.filter(Boolean).length} of 6 locked</span></div><div className="dc-dofs">{['Tx', 'Ty', 'Tz', 'Rx', 'Ry', 'Rz'].map((axis, i) => <button type="button" disabled={!creative || attrs.locked} key={axis} className={`dof${restraint[i] ? ' locked' : ' free'}`} aria-pressed={restraint[i]} onClick={() => { const next: Restraint = [...restraint]; next[i] = !next[i]; preset(next); }}><DofGlyph axis={i} locked={restraint[i]}/><b>{axis}</b><small>{restraint[i] ? 'locked' : 'free'}</small></button>)}</div>
     <div className="dc-row"><span className="lab">Support</span><div className="seg">{supportPresets.map(({ name, values }) => <button key={name} disabled={!creative || attrs.locked} className={values.every((value, i) => value === restraint[i]) ? 'on' : ''} onClick={() => preset(values)}>{name}</button>)}</div></div>
     <div className="dc-row"><span className="lab">Joint</span><div className="seg"><button className={!attrs.joint ? 'on' : ''} onClick={() => attrs.joint && update('joint')}>Pinned</button><button className={attrs.joint ? 'on' : ''} onClick={() => !attrs.joint && update('joint')}>Rigid</button></div></div>
     <div className="dc-note">Partial restraints and directional loads can be edited in creative mode; the experimental solver cannot analyze them.</div>
     {attrs.load !== undefined && <><div className="dc-label"><span>Direction</span></div><div className="pad">{(['-Z', '+X', '-X', '+Y', '-Y', '+Z'] as LoadDirection[]).map((axis) => <button key={axis} className={(attrs.loadDirection ?? '-Z') === axis ? 'on' : ''} disabled={!creative || attrs.locked} onClick={() => onMessage(game.setNodeLoadDirection(key, axis) ?? '')}>{axis.replace('-', '−')}</button>)}</div><div className="dc-label"><span>Amount</span><span>kN</span></div><div className="chips">{[5, 10, 20, 50].map((amount) => <button key={amount} className={attrs.load === amount ? 'on' : ''} disabled={attrs.locked} onClick={() => onMessage(game.setNodeLoad(key, amount) ?? '')}>{amount}</button>)}</div><div className="dc-foot"><button className="btn small" disabled={attrs.locked} onClick={() => onMessage(game.toggleAttr(point, 'load') ?? '')}>Remove load</button></div></>}
   </section>;
 }
+

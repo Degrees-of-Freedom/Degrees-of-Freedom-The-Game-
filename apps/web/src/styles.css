@@ -1,5 +1,6 @@
-@import './styles/base.css';
-@import './styles/workspace.css';
-@import './styles/panels.css';
-@import './styles/responsive.css';
-@import './styles/menu.css';
+@import './styles/environment-grow.css';
+@import './styles/environment-grow-dusk.css';
+@import './styles/environment-levels.css';
+@import './styles/environment-blocks.css';
+@import './styles/environment-kit.css';
+@import './styles/environment-runtime.css';
