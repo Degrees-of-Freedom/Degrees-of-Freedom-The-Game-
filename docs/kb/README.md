@@ -15,7 +15,7 @@ status: partial
 
 ## Purpose and status
 
-This is the canonical entry point for durable project knowledge. The game remains at the concept stage with an initial web scaffold. The scaffold includes an orbitable viewer, a small game store, a preliminary solver contract, and an unavailable-solver placeholder; it does not implement gameplay or numerical analysis. Distinguish documented intent and proposed experiments from implemented behavior and decisions.
+This is the canonical entry point for durable project knowledge. The game remains at the concept stage with an initial web scaffold. The workspace includes experimental voxel building, challenges, and approximate numerical analysis alongside a preliminary shared solver contract and unavailable-solver placeholder. It does not implement a turn system, and the voxel analysis is not an implementation of the shared adapter. Distinguish documented intent and proposed experiments from implemented behavior and decisions.
 
 ## Pages
 
@@ -34,3 +34,4 @@ This is the canonical entry point for durable project knowledge. The game remain
 - Update affected pages in the same change as durable behavior or decisions. Keep `last_validated` and `status` accurate.
 - Use `current`, `partial`, `needs-review`, or `deprecated` for status. Record unanswered questions rather than guessing.
 - Treat design intent as intent, not shipped functionality. Existing non-KB documents are context unless explicitly cited and validated.
+
