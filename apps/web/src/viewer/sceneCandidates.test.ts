@@ -50,6 +50,30 @@ describe("scene interaction candidates", () => {
     expect(growthTargets({ ...state, style: "levels" })).toEqual([]);
   });
 
+  it("offers every point within the section's per-axis reach, not only a sphere", () => {
+    const state = {
+      ...blankState(),
+      style: "grow-dusk" as const,
+      tool: "ipe" as const,
+      chainStart: "4,4,0",
+    };
+    const keys = growthTargets(state).map(({ key }) => key);
+    expect(keys).toContain("5,6,0"); // off-angle point, offset [1,2,0]
+    expect(keys).toContain("7,7,3"); // corner at the limit, offset [3,3,3]
+    expect(keys).not.toContain("8,4,0"); // offset 4 is beyond maxCells 3
+    expect(keys).not.toContain("4,4,0");
+    // The list is cached per chain start, tool, model and level.
+    expect(growthTargets(state)).toBe(growthTargets(state));
+    expect(growthTargets({ ...state, chainStart: "5,5,0" })).not.toBe(
+      growthTargets(state),
+    );
+    const cable = growthTargets({ ...state, tool: "cable" as const }).map(
+      ({ key }) => key,
+    );
+    expect(cable).toContain("12,12,8");
+    expect(cable).not.toContain("13,4,0");
+  });
+
   it("snaps a bay to the working plane and returns the shared validation issue", () => {
     const preview = new THREE.LineSegments(
       new THREE.BufferGeometry(),

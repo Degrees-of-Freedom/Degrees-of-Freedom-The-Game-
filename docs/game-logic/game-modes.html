@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Degrees of Freedom - game modes</title>
+<style>
+  :root {
+    color-scheme: light;
+    --paper: #f4efe4; --card: #fbf7ef; --ink: #2f3640; --quiet: #6b7280; --line: #e2d8c5;
+    --p1: #d86f5c; --p2: #5b8fd0; --p3: #d9a53a; --p4: #4f9da6;
+    --steel: #6d7a8c; --load: #c9413a; --unstable: #8b5fd6; --ground: #cdbb9b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font: 16px/1.55 ui-rounded, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 44px 24px 72px; }
+  .eyebrow { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--quiet); margin: 0 0 8px; }
+  h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15; margin: 0 0 12px; }
+  h2 { font-size: 26px; margin: 0; }
+  h3 { font-size: 18px; margin: 28px 0 10px; }
+  p { margin: 0 0 10px; max-width: 72ch; }
+  .note { color: var(--quiet); font-size: 14px; }
+  .banner { background: #fff4d6; border: 1px solid #ecd9a0; border-radius: 12px; padding: 10px 14px; font-size: 15px; margin: 18px 0 8px; max-width: 760px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; margin: 18px 0 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend svg { flex: none; }
+  section.mode { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 24px;
+    margin-top: 28px; box-shadow: 0 1px 2px rgba(60,50,30,.07), 0 10px 26px rgba(60,50,30,.08); }
+  .head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .tag { color: var(--quiet); font-size: 15px; }
+  .frames { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 18px 0 16px; }
+  figure { margin: 0; background: #fffdf8; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  figure svg { display: block; width: 100%; height: auto; background: linear-gradient(#e6f1f2, #f7f3ea 78%); }
+  figcaption { padding: 10px 12px 12px; font-size: 14px; line-height: 1.4; }
+  figcaption b { display: block; font-size: 15px; margin-bottom: 2px; }
+  .chip { display: inline-block; margin-top: 8px; background: var(--ink); color: var(--card); border-radius: 999px; padding: 2px 10px; font-size: 12.5px; font-weight: 600; }
+  figcaption .chip { display: table; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 24px; font-size: 15px; }
+  .facts div b { display: block; color: var(--quiet); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; }
+  code, .formula { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 14px; }
+  .formula { background: #efe7d6; border-radius: 8px; padding: 8px 12px; display: inline-block; margin-top: 4px; }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 6px; }
+  .flow div { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; font-weight: 600; }
+  .flow i { color: var(--quiet); font-style: normal; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; font-size: 15px; min-width: 760px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  th { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--quiet); }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  ol.open li { margin: 6px 0; max-width: 78ch; }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">Degrees of Freedom: The Game</p>
+  <h1>Four game modes, one loop</h1>
+  <p>A picture of the proposed rules. The full wording, the reasoning and the open questions are in <code>game-modes.md</code> beside this page.</p>
+  <div class="banner"><b>Superseded.</b> This was an early proposal. The team’s confirmed rules are in <code>docs/kb/turn-criteria.md</code> and <code>docs/kb/joint-dof-criteria.md</code> and take priority: five modes, two card decks, a 1-point penalty per turn that introduces an issue, and connections that cannot be edited once placed. Figures in the sketches are illustrative, not solver results.</div>
+
+  <div class="legend" id="legend"></div>
+
+  <h3>The loop every mode shares</h3>
+  <div class="flow"><div>Setup</div><i>&rarr;</i><div>Act</div><i>&rarr;</i><div>Solve</div><i>&rarr;</i><div>Score</div><i>&rarr;</i><div>Next turn or end</div></div>
+  <p class="note">Each mode is this loop with different settings: who acts, what they may place, when the solver runs, and what ends it.</p>
+
+  <div id="modes"></div>
+
+  <h3>Settings side by side</h3>
+  <div class="scroll">
+  <table>
+    <tr><th>Setting</th><th>Creative</th><th>Multiplayer</th><th>Forensics</th><th>Load in space</th></tr>
+    <tr><td>Players</td><td>1</td><td>4, in turn</td><td>1</td><td>1</td></tr>
+    <tr><td>Starts with</td><td>Empty space</td><td>Empty site, scenario loads</td><td>A structure with instabilities</td><td>A foundation and a load in space</td></tr>
+    <tr><td>Foundations</td><td>Player places</td><td>One per player, round 1</td><td>Given</td><td>Given</td></tr>
+    <tr><td>Loads</td><td>Player places</td><td>Given by the scenario</td><td>Given</td><td>Given</td></tr>
+    <tr><td>Per turn</td><td>Unlimited</td><td>1 member + 2 connections</td><td>1 fix</td><td>Unlimited, or a supply</td></tr>
+    <tr><td>Solver runs</td><td>When asked</td><td>After every turn</td><td>After every fix</td><td>When asked</td></tr>
+    <tr><td>Ends when</td><td>Player stops</td><td>Last round played</td><td>No instabilities remain</td><td>Load reaches foundation, stable</td></tr>
+    <tr><td>Scored on</td><td>Load carried per metre, minus instabilities</td><td>Share of load on your foundation, minus your instabilities</td><td>Fixes used against par</td><td>Material used against par</td></tr>
+  </table>
+  </div>
+
+  <h3>Two measurements behind every score</h3>
+  <p><b>Load on a foundation:</b> the downward reaction there after a solve. In a stable structure the reactions add up to the applied load, so with several foundations it is a share of 100%, and with one foundation it needs a second quantity (material used) to mean anything.</p>
+  <p><b>Instabilities:</b> parts that can move without resistance. Proposed count for now: nodes that move freely, which the voxel-struct prototype already reports. The shared solver contract on main does not return reactions or instabilities yet.</p>
+
+  <h3>Questions to settle first</h3>
+  <ol class="open">
+    <li><b>Multiplayer: one shared structure or four separate ones?</b> Proposed: shared, so every move changes everyone's share.</li>
+    <li><b>How is an instability counted?</b> Proposed: freely-moving nodes now, independent mechanisms later.</li>
+    <li><b>Is a connection set per member end or per node?</b> "1 member, 2 connections" points to per member end.</li>
+    <li><b>Where do multiplayer loads come from?</b> Proposed: the scenario, not the players.</li>
+    <li><b>When does a multiplayer game end?</b> Proposed: 8 rounds, score summed per round.</li>
+    <li><b>Is load on a foundation vertical force only?</b> Proposed: yes, downward only.</li>
+    <li><b>Do member strength checks belong in these modes?</b> This draft scores only load and instability.</li>
+  </ol>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  const C = { p1: '#d86f5c', p2: '#5b8fd0', p3: '#d9a53a', p4: '#4f9da6', steel: '#6d7a8c', fix: '#d86f5c',
+              load: '#c9413a', unstable: '#8b5fd6', ink: '#2f3640', ground: '#cdbb9b', hub: '#fbf7ef' };
+  const W = 250, H = 180, X0 = 22, Y0 = 138, U = 25.5;      // grid x 0..8, y 0..5 (y is up)
+  const px = (x) => X0 + x * U, py = (y) => Y0 - y * U;
+
+  function member(m) {
+    const [x1, y1, x2, y2, key, style] = m;
+    const dash = style === 'dash' ? ' stroke-dasharray="5 6" opacity=".55"' : '';
+    return `<line x1="${px(x1)}" y1="${py(y1)}" x2="${px(x2)}" y2="${py(y2)}" stroke="${C[key || 'steel']}" stroke-width="6" stroke-linecap="round"${dash}/>`;
+  }
+  function hubs(members, pins, rigid) {
+    const seen = new Set(); let out = '';
+    for (const m of members) for (const [x, y] of [[m[0], m[1]], [m[2], m[3]]]) {
+      const k = x + ',' + y; if (seen.has(k)) continue; seen.add(k);
+      if ((rigid || []).some((r) => r[0] === x && r[1] === y)) out += `<rect x="${px(x) - 5.5}" y="${py(y) - 5.5}" width="11" height="11" rx="2" fill="${C.ink}"/>`;
+      else if ((pins || []).some((p) => p[0] === x && p[1] === y)) out += `<circle cx="${px(x)}" cy="${py(y)}" r="5" fill="${C.hub}" stroke="${C.ink}" stroke-width="2.2"/>`;
+      else out += `<circle cx="${px(x)}" cy="${py(y)}" r="4" fill="${C.hub}" stroke="${C.ink}" stroke-width="1.2"/>`;
+    }
+    return out;
+  }
+  function foundation(f) {
+    const [x, key, kind] = f; const cx = px(x), y = py(0), col = C[key || 'steel'];
+    if (kind === 'fixed') return `<rect x="${cx - 11}" y="${y - 2}" width="22" height="13" rx="2.5" fill="${col}"/>`;
+    return `<path d="M${cx} ${y - 1} l10 13 h-20 z" fill="${col}" stroke-linejoin="round" stroke="${col}" stroke-width="2"/>`;
+  }
+  function load(l) {
+    const [x, y, label, floating] = l; const cx = px(x), tip = py(y) - 7;
+    const ring = floating ? `<circle cx="${cx}" cy="${py(y)}" r="7" fill="none" stroke="${C.load}" stroke-width="1.6" stroke-dasharray="3 3"/>` : '';
+    return ring + `<line x1="${cx}" y1="${tip - 26}" x2="${cx}" y2="${tip - 7}" stroke="${C.load}" stroke-width="5" stroke-linecap="round"/>` +
+      `<path d="M${cx} ${tip} l-7.5 -10 h15 z" fill="${C.load}"/>` +
+      `<text x="${cx + 10}" y="${tip - 18}" font-size="11" font-weight="700" fill="${C.load}">${label}</text>`;
+  }
+  function unstable(u) {
+    const cx = px(u[0]), cy = py(u[1]);
+    return `<circle cx="${cx}" cy="${cy}" r="10" fill="${C.unstable}" opacity=".18"/><circle cx="${cx}" cy="${cy}" r="10" fill="none" stroke="${C.unstable}" stroke-width="2"/>` +
+      `<path d="M${cx - 17} ${cy - 5} q-5 5 0 10 M${cx + 17} ${cy - 5} q5 5 0 10" fill="none" stroke="${C.unstable}" stroke-width="2" stroke-linecap="round"/>`;
+  }
+  function reaction(r) {
+    const [x, label, key] = r;
+    return `<text x="${px(x)}" y="${py(0) + 27}" font-size="11.5" font-weight="700" text-anchor="middle" fill="${C[key || 'ink']}">${label}</text>`;
+  }
+  function frame(f) {
+    const ms = f.m || [];
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${f.title}">`;
+    s += `<rect x="0" y="${py(0) + 12}" width="${W}" height="${H}" fill="#efe6d2"/><line x1="0" y1="${py(0) + 12}" x2="${W}" y2="${py(0) + 12}" stroke="${C.ground}" stroke-width="2"/>`;
+    for (let x = 0; x <= 8; x++) for (let y = 0; y <= 5; y++) s += `<circle cx="${px(x)}" cy="${py(y)}" r="1.1" fill="#b9c4c6"/>`;
+    s += (f.f || []).map(foundation).join('') + ms.map(member).join('') + hubs(ms, f.pin, f.rigid);
+    s += (f.l || []).map(load).join('') + (f.u || []).map(unstable).join('') + (f.r || []).map(reaction).join('');
+    const chip = f.chip ? `<span class="chip">${f.chip}</span>` : '';
+    return `<figure>${s}</svg><figcaption><b>${f.title}</b>${f.text}${chip}</figcaption></figure>`;
+  }
+
+  const portal = [[2, 0, 2, 3], [6, 0, 6, 3], [2, 3, 6, 3], [4, 3, 4, 5], [2, 0, 6, 3]];
+  const mpBase = [[1, 0, 2, 2, 'p1'], [3, 0, 3, 2, 'p2'], [5, 0, 5, 2, 'p3'], [7, 0, 6, 2, 'p4']];
+  const mpAll = mpBase.concat([[2, 2, 3, 2, 'p1'], [3, 2, 4, 4, 'p2'], [5, 2, 4, 4, 'p3'], [6, 2, 5, 2, 'p4']]);
+  const mpF = [[1, 'p1'], [3, 'p2'], [5, 'p3'], [7, 'p4']];
+  const sick = [[2, 0, 2, 2], [6, 0, 6, 2], [2, 2, 2, 4], [6, 2, 6, 4], [2, 2, 6, 2], [2, 4, 6, 4], [6, 4, 7.5, 4]];
+  const sickPins = [[2, 2], [6, 2], [2, 4], [6, 4]];
+  const lis = [[2, 0, 2, 4], [2, 4, 6, 4]];
+
+  const MODES = [
+    { name: 'Creative', tag: 'Build anything, then see how it scores', color: 'p1',
+      frames: [
+        { title: '1. Start anywhere', text: 'Members can begin at any point in space. They need not touch the ground or each other yet.', m: [[2, 3, 6, 3, 'steel', 'dash'], [4, 3, 4, 5, 'steel', 'dash']] },
+        { title: '2. Found and connect', text: 'The player places foundations and connections wherever they like.', m: portal, f: [[2], [6]], pin: [[4, 5]] },
+        { title: '3. Apply loads', text: 'Loads go on as desired: location, direction, amount.', m: portal, f: [[2], [6]], pin: [[4, 5]], l: [[4, 5, '10 kN'], [6, 3, '20 kN']] },
+        { title: '4. Run the solver', text: 'Shows the load arriving at each foundation and marks instabilities. Edit and run again.', m: portal, f: [[2], [6]], pin: [[4, 5]], l: [[4, 5, '10 kN'], [6, 3, '20 kN']], u: [[4, 5]], r: [[2, '4 kN'], [6, '16 kN']], chip: '20 kN carried, 1 instability' }
+      ],
+      facts: [['Player does', 'Places members, connections, foundations and loads freely. Runs the solver when ready.'],
+              ['Ends', 'When the player stops. It is a sandbox with a score.'],
+              ['Score', '<span class="formula">(kN carried / m of member) x 10 - 20 x instabilities</span>'],
+              ['Why per metre', 'With one player, the reactions simply equal the load applied. Dividing by material rewards design, not piling on load.']] },
+    { name: 'Multiplayer', tag: 'Four players, one structure, one move each', color: 'p2',
+      frames: [
+        { title: 'Round 1: foundations', text: 'Each player places one foundation. The scenario load is already hanging in space.', f: mpF, l: [[4, 4, '40 kN', true]] },
+        { title: 'Round 2: one member each', text: 'A turn is one member and its two end connections. It must touch something already there.', f: mpF, m: mpBase, l: [[4, 4, '40 kN', true]] },
+        { title: 'Later rounds', text: 'The pieces grow into one shared structure reaching for the load.', f: mpF, m: mpAll, pin: [[6, 2]], l: [[4, 4, '40 kN']] },
+        { title: 'After every turn: solve', text: 'Each foundation gets a share of the load. Instabilities count against whoever built there.', f: mpF, m: mpAll, pin: [[6, 2]], l: [[4, 4, '40 kN']], u: [[6, 2]], r: [[1, '30%', 'p1'], [3, '40%', 'p2'], [5, '30%', 'p3'], [7, '0%', 'p4']], chip: 'Blue leads the round' }
+      ],
+      facts: [['Player does', 'Round 1: one foundation. After that: one member and two connections per turn.'],
+              ['Ends', 'After a fixed number of rounds (proposed: 8).'],
+              ['Score per round', '<span class="formula">100 x your share of the load - 10 x your instabilities</span>'],
+              ['Why shared', 'On one structure every member shifts everyone\'s share. Four separate structures would be four solo games.']] },
+    { name: 'Forensics', tag: 'A given structure. Find and fix what can move', color: 'unstable',
+      frames: [
+        { title: 'Given: 3 instabilities', text: 'The level is a finished structure. The solver marks where it can move.', f: [[2], [6]], m: sick, pin: sickPins, u: [[2, 2], [2, 4], [7.5, 4]], chip: '3 instabilities' },
+        { title: 'Fix 1: add a brace', text: 'One fix per turn: add a member, change a connection, or change a support.', f: [[2], [6]], m: sick.concat([[2, 0, 6, 2, 'fix']]), pin: sickPins, u: [[2, 4], [7.5, 4]], chip: '2 instabilities' },
+        { title: 'Fix 2: brace the top', text: 'The solver runs after each fix and the count updates.', f: [[2], [6]], m: sick.concat([[2, 0, 6, 2, 'fix'], [2, 2, 6, 4, 'fix']]), pin: sickPins, u: [[7.5, 4]], chip: '1 instability' },
+        { title: 'Fix 3: make a joint rigid', text: 'A connection change holds the arm. Nothing moves freely any more.', f: [[2], [6]], m: sick.concat([[2, 0, 6, 2, 'fix'], [2, 2, 6, 4, 'fix']]), pin: [[2, 2], [6, 2], [2, 4]], rigid: [[6, 4]], chip: 'Solved in 3 fixes, par 3' }
+      ],
+      facts: [['Player does', 'One fix per turn. Removing members is not a fix.'],
+              ['Ends', 'When no instabilities remain.'],
+              ['Score', 'Fixes used against the level\'s par.'],
+              ['Needs', 'Authored levels, each with its par verified by the solver.']] },
+    { name: 'Load in space', tag: 'Bring one load down to one foundation', color: 'p4',
+      frames: [
+        { title: 'Given', text: 'One foundation on the ground and one load at a point in space.', f: [[2]], l: [[6, 4, '25 kN', true]] },
+        { title: 'Build toward it', text: 'The player places members and connections to reach the load.', f: [[2]], m: lis, pin: [[2, 4]], l: [[6, 4, '25 kN']] },
+        { title: 'Run the solver', text: 'Reaching the load is not enough. This frame can still swing.', f: [[2]], m: lis, pin: [[2, 4]], l: [[6, 4, '25 kN']], u: [[2, 4], [6, 4]], chip: '2 instabilities' },
+        { title: 'Complete', text: 'A fixed base and a brace: stable, and the whole load arrives at the foundation.', f: [[2, 'steel', 'fixed']], m: lis.concat([[2, 2, 6, 4]]), l: [[6, 4, '25 kN']], r: [[2, '25 kN']], chip: 'Stable, 12.5 m used' }
+      ],
+      facts: [['Player does', 'Builds freely, or from a limited supply. Runs the solver when ready.'],
+              ['Ends', 'When the structure is stable and the whole load reaches the foundation.'],
+              ['Score', 'Metres of member used against the level\'s par.'],
+              ['Grows into', 'Several loads, obstacles, a second foundation. The project README calls this "goal-based".']] }
+  ];
+
+  document.getElementById('modes').innerHTML = MODES.map((mode) =>
+    `<section class="mode"><div class="head"><h2 style="color:${C[mode.color]}">${mode.name}</h2><span class="tag">${mode.tag}</span></div>` +
+    `<div class="frames">${mode.frames.map(frame).join('')}</div>` +
+    `<div class="facts">${mode.facts.map((f) => `<div><b>${f[0]}</b>${f[1]}</div>`).join('')}</div></section>`).join('');
+
+  const icon = (inner) => `<svg width="34" height="22" viewBox="0 0 34 22">${inner}</svg>`;
+  document.getElementById('legend').innerHTML = [
+    [icon(`<line x1="4" y1="11" x2="30" y2="11" stroke="${C.steel}" stroke-width="6" stroke-linecap="round"/>`), 'Member'],
+    [icon(`<path d="M17 4 l10 13 h-20 z" fill="${C.steel}"/>`), 'Foundation (pinned)'],
+    [icon(`<rect x="6" y="6" width="22" height="12" rx="2.5" fill="${C.steel}"/>`), 'Foundation (fixed)'],
+    [icon(`<circle cx="17" cy="11" r="5" fill="${C.hub}" stroke="${C.ink}" stroke-width="2.2"/>`), 'Pinned connection'],
+    [icon(`<rect x="11.5" y="5.5" width="11" height="11" rx="2" fill="${C.ink}"/>`), 'Rigid connection'],
+    [icon(`<line x1="17" y1="2" x2="17" y2="11" stroke="${C.load}" stroke-width="5" stroke-linecap="round"/><path d="M17 20 l-7 -9 h14 z" fill="${C.load}"/>`), 'Load'],
+    [icon(`<circle cx="17" cy="11" r="8" fill="${C.unstable}" opacity=".18"/><circle cx="17" cy="11" r="8" fill="none" stroke="${C.unstable}" stroke-width="2"/>`), 'Instability'],
+    [icon(`<circle cx="6" cy="11" r="4" fill="${C.p1}"/><circle cx="13.5" cy="11" r="4" fill="${C.p2}"/><circle cx="21" cy="11" r="4" fill="${C.p3}"/><circle cx="28.5" cy="11" r="4" fill="${C.p4}"/>`), 'Players 1 to 4']
+  ].map((e) => `<span>${e[0]}${e[1]}</span>`).join('');
+})();
+</script>
+</body>
+</html>

@@ -24,6 +24,11 @@ import {
   type BayHit,
 } from "./bayPreview";
 import { GROWTH_ROLE_INDEX, growthTargets } from "./growthTargets";
+import {
+  buildStack,
+  createStackSelector,
+  type StackCandidate,
+} from "./growthStack";
 import { isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
 import { memberEndPosition } from "./turnGuides";
 import {
@@ -54,7 +59,11 @@ export function createPicker(
 ) {
   const ray = new THREE.Raycaster(),
     ndc = new THREE.Vector2();
-  return (e: PointerEvent, toolOverride?: Tool) => {
+  // Which of several overlapping growth targets is chosen (see growthStack.ts).
+  const stack = createStackSelector();
+  let lastEvent: PointerEvent | null = null;
+  const pick = (e: PointerEvent, toolOverride?: Tool) => {
+    lastEvent = e;
     const s = useGameStore.getState(),
       level = sceneLevel(s),
       camera = getCamera(),
@@ -108,6 +117,7 @@ export function createPicker(
       }
     }
     let hit: Hit = null;
+    let stackLabel = "";
     ghost.visible = false;
     preview.visible = false;
     if (card?.kind === "connection") {
@@ -212,6 +222,7 @@ export function createPicker(
           intersection = terrainHit.point;
       }
       const isGrowing = !!start && isMember && !card && isGrowthStyle(s.style);
+      if (!isGrowing) stack.reset();
       const reachable = isGrowing ? closestGrowthTarget() : null;
       if (!card && s.style === "blocks" && isMember && intersection) {
         const baySize = getView().baySize ?? DEFAULT_BAY_SIZE;
@@ -312,17 +323,34 @@ export function createPicker(
       }
     }
     function closestGrowthTarget() {
-      let closest: ReturnType<typeof growthTargets>[number] | null = null;
-      let distance = 12;
+      const candidates: StackCandidate<
+        ReturnType<typeof growthTargets>[number]
+      >[] = [];
       for (const target of growthTargets(s)) {
         const [sx, sy, depth] = screen(basePoint(target.key));
-        const candidate = Math.hypot(sx - x, sy - y);
-        if (depth >= -1 && depth < 1 && candidate < distance) {
-          closest = target;
-          distance = candidate;
-        }
+        if (depth >= -1 && depth < 1)
+          candidates.push({
+            item: target,
+            sx,
+            sy,
+            depth,
+            dist: Math.hypot(sx - x, sy - y),
+          });
       }
-      return closest;
+      // Targets that overlap on screen form a stack; the camera-nearest one
+      // is the default and the player can step through the rest.
+      const targets = buildStack(candidates);
+      if (!targets.length) {
+        stack.reset();
+        return null;
+      }
+      const index = stack.choose(
+        targets.map((t) => t.item.key),
+        s.chainStart,
+      );
+      if (targets.length > 1)
+        stackLabel = `${index + 1} of ${targets.length} overlapping`;
+      return targets[index].item;
     }
     function memberTitle(id: number) {
       const view = getView();
@@ -342,7 +370,12 @@ export function createPicker(
     }
     canvas.title =
       hit?.kind === "point" || hit?.kind === "bay"
-        ? hit.issue || `${hit.p.map((v) => v * CELL_SIZE).join(", ")} m`
+        ? [
+            hit.issue || `${hit.p.map((v) => v * CELL_SIZE).join(", ")} m`,
+            stackLabel,
+          ]
+            .filter(Boolean)
+            .join(" · ")
         : hit?.kind === "member"
           ? memberTitle(hit.id)
           : hit?.kind === "node"
@@ -359,4 +392,55 @@ export function createPicker(
                 : "";
     return hit;
   };
+
+  // Stepping through overlapping targets. These listeners live here so the
+  // picker owns its whole behaviour. The wheel listener is a capture listener on
+  // the canvas, so it runs before OrbitControls' zoom; the key listener is a
+  // capture listener on the window, so `[` and `]` are taken before the working
+  // level shortcuts. Both do nothing unless the pointer is over a stack of two or
+  // more growth targets, and the key listener removes itself once the canvas has
+  // been detached from the document.
+  const overStack = () => {
+    const s = useGameStore.getState();
+    return (
+      !!s.chainStart &&
+      s.mode !== "multiplayer" &&
+      isGrowthStyle(s.style) &&
+      stack.size >= 2
+    );
+  };
+  const step = (delta: number) => {
+    stack.step(delta);
+    if (lastEvent) pick(lastEvent);
+  };
+  canvas.addEventListener(
+    "wheel",
+    (e: WheelEvent) => {
+      if (!e.deltaY || !overStack()) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      step(e.deltaY > 0 ? 1 : -1);
+    },
+    { capture: true, passive: false },
+  );
+  canvas.addEventListener("pointerleave", () => stack.reset());
+  const onKey = (e: KeyboardEvent) => {
+    if (!canvas.isConnected) {
+      window.removeEventListener("keydown", onKey, true);
+      return;
+    }
+    if (
+      (e.key !== "[" && e.key !== "]") ||
+      e.ctrlKey ||
+      e.metaKey ||
+      e.altKey ||
+      !overStack()
+    )
+      return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    step(e.key === "]" ? 1 : -1);
+  };
+  window.addEventListener("keydown", onKey, true);
+  return pick;
 }
