@@ -3,8 +3,9 @@ title: "Architecture"
 last_validated: 2026-11-14
 validated_against:
   - package.json
-  - apps/web/package.json
-  - apps/web/src
+  - apps/web/src/game
+  - apps/web/src/viewer/Scene.tsx
+  - apps/web/src/solver/voxel.js
   - packages/solver-contract/src/index.ts
   - services/opensees/README.md
 owner: unknown
@@ -13,17 +14,15 @@ status: partial
 
 # Architecture
 
-## Current foundation
+The npm workspace contains a React and TypeScript site in `apps/web`, using React Router, Zustand, Three.js and Vite. The shared `packages/solver-contract` defines a preliminary structural model and asynchronous adapter interface; `services/opensees` reserves a location for a future service. TypeScript project references build the shared package before the app.
 
-The npm workspace contains a React and TypeScript site in `apps/web` and a preliminary structural model and solver adapter contract in `packages/solver-contract`. `services/opensees` reserves a location for a future service; it contains no implementation. The web app uses React Router, Zustand, Three.js, and Vite. TypeScript project references build the shared package before the app.
-
-The intended areas are game architecture and turns, structural analysis, and the 3D viewer. The web scaffold separates game state, UI, pages, viewer, and solver placeholder into directories. The Zustand store owns a model and reset action; the viewer receives a model as a prop and owns its graphics resources. The asynchronous adapter interface provides a potential boundary for local or remote analysis. No actual solver or gameplay rules are implemented.
+The workspace incorporates the Voxel Struct experiment. Its Zustand store owns voxel game state and rules, while the Three.js scene renders and interacts with that state. The experimental voxel analysis is extracted into a separate JavaScript module called by the workspace. It takes the voxel game model and level directly; it does not implement the shared solver adapter. Its sections, loads and checks cannot yet be represented by the preliminary shared contract, so backend interchangeability remains future work. The original standalone prototype remains available for comparison.
 
 ## Working boundaries
 
-- Keep structural model and solver-facing types in the shared contract rather than coupling a solver to React or Three.js. The existing contract is preliminary and will need revision as semantics are decided.
-- Keep game state and turn decisions separate from rendering and backend-specific solver details. How analysis requests and results flow through game state remains open.
-- Keep backend conversion and unsupported-feature handling in adapters so candidates can be evaluated against a common contract. This is an intended integration rule; no real adapter yet demonstrates it.
-- Treat the viewer as a consumer of structural state, not the source of engineering or game rules. Its current member rendering does not imply analysis or placement functionality.
+- Keep structural model and solver-facing types in the shared contract rather than coupling a solver to React or Three.js. The existing contract is preliminary and needs revision as semantics are decided.
+- Keep game state and turn decisions separate from rendering and backend-specific solver details. The voxel experiment has editing rules but no turn system.
+- Keep backend conversion and unsupported-feature handling in adapters. No numerical adapter currently implements the shared interface.
+- Treat the viewer as a consumer of structural state, not the source of engineering or game rules.
 
-See [structural solver](structural-solver.md) for candidate frameworks, model decisions, and testing options. The lifecycle and deployment of OpenSees, placement of future TypeScript and Rust solvers, persistence, and turn/update flow remain undecided.
+See [structural solver](structural-solver.md) for analysis limitations and candidate frameworks. Persistence beyond local browser storage, turn flow, and deployment remain open.
