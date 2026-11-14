@@ -136,3 +136,17 @@ Sources and acceptance cases are [element representation](element-representation
 Baseline `cdd5c9a` on Windows x64, Node 24.15.0, Chrome 157.0.8103.51 with SwiftShader, Python 3.12.16. TypeScript passed after restoring declared npm dependencies. Vitest passed 136 with 2 live-service checks skipped. OpenSees passed 42 tests including analytical and HTTP fixtures. Its Starlette test client emitted one dependency deprecation warning. The read-only turn audit replayed 625 matches with seeds 0–624 and 10,000 total turns with 3,180 staged loads. No card conservation or final-round violations were observed. This run exercised turn rules only.
 
 [Whole-game matrix](release-acceptance-criteria.md) §§2–6 remains open at baseline. Setup, draw and partial staging work on the two-seat preset. Legality fails crossing and common-joint fixtures. Analysis fails the independent supported mechanism fixture. Handoff and recovery fail on public drawer exposure and stale saves. Final award, repair, 10,000 numerical states, assisted-input workflows and performance acceptance lack passing evidence. The [initial photos](../evidence/viewer/README.md) cover the desktop portal fixture in each presenter.
+
+### Integrated checkpoints
+
+| Commit | Verified result | Still open in this scope |
+| --- | --- | --- |
+| `9fba000` | Three read-only audits and five same-camera baseline scenes. | Normal game only routes Grow Dusk. Four presenters require the existing style setter. |
+| `008cd8a` | The public projection omits hidden data. The 10,000-case linear suite completed with no classification failures. | Nonlinear suite and other public surfaces require separate evidence. |
+| `06e4e28` | Stable response retained beside supported mechanism, unsupported and oversized components. | Physical acceptance per computed component is a separate gate. |
+| `5cb72c4` | Incompatible joint laws rejected at staging, commit and legacy replay. | Active elastic card analysis requires an extended catalogue. |
+| `de9572b`, `209d6a7` | Card-gravity load option and frame verification with force, moment and kinematic residual checks. | App-level final scoring, overload and nonlinear capabilities require independent fixtures. |
+| `2bc6c3c` | Chrome 157 traversed a private saved-draft handoff through turn 16, including interruption and held input. | Physical touchscreen and screen reader pending. |
+| `eca2c8a` | Seed 5 frame quarter attachments preserved original identity, load transfer and committed-only projection. | Viewer targeting, family-specific continuities and clashing fittings have separate assignments. |
+
+The [measurement runner](../evidence/viewer/measure.cjs) exercised Grow Dusk on Windows, Intel Core Ultra 9 185H, Chrome 157.0.8103.51, ANGLE SwiftShader, 1366 × 900, DPR 1, with no result overlays. On the working tree at `eca2c8a`, after 30 warmup frames and 120 samples, p95 animation-frame intervals were 60.7 ms on 04-rigid-portal (6 members) and 151.5 ms on 12-midrise (208 members). After 5 warmups and 20 measured applied analyses, p95 solver times were 1.7 ms and 167.9 ms. Both miss a 16.7 ms frame budget on this software renderer, and the midrise misses the 50 ms preview target. There were zero uncaught page errors. Rerun the integrated build for release disposition.

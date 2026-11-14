@@ -30,6 +30,8 @@ status: partial
 
 ## Baseline and interpretation
 
+For the implementation branch, the [criteria ledger](criteria-ledger.md) records a new audit at `cdd5c9a` and subsequent game and service checks. The voxel path now isolates independent supported mechanisms and checks residuals and end laws for small-motion frame reactions. The service test suite includes 10,000 seeded linear, unstable and invalid structural states. The historical table below retains its original baseline.
+
 This review compares the owner's [proposed solver criteria](solver-criteria.md) with main at `b01a30edd262ad7718220889d30f897450c6c33b`. The criteria retain their proposed status; recording them does not approve unresolved gameplay rules or demonstrate numerical compliance. This documentation change preserves the working voxel experiment and preliminary shared contract. No criteria milestone is complete.
 
 There are two distinct interfaces: `packages/solver-contract/src/index.ts` is a preliminary shared contract whose placeholder returns `unsupported`; `apps/web/src/solver/voxel.ts` implements experimental game-specific analysis through `voxelInput.ts`. Its existing capabilities are useful starting points, not evidence of a verified reference solver. The standalone prototype is context; this review evaluates the workspace implementation.
