@@ -36,3 +36,5 @@ The workspace incorporates the Voxel Struct experiment. Its Zustand store owns v
 - Treat the viewer as a consumer of structural state, not the source of engineering or game rules.
 
 See [structural solver](structural-solver.md) for analysis limitations and candidate frameworks. Persistence beyond local browser storage, turn flow, and deployment remain open.
+
+The voxel game uses versioned browser saves and an experimental analysis snapshot; see [structural state](structural-state.md) for validation, replay limits, and the proposed solver-neutral model.
