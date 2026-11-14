@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Scene } from '../viewer/Scene';
 import { ITEMS, LEVELS, MEMBER_TYPES, remaining, costOf, type LevelId, type MemberType, type Tool, useGameStore } from '../game/store';
-import { analyzeVoxel, autoDesignVoxel, type VoxelAnalysis } from '../solver/voxel';
+import { analyzeGame, autoDesignGame } from '../game/analysis';
+import type { VoxelAnalysis } from '../solver/voxel';
 
 const tools: { id: Tool; label: string }[] = [
   { id: 'inspect', label: 'Inspect' }, { id: 'delete', label: 'Remove' }, { id: 'swap', label: 'Swap' },
@@ -22,7 +23,7 @@ export function Workspace() {
   const selectedId = game.selected?.type === 'member' ? game.selected.id : undefined;
   const selected = game.model.members.find(m => m.id === selectedId);
   function run() {
-    try { setAnalysis({ model: game.model, level: game.levelId, result: analyzeVoxel(game.model, level) }); setMessage(''); }
+    try { setAnalysis({ model: game.model, level: game.levelId, result: analyzeGame(game.model, level) }); setMessage(''); }
     catch (error) { setAnalysis(null); setMessage(`Analysis failed: ${error instanceof Error ? error.message : String(error)}`); }
   }
   useEffect(() => {
@@ -37,7 +38,7 @@ export function Workspace() {
   function autoDesign() {
     try {
       const source = game.model;
-      const designed = autoDesignVoxel(source, level);
+      const designed = autoDesignGame(source, level);
       if (designed.changed && game.applyAutoDesign(designed.model, source)) {
         setAnalysis({ model: useGameStore.getState().model, level: game.levelId, result: designed.analysis });
         setMessage('Beam sections updated.');
@@ -58,6 +59,7 @@ export function Workspace() {
     <div className="analysis"><div className="panel-title">03 &nbsp; ANALYSIS</div>{message && <p role="status">{message}</p>}{!result ? <p>Run the experimental analysis to see checks. Results clear when the model changes.</p> : result.error ? <p role="alert">Cannot analyse: {result.error}</p> : <><h3>{result.success ? 'Checks passed' : 'Not yet passing'} {result.stars ? '★'.repeat(result.stars) : ''}</h3><ul className="objectives">{result.objectives.map((o, i) => <li key={i}>{o.ok ? '✓' : '✕'} {o.label}{o.detail && <small>{o.detail}</small>}</li>)}</ul><div className="stat"><span>Mass</span><b>{result.mass?.toFixed(2)} t</b></div><div className="stat"><span>Maximum utilisation</span><b>{result.mechanism || result.maxU === undefined ? "—" : `${(result.maxU * 100).toFixed(0)}%`}</b></div><h3>Most utilised members</h3>{Object.entries(result.members).sort((a, b) => b[1].util - a[1].util).slice(0, 8).map(([id, member]) => <button className="member-result" key={id} onClick={() => game.setSelected({type: "member", id: Number(id)})}>#{id} · {member.gov} <b>{(member.util * 100).toFixed(0)}%</b></button>)}<div className="view-options"><label>Load case <select value={combo} onChange={e => setCombo(Number(e.target.value))}>{['ULS wind X', 'ULS wind Y', 'SLS wind X', 'SLS wind Y'].map((name, i) => <option value={i} key={name}>{name}</option>)}</select></label><label><input type="checkbox" checked={deformed} onChange={e => setDeformed(e.target.checked)} /> Deformed shape</label><label>Scale <input type="range" min="0.1" max="3" step="0.1" value={scale} onChange={e => setScale(Number(e.target.value))} /></label><label><input type="checkbox" checked={utilization} onChange={e => setUtilization(e.target.checked)} /> Utilisation colours</label><label><input type="checkbox" checked={loads} onChange={e => setLoads(e.target.checked)} /> Loads and reactions</label></div><p>Approximate prototype results; not for engineering design.</p></>}</div></aside></div><footer>DESIGNED FOR CURIOUS MINDS ✳ <span>A PLAYGROUND FOR STRUCTURAL THINKING</span></footer>
   </main>;
 }
+
 
 
 
