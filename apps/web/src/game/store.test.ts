@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import { useGameStore } from './store';
-import { unavailableSolver } from '../solver/unavailable';
-describe('foundation', () => {
-  it('resets to an empty model', () => { useGameStore.getState().reset(); expect(useGameStore.getState().model.nodes).toEqual([]); });
-  it('reports analysis as unavailable', async () => { expect((await unavailableSolver.analyze(useGameStore.getState().model)).status).toBe('unsupported'); });
+import { beforeEach, describe, expect, it } from 'vitest';
+import { LEVELS, memberIssue, nodeItemIssue, useGameStore } from './store';
+describe('voxel game rules',()=>{
+ beforeEach(()=>{useGameStore.getState().setLevel('tower1'); useGameStore.getState().reset();});
+ it('validates placement, duplicates and supply, and restores supply on undo',()=>{const s=useGameStore.getState(); expect(s.addMember([0,0,0],[0,0,3],'ipe')).toBeNull(); expect(useGameStore.getState().addMember([0,0,3],[0,0,0],'ipe')).toContain('already'); expect(useGameStore.getState().addMember([0,0,0],[4,0,0],'ipe')).toContain('Too long'); useGameStore.getState().undo(); expect(useGameStore.getState().model.members).toHaveLength(0);});
+ it('loads reference examples as undoable edits',()=>{ expect(useGameStore.getState().loadExample()).toBe(true); expect(useGameStore.getState().model.members.length).toBeGreaterThan(0); useGameStore.getState().undo(); expect(useGameStore.getState().model.members).toHaveLength(0); useGameStore.getState().setLevel('tower2'); expect(useGameStore.getState().loadExample()).toBe(false); });
+ it('keeps bridge bearings locked and prevents foundations in water',()=>{useGameStore.getState().setLevel('bridge1'); const s=useGameStore.getState(); s.removeNodeAttrs('4,4,3'); expect(useGameStore.getState().model.attrs['4,4,3'].locked).toBe(true); expect(nodeItemIssue(LEVELS.bridge1,s.model,[7,4,0],'found')).toContain('solid ground'); expect(memberIssue(LEVELS.bridge1,s.model,[3,4,3],[5,4,0],'shs')).toContain('ground');});
+ it('swaps members as one undoable edit and removes orphaned attachments',()=>{useGameStore.getState().setLevel('sandbox'); let s=useGameStore.getState(); s.addMember([0,0,0],[0,0,2],'shs'); s.addMember([0,0,2],[0,0,4],'shs'); s.toggleAttr([0,0,4],'joint'); expect(useGameStore.getState().swapAllOfType('shs','ipe')).toBe(2); useGameStore.getState().undo(); expect(useGameStore.getState().model.members.every(m=>m.type==='shs')).toBe(true); useGameStore.getState().removeMember(2); expect(useGameStore.getState().model.attrs['0,0,4']).toBeUndefined();});
 });
+
