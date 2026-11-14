@@ -283,8 +283,43 @@ class _Driver:
             # verified conclusion is possible, and loading on would treat an
             # unstable reference as stable.
             return self.outcome("unknown", ["solver_error"], 0.0, reference, dofs)
+
+        moved = self.prestress()
+        if moved is None:
+            # No equilibrium of the initial strains near the reference: no
+            # verified state at all, not even at factor 0.
+            return self.outcome("unknown", ["not_converged"], 0.0, reference, dofs)
+        if moved:
+            # Prestress changed the forces, and with them the geometric
+            # stiffness (guys compress a mast), so the tangent that matters
+            # is the one at the prestressed equilibrium, not the reference.
+            self.check_deadline()
+            reference, dofs = self.assess()
+            if not reference.positive_definite:
+                # A verified equilibrium under initial strain alone that is
+                # not stable: the prestress itself buckles the structure.
+                return self.outcome("unstable", ["load_induced_instability"], 0.0, reference, dofs)
         self.verified(0.0, reference, dofs)
         return self.load_path()
+
+    def prestress(self) -> bool | None:
+        """Equilibrate the initial strains at load factor 0.
+
+        Initial strains act in full from the first analysis and cannot be
+        scaled by the load factor, so where they are not self-equilibrated
+        at the reference geometry (guys pulling a mast down), the reference
+        is not an equilibrium. Without this stage the first load step would
+        both find the prestressed equilibrium and apply load, and the branch
+        check would reject it: stepping back returns to the prestressed
+        state, not to the unbalanced reference it started from.
+
+        Returns True if the structure moved, False if the reference already
+        was an equilibrium, None if no equilibrium was found.
+        """
+        result = self.step(0.0)
+        if not isinstance(result, int):
+            return None
+        return float(ops.testNorm()[0]) > self.tolerance
 
     def load_path(self) -> Outcome:
         """Load from 0 to 1, checking the tangent after every step."""
@@ -381,7 +416,9 @@ class _Driver:
         try:
             ratio: float | None = self.settings.recovery_initial_ratio
             springs.set(ratio)
-            if not self.march(0.0, 1.0) or self.too_far():
+            # Equilibrate any unbalanced prestress first, for the same reason
+            # as on the main path (see ``prestress``).
+            if self.prestress() is None or not self.march(0.0, 1.0) or self.too_far():
                 return False
             while ratio > self.settings.recovery_final_ratio * (1.0 + 1e-9):
                 ratio = self.soften(springs, ratio)
@@ -456,6 +493,9 @@ class _Driver:
         the right branch before and, being deterministic, do so again.
         """
         self.problem.build()
+        # The verified path starts from the prestressed equilibrium.
+        if self.prestress() is None:
+            return False
         for start, end in zip(self.path, self.path[1:]):
             if end > factor:
                 break

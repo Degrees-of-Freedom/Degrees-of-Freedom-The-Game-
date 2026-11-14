@@ -303,6 +303,117 @@ def test_recovered_domain_has_no_temporary_objects_and_results_can_be_read() -> 
     assert relative_error(vertical, load) <= 1e-5
 
 
+# Prestress that is not self-equilibrated at the reference geometry --------
+
+GUY_PRESTRAIN = 4.34e-4  # as in the game's guyed mast fixture
+
+
+def _guyed_mast_reference(load: float, prestrain: float, height: float = 12.0, offset: float = 6.0):
+    """Top settlement, guy tension and mast force of ``nlp.guyed_mast``.
+
+    By symmetry the top only moves down, by d. The mast shortens by d, so its
+    compression is N = (EA_m / H) d. Each guy, of length l = sqrt(H^2 + b^2)
+    and vertical direction cosine c = H / l, shortens by d c, so its tension
+    is T = EA_g (eps0 - d c / l). Vertical equilibrium of the top,
+    N = 2 T c + P, gives
+
+        d = (2 c EA_g eps0 + P) / (EA_m / H + 2 c^2 EA_g / l).
+
+    Small-displacement compatibility: the terms dropped are of relative order
+    d / H (about 2e-5 here). The mast stays straight, so bending plays no part.
+    """
+    length = math.hypot(height, offset)
+    c = height / length
+    mast = nlp.E * nlp.MAST_A / height
+    settlement = (2.0 * c * nlp.CABLE_EA * prestrain + load) / (mast + 2.0 * c**2 * nlp.CABLE_EA / length)
+    tension = nlp.CABLE_EA * (prestrain - settlement * c / length)
+    return settlement, tension, -(2.0 * tension * c + load)
+
+
+@pytest.mark.parametrize("load", [0.0, 10.0e3])
+def test_guyed_mast_prestress_compresses_the_mast_by_compatibility(load: float) -> None:
+    settlement, tension, mast_force = _guyed_mast_reference(load, GUY_PRESTRAIN)
+    segments = 6
+    problem = nlp.guyed_mast(load, GUY_PRESTRAIN, segments=segments)
+
+    outcome = solve(problem)
+
+    assert outcome.state == "stable"
+    assert outcome.reason_codes == []
+    assert outcome.load_factor == 1.0
+    top = segments + 1
+    assert relative_error(-ops.nodeDisp(top, 2), settlement) <= NONLINEAR_GATE
+    assert relative_error(ops.basicForce(segments + 1)[0], tension) <= NONLINEAR_GATE
+    assert relative_error(ops.basicForce(segments + 2)[0], tension) <= NONLINEAR_GATE
+    for element in range(1, segments + 1):
+        assert relative_error(ops.basicForce(element)[0], mast_force) <= NONLINEAR_GATE
+
+
+def test_prestress_that_buckles_the_mast_is_unstable_at_factor_zero() -> None:
+    # With I = 1e-7 m^4 the mast's buckling load is at most the fixed-fixed
+    # value 4 pi^2 EI / H^2 = 5.8 kN, whatever restraint the guys give the
+    # top, while the guys alone compress it by 2 T c = 16 kN (reference
+    # above). The prestressed equilibrium exists (the mast stays straight)
+    # but is unstable before any load is applied.
+    inertia = 1.0e-7
+    assert -_guyed_mast_reference(0.0, GUY_PRESTRAIN)[2] > 2.0 * 4.0 * math.pi**2 * nlp.E * inertia / 12.0**2
+    problem = nlp.guyed_mast(10.0e3, GUY_PRESTRAIN, inertia=inertia)
+
+    outcome = solve(problem)
+
+    assert outcome.state == "unstable"
+    assert outcome.reason_codes == ["load_induced_instability"]
+    assert outcome.load_factor == 0.0
+    assert outcome.assessment is not None and not outcome.assessment.positive_definite
+
+
+def _single_guy_equilibrium(prestrain: float) -> np.ndarray:
+    """Displacement of node 1 of ``nlp.single_guy`` at its prestress equilibrium.
+
+    Exact large-displacement equations of the three pin-jointed bars, solved
+    with numpy (no OpenSees): a bar from fixed point p to node 1 at r has
+    length l = |r - p|, force N = EA ((l - l0) / l0 + eps0), the cable
+    carrying max(N, 0), and pulls node 1 by -N (r - p) / l. Newton on the
+    sum of the three forces, with a central-difference Jacobian.
+    """
+    nodes = nlp.SINGLE_GUY_NODES
+    start = np.array(nodes[1])
+    members = [(np.array(nodes[2]), 0.0, False), (np.array(nodes[3]), 0.0, False), (np.array(nodes[4]), prestrain, True)]
+
+    def residual(u: np.ndarray) -> np.ndarray:
+        r = start + u
+        total = np.zeros(2)
+        for p, eps0, cable in members:
+            l0, l = float(np.linalg.norm(start - p)), float(np.linalg.norm(r - p))
+            force = nlp.CABLE_EA * ((l - l0) / l0 + eps0)
+            total -= (max(force, 0.0) if cable else force) * (r - p) / l
+        return total
+
+    u = np.zeros(2)
+    for _ in range(50):
+        h = 1.0e-9
+        jacobian = np.column_stack([(residual(u + h * e) - residual(u - h * e)) / (2 * h) for e in np.eye(2)])
+        u = u - np.linalg.solve(jacobian, residual(u))
+    return u
+
+
+def test_one_sided_guy_moves_the_top_sideways_to_its_prestress_equilibrium() -> None:
+    # The cable pulls node 1 towards (3, 0): down against the post and
+    # sideways against the bar. Nothing is loaded; the result is the
+    # prestress equilibrium alone.
+    prestrain = 1.0e-3
+    expected = _single_guy_equilibrium(prestrain)
+    assert expected[0] > 0.0 and expected[1] < 0.0
+    problem = nlp.single_guy(prestrain)
+
+    outcome = solve(problem)
+
+    assert outcome.state == "stable"
+    displacement = ops.nodeDisp(1)
+    assert relative_error(displacement[0], expected[0]) <= NONLINEAR_GATE
+    assert relative_error(displacement[1], expected[1]) <= NONLINEAR_GATE
+
+
 # Mechanisms and instability at the reference state ------------------------
 
 

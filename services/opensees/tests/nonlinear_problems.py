@@ -244,6 +244,70 @@ def shallow_truss(load: float, half_span: float = 2.0, rise: float = 0.2) -> Han
     return HandBuilt(define, 0.1 * math.hypot(half_span, rise))
 
 
+#: Guyed mast (2D, three DOFs per node): the default steel section.
+MAST_A = 7.49e-3
+MAST_I = 4.47e-5
+
+
+def guyed_mast(
+    load: float, prestrain: float, height: float = 12.0, offset: float = 6.0,
+    segments: int = 6, inertia: float = MAST_I,
+) -> HandBuilt:  # fmt: skip
+    """Mast of ``segments`` corotational beams on a fixed base at the origin,
+    guyed from its top (node ``segments + 1``) by two prestrained tension-only
+    cables to pinned anchors at (-offset, 0) and (offset, 0); ``load`` acts
+    downwards at the top. Elements 1..segments are the mast, then the guys.
+    The prestress is not self-equilibrated: the guys pull the top down.
+    """
+
+    def define() -> Loads:
+        ops.model("basic", "-ndm", 2, "-ndf", 3)
+        for k in range(segments + 1):
+            ops.node(k + 1, 0.0, height * k / segments)
+        ops.fix(1, 1, 1, 1)
+        top = segments + 1
+        ops.node(top + 1, -offset, 0.0)
+        ops.node(top + 2, offset, 0.0)
+        ops.fix(top + 1, 1, 1, 1)
+        ops.fix(top + 2, 1, 1, 1)
+        ops.geomTransf("Corotational", 1)
+        for k in range(segments):
+            ops.element("elasticBeamColumn", k + 1, k + 1, k + 2, MAST_A, E, inertia, 1)
+        _tension_only(1, prestrain)
+        ops.element("corotTruss", segments + 1, top + 1, top, CABLE_A, 1)
+        ops.element("corotTruss", segments + 2, top + 2, top, CABLE_A, 1)
+        return {top: (0.0, -load, 0.0)}
+
+    return HandBuilt(define, 0.1 * height / segments)
+
+
+#: Node positions of ``single_guy``: free top, mast foot, bar end, guy anchor.
+SINGLE_GUY_NODES = {1: (0.0, 4.0), 2: (0.0, 0.0), 3: (-3.0, 4.0), 4: (3.0, 0.0)}
+
+
+def single_guy(prestrain: float) -> HandBuilt:
+    """Pin-jointed post (node 2 to node 1) held sideways by a horizontal bar
+    (node 3 to node 1) and pulled towards (3, 0) by one prestrained cable:
+    the prestress equilibrium moves node 1 both down and sideways. Elements
+    1, 2, 3 are the post, the bar and the cable.
+    """
+
+    def define() -> Loads:
+        ops.model("basic", "-ndm", 2, "-ndf", 2)
+        for node, (x, y) in SINGLE_GUY_NODES.items():
+            ops.node(node, x, y)
+        for node in (2, 3, 4):
+            ops.fix(node, 1, 1)
+        ops.uniaxialMaterial("Elastic", 2, E)
+        _tension_only(1, prestrain)
+        ops.element("corotTruss", 1, 2, 1, CABLE_A, 2)
+        ops.element("corotTruss", 2, 3, 1, CABLE_A, 2)
+        ops.element("corotTruss", 3, 4, 1, CABLE_A, 1)
+        return {}
+
+    return HandBuilt(define, 0.1 * 3.0)
+
+
 def fully_fixed_bar(load: float) -> HandBuilt:
     """A bar between two fully fixed nodes, loaded at one: no free DOFs."""
 
