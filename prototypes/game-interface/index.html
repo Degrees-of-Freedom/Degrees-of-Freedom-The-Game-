@@ -302,7 +302,7 @@
   <div class="wrap">
     <div class="topbar" style="--i:0"><a class="back" href="#home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>Home</a></div>
     <h1 class="page" id="modes-h" style="--i:1" tabindex="-1">Choose a mode</h1>
-    <p class="lede" style="--i:1">A mode sets the rules. An environment sets how building looks and feels. You can pair any mode with any environment.</p>
+    <p class="lede" style="--i:1">A mode sets the rules. Every mode plays in the Grow Dusk environment.</p>
     <div class="cards" id="cards"></div>
     <p class="status-note" style="--i:6"><span class="tag solid">Prototype preview</span> This menu opens the standalone environment prototype, where you can build freely. The mode’s rules, simulation and results run in the team’s main app.</p>
   </div>
@@ -365,7 +365,7 @@
     <div class="panel" style="--i:4">
       <h2>The turn loop</h2>
       <div class="loop">
-        <div class="step"><b><span>1</span>Setup</b><small>Pick a mode and an environment.</small></div><span class="sep" aria-hidden="true">&rarr;</span>
+        <div class="step"><b><span>1</span>Setup</b><small>Pick a mode and set it up.</small></div><span class="sep" aria-hidden="true">&rarr;</span>
         <div class="step"><b><span>2</span>Act</b><small>Add members, loads and connections.</small></div><span class="sep" aria-hidden="true">&rarr;</span>
         <div class="step"><b><span>3</span>Solve</b><small>Run simulation to see where load goes.</small></div><span class="sep" aria-hidden="true">&rarr;</span>
         <div class="step"><b><span>4</span>Score</b><small>Read the results.</small></div>
@@ -398,7 +398,7 @@
     <p class="lede" style="--i:1"><span class="tag solid">Hackathon prototype</span> AEC Tech 2026</p>
     <div class="panel" style="--i:2"><p style="margin:0;font-size:17px">Degrees of Freedom is a turn-based structural engineering game played on a 3D grid. Players place joints, members and loads, and then look at how the structure carries load and where it can still move. The aim is to make structural behaviour something you can play with and see.</p></div>
     <div class="two" style="--i:3">
-      <div class="panel"><h2>Implemented</h2><ul class="ticks yes"><li>Standalone environment prototypes</li><li>These menus, mode and environment setup screens</li></ul></div>
+      <div class="panel"><h2>Implemented</h2><ul class="ticks yes"><li>Standalone environment prototypes</li><li>These menus and mode setup screens</li></ul></div>
       <div class="panel"><h2>Not implemented yet</h2><ul class="ticks no"><li>Mode rules and turn order</li><li>Cards</li><li>Results and scoring</li><li>Simulation (Run simulation)</li></ul></div>
     </div>
     <div class="panel" style="--i:4;margin-top:16px"><p style="margin:0">The team’s main app (<code>apps/web</code>) has ported these environments and implements the modes. This page is a design prototype for the home and menu screens.</p></div>
@@ -492,7 +492,7 @@
     $('#setup-lede').innerHTML = '<b>' + esc(m.sub.replace(/[.]$/, '')) + '.</b> ' + esc(m.goal);
     $('#setup-crumb').innerHTML = 'Mode <code>' + mode + '</code> &middot; ' + m.players;
     cur.mode = mode;
-    var env = ENVS.some(function (e) { return e.id === s.env; }) ? s.env : m.env;
+    var env = 'grow-dusk'; // one theme for now; ENVS and the picker markup are kept for later
     var note = '<span class="tag solid">Prototype preview</span> ' + esc(PREVIEW);
     var envPanel = '<div class="panel" style="--i:3"><span class="label">Environment</span><div class="env-row" role="radiogroup" aria-label="Environment">' +
       ENVS.map(function (e) { return radio('env', e.id, e.id === env, '<b>' + e.name + '</b><span>' + e.desc + '</span>', 'envc'); }).join('') +
@@ -525,11 +525,11 @@
       }).join('') + '</div></div>';
     }
     cur.state.env = env;
-    h = modePanel + '<div style="height:16px"></div>' + envPanel;
+    h = modePanel;
     h += '<div class="foot" style="--i:4"><button class="btn primary" id="start" type="button">Start ' + SVG_ARROW + '</button><span class="note">' + note + '</span></div>';
     body.innerHTML = h;
     if (mode === 'multiplayer') renderPlayers();
-    function envNote() { $('#env-note').textContent = cur.state.env === 'grow-dusk' ? '' : ENV_NOTE; }
+    function envNote() { var n = $('#env-note'); if (n) n.textContent = cur.state.env === 'grow-dusk' ? '' : ENV_NOTE; }
     envNote();
     $$('input[type=radio]', body).forEach(function (r) {
       r.addEventListener('change', function () {
