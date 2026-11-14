@@ -49,18 +49,21 @@ This is the entry point for the eight completion criteria requested after the in
 | G07 | Quarter attachments are required for every element family, including cables and springs. | Validation cannot be skipped by presenting a marker; compatible analytical laws are required. |
 | G08 | Unconnected elements are allowed, physical clashes are not. | Visual coincidence is not connectivity; projected crossing and physical material interference are different cases. |
 | G09 | One planar/trichord assembly card consumes one element play; each external attachment needs a connection card. | Earlier one-member-only prohibition is revised for authored assembly cards; internal authored parts are not separately dealt cards. |
-| G10 | Retain structures with issues, report/apply applicable verified -1 turn penalty, and repair by adding elements/connections. | No automatic collapse, removal or stiffness damage in standard play. |
+| G10 | Keep the player move and automatically apply a clearly recorded game-owned repair for instability and overload. | Supersedes player-card-only repair; no hidden removal or property rewrite of player objects. |
 | G11 | Repairs are clearly identified and allow continued play. | Resolved issues clear from active warnings after verification; retained unknown geometry is not an invented equilibrium. |
+| G12 | Historical -1 penalties remain after repair. | A resolved current issue does not refund or duplicate the originating deduction. |
+| G13 | Elastic connections may have different stiffness values at the same joint, provided freedoms and physical axes match. | Common freedom states do not require identical constitutive stiffness; retain each connector’s actual values. |
+| G14 | Final fallback scores verified components against total applied gravity and awards no attraction for unverified contributions. | Do not renormalize the verified subset or fabricate zero physical reactions. Mark final evidence completeness. |
 
 The earlier confirmed two decks, two draws per deck, independent up-to-1/1/2 plays, shared access, setup-only fixed foundations, immutable placed connections, matching shared-joint freedoms and no repeat/unknown penalties remain in force. Distinct external attachment cards still matter even when geometry is subdivided internally.
 
 ## 3. Pending decisions and recommendations
 
-Historical penalty refund, exact elastic matching policy and final unresolved-result disposition are being clarified with the owner. Do not infer an answer from a proposed default or from elapsed time. Record any subsequent answer here and propagate it to the relevant criteria.
+Historical penalties, unequal elastic stiffness and partial-result final scoring are now confirmed (G12–G14). The owner confirmed game-owned automatic correction for instability and overload while retaining the player move, with Timburr explaining it. Neutral ground scaffolding, its score attribution and lifetime are being clarified; no free player reaction points or unrestricted model editing is inferred. See [automatic correction](failure-repair-criteria.md#6-automatic-correction-transaction).
 
 Other recommendations requiring approval/configuration: number of rounds/players; signed uplift/self-weight and zero-load scoring; tie tolerance; hand/deck retention and exhaustion; first joint-profile establishment; clash tolerances/fitting geometry; actual card properties and spring/assembly/cable quarter-port laws; issue eligibility/worsening thresholds; camera/keymap/device targets; storage/migration limits. Recommendations are developed in the linked pages; a scored release must freeze all applicable choices in a versioned ruleset.
 
-In particular, the proposed scoring formula uses signed upward reactions over the same total applied gravity load and does not renormalize missing components. Final verification, uplift and zero-load policies are distinct choices: valid signed physics is required even if a future game policy scores it differently.
+In particular, the proposed scoring formula uses signed upward reactions over the same total applied gravity load and does not renormalize missing components. The confirmed partial-evidence fallback is a game award rule: unavailable reaction data stays unavailable even when its attraction award is zero. Uplift and zero-load policies remain separate choices. A solver must diagnose/report every supported input outcome but cannot guarantee a stable physical equilibrium for every topology without a permitted change to the model.
 
 ## 4. Implementation sequence and current limitations
 

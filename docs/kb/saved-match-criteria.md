@@ -37,7 +37,7 @@ Treat an accepted turn as one logical commit: structure, card/pile changes, evid
 
 Serialize writes per match, reject conflicting/stale parent revisions and avoid silent last-writer-wins across tabs. An interrupted draw resumes with the same recorded card identities; it must not reroll randomness. A pending analysis request may be retried with the same idempotent intent/model/options, but a stale reply cannot overwrite newer evidence or duplicate a penalty. Completed animation callbacks never decide whether a turn was saved.
 
-If analysis is not finalized, restore the pending/unknown status honestly. Compatible saved verified evidence may be reused for its exact model/options/policy only. Missing or incompatible solver versions must not silently recompute a different official history or make unknown scores final.
+If analysis is not finalized, restore the pending/unknown status honestly. Compatible saved verified evidence may be reused for its exact model/options/policy only. Missing or incompatible solver versions must not silently recompute a different official history. If the bounded final-resolution process ends with unverified scope, preserve the confirmed scoring policy’s zero attraction award for that scope, unavailable physical results and labelled partial-evidence finalization; this is not a fabricated complete load-share result.
 
 ## 4. Validation, compatibility and privacy
 
@@ -61,3 +61,7 @@ Explain autosave state and last successful committed revision. Provide manual ex
 | Quota failure / export / private handoff | Honest save status, recovery/export, no accidental private reveal. |
 
 Open: storage backend, retention/backup UX, migration support window, maximum import size, save-history limits and any optional encryption. These are implementation choices requiring evidence, not a requirement to add cloud storage or SQLite immediately.
+
+## 6. System-repair provenance
+
+Persist the retained player move, pre-correction evidence/penalty attribution, versioned repair request/candidates and bounded resolution status, accepted game-owned object/connection IDs/properties, post-correction results and any retirement events. System objects and their reactions need separate ownership/scoring identity. Crash/retry cannot create another repair or penalty. Keep unequal elastic stiffnesses per connector and historical penalties after repair. Record the confirmed verified-component final-award scope and total-gravity denominator independently of unavailable physical reactions.

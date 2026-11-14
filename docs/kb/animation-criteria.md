@@ -191,3 +191,7 @@ Update this page, [3D viewer](3d-viewer.md) and [development and testing](develo
 ## 13. Final scoring, quarter attachments and repair events
 
 Later [core game criteria](game-completion-criteria.md) confirm attraction scored only at match end, fixed rounds, accumulated penalties and retained structures repaired through additions. Animate provisional shares as estimates, not banked attraction points. [Placement](placement-criteria.md) requires explicit quarter ports and one-assembly-card plays with separately paid external attachments. [Repair](failure-repair-criteria.md) needs clearly resolved/improved/persistent/unknown feedback, without automatic collapse. [Hot-seat handoff](multiplayer-criteria.md) must conceal private content immediately before any incoming reveal, regardless of decorative animation duration.
+
+## 14. Recorded system repair sequence
+
+The game now requires recorded game-owned correction of instability and overload. Present pre-correction issue/once-per-turn historical penalty, explicit repair placement and verified post-correction outcome in causal order; Timburr explains the change. Skipping animation never skips repair validation, duplicates objects or refunds penalties. Keep system and player objects distinguishable. Unverified correction remains pending/unknown, never a success effect based only on a completed animation; see [repair workflow](failure-repair-criteria.md#6-automatic-correction-transaction).

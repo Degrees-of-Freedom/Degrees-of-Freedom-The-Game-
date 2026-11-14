@@ -66,7 +66,7 @@ A load targets an explicit eligible joint/member-end interface or a permitted ac
 
 ## 3. Deck 2: six-DOF connection design
 
-Use **named presets backed by one six-axis schema**. For each connection DOF the card defines `free`, `locked` or `elastic`; all attached ends at one joint must agree on the permitted physical directions and freedom states. Whether elastic stiffness values must also match remains open. The card fixes its laws, stiffnesses and capacities; the player chooses only permitted orientations. Custom profiles are authored card definitions, not a way for players to invent arbitrary stiffnesses during play.
+Use **named presets backed by one six-axis schema**. For each connection DOF the card defines `free`, `locked` or `elastic`; all attached ends at one joint must agree on the permitted physical directions and freedom states. The owner confirmed that elastic stiffness values may differ between attachments with matching freedom states and physical axes. The card fixes its laws, stiffnesses and capacities; the player chooses only permitted orientations. Custom profiles are authored card definitions, not a way for players to invent arbitrary stiffnesses during play.
 
 Order the axes `(UX, UY, UZ, RX, RY, RZ)`, conjugate to `(FX, FY, FZ, MX, MY, MZ)`. `L` means exact relative-motion lock; `F` means free with zero transferred generalized force; `E` means a specified elastic law. Locked does not mean infinitely strong: capacity is a separate card property. Translational stiffness uses force/length; rotational stiffness uses moment/radian in the agreed unit system.
 
@@ -90,7 +90,7 @@ A shared joint is a kinematic interface, not a ground restraint. Each member end
 
 An unattached end transfers nothing to a coincident joint. Explicit internal member continuity remains intact. A rigid connector cannot create bending resistance in an axial-only brace/cable. Irrelevant rotations must not acquire artificial stiffness or be mistaken for mechanisms.
 
-One active connector per member end; no stacking to bypass play limits. Placed connections are immutable: no editing, replacing, reorienting, upgrading or voluntary removal, even by their owner. Framing into an existing joint requires a new card attaching the incoming end with matching freedoms in physical axes; it does not change existing cards or waive the card cost. Proposed legality policy rejects incompatible profiles while preserving the draft; profile establishment, elastic-value matching and legacy migration remain open. Public joint/interface identity must make this distinction clear. Any future damage/failure-release policy is a separate explicit rule, not a player edit.
+One active connector per member end; no stacking to bypass play limits. Placed connections are immutable: no editing, replacing, reorienting, upgrading or voluntary removal, even by their owner. Framing into an existing joint requires a new card attaching the incoming end with matching freedoms in physical axes; it does not change existing cards or waive the card cost. Proposed legality policy rejects incompatible profiles while preserving the draft; profile establishment, numerical comparison tolerances and legacy migration remain open. Different elastic stiffness values are allowed and remain attached to their individual connector definitions. Public joint/interface identity must make this distinction clear. Any future damage/failure-release policy is a separate explicit rule, not a player edit.
 
 Shared access applies regardless of ownership: a player may place permitted loads on an existing shared target and attach an unconnected member end to an existing joint, including on another player's structure. Only cards in the active player's hand may be played. Shared access does not allow moving existing members, deleting loads, stealing cards, changing foundation ownership or editing placed connections.
 
@@ -104,8 +104,8 @@ Shared access applies regardless of ownership: a player may place permitted load
 | Preview | Optional provisional analysis. No committed topology/card changes, penalties or authoritative scoring. Temporary incomplete configurations are allowed. |
 | End turn | Freeze and validate the complete draft: category limits, card ownership, targets, geometry, permissions and parent model version. Illegal/stale drafts stay in planning with actionable errors. |
 | Analyze | Solve the complete proposed topology under recorded model, solver and policy versions, with persistent loads, committed damage and explicit initial strain. Freeze edits; ignore stale responses. |
-| Assess | Compare with the prior committed baseline; report new, persistent, worsened, resolved or unknown issues and apply the configured penalty policy. |
-| Commit | Atomically record model, cards/piles, analysis validity, issue report and penalty event under one turn ID; advance player. Legal unstable moves remain on the reference grid. |
+| Assess | Compare pre-correction candidate with the compatible prior baseline; record verified new/worsened issues and one eligible penalty. Then run the recorded game-owned correction/reanalysis process for instability and overload, preserving original evidence. |
+| Commit | Atomically record player move/cards, pre-correction evidence, game-owned repair objects/post-correction validity, issue report and historical penalty under one turn ID; advance player. Preserve truthful pending scope if bounded correction cannot be verified. |
 
 A pass still draws and resolves the turn. Unused play allowances do not carry forward. Proposed hand policy: unplayed cards remain in hand. The hand limit or any discard/exchange rule must be decided because a player draws four even while passing. Cancelling a draft restores staged cards/objects but does not undo the draw. Repeated submissions are idempotent: one draw, one card consumption and one penalty event per turn.
 
@@ -179,13 +179,13 @@ The following tests are required when implementing this design; they are not cur
 ## 9. Questions still to resolve
 
 1. Penalty eligibility beyond instability/overload, worsening thresholds and deferred verification. The 1-point amount, per-turn aggregation and no repeat/unknown penalties are confirmed.
-2. Repair by additions, retained structure and clear repair reports are now confirmed; removal or modification of placed cards is not authorized. Exact issue thresholds and historical-penalty handling are tracked in [failure and repair](failure-repair-criteria.md).
+2. Retained structure and recorded game-owned automatic correction for instability and overload are now confirmed, with Timburr explanation; player additions may also repair issues. Removal or modification of placed player cards is not authorized. Historical penalties are now confirmed to remain after repair. Exact issue thresholds and the requested game-owned automatic correction of instability/overload and its remaining support/lifetime policies are tracked in [failure and repair](failure-repair-criteria.md).
 3. Foundations are confirmed setup-only; starting layout and column properties still need definition.
 4. Card economy: opening hand, retention/cap/discard/exchange, deck sizes, load-to-element ratio, connection frequencies and exhaustion.
 5. Loads: magnitudes, eligible targets, self-weight and removal. Persistent downward gravity only is confirmed for the base deck.
 6. Placement: grid/diagonal and original-quarter-only attachment across all families, no physical clashes and assembly card economy are confirmed. Board/tolerances, fitting geometry and validated quarter analytical laws remain to define; see [placement](placement-criteria.md).
-7. Match: fixed rounds and final load-share percentage minus accumulated penalties, highest adjusted score wins, are confirmed. Exact round count, load/uplift/zero/unknown policy and ties remain in [scoring](scoring-match-criteria.md).
-8. Joint compatibility: first-attachment/setup-profile establishment, elastic stiffness equality, canonical frame conventions, numerical matching tolerances and legacy mixed-profile handling. Common freedoms and fully fixed foundation defaults are confirmed; the enforcement/migration details remain proposed.
+7. Match: fixed rounds and final load-share percentage minus accumulated penalties, highest adjusted score wins, are confirmed. Exact round count, load/uplift/zero policy and ties remain in [scoring](scoring-match-criteria.md).
+8. Joint compatibility: first-attachment/setup-profile establishment, canonical frame conventions, numerical matching tolerances and legacy mixed-profile handling. Matching freedoms/axes with potentially different elastic stiffnesses, and fully fixed foundation defaults, are confirmed; the enforcement/migration details remain proposed.
 
 Documentation review checked the named member families against `voxelInput.ts`/`voxelSections.ts` and the solver requirements; the local card lifecycle is implemented, with numerical verification pending.
 

@@ -30,7 +30,7 @@ Before implementation acceptance, every policy affecting legal actions, points, 
 | Legality | Card ownership, geometry bounds, lengths/orientations, crossing policy, quarter-only interior targets, common-joint profiles and immutable placed connections; actionable errors without physical penalties. |
 | Analyze and assess | Versioned whole-structure analysis with component validity, before/after issue comparison, stable scope isolation, bounded unresolved handling and one eligible -1 event per turn. |
 | Commit and handoff | Atomic cards/model/evidence/penalty/turn update, no duplicate effect, privacy cover before next hand, deliberate readiness and equal configured turns. |
-| Finish | Correct final load-share percentage minus penalty totals, signed/zero/unknown policy, tie decision and one finalization event; no cumulative attraction scoring. |
+| Finish | Correct final load-share percentage minus penalty totals, signed/zero/unknown policy, tie decision and one finalization event; no cumulative attraction scoring; verified-component fallback uses total gravity and labels missing evidence. |
 | Recovery | Reload after draw/stage/analysis/commit/finalization, stale tab/request, corrupt import and quota failure; correct private state, no redraw or duplicated penalty. |
 | Geometry and overlays | Recognizable declared families in all supported themes; readable/true-scale switch, truthful DOF permissions and separate result modes, accurate selection and valid result scope. |
 | Presentation | Complete supported action feedback, skip/mute/reduced motion, no forced camera, private leak or avatar-triggered game change. |
@@ -57,4 +57,8 @@ Required automated checks should include type checking, relevant unit/integratio
 
 ## 5. Open decisions
 
-Name the supported browser/device/input/accessibility matrix, initial rules/catalogue preset, hardware budgets, allowed release limitations and evidence owners. Final scoring unknown/uplift/zero-load and card/placement/failure policies must not remain ambiguous in a release claiming a complete playable match. Scope and thresholds require review; no new feature implementation is authorized or claimed by this criteria document.
+Name the supported browser/device/input/accessibility matrix, initial rules/catalogue preset, hardware budgets, allowed release limitations and evidence owners. The verified-component final fallback is now confirmed; remaining uplift/zero-load and correction/card/placement/failure parameters must not remain ambiguous in a release claiming a complete playable match. Scope and thresholds require review; no new feature implementation is authorized or claimed by this criteria document.
+
+## 6. Automatic repair and partial-evidence scoring gates
+
+Add fixtures for retained moves corrected for instability and overload, verified repair-object capacities and external effects, no hidden support/stiffness/weight changes, pre-correction penalty preserved after repair, different elastic stiffnesses with common freedom states, and crash/retry deduplication of correction objects. Verify the final fallback awards only verified reactions against total gravity without converting unknown physical forces to zero. The owner requires automatic correction as ordinary play; bounded truthful failure handling remains mandatory when correction cannot be verified. Ground-support scoring and retirement policy must be settled before release.

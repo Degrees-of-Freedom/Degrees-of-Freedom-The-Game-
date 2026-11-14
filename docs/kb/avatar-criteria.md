@@ -168,3 +168,7 @@ Recommended order for a later implementation run:
 ## 11. Later core-game decisions
 
 The later [completion criteria](game-completion-criteria.md) define fixed rounds, final-only adjusted load-share scoring and retained structures repaired through additions. Timburr may acknowledge verified repair and a real final outcome, but should not bank provisional load shares, infer a winner from missing reactions or trigger destructive behavior. Quarter-port/assembly interactions remain tied to actual public game events and cannot reveal hidden cards. Historical prototype behavior does not override these newer criteria.
+
+## 12. Automatic repair explanation
+
+The owner confirmed game-owned automatic correction for both instability and overload while retaining the player move and historical penalty. Timburr explains the original issue, the specific recorded repair and its score/ownership effect; [repair criteria](failure-repair-criteria.md#6-automatic-correction-transaction) own the transaction and numerical verification. The avatar presents game events rather than modifying physics from an animation callback. Show “verified repaired”, “pending” or “could not verify” accurately, and expose the same explanation without sound/avatar motion. No repaired issue refunds its historical penalty.

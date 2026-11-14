@@ -71,3 +71,7 @@ The [joint DOF criteria](joint-dof-criteria.md) are documentation only. They rev
 ## Whole-game completion criteria scope
 
 [Core completion criteria](game-completion-criteria.md) cover all eight requested design areas. [Release acceptance](release-acceptance-criteria.md) defines the end-to-end setup/draw/build/quarter-attach/analyze/assess/commit/handoff/final-score/save-reload matrix, supported-scope declaration and failure-injection/privacy/accessibility evidence. These are future gates, not added runtime tests or demonstrated numerical support. This documentation change validates links, source consistency and separation of confirmed decisions from proposed parameters.
+
+## Correction follow-up decisions validation scope
+
+The follow-up criteria record retained historical penalties, unequal elastic stiffnesses with matching freedoms/axes, verified-component final awards and game-owned automatic correction for both instability and overload. Future evidence must cover physical repair definitions, original-versus-corrected attribution, component validity, idempotent persistence, explanatory UI and bounded failure behavior. No implementation or solver-capability validation is introduced by these documentation updates.

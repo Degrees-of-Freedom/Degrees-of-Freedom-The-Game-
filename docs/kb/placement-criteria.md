@@ -82,3 +82,7 @@ Shared access permits targeting opponents' eligible joints/quarter ports. It doe
 | Preview, reorder, retry, save-reload | Same legality/topology and stable port IDs; no penalty for an invalid input. |
 
 Open: grid/board preset and tolerances, actual clearance/fitting rules, quarter-port analytical laws, spring multi-port behavior, assembly station ports, load-target details, first-profile establishment and legacy migration. These are release blockers for the dependent claims, not permission to silently approximate them.
+
+## 7. Explicit system-correction boundary
+
+The owner now authorizes recorded game-owned automatic repair for instability and overload, preserving player moves. It does not legalize an invalid player draft, delete loads, upgrade immutable player connectors or silently waive clash/quarter/common-freedom rules. System objects must have a declared physical/attachment policy, ownership and provenance; support/ground-anchor exceptions are being clarified. Matching elastic freedom states/axes permit differing connector stiffness values, retained individually. See [repair transaction](failure-repair-criteria.md#6-automatic-correction-transaction).
