@@ -15,7 +15,7 @@ Describe the game and current state of the repository.
 
 ## Facts and intent
 
-- Degrees of Freedom is conceived as a turn-based structural engineering game on a 3D grid. Players build and test structures to explore how decisions affect force paths and stability.
+- The project owner wants Degrees of Freedom to be a turn-based structural engineering game on a 3D grid. Players build and test structures to explore how decisions affect force paths and stability.
 - The README describes goal-based and failure-based modes as starting concepts, not fixed rules.
 - The project owner wants TypeScript, an all-steel structural palette, NPCs, and a visual feel inspired by Townscaper. Their detailed design remains open.
 - The project is at the concept stage. Gameplay rules, analysis methods, visual presentation, and implementation are still to be developed.

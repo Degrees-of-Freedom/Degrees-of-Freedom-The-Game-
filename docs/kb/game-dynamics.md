@@ -15,7 +15,7 @@ Record the intended gameplay and the decisions governing game state and turns.
 
 ## Documented intent
 
-Players take turns placing structural members and connections, applying loads, and developing a structure over time. The README proposes goal-based challenges and a mode that continues until instability or failure. Rules, scoring, and additional modes remain open.
+The project owner wants turn-based play. Players are envisioned placing structural members and connections, applying loads, and developing a structure over time. The README proposes goal-based challenges and a mode that continues until instability or failure. The sequence and rules of turns, scoring, and additional modes remain open.
 
 The owner wants NPCs in the game. Their roles, behavior, and relationship to turns and structures remain to be designed.
 
