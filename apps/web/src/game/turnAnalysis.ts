@@ -37,8 +37,9 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
   return { members, attrs, positions, inactiveRotations, nextId: turn.nextId };
 }
 
-export function analyzeTurn(turn: TurnState) {
-  return analyzeVoxel(toTurnVoxelInput(turn), turnLevel);
+/** Scoring uses card gravity alone. Ordinary experimental previews retain their original load case. */
+export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card-gravity' = 'with-self-weight') {
+  return analyzeVoxel(toTurnVoxelInput(turn), { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });
 }
 
 export function assessTurn(turn: TurnState): 'stable' | 'unstable' | 'partial' | 'unresolved' {

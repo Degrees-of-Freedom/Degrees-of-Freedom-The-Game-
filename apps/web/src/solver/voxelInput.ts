@@ -15,6 +15,8 @@ export interface VoxelModel {
 /** Game loading and objective inputs. Distances are grid cells; forces are kN. */
 export interface VoxelLevel {
   type: 'tower' | 'bridge' | 'pickup' | 'sandbox'; q0: number; budget: number; loadCase?: 'applied' | 'design';
+  /** Applied sandbox loads only. Legacy applied analyses include lumped self-weight. */
+  appliedSelfWeight?: boolean;
   inv: Partial<Record<VoxelMemberType | 'joint' | 'found', number>> | null;
   target?: number; payload?: number; cliffL?: number; cliffR?: number; cliffH?: number;
   ys?: number[]; traffic?: number; groundHeights?: Record<string, number>;

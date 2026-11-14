@@ -93,8 +93,9 @@ export function analyzeVoxel(
   const ctx = { keys, idx, pos, act, aid, NA, eq, nf, els, isF, bw };
   out.ctx = ctx;
   // ---- load combinations
+  const appliedLabel = level.appliedSelfWeight === false ? 'Applied loads only' : 'Applied loads + self-weight';
   const combos = level.loadCase === 'applied'
-    ? [{ name: 'Applied loads + self-weight', short: 'Applied loads + self-weight', type: 'SLS' as const, dir: [0, 0, 0] }]
+    ? [{ name: appliedLabel, short: appliedLabel, type: 'SLS' as const, dir: [0, 0, 0] }]
     : COMBOS;
   const systems = componentSystems(ctx, components, labels);
   const alphas = new Map<number, number>();

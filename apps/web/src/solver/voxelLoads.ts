@@ -65,10 +65,12 @@ export function buildLoads(
     F = new Float64Array(ctx.NA * 6),
     vis = [],
     d = combo.dir;
-  for (const e of ctx.els) {
-    const W = e.it.w * e.L * g.G;
-    F[e.a * 6 + 2] -= W / 2;
-    F[e.b * 6 + 2] -= W / 2;
+  if (LV.loadCase !== 'applied' || LV.appliedSelfWeight !== false) {
+    for (const e of ctx.els) {
+      const W = e.it.w * e.L * g.G;
+      F[e.a * 6 + 2] -= W / 2;
+      F[e.b * 6 + 2] -= W / 2;
+    }
   }
   for (const { a, f, direction } of variableLoads(model, LV, ctx)) {
     const vector = direction.map((component) => component * f * g.Q);
