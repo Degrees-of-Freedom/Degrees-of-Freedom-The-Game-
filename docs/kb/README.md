@@ -18,6 +18,7 @@ validated_against:
   - prototypes/timburr-companion/README.md
   - docs/kb/solver-criteria-gap-analysis.md
   - docs/kb/development-and-testing.md
+  - docs/kb/visualization-criteria.md
 owner: unknown
 status: partial
 ---
