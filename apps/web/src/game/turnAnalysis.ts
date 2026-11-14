@@ -1,5 +1,6 @@
 import { parseNodeKey } from './model';
 import { turnJoints, type TurnState } from './turns';
+import { originalPorts } from './turnPorts';
 import { analyzeVoxel } from '../solver/voxel';
 import type { VoxelLevel, VoxelModel } from '../solver/voxelInput';
 
@@ -15,13 +16,15 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
   const inactiveRotations = new Set<string>();
   for (const joint of turnJoints(turn)) {
     attrs[joint.id] = joint.foundationOwner ? { found: true, locked: true } : { joint: true };
+    if (joint.point) positions[joint.id] = parseNodeKey(joint.point);
     if (!joint.foundationOwner) inactiveRotations.add(joint.id);
   }
   for (const load of [...turn.board.loads, ...turn.draft.loads]) {
     const joint = attrs[load.jointId];
     joint.load = (joint.load ?? 0) + load.magnitude;
   }
-  const members = [...turn.board.members, ...turn.draft.members].map(({ id, a, b, type }) => {
+  const members = [...turn.board.members, ...turn.draft.members].flatMap<VoxelModel['members'][number]>(member => {
+    const { id, a, b, type } = member;
     function end(side: 'a' | 'b', point: string) {
       const connection = connections.get(`${id}:${side}`);
       const key = connection?.jointId ?? `endpoint:${id}:${side}`;
@@ -32,7 +35,22 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
       return { key, profile };
     }
     const start = end('a', a), finish = end('b', b);
-    return { id, a: start.key, b: finish.key, type, endA: start.profile, endB: finish.profile };
+    const ports = originalPorts(member).filter(port => port.available && attrs[port.id]);
+    if (!ports.length) return [{ id, a: start.key, b: finish.key, type, endA: start.profile, endB: finish.profile }];
+    // Parent continuity passes all six DOFs across internal stations, even if
+    // a new external connector releases moment at that same location.
+    for (const port of ports) inactiveRotations.delete(port.id);
+    const stations = [{ id: start.key, quarter: 0 }, ...ports, { id: finish.key, quarter: 4 }];
+    return stations.slice(1).map((to, i) => {
+      const from = stations[i];
+      return {
+        // Player IDs are positive. Analytical pieces never re-enter the playable catalogue.
+        id: -(id * 4 + from.quarter), type, a: from.id, b: to.id,
+        endA: i === 0 ? start.profile : 'fixed',
+        endB: to.quarter === 4 ? finish.profile : 'fixed',
+        parentSpan: { memberId: id, fromQuarter: from.quarter, toQuarter: to.quarter },
+      };
+    });
   });
   return { members, attrs, positions, inactiveRotations, nextId: turn.nextId };
 }

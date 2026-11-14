@@ -3,6 +3,8 @@ export type VoxelMemberType = 'shs' | 'glulam' | 'ipe' | 'heb' | 'cable';
 export interface VoxelMember {
   id: number; a: string; b: string; type: VoxelMemberType;
   endA?: 'fixed' | 'ball'; endB?: 'fixed' | 'ball';
+  /** Internal continuous piece of a dealt frame, with stations measured in original quarters. */
+  parentSpan?: { memberId: number; fromQuarter: number; toQuarter: number };
 }
 export interface VoxelNodeAttributes { found?: boolean; joint?: boolean; load?: number; locked?: boolean; target?: boolean; restraint?: [boolean, boolean, boolean, boolean, boolean, boolean]; loadDirection?: '-Z' | '+Z' | '+X' | '-X' | '+Y' | '-Y' }
 export interface VoxelModel {

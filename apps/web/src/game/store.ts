@@ -62,6 +62,8 @@ interface GameState {
   loadBrush: { magnitude: number; direction: LoadDirection };
   setLoadBrush: (magnitude: number, direction: LoadDirection) => void;
   selectCard: (id: string | null) => void;
+  playElement: (cardId: string, a: string, b: string) => string | null;
+  playLoad: (cardId: string, jointId: string) => string | null;
   playConnection: (
     cardId: string,
     memberId: number,
@@ -264,6 +266,18 @@ export const useGameStore = create<GameState>((set, get) => {
             : null,
         chainStart: null,
       })),
+    playElement: (cardId, a, b) => {
+      const s = get();
+      return s.mode === "multiplayer" && s.turn
+        ? turnTransition(stageElement(s.turn, cardId, a, b))
+        : "No multiplayer game is active";
+    },
+    playLoad: (cardId, jointId) => {
+      const s = get();
+      return s.mode === "multiplayer" && s.turn
+        ? turnTransition(stageLoad(s.turn, cardId, jointId))
+        : "No multiplayer game is active";
+    },
     playConnection: (cardId, memberId, end, jointId) => {
       const s = get();
       return s.mode === "multiplayer" && s.turn

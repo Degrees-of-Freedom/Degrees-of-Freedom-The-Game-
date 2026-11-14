@@ -6,6 +6,7 @@ import {
   type MemberType,
 } from "./model";
 import { conflictingJointAxes, CONNECTION_PROFILES } from "./jointFreedom";
+import { findPort, targetCoordinate } from "./turnPorts";
 export { CONNECTION_PROFILES } from "./jointFreedom";
 
 export type TurnCard =
@@ -32,8 +33,12 @@ export const KIT_PLAYTEST = {
   description: "Two players, eight rounds, unplayed cards stay in hand.",
 } as const;
 
-type TurnMember = Member & { owner: string; cardId?: string };
-type Joint = { id: string; foundationOwner?: string };
+type TurnMember = Member & {
+  owner: string; cardId?: string;
+  /** Selection provenance only. A separate connector must activate this attachment. */
+  endTargets?: Partial<Record<"a" | "b", string>>;
+};
+type Joint = { id: string; foundationOwner?: string; point?: string };
 type Load = {
   cardId: string;
   jointId: string;
@@ -261,10 +266,16 @@ export function stageElement(
     return fail("Choose an element card from your hand.");
   if (state.draft.members.length >= 1)
     return fail("One element may be played per turn.");
-  if (!validPoint(a) || !validPoint(b) || a === b)
+  const parents = state.board.members;
+  const portA = findPort(parents, a), portB = findPort(parents, b);
+  if (portA?.available === false || portB?.available === false)
+    return fail("This family’s interior attachment law is unavailable.");
+  const pointA = portA ? nodeKey(...portA.point) : a;
+  const pointB = portB ? nodeKey(...portB.point) : b;
+  if ((!portA && !validPoint(a)) || (!portB && !validPoint(b)) || pointA === pointB)
     return fail("Choose two distinct points on the board.");
-  const start = parseNodeKey(a),
-    end = parseNodeKey(b);
+  const start = parseNodeKey(pointA),
+    end = parseNodeKey(pointB);
   const lengths = end
     .map((value, axis) => Math.abs(value - start[axis]))
     .filter(Boolean);
@@ -274,16 +285,17 @@ export function stageElement(
   if (
     state.board.members.some(
       (member) =>
-        (member.a === a && member.b === b) ||
-        (member.a === b && member.b === a),
+        (member.a === pointA && member.b === pointB) ||
+        (member.a === pointB && member.b === pointA),
     )
   ) {
     return fail("A member already occupies these endpoints.");
   }
   const member: TurnMember = {
     id: state.nextId,
-    a,
-    b,
+    a: pointA,
+    b: pointB,
+    ...(portA || portB ? { endTargets: { ...(portA && { a }), ...(portB && { b }) } } : {}),
     type: card.type,
     owner: activePlayer(state).id,
     cardId,
@@ -298,8 +310,11 @@ export function stageElement(
 
 export function turnJoints(state: TurnState): Joint[] {
   const joints = new Map(state.board.joints.map((joint) => [joint.id, joint]));
+  const members = [...state.board.members, ...state.draft.members];
   for (const { jointId } of state.draft.connections) {
-    if (!joints.has(jointId)) joints.set(jointId, { id: jointId });
+    if (joints.has(jointId)) continue;
+    const port = findPort(members, jointId);
+    joints.set(jointId, port ? { id: jointId, point: nodeKey(...port.point) } : { id: jointId });
   }
   return [...joints.values()];
 }
@@ -371,8 +386,13 @@ export function stageConnection(
   if (connections.some((item) => item.memberId === memberId && item.end === end)) {
     return fail("This end already has an immutable connection.");
   }
-  const target = jointId ?? member[end];
-  if (target !== member[end]) return fail("Choose a joint at the member end.");
+  const target = jointId ?? member.endTargets?.[end] ?? member[end];
+  const parents = [...state.board.members, ...state.draft.members];
+  const port = findPort(parents, target);
+  if (port && (!port.available || port.memberId === memberId))
+    return fail("Choose a supported quarter port on a different parent.");
+  if (targetCoordinate(parents, target) !== member[end] || (!port && !validPoint(target)))
+    return fail("Choose a shared joint or original quarter port at the member end.");
   const connection: Connection = {
     cardId,
     memberId,
@@ -458,15 +478,18 @@ export function endTurn(
 /** The voxel shape is a render projection. Per-end connector laws live in TurnState. */
 export function projectTurnModel(state: TurnState): GameModel {
   const attrs: GameModel["attrs"] = {};
-  for (const joint of turnJoints(state)) {
-    attrs[joint.id] = joint.foundationOwner
+  const joints = turnJoints(state);
+  for (const joint of joints) {
+    const key = joint.point ?? joint.id;
+    attrs[key] = joint.foundationOwner || attrs[key]?.found
       ? { found: true, locked: true }
       : { joint: true };
   }
   for (const load of [...state.board.loads, ...state.draft.loads]) {
-    attrs[load.jointId] = {
-      ...attrs[load.jointId],
-      load: (attrs[load.jointId]?.load ?? 0) + load.magnitude,
+    const key = joints.find(j => j.id === load.jointId)?.point ?? load.jointId;
+    attrs[key] = {
+      ...attrs[key],
+      load: (attrs[key]?.load ?? 0) + load.magnitude,
     };
   }
   const members = [...state.board.members, ...state.draft.members].map(

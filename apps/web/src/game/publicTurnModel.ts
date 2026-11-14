@@ -8,7 +8,7 @@ interface PublicTurnModel {
   activePlayerId: string | null;
   finished: boolean;
   board: {
-    joints: Pick<Board["joints"][number], "id" | "foundationOwner">[];
+    joints: Pick<Board["joints"][number], "id" | "point" | "foundationOwner">[];
     members: Pick<Board["members"][number], "id" | "a" | "b" | "type" | "owner">[];
     loads: Pick<Board["loads"][number], "jointId" | "magnitude" | "owner">[];
     connections: Pick<Board["connections"][number], "memberId" | "end" | "jointId" | "profile" | "owner">[];
@@ -25,7 +25,7 @@ export function publicTurnModel(state: TurnState): PublicTurnModel {
     activePlayerId: state.finished ? null : state.players[state.playerIndex].id,
     finished: state.finished,
     board: {
-      joints: joints.map(({ id, foundationOwner }) => ({ id, foundationOwner })),
+      joints: joints.map(({ id, point, foundationOwner }) => ({ id, ...(point && { point }), foundationOwner })),
       members: members.map(({ id, a, b, type, owner }) => ({ id, a, b, type, owner })),
       loads: loads.map(({ jointId, magnitude, owner }) => ({ jointId, magnitude, owner })),
       connections: connections.map(({ memberId, end, jointId, profile, owner }) => ({
