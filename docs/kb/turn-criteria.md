@@ -4,6 +4,7 @@ last_validated: 2026-11-14
 validated_against:
   - "Project owner turn definition and follow-up answers, 2026-11-14"
   - docs/kb/solver-criteria.md
+  - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
   - "Project owner shared-joint freedoms revision, 2026-11-14"
   - apps/web/src/solver/voxelInput.ts
@@ -44,7 +45,7 @@ Proposed setup retains the solver criteria's 2–4 players and one initially con
 
 Each card has a unique instance ID and a versioned definition ID. It occupies exactly one location: draw pile, hand, deployed structure or discard pile. Deployed cards remain attached to the objects they created and cannot be recycled by reshuffling. Record shuffle algorithm/seed, deck order, draw positions and discard order for deterministic replay. Proposed information policy: private hands, public placements and issue reports.
 
-Deck 1 covers all documented structural families. Names below identify the current experimental catalog; they are not validated numerical properties or final balanced cards.
+The initial proposed deck 1 catalogue below reflects the existing experimental families; it is not validated numerical data or a finalized balanced deck. The later [element representation criteria](element-representation-criteria.md) also require axial springs, planar/trichord assemblies and expanded section geometry. Their visual inclusion does not yet authorize assembly cards, change the one-member placement rule or settle card/connection costs. Those integrations remain open.
 
 | Family | Proposed contents and semantics |
 | --- | --- |
