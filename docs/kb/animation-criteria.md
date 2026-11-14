@@ -8,6 +8,7 @@ validated_against:
   - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria.md
   - docs/kb/3d-viewer.md
+  - docs/kb/joint-dof-criteria.md
   - docs/kb/unified-runtime.md
 owner: project owner
 status: needs-review
@@ -57,7 +58,7 @@ Every supported action needs intentional start, feedback and completion states; 
 | Select card / choose target | Distinct selection state and valid-target cue; optional restrained targeting trail. | One selection cue; target preview does not consume the card. |
 | Orient member / choose permitted connection axis | Reference-grid ghost and clear local axes/allowed orientations. | Short adjustment tick, rate limited; no invented connection freedom. |
 | Stage element | Card-to-member transition and a precise placement snap; unattached ends remain visibly unattached. | Light placement accent. Preserve parent card/member identity. |
-| Stage one end connection | Travel from card to the specific end interface; show that end's profile and shared-joint target. | Distinct connection click; never imply an entire joint or both ends were upgraded. |
+| Stage one end connection | Travel from card to the specific end interface; show its shared-joint target and compatibility with the joint’s common freedoms. | Distinct connection click; never imply that existing connections were upgraded or that unattached ends connected automatically. |
 | Stage gravity load | Card-to-target motion, downward arrow and printed magnitude. | Weighted placement accent; no impact suggesting a dynamic load calculation. |
 | Edit provisional placement / cancel draft | Ghost follows input; cancellation returns staged cards and removes provisional effects. | Short reverse/release cue. Cancelling does not undo the turn's draw. |
 | End turn / pass | Immediate acknowledgement and clear progression to validation/analysis. | Quiet confirmation. A pass still follows required turn resolution. |
@@ -181,3 +182,7 @@ Update this page, [3D viewer](3d-viewer.md) and [development and testing](develo
 ## 11. Avatar-specific criteria
 
 [Timburr avatar criteria](avatar-criteria.md) extend this presentation specification with the owner-confirmed recurring character and compact cross-screen placement, proposed reactions, rare Conkeldurr foreman mode, model provenance and acceptance scenarios. Read that page for avatar-specific decisions and the distinction between a cosmetic demonstration and a verified game-triggered reaction. Implementation is deferred and preserved in the [prototype handoff](../../prototypes/timburr-companion/README.md), not enabled in the app.
+
+## 12. Joint DOF overlays
+
+[Joint DOF criteria](joint-dof-criteria.md) define the still-by-default motion compass, brief schematic translation/twist demonstrations, separate foundation-restraint subject and independent solver-instability overlay. Demonstration is not a calculated displacement, structural edit or failure event. The newer shared-joint rule requires matching incoming freedoms; connection animations must not imply automatic upgrades or attachment by coincidence.
