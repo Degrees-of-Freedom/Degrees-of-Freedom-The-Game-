@@ -102,7 +102,7 @@ def create_app() -> FastAPI:
             "defaultFidelity": "nonlinear",
             "memberKinds": {
                 "beam": "Elastic 3D beam-column (elasticBeamColumn); "
-                f"{engine.NONLINEAR_SEGMENTS} elements per member under nonlinear fidelity.",
+                "subdivided under nonlinear fidelity by its axial compression (1 to 32 elements).",
                 "brace": "Axial element, tension and compression.",
                 "cable": "Axial element, tension only at both fidelities.",
             },

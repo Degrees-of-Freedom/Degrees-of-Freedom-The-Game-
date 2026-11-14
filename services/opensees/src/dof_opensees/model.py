@@ -256,7 +256,7 @@ def prepare(model: StructuralModel, limits: Limits = Limits()) -> PreparedModel:
         if node_id not in joint_ids:
             continue
         restrained = restraints.get(node_id, (False,) * 6)
-        fixed = tuple(restrained[dof] or (dof >= 3 and fixed_rotations[node_id][dof - 3]) for dof in range(6))
+        fixed = tuple(bool(restrained[dof] or (dof >= 3 and fixed_rotations[node_id][dof - 3])) for dof in range(6))
         load = loads.get(node_id, np.zeros(6))
         joints[node_id] = Joint(node_id, positions[node_id], restrained, tuple(float(v) for v in load), fixed)
 
@@ -412,7 +412,7 @@ def _relevant_rotations(
         elif rank < 3:
             in_span = [float(eye[axis] @ projection @ eye[axis]) for axis in range(3)]
             if all(min(value, 1.0 - value) < DIRECTION_TOLERANCE for value in in_span):
-                removed = [in_span[axis] < 0.5 and moment[axis] == 0.0 for axis in range(3)]
+                removed = [bool(in_span[axis] < 0.5 and moment[axis] == 0.0) for axis in range(3)]
             elif loaded:
                 unheld = moment - projection @ moment
                 if np.linalg.norm(unheld) <= DIRECTION_TOLERANCE * np.linalg.norm(moment):

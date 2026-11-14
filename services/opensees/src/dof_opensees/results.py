@@ -1,6 +1,6 @@
 """Assemble the contract ``AnalysisResult`` from per-component outcomes.
 
-Pure data: the engine reads OpenSees and hands over one
+Pure data (numpy only for type conversion): the engine reads OpenSees and hands over one
 :class:`ComponentOutcome` per component; this module applies the contract's
 rules (DESIGN.md, "Result assembly"):
 
@@ -15,6 +15,8 @@ rules (DESIGN.md, "Result assembly"):
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+
+import numpy as np
 
 from .model import Component
 
@@ -35,7 +37,30 @@ REASON_ORDER = (
     "timeout",
     "equilibrium_not_verified",
     "non_finite_result",
+    "solver_error",
 )
+
+
+def native(value):
+    """Convert numpy scalars and arrays, anywhere in a result, to Python types.
+
+    Numbers in the engine pass through numpy, and a stray ``np.int64`` or
+    ``np.bool_`` makes the whole result unserialisable. Applied once to the
+    assembled body so no future code path can reintroduce one.
+    """
+    if isinstance(value, dict):
+        return {str(key): native(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [native(item) for item in value]
+    if isinstance(value, np.ndarray):
+        return [native(item) for item in value.tolist()]
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    return value
 
 
 def ordered(codes) -> list[str]:
@@ -184,4 +209,4 @@ def assemble(
             "warnings": list(warnings),
         }
     )
-    return result
+    return native(result)

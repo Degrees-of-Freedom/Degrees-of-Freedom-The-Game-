@@ -6,7 +6,8 @@ constraints, elements and one load pattern, for small-displacement
 numbering back, because OpenSees reports it inconsistently for constrained
 nodes. It does not run analyses.
 
-Tags: joint nodes come first, then member nodes, in component order, so a
+Tags: joint nodes come first, then member end nodes, then interior segment
+nodes, each in component order, so a
 rebuild gives identical tags. Node, element, material and transformation tags
 each count from 1; ``Domain.temp_tag_base`` is above all of them.
 
@@ -26,6 +27,8 @@ Verified OpenSees behaviour this module relies on (OpenSeesPy 3.8):
 
 from __future__ import annotations
 
+import math
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -42,10 +45,15 @@ from .model import (
     PreparedModel,
 )
 
-#: Elements per beam under nonlinear fidelity, so member buckling and P-delta
-#: are captured (DESIGN.md, Elements). Provisional: the count that meets the
-#: 2% buckling gate is being determined separately.
-NONLINEAR_SEGMENTS = 8
+#: Under nonlinear fidelity each beam is subdivided according to its axial
+#: compression (see :func:`required_segments`), so member buckling and
+#: P-delta are captured (DESIGN.md, Elements).
+#: From 0.83 rho / n^2 <= 0.1%: n >= sqrt(830 rho).
+SEGMENT_FACTOR = 29.0
+#: Upper bound on elements per beam.
+MAX_SEGMENTS = 32
+#: Elements per beam when no linear preview gives the axial forces.
+FALLBACK_SEGMENTS = 4
 
 LINEAR, COROTATIONAL = "linear", "corotational"
 
@@ -118,19 +126,63 @@ class _Context:
         self.domain.loads[tag] = self.domain.loads.get(tag, np.zeros(6)) + load
 
 
-def tag_bound(prepared: PreparedModel, component: Component, segments: int) -> int:
+Segments = Mapping[str, int]
+
+
+def segment_count(segments: Segments | None, member: Member) -> int:
+    """Elements for a member: braces and cables are always one element."""
+    if member.axial or segments is None:
+        return 1
+    return max(1, int(segments.get(member.id, 1)))
+
+
+def required_segments(member: Member, compression: float) -> int:
+    """Beam elements needed so a compressed member's buckling is resolved.
+
+    ``compression`` is the member's largest compressive axial force (N,
+    positive; zero or negative for a member in tension). With
+
+        rho = N L^2 / (pi^2 E I_min),
+
+    the member's compression relative to its own pin-ended Euler load, the
+    corotational ``elasticBeamColumn`` overestimates a critical load by about
+    0.83 rho / n^2 for n elements (measured for the nonlinear driver). Asking
+    for 0.83 rho / n^2 <= 0.1% gives n >= sqrt(830 rho) ~= 29 sqrt(rho). The
+    0.1% target, tighter than the 2% buckling gate, keeps the response
+    amplification near a critical load inside the 1% nonlinear gate.
+    Clamped to 1..MAX_SEGMENTS; a member in tension needs one element.
+    """
+    if member.axial or not compression > 0.0:
+        return 1
+    p = member.properties
+    rho = compression * member.length**2 / (math.pi**2 * p.elastic_modulus * min(p.inertia_y, p.inertia_z))
+    return max(1, min(MAX_SEGMENTS, math.ceil(SEGMENT_FACTOR * math.sqrt(rho))))
+
+
+def tag_bound(prepared: PreparedModel, component: Component, segments: Segments | None = None) -> int:
     """A tag above every node, element and material tag the build will use."""
-    per_member = segments + 2 + 2 * 6 + 2
-    return len(component.node_ids) + per_member * len(component.member_ids) + 1
+    total = len(component.node_ids) + 1
+    for member_id in component.member_ids:
+        # Interior nodes and elements, two end nodes, one spring element and
+        # up to six spring materials per end, two axial materials.
+        total += segment_count(segments, prepared.members[member_id]) + 2 + 2 * 6 + 2
+    return total
 
 
-def build(prepared: PreparedModel, component: Component, geometry: str, segments: int = 1) -> Domain:
+def build(prepared: PreparedModel, component: Component, geometry: str, segments: Segments | None = None) -> Domain:
     """Wipe OpenSees and build the component at its reference state.
+
+    ``segments`` gives the number of elements per beam id (default one).
 
     The full reference load is one ``Plain`` pattern on a ``Linear`` time
     series, so the pseudo-time of a ``LoadControl`` analysis is the load
     factor. Self-weight, when requested, is lumped onto the member's own
     nodes. No analysis objects are created.
+
+    Tags do not depend on ``segments`` except for beam elements and interior
+    segment nodes, which are allocated after every other node: the nonlinear
+    driver places recovery springs by node tag using the equations of a
+    coarse build, and they must mean the same nodes in a fine build.
     """
     ops.wipe()
     ops.model("basic", "-ndm", 3, "-ndf", 6)
@@ -144,14 +196,18 @@ def build(prepared: PreparedModel, component: Component, geometry: str, segments
         if any(value != 0.0 for value in joint.load):
             context.add_load(tag, np.array(joint.load))
 
+    ends = {}
     for member_id in component.member_ids:
         member = prepared.members[member_id]
-        start = _end_node(context, member, member.start)
-        end = _end_node(context, member, member.end)
+        ends[member_id] = (_end_node(context, member, member.start), _end_node(context, member, member.end))
+
+    for member_id in component.member_ids:
+        member = prepared.members[member_id]
+        start, end = ends[member_id]
         if member.axial:
             built = _add_axial(context, member, start, end, geometry)
         else:
-            built = add_beam(context, member, start, end, geometry, segments)
+            built = add_beam(context, member, start, end, geometry, segment_count(segments, member))
         domain.members[member_id] = built
         if prepared.self_weight and member.properties.weight_per_length > 0.0:
             # Half of each element's weight to each of its nodes, along -Z.

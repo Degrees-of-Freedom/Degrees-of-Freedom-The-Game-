@@ -41,9 +41,11 @@ from .results import (
 )
 from .schema import StructuralModel
 
-__all__ = ["Limits", "NONLINEAR_SEGMENTS", "analyze", "opensees_version", "solver_name"]
+__all__ = ["Limits", "analyze", "opensees_version", "solver_name"]
 
-NONLINEAR_SEGMENTS = builder.NONLINEAR_SEGMENTS
+#: Largest system for which the buckling shape is read with a dense tangent at a
+#: loaded state; above it the instability is reported without its shape.
+DENSE_SHAPE_LIMIT = 1500
 #: Normalised global equilibrium residual above which results are rejected (criteria section 7).
 EQUILIBRIUM_TOLERANCE = 1e-5
 #: Largest displacement of an accepted recovered equilibrium, as a multiple of
@@ -150,7 +152,7 @@ def _guarded(prepared: PreparedModel, component: Component, budget: _Budget, war
             f"Component '{component.id}': internal failure ({type(error).__name__}: {error}); "
             "no conclusion was reached."
         )
-        return _unknown(component, counts, [])
+        return _unknown(component, counts, ["solver_error"])
 
 
 def _unknown(component: Component, counts: _Counts, codes: list[str], load_factor: float | None = None,
@@ -175,12 +177,12 @@ def _analyse(prepared: PreparedModel, component: Component, budget: _Budget, war
                     f"Member '{member_id}': a connection is modelled with constraints on global axes, "
                     "which is exact only for small rotations of the joint."
                 )
-        return _analyse_nonlinear(prepared, component, budget, counts)
+        return _analyse_nonlinear(prepared, component, budget, counts, warnings)
     return _analyse_linear(prepared, component, counts)
 
 
 def _analyse_linear(prepared: PreparedModel, component: Component, counts: _Counts) -> ComponentOutcome:
-    domain = builder.build(prepared, component, builder.LINEAR, 1)
+    domain = builder.build(prepared, component, builder.LINEAR)
     if domain.free_dofs == 0:
         return _fully_restrained(prepared, component, domain, counts)
 
@@ -230,64 +232,221 @@ def _solve_linear(has_cables: bool) -> bool:
 
 
 class ComponentProblem:
-    """A component as the nonlinear driver sees it (``nonlinear.Problem``)."""
+    """A component as the nonlinear driver sees it (``nonlinear.Problem``).
 
-    def __init__(self, prepared: PreparedModel, component: Component) -> None:
+    Two-tier stability assessment, so a finely subdivided model never needs
+    a dense tangent read on the load path:
+
+    * At the reference state (load factor 0) the tangent is classified with
+      the dense spectrum, on a coarse corotational build with one element per
+      beam. Mechanisms are kinematic and do not depend on subdivision, and the
+      initial strains are present so pretension stiffening counts. The coarse
+      build has the same joint, duplicate and end node tags as the fine one,
+      so the equations reported with it place recovery springs on the right
+      nodes of the fine domain. Computed once and cached.
+    * At loaded states a banded Cholesky step (``tangent.is_positive_definite``)
+      decides. When it fails for the first time, and the system is small
+      enough, the dense tangent is read once for the buckling shape; otherwise
+      the assessment is only flagged ``indefinite``.
+    """
+
+    def __init__(self, prepared: PreparedModel, component: Component, segments: dict[str, int],
+                 reference: tuple[stability.Assessment, list[tuple[int, int]]] | None = None) -> None:
         self.prepared = prepared
         self.component = component
-        self.temp_tag_base = builder.tag_bound(prepared, component, builder.NONLINEAR_SEGMENTS)
+        self.segments = segments
+        self.temp_tag_base = builder.tag_bound(prepared, component, segments)
         lengths = [prepared.members[member_id].length for member_id in component.member_ids]
         self.recovery_displacement_limit = RECOVERY_DISPLACEMENT_LIMIT * min(lengths) if lengths else 0.0
         self.domain: builder.Domain | None = None
-        self._equations: builder.Equations | None = None
+        self.reference: stability.Assessment | None = reference[0] if reference else None
+        self.warnings: list[str] = []
+        self._reference_owners: list[tuple[int, int]] = list(reference[1]) if reference else []
+        self._owners: list[tuple[int, int]] = []
+        self._shape_read = False
+        #: Largest compressive axial force per beam after a stable solve.
+        self.compression: dict[str, float] = {}
 
     def build(self) -> None:
-        self.domain = builder.build(self.prepared, self.component, builder.COROTATIONAL, builder.NONLINEAR_SEGMENTS)
-        self._equations = None
+        self.domain = builder.build(self.prepared, self.component, builder.COROTATIONAL, self.segments)
+        self._owners = []
 
     def assess(self) -> stability.Assessment:
-        if self.domain.free_dofs == 0:
+        size = self.domain.free_dofs
+        if size == 0:
             # OpenSees crashes the process when asked to analyse an empty system.
-            self._equations = builder.Equations(0, {tag: [-1] * 6 for tag in self.domain.nodes}, [])
-            return stability.assess(np.zeros((0, 0)), np.zeros(0, dtype=bool), np.zeros(0))
-        result, self._equations = _assess(self.domain)
-        return result
+            self._owners = []
+            return stability.Assessment(free_dofs=0)
+        if ops.getTime() == 0.0:
+            return self._reference_assessment()
+        self._owners = []
+        if tangent.is_positive_definite():
+            return stability.Assessment(free_dofs=size)
+        if not self._shape_read:
+            self._shape_read = True
+            if size <= DENSE_SHAPE_LIMIT:
+                assessment, equations = _assess(self.domain)
+                self._owners = list(equations.owners)
+                return assessment
+            self.warnings.append(
+                f"Component '{self.component.id}': the instability shape was not computed because the system "
+                f"has {size} equations (limit {DENSE_SHAPE_LIMIT})."
+            )
+        return stability.Assessment(free_dofs=size, indefinite=True)
+
+    def _reference_assessment(self) -> stability.Assessment:
+        if self.reference is None:
+            self.reference, self._reference_owners = _coarse_reference(self.prepared, self.component)
+            self.build()  # Back to the fine domain, at its reference state.
+        self._owners = list(self._reference_owners)
+        return self.reference
 
     def equation_dofs(self) -> list[tuple[int, int]]:
-        return list(self._equations.owners) if self._equations else []
+        return list(self._owners)
 
     def peak_displacement(self) -> float:
         return max((float(np.linalg.norm(ops.nodeDisp(tag)[:3])) for tag in self.domain.nodes), default=0.0)
 
 
+def _coarse_reference(prepared: PreparedModel,
+                      component: Component) -> tuple[stability.Assessment, list[tuple[int, int]]]:
+    """Dense classification of the coarse corotational build at its reference state."""
+    coarse = builder.build(prepared, component, builder.COROTATIONAL)
+    if coarse.free_dofs == 0:
+        return stability.Assessment(free_dofs=0), []
+    assessment, equations = _assess(coarse)
+    return assessment, list(equations.owners)
+
+
+def _preview_segments(prepared: PreparedModel, component: Component,
+                      reference: stability.Assessment) -> dict[str, int]:
+    """Elements per beam from the linear solve of the component.
+
+    The linear solve is the cheap preview anyway; its axial forces at full
+    load size the subdivision (``builder.required_segments``). Without a
+    preview (a mechanism in the coarse reference, or a failed solve) every
+    beam gets ``builder.FALLBACK_SEGMENTS``.
+
+    The preview reads no tangent of its own: the coarse corotational
+    reference already classified the component, and a second dense read
+    would double the cost of a large component. The linear system can still
+    be singular where only pretension stiffens it; then the solve fails or
+    gives meaningless forces, which at worst over-subdivide (counts are
+    clamped), and non-finite forces fall back.
+    """
+    beams = [prepared.members[m] for m in component.member_ids if not prepared.members[m].axial]
+    fallback = {member.id: builder.FALLBACK_SEGMENTS for member in beams}
+    if not reference.positive_definite:
+        return fallback
+    domain = builder.build(prepared, component, builder.LINEAR)
+    if domain.free_dofs == 0:
+        return {member.id: 1 for member in beams}
+    has_cables = any(prepared.members[m].kind == "cable" for m in component.member_ids)
+    if not _solve_linear(has_cables):
+        return fallback
+    compression = _compression(domain, beams)
+    if not all(math.isfinite(value) for value in compression.values()):
+        return fallback
+    return {member.id: builder.required_segments(member, compression[member.id]) for member in beams}
+
+
+def _compression(domain: builder.Domain, beams: list) -> dict[str, float]:
+    """Largest compressive axial force of each beam in the current state (positive)."""
+    result = {}
+    for member in beams:
+        # localForce index 6 is the end-node axial force, tension positive.
+        forces = [float(ops.eleResponse(tag, "localForce")[6]) for tag in domain.members[member.id].elements]
+        result[member.id] = max(0.0, -min(forces))
+    return result
+
+
 def _analyse_nonlinear(prepared: PreparedModel, component: Component, budget: _Budget,
-                       counts: _Counts) -> ComponentOutcome:
-    problem = ComponentProblem(prepared, component)
+                       counts: _Counts, warnings: list[str]) -> ComponentOutcome:
+    reference = _coarse_reference(prepared, component)
+    segments = _preview_segments(prepared, component, reference[0])
+    outcome, problem = _solve_nonlinear(prepared, component, budget, counts, segments, reference, warnings)
+    if outcome.state != STABLE and outcome.state != MARGINAL:
+        return outcome
+
+    # Size the subdivision again from the actual axial forces, and refine once.
+    beams = [prepared.members[m] for m in component.member_ids if not prepared.members[m].axial]
+    short = _short_members(problem, beams)
+    if not short:
+        return outcome
+    refined = {
+        member.id: max(segments[member.id], builder.required_segments(member, problem.compression[member.id]))
+        for member in beams
+    }
+    second, problem = _solve_nonlinear(prepared, component, budget, counts, refined, reference, warnings)
+    if second.state == UNKNOWN and "timeout" in second.reason_codes:
+        warnings.append(
+            f"Component '{component.id}': refining the subdivision of {_names(short)} ran out of time; "
+            "results are from the coarser subdivision."
+        )
+        return outcome
+    if second.state in (STABLE, MARGINAL):
+        still_short = _short_members(problem, beams)
+        if still_short:
+            warnings.append(
+                f"Component '{component.id}': {_names(still_short)} may need more beam segments than were used "
+                "for the 1% accuracy target."
+            )
+    return second
+
+
+def _short_members(problem: ComponentProblem, beams: list) -> list[str]:
+    return [
+        member.id for member in beams
+        if builder.required_segments(member, problem.compression.get(member.id, 0.0)) > problem.segments[member.id]
+    ]
+
+
+def _names(member_ids: list[str]) -> str:
+    shown = ", ".join(f"'{member_id}'" for member_id in member_ids[:5])
+    return f"member(s) {shown}" + (", ..." if len(member_ids) > 5 else "")
+
+
+def _solve_nonlinear(prepared: PreparedModel, component: Component, budget: _Budget, counts: _Counts,
+                     segments: dict[str, int], reference: tuple[stability.Assessment, list[tuple[int, int]]],
+                     warnings: list[str]) -> tuple[ComponentOutcome, ComponentProblem]:
+    """One nonlinear solve with a given subdivision, mapped to a component outcome."""
+    problem = ComponentProblem(prepared, component, segments, reference)
     problem.build()
     if problem.domain.free_dofs == 0:
-        return _fully_restrained(prepared, component, problem.domain, counts)
+        return _fully_restrained(prepared, component, problem.domain, counts), problem
+    if budget.expired():
+        return _unknown(component, counts, ["timeout"], load_factor=0.0), problem
 
-    outcome = nonlinear.solve(problem, budget.deadline(), nonlinear.Settings())
+    try:
+        outcome = nonlinear.solve(problem, budget.deadline(), nonlinear.Settings())
+    finally:
+        warnings.extend(problem.warnings)
     domain = problem.domain
     assessment = outcome.assessment
     equations = builder.equations_from_owners(domain, outcome.equation_dofs) if assessment is not None else None
-    codes = [code for code in outcome.reason_codes]
+    codes = list(outcome.reason_codes)
 
     if outcome.state == "stable":
-        if assessment is not None and assessment.near_mechanism:
+        reference = problem.reference
+        if reference is not None and reference.positive_definite and reference.near_mechanism:
+            # Taken from the coarse reference only, so it does not depend on the mesh.
             codes.append("near_mechanism")
         state = _read(prepared, component, domain, deformed=True)
-        free = assessment.free_dofs if assessment is not None else domain.free_dofs
-        return _finish(prepared, component, state, codes, counts, free, load_factor=1.0)
-    if outcome.state == "unstable" and assessment is not None and not assessment.positive_definite:
+        beams = [prepared.members[m] for m in component.member_ids if not prepared.members[m].axial]
+        problem.compression = _compression(domain, beams)
+        return _finish(prepared, component, state, codes, counts, domain.free_dofs, load_factor=1.0), problem
+    if outcome.state == "unstable" and assessment is not None and (
+        assessment.mechanisms or assessment.negative_modes
+    ):
         return _instability(prepared, component, domain, equations, assessment, counts,
-                            load_factor=outcome.load_factor, extra_codes=codes)
+                            load_factor=outcome.load_factor, extra_codes=codes), problem
     free = assessment.free_dofs if assessment is not None else domain.free_dofs
     if outcome.state == "unstable":
-        # Verified by the driver but without a matrix to show: report the verdict alone.
+        # Verified by the driver, but no shape to show (indefinite without a
+        # dense read): report the verdict alone.
         data = StabilityData(stable=False, free_dofs=free, static_indeterminacy=counts.indeterminacy(0))
-        return ComponentOutcome(component, UNSTABLE, codes, data, load_factor=outcome.load_factor)
-    return _unknown(component, counts, codes, load_factor=outcome.load_factor, free=free)
+        return ComponentOutcome(component, UNSTABLE, codes, data, load_factor=outcome.load_factor), problem
+    return _unknown(component, counts, codes, load_factor=outcome.load_factor, free=free), problem
 
 
 # --- instability --------------------------------------------------------------
