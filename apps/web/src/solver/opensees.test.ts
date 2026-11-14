@@ -36,6 +36,19 @@ describe('OpenSees solver adapter', () => {
     expect(result).toEqual({ status: 'error', message: expect.stringContaining('HTTP 502') });
   });
 
+  it('rejects a body that has a known status but the wrong shape', async () => {
+    const malformed = [
+      { status: 'success' },
+      { status: 'success', displacements: {}, warnings: [], stability: { stable: true } },
+      { status: 'unstable', message: 'moves', warnings: [] },
+      { status: 'error' },
+    ];
+    for (const body of malformed) {
+      const result = await createOpenSeesSolver('http://solver.test', respond(body)).analyze(cantilever);
+      expect(result).toEqual({ status: 'error', message: expect.stringContaining('unexpected response') });
+    }
+  });
+
   it('reports an unreachable service as an error result', async () => {
     const offline = vi.fn(async () => { throw new TypeError('fetch failed'); });
     const result = await createOpenSeesSolver('http://solver.test', offline).analyze(cantilever);
