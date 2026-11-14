@@ -90,6 +90,8 @@ input[type=checkbox]{accent-color:var(--accent)}
 .chip .sw{width:10px;height:10px;border-radius:2px}
 .chip small{color:var(--muted)}
 .btnrow{display:flex;gap:6px;margin-top:8px}
+.lplegend{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:12px;margin:2px 0 4px}
+.lplegend .sw{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:-6px}
 .btn.danger{border-color:#7a2f33;color:#ffb3b5}
 .btn.danger:hover{background:#3a1f22}
 </style>
@@ -119,7 +121,7 @@ input[type=checkbox]{accent-color:var(--accent)}
     <kbd>Click</kbd> place / chain members · <kbd>Esc</kbd>/<kbd>Right-click</kbd> stop chain<br>
     <kbd>Shift</kbd> draw in horizontal plane (else vertical plane facing you)<br>
     <kbd>Del</kbd> remove selected member · <b>Swap</b>: <kbd>Shift</kbd>+click swaps all of a type<br>
-    <kbd>[</kbd> <kbd>]</kbd> build-plane height · <kbd>R</kbd> analyse · <kbd>D</kbd> deformed view<br>
+    <kbd>[</kbd> <kbd>]</kbd> build-plane height · <kbd>R</kbd> analyse · <kbd>D</kbd> deformed · <kbd>L</kbd> load path<br>
     <kbd>Left-drag</kbd> orbit · <kbd>Right-drag</kbd> pan · <kbd>Wheel</kbd> zoom
   </div>
 </aside>
@@ -150,6 +152,9 @@ input[type=checkbox]{accent-color:var(--accent)}
         mechanisms, global buckling (α<sub>cr</sub>), member strength, shear, flexural buckling, slenderness, deflection, connections and foundations.</li>
       <li><b>Remove</b> deletes members or node attachments and returns them to your supply. <b>Swap</b> replaces a member with another type
         (beam ↔ beam or beam ↔ cable) in place, keeping its ends; Shift+click swaps every member of that type. Both can be undone.</li>
+      <li><b>Load path</b> (L) shows how force travels to the ground: thickness = force, red = compression, blue = tension,
+        purple = bending/shear; dots flow towards the supports. Inspect a node to trace its route down.</li>
+      <li><b>Pick-up levels</b>: weights float in space — connect every one of them to foundations.</li>
       <li><b>Auto-design</b> resizes beams to the lightest adequate section still in your supply.</li>
     </ul>
     <p class="desc">Tip: pin-jointed frames need triangles (bracing) in <i>all three</i> directions — or moment connections.</p>
@@ -223,6 +228,18 @@ const LEVELS = {
     traffic:25, q0:0.6, budget:15000,
     inv:{shs:50, glulam:0, ipe:24, heb:8, cable:24, joint:16, found:6},
     desc:'A 28 m gorge — too far for a shallow girder. Pylons with cables, or a deep truss? Traffic 25 kN/m.' },
+  // "Pick up the loads": weights hang at fixed points in space; connect every one to the ground.
+  pickup1:{ name:'Pick-up I · three weights', type:'pickup', nx:12, ny:12, nz:8, q0:0.5, budget:3000,
+    loads:[[4,4,3,40],[7,4,3,40],[5,7,3,60]],
+    inv:{shs:16, glulam:6, ipe:4, heb:0, cable:6, joint:6, found:4},
+    desc:'Three weights float 6 m above the ground. Build one structure that picks up every weight and carries it safely to foundations.' },
+  pickup2:{ name:'Pick-up II · over the lake', type:'pickup', nx:14, ny:14, nz:10, q0:0.6, budget:9000,
+    lakes:[[5,9,4,10]], loads:[[7,7,4,50],[9,6,5,40],[4,10,6,40],[11,3,3,30]],
+    inv:{shs:30, glulam:8, ipe:12, heb:2, cable:12, joint:10, found:5},
+    desc:'Four weights at different heights, two of them over a lake where no foundation can go. Reach out with cantilevers, trusses or cables.' },
+  pickupR:{ name:'Pick-up · random layout', type:'pickup', random:true, nx:14, ny:14, nz:10, q0:0.5, budget:9000,
+    inv:{shs:36, glulam:8, ipe:12, heb:4, cable:12, joint:10, found:6},
+    desc:'A random set of weights in space. Press “New layout” for another puzzle.' },
   sandbox:{ name:'Sandbox · unlimited', type:'sandbox', nx:16, ny:16, nz:14, q0:0.5, budget:Infinity, inv:null,
     desc:'Unlimited supply. Place point loads (50 kN) on any node, add foundations anywhere on the ground and experiment.' },
 };
@@ -242,7 +259,7 @@ let workK = 0;
 let shiftDown = false;
 let hover = null;
 let selected = null;
-const view = { deformed:false, scale:1, combo:0, util:true, loads:true };
+const view = { deformed:false, scale:1, combo:0, util:true, loads:true, loadPath:false };
 
 const key = (i,j,k) => `${i},${j},${k}`;
 const parse = s => s.split(',').map(Number);
@@ -258,6 +275,7 @@ function buildTerrainData(){
       if(ci<LV.cliffL || ci>=LV.cliffR) h=LV.cliffH;
       else if(ci>=LV.water[0] && ci<=LV.water[1]) water=true;
     }
+    for(const [a,b,c,d] of LV.lakes||[]) if(ci>=a&&ci<=b&&cj>=c&&cj<=d) water=true;
     cells.push({h, water});
   }
 }
@@ -382,7 +400,7 @@ function swapAllOfType(from,to){
 }
 function cleanupAttrs(){
   for(const k in model.attrs){ const a=model.attrs[k];
-    if(memberCountAt(k)===0){ delete a.joint; delete a.load; }
+    if(memberCountAt(k)===0){ delete a.joint; if(!a.locked) delete a.load; }
     if(!a.found&&!a.joint&&!a.load&&!a.locked) delete model.attrs[k]; }
 }
 function toggleAttr(k,name){
@@ -393,9 +411,9 @@ function toggleAttr(k,name){
 }
 function removeNodeAttrs(k){
   const a=model.attrs[k]; if(!a) return;
-  if(a.locked){ toast('Abutment bearings cannot be removed'); return; }
+  if(a.locked&&!a.joint){ toast(a.target?'The weights are part of the challenge and cannot be removed':'Abutment bearings cannot be removed'); return; }
   pushHistory();
-  if(a.load) delete a.load; else if(a.joint) delete a.joint; else if(a.found) delete a.found;
+  if(a.load&&!a.locked) delete a.load; else if(a.joint) delete a.joint; else if(a.found) delete a.found;
   cleanupAttrs(); commit();
 }
 function undo(){ if(!history.length) return; model=JSON.parse(history.pop()); chainStart=null; commit(); }
@@ -405,7 +423,21 @@ function initialModel(){
   if(LV.type==='bridge'){
     for(const y of LV.ys){ m.attrs[key(LV.cliffL,y,LV.cliffH)]={found:true,locked:true}; m.attrs[key(LV.cliffR,y,LV.cliffH)]={found:true,locked:true}; }
   }
+  if(LV.type==='pickup'){
+    const loads = LV.random ? randomLoads() : LV.loads;
+    for(const [i,j,k,f] of loads) m.attrs[key(i,j,k)]={load:f, locked:true, target:true};
+  }
   return m;
+}
+/** 3–5 weights at random voxel corners: 2–6 cells high, ≥ 3 cells apart, 20–60 kN. */
+function randomLoads(){
+  const n=3+Math.floor(Math.random()*3), out=[];
+  for(let tries=0; out.length<n && tries<500; tries++){
+    const i=2+Math.floor(Math.random()*(LV.nx-3)), j=2+Math.floor(Math.random()*(LV.ny-3)), k=2+Math.floor(Math.random()*5);
+    if(out.some(([a,b,c])=>Math.max(Math.abs(a-i),Math.abs(b-j),Math.abs(c-k))<3)) continue;
+    out.push([i,j,k,20+10*Math.floor(Math.random()*5)]);
+  }
+  return out;
 }
 function save(){ try{ localStorage.setItem('voxstruct:'+levelId, JSON.stringify(model)); }catch(e){} }
 function load(){
@@ -415,6 +447,14 @@ function load(){
 
 /* ---------------- examples ---------------- */
 const EXAMPLES = {
+  // braced triangular prism: legs under each weight, closed top triangle, one glulam diagonal per face
+  pickup1(){
+    const m=initialModel(), add=(a,b,t)=>m.members.push({id:m.nextId++,a,b,type:t});
+    const P=[[4,4],[7,4],[5,7]];
+    P.forEach(([i,j])=>{ m.attrs[key(i,j,0)]={found:true}; add(key(i,j,0),key(i,j,3),'shs'); });
+    P.forEach(([i,j],n)=>{ const [p,q]=P[(n+1)%3]; add(key(i,j,3),key(p,q,3),'shs'); add(key(i,j,0),key(p,q,3),'glulam'); });
+    return m;
+  },
   tower1(){
     const m=initialModel(), add=(a,b,t)=>m.members.push({id:m.nextId++,a,b,type:t});
     const legs=[[4,4],[6,4],[6,6],[4,6]];
@@ -800,7 +840,12 @@ function analyze(){
 
   // ---- objectives
   const O=out.objectives, add=(ok,label,detail,warn)=>O.push({ok,label,detail,warn});
-  add(out.floating.length===0,'All parts connected to a foundation', out.floating.length?`${out.floating.length} floating node(s) ignored`:'');
+  const targets=keys.filter(k=>model.attrs[k]?.target), loose=out.floating.filter(k=>!model.attrs[k]?.target);
+  if(targets.length){
+    const got=targets.filter(k=>!out.floating.includes(k)).length;
+    add(got===targets.length,`Pick up all weights (${got}/${targets.length})`, got<targets.length?'red weights are not yet connected to a foundation':'');
+  }
+  add(loose.length===0,'All parts connected to a foundation', loose.length?`${loose.length} floating node(s) ignored`:'');
   add(!out.mechanism,'Stable — no mechanism', out.mechanism?'Structure moves freely: add bracing (triangles) or moment connections':'');
   if(!out.mechanism){
     const aTxt=aMin===Infinity?'no compression':`α<sub>cr</sub> = ${aMin>=128?'>128':aMin.toFixed(2)}`;
@@ -828,6 +873,13 @@ function analyze(){
       const lim=(LV.cliffR-LV.cliffL)*S/400;
       add(dz<=lim,'Deck deflection ≤ span/400 (SLS)', `${(dz*1000).toFixed(0)} mm (limit ${(lim*1000).toFixed(0)} mm)`);
     }
+  } else if(LV.type==='pickup' && !out.mechanism){
+    // each weight may move at most (its height above ground)/250 under service loads
+    let worst=0, txt='';
+    for(const k of targets){ const n=idx.get(k); if(!sup[n]) continue; const a=aid[n], [i,j,kk]=parse(k), lim=Math.max(1,kk-groundK(i,j))*S/250;
+      for(const c of out.combos){ if(c.fail||c.combo.type!=='SLS') continue; const d=Math.hypot(c.u[a*6],c.u[a*6+1],c.u[a*6+2]);
+        if(d/lim>worst){ worst=d/lim; txt=`${(d*1000).toFixed(0)} mm at the ${model.attrs[k].load} kN weight (limit ${(lim*1000).toFixed(0)} mm)`; } } }
+    if(targets.some(k=>sup[idx.get(k)])) add(worst<=1,'Weights move ≤ height/250 (SLS)', txt);
   }
   out.success = O.every(o=>o.ok) && LV.type!=='sandbox' ? true : (LV.type==='sandbox' && O.every(o=>o.ok));
   out.cost=costOf(); out.mass=massOf();
@@ -975,6 +1027,7 @@ GEO.box=new THREE.BoxGeometry(1,1,1);
 GEO.node=new THREE.SphereGeometry(0.13,12,8);
 GEO.joint=new THREE.BoxGeometry(0.42,0.42,0.42);
 GEO.found=new THREE.BoxGeometry(1.2,1.2,0.6);
+GEO.crate=new THREE.BoxGeometry(0.9,0.9,0.9);
 
 const memberMeshes=new Map(), nodeMeshes=new Map();
 function memberMatrix(p1,p2,it){
@@ -1003,7 +1056,12 @@ function rebuildStructure(){
     const sp=new THREE.Mesh(GEO.node,new THREE.MeshStandardMaterial({color:0xdde3ea,roughness:.5})); g.add(sp); g.userData.sphere=sp;
     if(a.joint){ const j=new THREE.Mesh(GEO.joint,new THREE.MeshStandardMaterial({color:0xf39c34,roughness:.4,metalness:.3})); j.castShadow=true; g.add(j); }
     if(a.found){ const f=new THREE.Mesh(GEO.found,new THREE.MeshStandardMaterial({color:a.locked?0x7d7a74:0xbdb8ae,roughness:.9})); f.position.z=-0.3; f.castShadow=true; f.receiveShadow=true; g.add(f); g.userData.foundMesh=f; }
-    if(a.load){ const ar=new THREE.ArrowHelper(new THREE.Vector3(0,0,-1),new THREE.Vector3(0,0,2.2),2,0xff5a5f,0.5,0.35); g.add(ar); }
+    if(a.target){ // challenge weight: crate hanging on a short rope, with its magnitude
+      const rope=new THREE.Mesh(GEO.box,new THREE.MeshBasicMaterial({color:0x2b2f36})); rope.scale.set(0.04,0.04,0.5); rope.position.z=-0.25; g.add(rope);
+      const crate=new THREE.Mesh(GEO.crate,new THREE.MeshStandardMaterial({color:0xe0a030,roughness:.7,emissive:0x331f00}));
+      crate.position.z=-0.95; crate.castShadow=true; g.add(crate); g.userData.crate=crate;
+      const lbl=textSprite(`${a.load} kN`,'#ffd27a',0.55); lbl.position.z=0.7; g.add(lbl);
+    } else if(a.load){ const ar=new THREE.ArrowHelper(new THREE.Vector3(0,0,-1),new THREE.Vector3(0,0,2.2),2,0xff5a5f,0.5,0.35); g.add(ar); }
     structGroup.add(g); nodeMeshes.set(k,g);
   }
   applyView();
@@ -1033,11 +1091,27 @@ function shownPos(k){ const p=nodePos(k), d=dispOf(k); return d?p.add(d):p; }
 function applyView(){
   const showRes = results && !results.error;
   const hoverId = hover?.kind==='member'?hover.id:null;
+  const lp = showRes && view.loadPath ? computeLoadPath(view.combo) : null;
+  const trace = lp && selected?.type==='node' ? traceToGround(lp, selected.key) : null;
   for(const m of model.members){
     const mesh=memberMeshes.get(m.id); if(!mesh) continue;
     const it=ITEMS[m.type];
-    mesh.matrix.copy(memberMatrix(shownPos(m.a),shownPos(m.b),it)); mesh.matrixWorldNeedsUpdate=true;
     const r=showRes?results.members[m.id]:null;
+    mesh.material.transparent=false; mesh.material.opacity=1;
+    if(lp){
+      // load path view: thickness ∝ √(transferred force), colour = how the member carries it
+      const x=lp.mem.get(m.id), rel=x?x.F/lp.maxF:0, faint=rel<0.01;
+      const w=faint?0.05:0.05+0.42*Math.sqrt(rel);
+      mesh.matrix.copy(memberMatrix(shownPos(m.a),shownPos(m.b),{dim:[w,w]})); mesh.matrixWorldNeedsUpdate=true;
+      mesh.material.color.set(faint?0x5a6370:LP_COLORS[x.mode]);
+      const dim = faint || (trace && !trace.members.has(m.id));
+      mesh.material.transparent=dim; mesh.material.opacity=dim?0.22:1;
+      const onTrace=trace?.members.has(m.id), sel=selected?.type==='member'&&selected.id===m.id;
+      mesh.material.emissive.set(onTrace||sel?0xffffff:(hoverId===m.id?0x99c2ff:0x000000));
+      mesh.material.emissiveIntensity=onTrace?0.3:0.4;
+      continue;
+    }
+    mesh.matrix.copy(memberMatrix(shownPos(m.a),shownPos(m.b),it)); mesh.matrixWorldNeedsUpdate=true;
     let col;
     if(showRes && view.util){
       if(!r) col=new THREE.Color(0x555b63);
@@ -1057,13 +1131,98 @@ function applyView(){
     sp.material.color.set(uns?0xc86bff:flo?0xff5a5f:0xdde3ea);
     sp.scale.setScalar(uns||flo?2:1);
     const sel=(selected?.type==='node'&&selected.key===k)||(hover?.kind==='node'&&hover.key===k);
-    sp.material.emissive.set(sel?0x6699ff:0x000000);
+    sp.material.emissive.set(sel?0x6699ff:(trace?.nodes.has(k)?0xffffff:0x000000));
+    if(trace?.nodes.has(k)) sp.scale.setScalar(1.6);
+    if(g.userData.crate) // weights: amber = not analysed, green = picked up, red = still floating
+      g.userData.crate.material.color.set(!showRes?0xe0a030:flo?0xff5a5f:0x3ecf8e);
     if(g.userData.foundMesh){
       const fr=showRes?results.found?.[k]:null;
-      g.userData.foundMesh.material.color.set(fr&&view.util? utilColor(Math.max(fr.util,0.16)) : (model.attrs[k]?.locked?0x7d7a74:0xbdb8ae));
+      g.userData.foundMesh.material.color.set(fr&&view.util&&!lp? utilColor(Math.max(fr.util,0.16)) : (model.attrs[k]?.locked?0x7d7a74:0xbdb8ae));
     }
   }
+  syncParticles(lp);
   drawOverlay();
+}
+
+/* ---------- load path ---------- */
+const LP_COLORS = { tension:0x4da3ff, compression:0xff6b4a, bending:0xc58cff, none:0x5a6370 };
+/**
+ * Load path for one load case (cached per analysis result).
+ * - Transferred force F of a member = largest end-force resultant √(N²+Vy²+Vz²), so both truss action
+ *   (axial) and beam action (shear) count. Mode: tension/compression when |N| ≥ 0.7·F, else bending/shear.
+ * - Flow direction: Dijkstra "distance to ground" from all foundations over members with F ≥ 1 % of the
+ *   maximum, edge cost = L·Fmax/(F + 0.02·Fmax), so heavily loaded members form the cheap routes.
+ *   Force is drawn flowing from the higher-distance end to the lower one, i.e. towards the supports.
+ * This is a visual interpretation of the linear analysis forces, not a separate structural result.
+ */
+function computeLoadPath(ci){
+  if(!results||results.error||results.mechanism) return null;
+  results._lp ??= {};
+  if(results._lp[ci]) return results._lp[ci];
+  const c=results.combos[ci], ctx=results.ctx; if(!c||c.fail) return null;
+  const mem=new Map(); let maxF=1e-9;
+  for(const e of ctx.els){
+    const r=c.ef.get(e), f=r.f;
+    const F=Math.max(Math.hypot(f[0],f[1],f[2]),Math.hypot(f[6],f[7],f[8])), N=f[6];
+    const mode=r.slack?'none':Math.abs(N)>=0.7*F?(N>0?'tension':'compression'):'bending';
+    mem.set(e.m.id,{e,F,N,mode}); maxF=Math.max(maxF,F);
+  }
+  // Dijkstra from the foundations (O(n²) is fine for the model sizes allowed here)
+  const adj=new Map();
+  for(const [id,x] of mem){ if(x.F<0.01*maxF) continue; const w=x.e.L*maxF/(x.F+0.02*maxF);
+    for(const [p,q] of [[x.e.m.a,x.e.m.b],[x.e.m.b,x.e.m.a]]){ if(!adj.has(p)) adj.set(p,[]); adj.get(p).push({to:q,w,id}); } }
+  const dist=new Map(), parent=new Map(), done=new Set();
+  ctx.act.forEach(n=>{ const k=ctx.keys[n]; if(ctx.isF[n]) dist.set(k,0); });
+  for(;;){
+    let best=null,bd=Infinity; for(const [k,d] of dist) if(!done.has(k)&&d<bd){bd=d;best=k;}
+    if(best===null) break; done.add(best);
+    for(const {to,w,id} of adj.get(best)||[]){ const nd=bd+w; if(nd<(dist.get(to)??Infinity)){ dist.set(to,nd); parent.set(to,{next:best,id}); } }
+  }
+  for(const x of mem.values()){ const da=dist.get(x.e.m.a), db=dist.get(x.e.m.b);
+    x.dir = da===undefined||db===undefined||Math.abs(da-db)<1e-9 ? 0 : da>db ? 1 : -1; } // +1: flows a→b
+  // share of the total vertical load taken by each support
+  const shares=[]; let tot=0;
+  for(const a in c.reac){ const rz=Math.max(0,c.reac[a][2]); tot+=rz; shares.push({key:ctx.keys[ctx.act[a]], rz}); }
+  shares.forEach(s=>s.pct=tot>0?s.rz/tot:0); shares.sort((p,q)=>q.rz-p.rz);
+  return (results._lp[ci]={mem,maxF,dist,parent,shares,totV:tot});
+}
+/** Members and nodes on the strongest route from node k down to a foundation (follows Dijkstra parents). */
+function traceToGround(lp,k){
+  const members=new Set(), nodes=new Set([k]); let cur=k, guard=0;
+  while(lp.parent.has(cur)&&guard++<1000){ const p=lp.parent.get(cur); members.add(p.id); cur=p.next; nodes.add(cur); }
+  return {members,nodes,end:lp.dist.get(cur)===0?cur:null};
+}
+
+/* flowing particles along loaded members (one instanced mesh, rebuilt when result/case changes) */
+const PART_MAX=2500;
+const partMesh=new THREE.InstancedMesh(new THREE.SphereGeometry(0.11,8,6),new THREE.MeshBasicMaterial({color:0xffffff}),PART_MAX);
+partMesh.frustumCulled=false; partMesh.visible=false; partMesh.renderOrder=5; scene.add(partMesh);
+let parts=[], partKey=null;
+function syncParticles(lp){
+  if(!lp){ partMesh.visible=false; parts=[]; partKey=null; return; }
+  if(partKey&&partKey.res===results&&partKey.ci===view.combo){ partMesh.visible=true; return; }
+  partKey={res:results,ci:view.combo}; parts=[];
+  const col=new THREE.Color();
+  for(const x of lp.mem.values()){
+    const rel=x.F/lp.maxF; if(rel<0.03||!x.dir) continue;
+    const n=Math.max(1,Math.round(x.e.L/1.4*(0.4+rel)));
+    for(let i=0;i<n&&parts.length<PART_MAX;i++)
+      parts.push({x, u:i/n, v:(0.8+2.6*rel)/x.e.L, s:0.6+0.8*Math.sqrt(rel)});
+  }
+  parts.forEach((p,i)=>{ col.set(LP_COLORS[p.x.mode]).lerp(new THREE.Color(0xffffff),0.45); partMesh.setColorAt(i,col); });
+  partMesh.count=parts.length; if(partMesh.instanceColor) partMesh.instanceColor.needsUpdate=true;
+  partMesh.visible=true;
+}
+const _m4=new THREE.Matrix4(), _pa=new THREE.Vector3();
+function animateParticles(dt){
+  if(!partMesh.visible||!parts.length) return;
+  const cache=new Map(), P=k=>{ let v=cache.get(k); if(!v){ v=shownPos(k); cache.set(k,v);} return v; };
+  parts.forEach((p,i)=>{
+    p.u=(p.u+p.v*dt)%1;
+    const a=P(p.x.e.m.a), b=P(p.x.e.m.b), t=p.x.dir>0?p.u:1-p.u;
+    _pa.lerpVectors(a,b,t); _m4.makeScale(p.s,p.s,p.s).setPosition(_pa); partMesh.setMatrixAt(i,_m4);
+  });
+  partMesh.instanceMatrix.needsUpdate=true;
 }
 function drawOverlay(){
   disposeGroup(overlayGroup);
@@ -1242,6 +1401,7 @@ addEventListener('keydown',e=>{
   if(e.key==='Escape'){ cancelChain(); }
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){ e.preventDefault(); undo(); return; }
   if(e.key==='r'||e.key==='R') runAnalysis();
+  if(e.key==='l'||e.key==='L'){ toggleLoadPath(); }
   if(e.key==='d'||e.key==='D'){ if(results&&!results.error){ view.deformed=!view.deformed; applyView(); renderResults(); } }
   if((e.key==='Delete'||e.key==='Backspace') && selected?.type==='member'){ e.preventDefault(); removeMember(selected.id); return; }
   if(e.key==='['){ setWorkK(workK-1); } if(e.key===']'){ setWorkK(workK+1); }
@@ -1250,6 +1410,11 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>{ if(e.key==='Shift'){ shiftDown=false; updateHover(); } });
 addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
 
+function toggleLoadPath(){
+  if(!results||results.error){ toast('Run the analysis first to see the load path'); return; }
+  if(results.mechanism){ toast('No load path: the structure is a mechanism'); return; }
+  view.loadPath=!view.loadPath; applyView(); renderResults();
+}
 function setWorkK(k){ workK=Math.max(0,Math.min(LV.nz,k)); $('#planeVal').textContent=workK*S+' m'; updateHover(); }
 function setTool(t){ tool=t; chainStart=null; renderPalette(); updateHover(); }
 function toolList(){ return ['inspect','delete','swap','shs','glulam','ipe','heb','cable','joint','found',...(LV.type==='sandbox'?['load']:[])]; }
@@ -1286,8 +1451,11 @@ function renderLevelInfo(){
   if(LV.type==='tower') goal=`Goal: top ≥ <b>${LV.target*S} m</b> · payload ${LV.payload} kN · wind q₀ ${LV.q0} kN/m²`;
   if(LV.type==='bridge') goal=`Goal: deck A→B at <b>z = ${LV.cliffH*S} m</b>, span ${(LV.cliffR-LV.cliffL)*S} m · traffic ${LV.traffic} kN/m`;
   if(LV.type==='sandbox') goal='No goal — free play. Loads: self-weight, wind, your point loads.';
+  if(LV.type==='pickup'){ const w=Object.values(model.attrs).filter(a=>a.target);
+    goal=`Goal: connect all <b>${w.length} weights</b> (${w.reduce((s,a)=>s+a.load,0)} kN in total) to the ground · wind q₀ ${LV.q0} kN/m²`; }
   $('#levelInfo').innerHTML=`<div class="desc">${LV.desc}</div><div class="goal">${goal}${LV.budget!==Infinity?`<br>Budget ★★: $${LV.budget.toLocaleString()} · ★★★: $${(LV.budget*0.75).toLocaleString()}`:''}</div>`;
-  $('#exampleBtn').disabled=!EXAMPLES[levelId];
+  $('#exampleBtn').textContent = LV.random ? 'New layout' : 'Example';
+  $('#exampleBtn').disabled=!EXAMPLES[levelId] && !LV.random;
 }
 function pct(u){ return (u*100).toFixed(0)+'%'; }
 function barHTML(u){ const c='#'+utilColor(u).getHexString(); return `<div class="bar"><i style="width:${Math.min(100,u*100)}%;background:${c}"></i></div>`; }
@@ -1325,12 +1493,32 @@ function renderResults(){
     <div class="legend"></div><div class="legend-lbl"><span>&lt;15% oversized</span><span>50%</span><span>100%</span><span>fail</span></div>
     ${R.mechanism?'<div class="muted" style="margin-top:6px">Purple = mechanism. Deformed view shows how it moves. Large dots = nodes that move freely.</div>':''}
   </div>`;
+  h+=loadPathHTML();
   h+=selectionHTML();
   if(!R.mechanism){
     const top=Object.entries(R.members).sort((a,b)=>b[1].util-a[1].util).slice(0,8);
     h+=`<div class="card"><h3>Most utilised members</h3><div class="mlist">${top.map(([id,r])=>`<button data-mid="${id}"><span>#${id} ${ITEMS[r.e.m.type].label} <span class="muted">${CHECK_NAMES[r.gov]||''}</span></span><b style="color:#${utilColor(r.util).getHexString()}">${pct(r.util)}</b></button>`).join('')}</div></div>`;
   }
   el.innerHTML=h; bindResultEvents();
+}
+function loadPathHTML(){
+  if(results.mechanism) return '';
+  let h=`<div class="card"><h3>Load path</h3><div class="row"><label><input type="checkbox" id="lpChk" ${view.loadPath?'checked':''}> Show load path (L)</label></div>`;
+  if(!view.loadPath) return h+`<div class="muted">Shows how the loads travel through the members down to the foundations.</div></div>`;
+  const lp=computeLoadPath(view.combo); if(!lp) return h+'</div>';
+  const sw=c=>`<span class="sw" style="background:#${new THREE.Color(c).getHexString()}"></span>`;
+  h+=`<div class="lplegend">${sw(LP_COLORS.compression)}compression ${sw(LP_COLORS.tension)}tension ${sw(LP_COLORS.bending)}bending / shear</div>
+    <div class="muted" style="font-size:11.5px">Thickness ∝ √force · dots flow towards the supports · faded = under 1 % of the peak (${fmt(lp.maxF,0)} kN) · case: ${COMBOS[view.combo].short}</div>`;
+  let cnt={tension:0,compression:0,bending:0}; for(const x of lp.mem.values()) if(x.F>=0.01*lp.maxF&&cnt[x.mode]!==undefined) cnt[x.mode]++;
+  h+=`<div class="stat" style="margin-top:6px"><span>Members in compression / tension / bending</span><span>${cnt.compression} / ${cnt.tension} / ${cnt.bending}</span>
+    <span>Total vertical load to ground</span><span>${fmt(lp.totV,0)} kN</span></div>`;
+  h+=`<h3>Share per support</h3>`+lp.shares.map(s=>{ const [i,j,k]=parse(s.key); return `<div class="chk"><span>${i*S}, ${j*S}, ${k*S}</span>${barHTML(Math.min(1,s.pct)).replace(/background:#[0-9a-f]+/,'background:#4da3ff')}<b>${pct(s.pct)}</b></div>`; }).join('');
+  if(selected?.type==='node'){
+    const t=traceToGround(lp,selected.key);
+    if(t.end){ const [i,j,k]=parse(t.end); h+=`<div class="muted" style="margin-top:6px">Traced: ${t.members.size} member(s) from the selected node to the support at ${i*S}, ${j*S}, ${k*S} m (highlighted).</div>`; }
+    else h+=`<div class="muted" style="margin-top:6px">The selected node carries no significant force to the ground.</div>`;
+  } else h+=`<div class="muted" style="margin-top:6px">Tip: Inspect a node to trace its main path to the ground.</div>`;
+  return h+'</div>';
 }
 function selectionHTML(){
   if(!selected) return `<div class="card muted">Use <b>Inspect</b> (1) and click a member or node for details.</div>`;
@@ -1381,6 +1569,7 @@ function bindResultEvents(){
   on('defScale','input',e=>{ view.scale=+e.target.value; applyView(); });
   on('utilChk','change',e=>{ view.util=e.target.checked; applyView(); });
   on('loadChk','change',e=>{ view.loads=e.target.checked; applyView(); });
+  on('lpChk','change',()=>toggleLoadPath());
   on('secSel','change',e=>{ if(selected?.type==='member' && !swapMember(selected.id,e.target.value)) renderResults(); });
   on('rmBtn','click',()=>{ if(selected?.type==='member') removeMember(selected.id); });
   document.querySelectorAll('[data-mid]').forEach(b=>b.onclick=()=>{ selected={type:'member',id:+b.dataset.mid}; tool='inspect'; renderPalette(); renderResults(); applyView(); });
@@ -1389,7 +1578,9 @@ function bindResultEvents(){
 function runAnalysis(){
   chainStart=null;
   results=analyze();
-  if(results.mechanism) view.deformed=true;
+  // show the mechanism mode automatically; switch that automatic view off again once it is fixed
+  if(results.mechanism){ if(!view.deformed) view.autoDeformed=true; view.deformed=true; }
+  else if(view.autoDeformed){ view.deformed=false; view.autoDeformed=false; }
   rebuildStructure(); renderPalette(); renderResults(); updateHover();
   if(results.success) toast(`Challenge passed! ${'★'.repeat(results.stars)}`);
 }
@@ -1412,8 +1603,14 @@ $('#levelSel').onchange=e=>loadLevel(e.target.value);
 $('#runBtn').onclick=runAnalysis;
 $('#sizeBtn').onclick=autoDesign;
 $('#undoBtn').onclick=undo;
-$('#clearBtn').onclick=()=>{ if(!model.members.length&&!Object.keys(model.attrs).length) return; if(!confirm('Remove everything you built on this level?')) return; pushHistory(); model=initialModel(); commit(); };
-$('#exampleBtn').onclick=()=>{ if(!EXAMPLES[levelId]) return; pushHistory(); model=EXAMPLES[levelId](); commit(); toast('Reference structure loaded — press R to analyse'); };
+$('#clearBtn').onclick=()=>{ if(!model.members.length&&!Object.keys(model.attrs).length) return; if(!confirm('Remove everything you built on this level?')) return; pushHistory();
+  // keep the challenge's locked items (abutments, weights) so a random layout survives Clear
+  const keep={}; for(const k in model.attrs){ const a=model.attrs[k]; if(a.locked) keep[k]={found:a.found, load:a.load, target:a.target, locked:true}; }
+  model={members:[], attrs:keep, nextId:1}; commit(); };
+$('#exampleBtn').onclick=()=>{
+  if(LV.random){ if(model.members.length&&!confirm('Start a new random layout? Your current structure on this level will be cleared.')) return;
+    pushHistory(); model=initialModel(); commit(); renderLevelInfo(); toast('New layout — pick up every weight'); return; }
+  if(!EXAMPLES[levelId]) return; pushHistory(); model=EXAMPLES[levelId](); commit(); toast('Reference structure loaded — press R to analyse'); };
 $('#helpBtn').onclick=()=>$('#help').style.display='grid';
 $('#helpClose').onclick=()=>{ $('#help').style.display='none'; try{ localStorage.setItem('voxstruct:help','1'); }catch(e){} };
 $('#planeUp').onclick=()=>setWorkK(workK+1);
@@ -1423,17 +1620,20 @@ let startLevel='tower1'; try{ const s=localStorage.getItem('voxstruct:level'); i
 $('#levelSel').value=startLevel;
 loadLevel(startLevel);
 
-let pulse=0;
+let pulse=0, lastT=performance.now();
 renderer.setAnimationLoop(()=>{
   controls.update();
+  const now=performance.now(), dt=Math.min(0.1,(now-lastT)/1000); lastT=now;
+  animateParticles(dt);
   pulse+=0.08;
-  if(results&&!results.error&&!results.mechanism&&view.util){
+  if(results&&!results.error&&!results.mechanism&&view.util&&!view.loadPath){
     const s=0.25+0.25*Math.sin(pulse);
     for(const [id,mesh] of memberMeshes){ const r=results.members[id]; if(r&&r.util>1&&!(selected?.id===id)){ mesh.material.emissive.set(0xff0000); mesh.material.emissiveIntensity=s; } }
   }
   renderer.render(scene,camera);
 });
-window.__vs={analyze:()=>analyze(), get model(){return model;}, run:runAnalysis, loadLevel, get results(){return results;}, EXAMPLES, autoDesign, swapMember, swapAllOfType, removeMember, undo};
+window.__vs={analyze:()=>analyze(), get model(){return model;}, run:runAnalysis, loadLevel, get results(){return results;}, EXAMPLES, autoDesign, swapMember, swapAllOfType, removeMember, undo, computeLoadPath, traceToGround,
+  select(s){ selected=s; renderResults(); applyView(); }};
 </script>
 </body>
 </html>
