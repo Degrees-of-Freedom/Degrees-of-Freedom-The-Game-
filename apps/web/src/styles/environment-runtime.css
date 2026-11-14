@@ -896,6 +896,19 @@ body,
 .environment[data-style="kit"] .env-tray .well h4 {
   flex-basis: 100%;
 }
+.environment .env-tray .tray-empty {
+  width: 150px;
+  margin: 8px 4px;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.environment .env-tray .tray-empty small {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  opacity: 0.8;
+}
 .environment[data-style="kit"] .env-tray .token {
   flex-shrink: 0;
   min-width: 57px;
