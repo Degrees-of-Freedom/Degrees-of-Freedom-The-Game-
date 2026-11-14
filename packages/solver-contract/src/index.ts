@@ -80,7 +80,7 @@ export interface StabilityReport {
   rotationalMechanisms: number;
   /** Degree of static indeterminacy (redundancy). Zero for a statically determinate, stable model. */
   staticIndeterminacy: number;
-  /** Nodes that take part in any mechanism. */
+  /** Nodes that take part in a mechanism that makes the model unstable. Empty when stable. */
   unstableNodeIds: string[];
   /** Mechanism shapes, possibly truncated; the counts above are always complete. */
   modes: MechanismMode[];

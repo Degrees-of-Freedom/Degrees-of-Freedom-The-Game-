@@ -15,7 +15,7 @@ status: partial
 
 ## Purpose and status
 
-This is the canonical entry point for durable project knowledge. The game remains at the concept stage with an initial web scaffold. The scaffold includes an orbitable viewer, a small game store, a preliminary solver contract, and an unavailable-solver placeholder; it does not implement gameplay or numerical analysis. Distinguish documented intent and proposed experiments from implemented behavior and decisions.
+This is the canonical entry point for durable project knowledge. The game remains at the concept stage with an initial web scaffold and one solver backend. The scaffold includes an orbitable viewer, a small game store, a solver contract, and solver adapters; it does not implement gameplay. An OpenSees analysis service exists in `services/opensees` but the web UI does not call it yet. Distinguish documented intent and proposed experiments from implemented behavior and decisions.
 
 ## Pages
 
@@ -23,7 +23,7 @@ This is the canonical entry point for durable project knowledge. The game remain
 | --- | --- |
 | [project.md](project.md) | Understanding the concept, status, and repository. |
 | [architecture.md](architecture.md) | Understanding the three intended areas, current frameworks, and modular boundaries. |
-| [structural-solver.md](structural-solver.md) | Working on the model, solver candidates, adapter boundaries, or proposed validation options. |
+| [structural-solver.md](structural-solver.md) | Working on the model, the OpenSees service, stability assessment, adapter boundaries, or solver tests. |
 | [game-dynamics.md](game-dynamics.md) | Working on game state, turns, rules, or modes. |
 | [3d-viewer.md](3d-viewer.md) | Working on the 3D grid, interaction, or visual feedback. |
 | [development-and-testing.md](development-and-testing.md) | Finding current setup, commands, and test coverage. |
