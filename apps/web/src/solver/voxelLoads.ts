@@ -26,8 +26,11 @@ export const COMBOS: LoadCombo[] = [
 const windQ = (LV: VoxelLevel, z: number) =>
   LV.q0 * Math.pow(Math.max(z, 2) / 10, 0.25);
 
+const directions: Record<NonNullable<VoxelModel['attrs'][string]['loadDirection']>, [number, number, number]> = {
+  '-Z': [0, 0, -1], '+Z': [0, 0, 1], '+X': [1, 0, 0], '-X': [-1, 0, 0], '+Y': [0, 1, 0], '-Y': [0, -1, 0],
+};
 function variableLoads(model: VoxelModel, LV: VoxelLevel, ctx: Context) {
-  const out = [];
+  const out: { a: number; f: number; direction: [number, number, number] }[] = [];
   if (LV.type === 'tower') {
     let top = -1;
     for (let a = 0; a < ctx.NA; a++)
@@ -35,7 +38,7 @@ function variableLoads(model: VoxelModel, LV: VoxelLevel, ctx: Context) {
     const tops = [];
     for (let a = 0; a < ctx.NA; a++)
       if (ctx.pos[ctx.act[a]][2] === top && top > 0) tops.push(a);
-    tops.forEach((a) => out.push({ a, f: LV.payload! / tops.length }));
+    tops.forEach((a) => out.push({ a, f: LV.payload! / tops.length, direction: [0, 0, -1] }));
   } else if (LV.type === 'bridge') {
     const deck = [];
     for (let a = 0; a < ctx.NA; a++) {
@@ -43,11 +46,11 @@ function variableLoads(model: VoxelModel, LV: VoxelLevel, ctx: Context) {
       if (k === LV.cliffH! && i > LV.cliffL! && i < LV.cliffR!) deck.push(a);
     }
     const tot = LV.traffic! * (LV.cliffR! - LV.cliffL!) * S;
-    deck.forEach((a) => out.push({ a, f: tot / deck.length }));
+    deck.forEach((a) => out.push({ a, f: tot / deck.length, direction: [0, 0, -1] }));
   } else {
     for (let a = 0; a < ctx.NA; a++) {
       const at = model.attrs[ctx.keys[ctx.act[a]]];
-      if (at?.load) out.push({ a, f: at.load });
+      if (at?.load) out.push({ a, f: at.load, direction: directions[at.loadDirection ?? '-Z'] });
     }
   }
   return out;
@@ -67,9 +70,10 @@ export function buildLoads(
     F[e.a * 6 + 2] -= W / 2;
     F[e.b * 6 + 2] -= W / 2;
   }
-  for (const { a, f } of variableLoads(model, LV, ctx)) {
-    F[a * 6 + 2] -= f * g.Q;
-    vis.push({ a, v: [0, 0, -f * g.Q], kind: 'Q' });
+  for (const { a, f, direction } of variableLoads(model, LV, ctx)) {
+    const vector = direction.map((component) => component * f * g.Q);
+    for (let c = 0; c < 3; c++) F[a * 6 + c] += vector[c];
+    vis.push({ a, v: vector, kind: 'Q' });
   }
   const Wn = new Float64Array(ctx.NA);
   for (const e of ctx.els) {

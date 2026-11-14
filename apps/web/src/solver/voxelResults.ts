@@ -50,6 +50,7 @@ export type ElementForce = {
 export type Solved = {
   u: Float64Array;
   K0: Float64Array;
+  activeDofs: number[];
   active: Map<Element, boolean>;
   ef: Map<Element, ElementForce>;
 };

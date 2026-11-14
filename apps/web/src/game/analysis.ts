@@ -1,32 +1,30 @@
-import { groundK } from './terrain';
-import { parseNodeKey, type GameModel, type Level } from './model';
-import type { VoxelLevel, VoxelModel } from '../solver/voxelInput';
-import { analyzeVoxel } from '../solver/voxel';
-import { autoDesignVoxel } from '../solver/voxelSizing';
-import { createVoxelAnalysisSnapshot, recomposeVoxelAnalysis } from './structuralState';
+import { groundK } from "./terrain";
+import { parseNodeKey, type GameModel, type Level } from "./model";
+import type { VoxelLevel, VoxelModel } from "../solver/voxelInput";
+import { analyzeVoxel } from "../solver/voxel";
+import { autoDesignVoxel } from "../solver/voxelSizing";
+import {
+  createVoxelAnalysisSnapshot,
+  recomposeVoxelAnalysis,
+} from "./structuralState";
 
 /** Translate game state to the prototype-specific analysis input. */
 export function toVoxelInput(
   model: GameModel,
   level: Level,
 ): { model: VoxelModel; level: VoxelLevel } {
-  for (const attrs of Object.values(model.attrs)) {
-    if (attrs.restraint && attrs.restraint.some(Boolean) && !attrs.restraint.every(Boolean))
-      throw new Error('The experimental solver does not support partial restraints.');
-    if (attrs.load && attrs.loadDirection && attrs.loadDirection !== '-Z')
-      throw new Error('The experimental solver does not support directional point loads.');
-  }
   return {
     model: {
       members: model.members.map((member) => ({ ...member })),
       attrs: Object.fromEntries(
-        Object.entries(model.attrs).map(([key, { restraint: _restraint, loadDirection: _direction, ...attrs }]) => [key, attrs]),
+        Object.entries(model.attrs).map(([key, attrs]) => [key, { ...attrs, ...(attrs.restraint ? { restraint: [...attrs.restraint] as typeof attrs.restraint } : {}) }]),
       ),
       nextId: model.nextId,
     },
     level: {
       type: level.type,
       q0: level.q0,
+      loadCase: level.loadCase,
       budget: level.budget,
       inv: level.inv ? { ...level.inv } : null,
       target: level.target,
@@ -49,11 +47,15 @@ export function toVoxelInput(
 }
 export function analyzeGame(model: GameModel, level: Level) {
   const source = toVoxelInput(model, level);
-  const input = recomposeVoxelAnalysis(createVoxelAnalysisSnapshot(source.model, source.level));
+  const input = recomposeVoxelAnalysis(
+    createVoxelAnalysisSnapshot(source.model, source.level),
+  );
   return analyzeVoxel(input.model, input.level);
 }
 export function autoDesignGame(model: GameModel, level: Level) {
   const source = toVoxelInput(model, level);
-  const input = recomposeVoxelAnalysis(createVoxelAnalysisSnapshot(source.model, source.level));
+  const input = recomposeVoxelAnalysis(
+    createVoxelAnalysisSnapshot(source.model, source.level),
+  );
   return autoDesignVoxel(input.model, input.level);
 }
