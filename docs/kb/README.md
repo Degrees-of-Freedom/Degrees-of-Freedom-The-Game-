@@ -33,6 +33,7 @@ This is the canonical entry point for durable project knowledge. The early web p
 
 | Page | Use this when |
 | --- | --- |
+| [criteria-ledger.md](criteria-ledger.md) | Checking the audited game criteria, implementation assignments, accepted playtest decisions and release evidence. |
 | [unified-runtime.md](unified-runtime.md) | Mapping the source environments, runtime entry points, features and remaining gaps. |
 | [project.md](project.md) | Understanding the concept, status, and repository. |
 | [architecture.md](architecture.md) | Understanding the three intended areas, current frameworks, and modular boundaries. |
