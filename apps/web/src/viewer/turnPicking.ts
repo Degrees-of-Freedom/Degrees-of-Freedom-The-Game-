@@ -1,4 +1,5 @@
 import { nodeKey, type GridPoint } from "../game/model";
+import { connectionLocations, originalPorts } from "../game/turnPorts";
 import {
   activeTurnHand,
   stageConnection,
@@ -21,11 +22,11 @@ export function selectedTurnCard(state: GameState) {
   );
 }
 
-export function turnPointIssue(state: GameState, position: GridPoint) {
+export function turnPointIssue(state: GameState, position: GridPoint, target?: string) {
   const card = selectedTurnCard(state);
   if (!state.turn || !card || card.kind === "connection")
     return "Choose a card from the active hand.";
-  const key = nodeKey(...position);
+  const key = target ?? nodeKey(...position);
   const transition =
     card.kind === "load"
       ? stageLoad(state.turn, card.id, key)
@@ -39,18 +40,22 @@ export function turnConnectionTargets(state: GameState): ConnectionTarget[] {
   const card = selectedTurnCard(state);
   if (!state.turn || card?.kind !== "connection") return [];
   const turn = state.turn;
-  return state.model.members.flatMap((member) =>
+  const members = [...turn.board.members, ...turn.draft.members];
+  return members.flatMap((member) =>
     (["a", "b"] as const).flatMap((end) => {
-      const transition = stageConnection(
-        turn,
-        card.id,
-        member.id,
-        end,
-        member[end],
-      );
-      return transition.ok
-        ? [{ memberId: member.id, end, key: member[end] }]
-        : [];
+      return connectionLocations(members, member, end).flatMap(key => {
+        const transition = stageConnection(turn, card.id, member.id, end, key);
+        return transition.ok ? [{ memberId: member.id, end, key }] : [];
+      });
     }),
   );
+}
+
+export function turnPointPorts(state: GameState) {
+  const card = selectedTurnCard(state);
+  if (!state.turn || !card || card.kind === "connection") return [];
+  if (card.kind === "element") return state.turn.board.members.flatMap(originalPorts);
+  const active = new Set([...state.turn.board.connections, ...state.turn.draft.connections].map(c => c.jointId));
+  return [...state.turn.board.members, ...state.turn.draft.members]
+    .flatMap(originalPorts).filter(port => active.has(port.id));
 }

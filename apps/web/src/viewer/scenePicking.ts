@@ -31,9 +31,11 @@ import {
 } from "./growthStack";
 import { isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
 import { memberEndPosition } from "./turnGuides";
+import { portLabel, targetCoordinate } from "../game/turnPorts";
 import {
   selectedTurnCard,
   turnConnectionTargets,
+  turnPointPorts,
   turnPointIssue,
   type ConnectionTarget,
 } from "./turnPicking";
@@ -43,7 +45,7 @@ type Hit =
   | BayHit
   | { kind: "brace"; face: BayFace; issue: string | null }
   | ({ kind: "connection" } & ConnectionTarget)
-  | { kind: "point"; p: GridPoint; issue: string | null }
+  | { kind: "point"; p: GridPoint; issue: string | null; target?: string }
   | { kind: "member"; id: number }
   | { kind: "node"; key: string }
   | null;
@@ -96,6 +98,12 @@ export function createPicker(
         nodeDistance = d;
       }
     }
+    const portStack = buildStack(turnPointPorts(s).filter(port => port.available).flatMap(port => {
+      const [sx, sy, depth] = screen(basePoint(port.point.join(",")));
+      const distance = Math.hypot(sx - x, sy - y);
+      if (port.id === s.chainStart || depth < -1 || depth >= 1 || distance > Math.min(13, nodeDistance + 1)) return [];
+      return [{ item: port, depth, dist: distance, sx, sy }];
+    }), 14);
     let nearMember: number | null = null,
       memberDistance = 9;
     for (const m of s.model.members) {
@@ -121,7 +129,7 @@ export function createPicker(
     ghost.visible = false;
     preview.visible = false;
     if (card?.kind === "connection") {
-      let closest = 19;
+      const candidates: StackCandidate<ConnectionTarget>[] = [];
       for (const target of turnConnectionTargets(s)) {
         const member = s.model.members.find(({ id }) => id === target.memberId);
         if (!member) continue;
@@ -129,15 +137,35 @@ export function createPicker(
         const endpoint = memberEndPosition(point, member, target.end);
         const [sx, sy, depth] = screen(endpoint);
         const distance = Math.hypot(sx - x, sy - y);
-        if (depth >= -1 && depth < 1 && distance < closest) {
-          hit = { kind: "connection", ...target };
-          closest = distance;
-          ghost.position.copy(endpoint);
-        }
+        if (depth >= -1 && depth < 1)
+          candidates.push({ item: target, sx, sy, depth, dist: distance });
       }
-      if (hit) {
+      const choices = buildStack(candidates, 19);
+      if (choices.length) {
+        const choice = stack.choose(choices.map(({ item }) => `${item.memberId}:${item.end}:${item.key}`), card.id);
+        const target = choices[choice].item;
+        const member = s.model.members.find(({ id }) => id === target.memberId)!;
+        hit = { kind: "connection", ...target };
+        ghost.position.copy(memberEndPosition(point, member, target.end));
         ghost.material.color.set("#f6ad49");
         ghost.visible = true;
+        if (choices.length > 1) stackLabel = `${choice + 1}/${choices.length}, [ or ] to cycle`;
+      } else stack.reset();
+    } else if (portStack.length) {
+      const choice = stack.choose(portStack.map(x => x.item.id), s.chainStart);
+      const port = portStack[choice].item;
+      const issue = turnPointIssue(s, port.point, port.id);
+      hit = { kind: "point", p: port.point, issue, target: port.id };
+      stackLabel = portLabel(port) + (portStack.length > 1 ? ` · ${choice + 1}/${portStack.length} overlapping, [ or ] to cycle` : "");
+      ghost.position.set(...port.point).multiplyScalar(CELL_SIZE);
+      ghost.material.color.set(issue ? "#e75151" : "#f6ad49");
+      ghost.visible = true;
+      if (s.chainStart && card?.kind === "element") {
+        const anchor = basePoint(targetCoordinate(s.model.members, s.chainStart));
+        preview.geometry.dispose();
+        preview.geometry = new THREE.BufferGeometry().setFromPoints([anchor, ghost.position]);
+        preview.material.color.copy(ghost.material.color);
+        preview.visible = true;
       }
     } else if (tool === "brace") {
       let closest = 16;
@@ -189,7 +217,7 @@ export function createPicker(
     } else {
       ndc.set((x / rect.width) * 2 - 1, (-y / rect.height) * 2 + 1);
       ray.setFromCamera(ndc, camera);
-      const start = s.chainStart ? parseNodeKey(s.chainStart) : null,
+      const start = s.chainStart ? parseNodeKey(targetCoordinate(s.model.members, s.chainStart)) : null,
         plane = buildPlane();
       const normal =
         plane.axis === "x"
@@ -389,6 +417,7 @@ export function createPicker(
                     hit.memberId,
                     "end",
                     hit.end.toUpperCase(),
+                    "→", hit.key, stackLabel,
                   ].join(" ")
                 : "";
     return hit;
@@ -404,9 +433,7 @@ export function createPicker(
   const overStack = () => {
     const s = useGameStore.getState();
     return (
-      !!s.chainStart &&
-      s.mode !== "multiplayer" &&
-      isGrowthStyle(s.style) &&
+      (s.mode === "multiplayer" || !!s.chainStart && isGrowthStyle(s.style)) &&
       stack.size >= 2
     );
   };

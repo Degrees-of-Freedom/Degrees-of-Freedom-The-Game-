@@ -1,5 +1,7 @@
 import { useGameStore } from "../game/store";
 import { activeTurnHand, KIT_PLAYTEST } from "../game/turns";
+import { TurnQuarterTargets } from "./TurnQuarterTargets";
+import { connectionLocations, findPort, portLabel } from "../game/turnPorts";
 
 type Game = ReturnType<typeof useGameStore.getState>;
 export function TurnPanel({
@@ -73,6 +75,7 @@ export function TurnPanel({
                   ? "Choose an unconnected member end below. Other players’ ends are available too."
                   : "Select a card to play it."}
           </p>
+          {selectedCard && <TurnQuarterTargets key={selectedCard.id} game={game} card={selectedCard} onMessage={onMessage} />}
           {selectedCard?.kind === "connection" && (
             <div className="turn-cards">
               {members.flatMap((member) =>
@@ -85,9 +88,11 @@ export function TurnPanel({
                           connection.end === end,
                       ),
                   )
-                  .map((end) => (
+                  .flatMap((end) => connectionLocations(members, member, end).map(target => {
+                    const port = findPort(members, target);
+                    return (
                     <button
-                      key={`${member.id}-${end}`}
+                      key={`${member.id}-${end}-${target}`}
                       className="turn-card"
                       onClick={() =>
                         onMessage(
@@ -95,14 +100,15 @@ export function TurnPanel({
                             selectedCard.id,
                             member.id,
                             end,
+                            target,
                           ) ?? "End connection staged.",
                         )
                       }
                     >
                       Member {member.id} · end {end.toUpperCase()}
-                      <small>Joint {member[end]}</small>
+                      <small>{port ? portLabel(port) : `Joint ${target}`}</small>
                     </button>
-                  )),
+                  ); })),
               )}
             </div>
           )}

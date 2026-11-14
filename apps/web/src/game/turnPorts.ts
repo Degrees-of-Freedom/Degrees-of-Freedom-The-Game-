@@ -40,3 +40,21 @@ export function targetCoordinate(members: readonly Member[], target: string): st
 export function portLabel(port: QuarterPort) {
   return `Member ${port.memberId} · ${port.quarter * 25}% · (${port.point.join(", ")})`;
 }
+
+/** Several independent parents can occupy the same point in space. Keep their
+ * target identities distinct and put the original selection first. */
+export function connectionLocations(
+  members: readonly Member[], member: Member & { endTargets?: Partial<Record<"a" | "b", string>> }, end: "a" | "b",
+) {
+  const targets = new Set<string>();
+  const preferred = member.endTargets?.[end];
+  if (preferred) targets.add(preferred);
+  if (parseNodeKey(member[end]).every(Number.isInteger)) targets.add(member[end]);
+  for (const parent of members) {
+    if (parent.id === member.id) continue;
+    for (const port of originalPorts(parent)) {
+      if (port.available && nodeKey(...port.point) === member[end]) targets.add(port.id);
+    }
+  }
+  return [...targets];
+}
