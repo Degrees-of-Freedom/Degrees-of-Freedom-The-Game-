@@ -1,36 +1,32 @@
-# Game-environment prototypes
+# Game-environment prototype
 
-Four alternative prototypes of the game environment: what the player sees and
-touches while building a structure. They exist to compare directions. Nothing
-here is a decision, and none of it is the game yet.
+The standalone prototype of the game environment: what the player sees and
+touches while building a structure. It is a design reference, not the game.
+The team's app in `apps/web` has its own adaptation of it.
 
-## Open them
+Only Grow Dusk is kept here. Four earlier alternatives (Grow, Levels, Blocks
+and Kit) were removed once Grow Dusk was chosen; they remain in the git
+history of this branch.
 
-Open `index.html` in this folder in a current Chrome or Edge. It links to the
-four options. No install and no build step. An internet connection is needed
-the first time, because three.js loads from a CDN.
+## Open it
 
-## What each option explores
+Open `../game-interface/index.html` for the home page and menus, or
+`grow-dusk/index.html` directly, in a current Chrome or Edge. No install and
+no build step. An internet connection is needed the first time, because
+three.js loads from a CDN.
 
-All four give the player the same three tools: connections (the degrees of
-freedom at a node), member geometry (where members connect and how long they
-are) and loads (where, which way, how much). Material and section are
-predetermined and are not offered as a choice.
+## What it does
 
-| Option | Idea | The question it asks |
-| --- | --- | --- |
-| [Grow](grow/) | Click a joint; the points it can reach bloom around it; click one. Free 3D camera. | Can free joint-to-joint building in 3D be quick and unambiguous? |
-| [Levels](levels/) | An isometric board with one working level. Draw on it, step up, draw again. | Does a working level make 3D building precise and calm enough for turns? |
-| [Blocks](blocks/) | Stack bays; the frame appears along their edges. Then brace, pin and load. | Is "massing first, engineering second" a better loop? |
-| [Kit](kit/) | Take turns playing sticks, joints and weights from a tray onto a turntable. | What does turn-based play look like on screen? |
-
-Each option folder has its own `README.md` with controls, known gaps and an
-assessment of that option's strengths and weaknesses.
+[Grow Dusk](grow-dusk/) gives the player three tools: connections (the
+degrees of freedom at a node), member geometry (where members connect and how
+long they are) and loads (where, which way, how much). Click a joint and the
+points it can reach bloom around it; click one to place a member. Material
+and section are predetermined and are not offered as a choice. Its own
+`README.md` lists controls and known gaps.
 
 The look takes its cues from Townscaper (one-click building with a ghost
-preview, a small calm diorama, soft pastel colour, pieces that detail
-themselves from context). The palettes, shapes and interface are original to
-this project.
+preview, a small calm diorama, pieces that detail themselves from context).
+The palette, shapes and interface are original to this project.
 
 ## What is real and what is not
 
@@ -39,15 +35,15 @@ this project.
   check for pieces with no path of members to a support.
 - **Not real:** the "feedback preview". No solver is connected. Its numbers
   come from a toy rule in `shared/model-core.js` (`mockResults`) so the
-  options can rehearse how feedback might look. Each option labels it as demo
-  data on screen.
+  prototype can rehearse how feedback might look. It is labelled as demo data
+  on screen.
 - **Placeholder:** everything about turns. The core only counts turns and
-  records who placed what. Kit adds a three-actions-per-turn rule to make its
-  idea playable. Turn rules are still an open question for the team.
+  records who placed what. The confirmed turn rules live in the team's app,
+  not here.
 
 ## The shared model
 
-`shared/model-core.js` is the one model all four options edit. It is a plain
+`shared/model-core.js` is the model Grow Dusk edits. It is a plain
 script with no dependencies, loaded with a `<script>` tag, and it exposes
 `DOFCore.createModel()`. Its header documents the API and the rules below.
 
@@ -135,8 +131,8 @@ to react to. It has not been agreed with anyone.
 
 ### Draft results shape
 
-`core.mockResults()` returns placeholder data in the shape the options
-currently know how to display:
+`core.mockResults()` returns placeholder data in the shape the prototype
+currently knows how to display:
 
 ```json
 {
@@ -148,11 +144,11 @@ currently know how to display:
 }
 ```
 
-## How the options were checked
+## How it was checked
 
-Each option was driven in a headless browser with real mouse and keyboard
+Grow Dusk was driven in a headless browser with real mouse and keyboard
 input (placing members, editing connections, placing loads, removing, undo
-and redo, the solver-input drawer). Each exposes a small `window.__dof`
+and redo, the solver-input drawer). It exposes a small `window.__dof`
 object for that purpose: the model, the current tool, and `screenOf(i, j, k)`
 to find a lattice point on screen. The test scripts are not part of the
 repository.
