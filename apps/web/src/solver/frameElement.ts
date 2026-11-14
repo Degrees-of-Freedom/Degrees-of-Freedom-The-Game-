@@ -25,14 +25,18 @@ export function makeElement(
   const ex = d.map((v) => v / L),
     R = localAxes(ex);
   const cable = it.kind === 'cable';
-  const rigidA = !cable && !!model.attrs[m.a]?.joint,
-    rigidB = !cable && !!model.attrs[m.b]?.joint;
+  const rigidA = !cable && (m.endA ? m.endA === 'fixed' : !!model.attrs[m.a]?.joint),
+    rigidB = !cable && (m.endB ? m.endB === 'fixed' : !!model.attrs[m.b]?.joint);
   const k =
     it.kind === 'cable'
       ? trussK(it.E, it.A, L)
       : frameK(it.E, it.G, it.A, it.Iy, it.Iz, it.J, L);
   const rel = [];
   if (!cable) {
+    // One end release eliminates the whole torsion spring. Releasing both in
+    // recovery would introduce a redundant rigid-body rotation in its subsystem.
+    if (m.endA === 'ball') rel.push(3);
+    else if (m.endB === 'ball') rel.push(9);
     if (!rigidA) rel.push(4, 5);
     if (!rigidB) rel.push(10, 11);
   }

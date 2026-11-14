@@ -41,8 +41,8 @@ function costOf(model: VoxelModel) {
 function massOf(model: VoxelModel) {
   let w = 0;
   for (const m of model.members) {
-    const a = parse(m.a),
-      b = parse(m.b);
+    const a = model.positions?.[m.a] ?? parse(m.a),
+      b = model.positions?.[m.b] ?? parse(m.b);
     w +=
       ITEMS[m.type].w * Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) * S;
   }
