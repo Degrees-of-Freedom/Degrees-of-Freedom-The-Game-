@@ -42,7 +42,7 @@ function upright(geometry: THREE.BufferGeometry) {
 export function addCompanionIslet(group: THREE.Group, seaLevel: number, boardDepth: number) {
   const islet = new THREE.Group();
   islet.name = NAME;
-  islet.position.set(-3.5 * CELL_SIZE, 0.36 * boardDepth, seaLevel);
+  islet.position.set(-2.6 * CELL_SIZE, 0.78 * boardDepth, seaLevel);
   const u = CELL_SIZE;
   const top = 0.3 * u;
   // Quay wall rising out of the water, a sand rim and a grass cap.
@@ -107,7 +107,7 @@ export function projectIslet(terrain: THREE.Object3D, camera: THREE.Camera, widt
   const y = behind ? height / 2 : (-foot.y * 0.5 + 0.5) * height;
   return {
     x: Math.min(width - size * 0.6, Math.max(size * 0.6, x)),
-    y: Math.min(height - 150, Math.max(size + 70, y)),
+    y: Math.min(height - 150, Math.max(size + 8, y)),
     size,
     model: Math.max(30, behind || !Number.isFinite(pixels) ? 30 : (pixels * FIGURE_HEIGHT) / RADIUS),
   };

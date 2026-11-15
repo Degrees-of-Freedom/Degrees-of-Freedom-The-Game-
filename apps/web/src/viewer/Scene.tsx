@@ -243,7 +243,8 @@ export function Scene({
      * an HTML control outside this component, so the position is published as
      * CSS variables on the workspace element and the stylesheet does the rest.
      */
-    const workspace = element.closest<HTMLElement>(".environment");
+    // The Workspace wraps the view in `.environment`; the Shared table match board in `.release-stage`.
+    const workspace = element.closest<HTMLElement>(".environment, .release-stage");
     const companionFigure = createCompanionFigure(scene);
     let isletKey = "";
     function anchorCompanion() {
@@ -257,15 +258,19 @@ export function Scene({
         else delete workspace.dataset.isletFigure;
       }
       const at = projectIslet(terrain, camera, canvas.clientWidth, canvas.clientHeight);
-      const key = at ? [Math.round(at.x), Math.round(at.y), Math.round(at.size), Math.round(at.model), at.x > canvas.clientWidth - 330].join(",") : "";
+      const beside = !!at && at.y < canvas.clientHeight * 0.45;
+      const key = at ? [Math.round(at.x), Math.round(at.y), Math.round(at.size), Math.round(at.model), at.x > canvas.clientWidth - 330, beside].join(",") : "";
       if (key === isletKey) return;
       isletKey = key;
       if (!at) {
         delete workspace.dataset.islet;
+        delete workspace.dataset.isletCloud;
         return;
       }
-      // The speech cloud opens towards the side with more room.
+      // The speech cloud opens towards the side with more room, and beside the
+      // figure rather than above it while the islet is in the upper part of the view.
       workspace.dataset.islet = at.x > canvas.clientWidth - 330 ? "left" : "right";
+      workspace.dataset.isletCloud = beside ? "beside" : "above";
       workspace.style.setProperty("--islet-x", Math.round(at.x) + "px");
       workspace.style.setProperty("--islet-y", Math.round(at.y) + "px");
       workspace.style.setProperty("--islet-size", Math.round(at.size) + "px");
@@ -790,6 +795,7 @@ export function Scene({
       companionFigure.dispose();
       if (workspace) {
         delete workspace.dataset.islet;
+        delete workspace.dataset.isletCloud;
         delete workspace.dataset.isletFigure;
       }
       refresh.current = () => {};
