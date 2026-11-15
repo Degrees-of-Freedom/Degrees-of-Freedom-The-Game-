@@ -176,6 +176,61 @@ fn components(index: &Index) -> Vec<(Vec<usize>, Vec<usize>)> {
     groups.into_values().collect()
 }
 
+/// Undeformed length of a model member.
+fn member_length(index: &Index, member: &Member) -> f64 {
+    let [a, b] = index.ends(member);
+    norm(&sub(&index.model.nodes[b].position, &index.model.nodes[a].position))
+}
+
+/// Displacement of analysis node `a`, global axes: translations, then the
+/// rotation vector (the logarithm of the nodal rotation in the nonlinear case).
+fn displacement_of(sys: &System, solution: &solve::Solution, a: usize) -> [f64; 6] {
+    match &solution.state {
+        Some(state) => {
+            let rotation = log_so3(&state.r[a]);
+            [state.u[a][0], state.u[a][1], state.u[a][2], rotation[0], rotation[1], rotation[2]]
+        }
+        None => sys.anodes[a].eq.map(|e| if e >= 0 { solution.x[e as usize] } else { 0.0 }),
+    }
+}
+
+/// Deflection along a beam member, from the analysis nodes of its elements.
+///
+/// Stations are the element ends: `subdivisions + 1` points at
+/// `at = k / subdivisions` of the member length from the start. Nothing is
+/// interpolated between them, so a finer station spacing needs more
+/// subdivisions. A member end that is fully released has its own analysis
+/// node, so its station is the end of the member, not the model node.
+///
+/// `maxFromChord` is the largest distance of a deformed station from the
+/// straight line through the deformed end stations: the sag or bow a
+/// deflection limit such as span / 250 is checked against. It excludes the
+/// member's rigid-body motion and the movement of its supports.
+fn deflection_json(sys: &System, solution: &solve::Solution, range: &std::ops::Range<usize>, length: f64) -> Json {
+    let mut chain: Vec<usize> = range.clone().map(|s| sys.segs[s].n[0]).collect();
+    chain.push(sys.segs[range.end - 1].n[1]);
+    let count = chain.len() - 1;
+    let displacements: Vec<[f64; 6]> = chain.iter().map(|&a| displacement_of(sys, solution, a)).collect();
+    let deformed: Vec<V3<f64>> = chain.iter().zip(&displacements).map(|(&a, d)| [0, 1, 2].map(|i| sys.anodes[a].pos[i] + d[i])).collect();
+    let (p0, p1) = (deformed[0], deformed[count]);
+    let chord = sub(&p1, &p0);
+    let chord_length = norm(&chord);
+    let mut max_from_chord = 0.0f64;
+    let mut at_max = 0.0;
+    for (k, p) in deformed.iter().enumerate() {
+        let offset = sub(p, &p0);
+        // Distance from the chord line; from the start point if the ends meet.
+        let distance = if chord_length > 1e-12 * length.max(1e-300) { norm(&cross(&offset, &chord)) / chord_length } else { norm(&offset) };
+        if distance > max_from_chord {
+            max_from_chord = distance;
+            at_max = k as f64 / count as f64;
+        }
+    }
+    let stations: Vec<Json> =
+        displacements.iter().enumerate().map(|(k, d)| object([("at", (k as f64 / count as f64).into()), ("displacement", (*d).into())])).collect();
+    object([("stations", Json::Arr(stations)), ("maxFromChord", max_from_chord.into()), ("atMax", at_max.into()), ("length", length.into())])
+}
+
 fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> Pass {
     let model = index.model;
     let mut pass = Pass {
@@ -214,16 +269,7 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
         // Nodes.
         for (a, anode) in sys.anodes.iter().enumerate() {
             let Some(n) = anode.node else { continue };
-            let displacement: Json = match solution {
-                None => Json::Null,
-                Some(s) => match &s.state {
-                    Some(state) => {
-                        let rotation = log_so3(&state.r[a]);
-                        [state.u[a][0], state.u[a][1], state.u[a][2], rotation[0], rotation[1], rotation[2]].into()
-                    }
-                    None => anode.eq.map(|e| if e >= 0 { s.x[e as usize] } else { 0.0 }).into(),
-                },
-            };
+            let displacement: Json = solution.map(|s| displacement_of(&sys, s, a)).into();
             pass.nodes.insert(model.nodes[n].id.clone(), object([("componentId", id.as_str().into()), ("displacement", displacement)]));
             if let Some(f) = index.foundation[n] {
                 let foundation = &model.foundations[f];
@@ -247,7 +293,7 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
             let section = &model.sections[index.section[member.section_id.as_str()]];
             let mut fields: Vec<(&str, Json)> = vec![("componentId", id.as_str().into()), ("parentId", member.parent_id.clone().into())];
             match (solution, span) {
-                (None, _) => fields.extend([("state", Json::Null), ("forces", Json::Null), ("utilization", Json::Null), ("governingLimitState", Json::Null), ("connections", Json::Null)]),
+                (None, _) => fields.extend([("state", Json::Null), ("forces", Json::Null), ("utilization", Json::Null), ("governingLimitState", Json::Null), ("connections", Json::Null), ("deflection", Json::Null)]),
                 (Some(s), Span::Bar(b)) => {
                     let (axial, active) = s.eval.bars[*b];
                     let forces = [axial, 0.0, 0.0, 0.0, 0.0, 0.0];
@@ -269,6 +315,8 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
                         u,
                         g,
                         ("connections", object([("start", connections.remove(0)), ("end", connections.remove(0))])),
+                        // A brace or cable is one straight element: nothing lies between its ends.
+                        ("deflection", Json::Null),
                     ]);
                 }
                 (Some(s), Span::Segs(range)) => {
@@ -315,6 +363,7 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
                         u,
                         g,
                         ("connections", object([("start", connections.remove(0)), ("end", connections.remove(0))])),
+                        ("deflection", deflection_json(&sys, s, range, member_length(index, member))),
                     ]);
                 }
             }
@@ -427,6 +476,43 @@ fn note_overload(best: &mut Option<Overload>, check: Option<(f64, &'static str)>
     }
 }
 
+/// Analyse one structure under several load cases.
+///
+/// Returns `{"cases": [{"id": ..., "result": ...}]}` in request order. Each
+/// result is exactly what [`analyze`] gives for the model with that case's
+/// loads and options, so a case can be rejected (`invalid`) on its own, for
+/// example for a load on an unknown node, while the others are analysed.
+///
+/// The gain over separate calls is the request: the model is sent, parsed
+/// and decoded once. Each case is still solved from scratch; stiffness
+/// factorisations are not shared between cases.
+pub fn analyze_cases(model: &Model, options: &Options, cases: &[LoadCase]) -> Json {
+    let results = cases
+        .iter()
+        .map(|case| {
+            let mut case_model = model.clone();
+            if let Some(loads) = &case.loads {
+                case_model.loads = loads.clone();
+            }
+            if let Some(loads) = &case.member_loads {
+                case_model.member_loads = loads.clone();
+            }
+            let mut case_options = options.clone();
+            if let Some(factor) = case.load_factor {
+                case_options.load_factor = factor;
+            }
+            if case.gravity.is_some() {
+                case_options.gravity = case.gravity;
+            }
+            if !case.self_weight {
+                case_options.gravity = None;
+            }
+            object([("id", case.id.as_str().into()), ("result", analyze(&case_model, &case_options))])
+        })
+        .collect();
+    object([("cases", Json::Arr(results))])
+}
+
 /// Analyse a validated model. Never fails: every outcome is a result.
 pub fn analyze(input: &Model, options: &Options) -> Json {
     let issues = validate(input, options);
@@ -441,6 +527,7 @@ pub fn analyze(input: &Model, options: &Options) -> Json {
     model.sections.sort_by(|a, b| a.id.cmp(&b.id));
     model.foundations.sort_by(|a, b| a.id.cmp(&b.id));
     model.loads.sort_by(|a, b| a.id.cmp(&b.id));
+    model.member_loads.sort_by(|a, b| a.id.cmp(&b.id));
 
     let mut failed: BTreeSet<String> = BTreeSet::new();
     let mut events: Vec<Json> = Vec::new();

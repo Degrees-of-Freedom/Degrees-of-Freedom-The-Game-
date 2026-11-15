@@ -124,8 +124,8 @@ Run on Windows 11 with Rust 1.100.0 and Node 24.16.0, on the branch that adds `c
 
 | Check | Result |
 | --- | --- |
-| `npm run test:solver` | Pass: 53 tests, 1 ignored timing harness. Includes 10,000 seeded random states with no unhandled failure. |
-| `npm test` | Pass after merging main at `3c6aa90`: 31 test files and 178 tests; 1 file and 6 tests are skipped, 5 of them for want of an OpenSees service. The adapter and game-translation tests run the committed WebAssembly module. |
+| `npm run test:solver` | Pass: 69 tests, 1 ignored timing harness. Includes 10,000 seeded random states with no unhandled failure. Re-run on the branch adding deflection, member loads, load cases and the worker. |
+| `npm test` | Pass on the branch adding the solver worker: 31 test files and 189 tests; 1 file and 6 tests are skipped, 5 of them for want of an OpenSees service. The adapter and game-translation tests run the committed WebAssembly module. |
 | `VITE_OPENSEES_URL=http://127.0.0.1:8000 npm test` with the service running | Pass: 9 test files, 55 tests, before the game-translation tests were added and before main was merged; not re-run since. The Rust solver and OpenSees agree on a space frame, a mechanism and the three reference examples. |
 | `npm run typecheck` | Pass. |
 | `npm run build` | Pass. The bundle includes `dof_solver.wasm` (704 kB, 231 kB gzipped). The existing chunk-size warning remains. |
