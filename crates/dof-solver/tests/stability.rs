@@ -499,5 +499,45 @@ fn shared_frame_load_sharing_holds_in_the_nonlinear_analysis() {
             total += b;
         }
         close(total, p, 1e-8);
+
+/// A spin that lives only in a connection, such as a member on ball joints
+/// at both ends turning about its own axis, moves no model node. It must not
+/// be drawn as a movement of the nodes: scaling rounding noise up to one
+/// once showed nodes g and h sliding by half a unit in this frame.
+#[test]
+fn connection_spins_are_not_drawn_as_node_movement() {
+    let mut b = Build::linear();
+    for (id, p) in [("a", [0.0, 0.0, 0.0]), ("b", [5.0, 0.0, 0.0]), ("c", [5.0, 4.0, 0.0]), ("d", [0.0, 4.0, 0.0]),
+        ("e", [0.0, 0.0, 3.0]), ("f", [5.0, 0.0, 3.0]), ("g", [5.0, 4.0, 3.0]), ("h", [0.0, 4.0, 3.0])] {
+        b.node(id, p);
+    }
+    for (id, s, e) in [("c1", "a", "e"), ("c2", "b", "f"), ("c3", "c", "g"), ("c4", "d", "h"), ("g1", "e", "f"), ("g2", "f", "g"), ("g3", "g", "h"), ("g4", "h", "e")] {
+        let member = b.beam(id, s, e);
+        member.start.laws = BALL;
+        if id == "g2" {
+            member.end.laws = BALL;
+        }
+    }
+    for n in ["a", "b", "c", "d"] {
+        b.support(n, PINNED);
+    }
+    let r = b.run();
+    assert_eq!(r.status(0), "unstable");
+    assert_eq!(r.count(0, "mechanisms"), 1.0);
+    assert_eq!(r.count(0, "spinModes"), 2.0);
+    let moving: Vec<&str> = r.component(0).get("unstableNodeIds").unwrap().as_array().unwrap().iter().map(|n| n.as_str().unwrap()).collect();
+    assert_eq!(moving, ["f", "g", "h"]);
+    for mode in r.component(0).get("modes").unwrap().as_array().unwrap() {
+        if mode.get("kind").unwrap().as_str() != Some("spin") {
+            continue;
+        }
+        let dof_solver::json::Json::Obj(nodes) = mode.get("displacements").unwrap() else { panic!("displacements must be an object") };
+        for (node, values) in nodes {
+            let values = values.as_array().unwrap();
+            // A spin may turn a node in place, but never moves it.
+            for v in &values[..3] {
+                assert!(v.as_f64().unwrap().abs() < 1e-6, "spin moves node {node}: {}", mode.to_json_string());
+            }
+        }
     }
 }

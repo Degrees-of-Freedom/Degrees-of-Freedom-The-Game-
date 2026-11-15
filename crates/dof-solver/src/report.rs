@@ -22,6 +22,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub const SOLVER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// A mode whose largest model-node motion is below this fraction of its
+/// largest motion overall (connection variables included) moves no node.
+const NODE_PARTICIPATION: f64 = 1e-9;
+
 fn strings(items: impl IntoIterator<Item = impl Into<String>>) -> Json {
     Json::Arr(items.into_iter().map(|s| Json::Str(s.into())).collect())
 }
@@ -395,9 +399,18 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>, rem
             let peak = |range: std::ops::Range<usize>| shape.iter().map(|(_, v)| v[range.clone()].iter().map(|x| x * x).sum::<f64>().sqrt()).fold(0.0, f64::max);
             // A spin has no translation worth scaling by, only rounding noise.
             let scale = if mode.kind != "spin" && peak(0..3) > 0.0 { peak(0..3) } else { peak(3..6) };
+            // The whole mode, connection variables included, with rotations
+            // weighted by the characteristic length so that both are lengths.
+            let whole = mode.shape.iter().zip(&sys.eq_rot).map(|(v, rot)| v.abs() * if *rot { sys.lc } else { 1.0 }).fold(0.0, f64::max);
+            let node_scale = if mode.kind == "spin" { scale * sys.lc } else { scale };
+            // A motion that lives only in connection variables, such as a
+            // member spinning about its own axis on ball joints, moves no
+            // model node. Scaling its rounding noise up to one would draw a
+            // movement that does not exist, so it is reported with no nodes.
+            let moves_nodes = node_scale > NODE_PARTICIPATION * whole;
             let mut displacements = Vec::new();
             for (node_id, values) in shape {
-                if scale > 0.0 && values.iter().any(|v| v.abs() > 1e-6 * scale) {
+                if moves_nodes && values.iter().any(|v| v.abs() > 1e-6 * scale) {
                     if mode.kind != "spin" {
                         unstable_nodes.insert(node_id);
                     }
