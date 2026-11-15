@@ -91,6 +91,12 @@ The [gap analysis](solver-criteria-gap-analysis.md) records the unimplemented an
 
 The [Timburr avatar criteria](avatar-criteria.md) are design requirements, not current test coverage. The [prototype handoff](../../prototypes/timburr-companion/README.md#evidence-recorded-before-work-stopped) records the experiment’s build/test evidence, browser WebGL failure and unfinished fallback. The code/assets are preserved in an unapplied patch and removed from the active app. Its reported 94 passing tests predate the final fallback edits; neither live character rendering nor complete avatar compliance has been established. Future work must validate the patch against current main and complete the criteria’s acceptance scenarios.
 
+## Companion scenario motion — 2026-11-15
+
+`npm test` includes `apps/web/src/companion/{motion,animator,turnCues}.test.ts`. These tests check that clips start and end at rest, stay within amplitude bounds and sample smoothly. They also cover the interruption priorities, idle scheduling and the mapping from each scenario to its clip. The animator tests use a fake clock to check that frames and timers are released in still mode and on dispose. The report-policy tests check that unknown results are never cheered and old results are never reenacted.
+
+For a browser check, run `node docs/evidence/companion-motion/check.mjs "$PWD" "$PWD/node_modules/playwright" /opt/pw-browsers/chromium`. It needs WebGL; SwiftShader is enabled. The script writes `motion-sheet.png` and asserts the clip sequence for a scripted Grow Dusk match. The older `docs/evidence/companion-repair/check.mjs` already failed on the base commit `6b33f9a` before this change: its `Turn details` locator matches two buttons.
+
 ## Joint DOF criteria validation scope
 
 The [joint DOF criteria](joint-dof-criteria.md) are documentation only. They revise shared-joint connection freedoms and foundation defaults and define permission and instability overlays. No new UI, solver behavior, migration or validation tests are implemented here. Future acceptance must cover physical-axis compatibility, mixed-profile legacy data, relative-versus-ground meaning, global coupling, mode provenance, toggles, accessibility and non-mutation.
