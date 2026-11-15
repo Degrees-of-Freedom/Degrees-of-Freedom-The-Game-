@@ -38,6 +38,15 @@ const connection = z.strictObject({
   laws: z.tuple([law, law, law, law, law, law]), capacities: z.array(capacity),
   state: z.enum(['active', 'released']), damage: z.array(damage).optional(),
 });
+/** A through-member collar is separate from that member's two end fittings.
+ * This version only supports a fully fixed connection; released collars need
+ * a separately implemented relation between the two six-DOF nodes. */
+const collar = z.strictObject({
+  id, definitionVersion: z.literal('fixed-interior-collar-1'),
+  source: z.strictObject({ memberId: id, quarter: z.union([z.literal(1), z.literal(2), z.literal(3)]), jointId: id }),
+  jointId: id, card: card.optional(), capacities: z.array(capacity),
+  state: z.enum(['active', 'released']),
+});
 const joint = z.strictObject({ id, position: vec3 });
 const foundation = z.strictObject({ id, jointId: id, restrained: flags6, ownerId: id.optional() });
 const load = z.strictObject({
@@ -55,6 +64,7 @@ const rawSnapshot = z.strictObject({
   units: z.literal('SI'), globalAxes: z.literal('right-handed-z-up'),
   materials: z.array(material), sections: z.array(section), joints: z.array(joint),
   members: z.array(member), connections: z.array(connection), foundations: z.array(foundation),
+  collars: z.array(collar).optional(),
   loads: z.array(load), loadCases: z.array(loadCase),
   selfWeight: z.discriminatedUnion('enabled', [
     z.strictObject({ enabled: z.literal(false) }),
@@ -73,14 +83,14 @@ export const structuralSnapshotSchema = rawSnapshot.superRefine((snapshot, ctx) 
   const materials = unique(snapshot.materials, 'material');
   const sections = unique(snapshot.sections, 'section');
   const joints = unique(snapshot.joints, 'joint');
-  unique(snapshot.members, 'member');
-  unique(snapshot.connections, 'connection');
+  const members = unique(snapshot.members, 'member');
+  unique([...snapshot.connections, ...(snapshot.collars ?? [])], 'connection');
   unique(snapshot.foundations, 'foundation');
   const loads = unique(snapshot.loads, 'load');
   unique(snapshot.loadCases, 'load case');
   const endpoints = unique(snapshot.members.flatMap((m) => [m.start, m.end]), 'endpoint');
   const cards = new Set<string>();
-  for (const item of [...snapshot.members, ...snapshot.connections, ...snapshot.loads]) {
+  for (const item of [...snapshot.members, ...snapshot.connections, ...(snapshot.collars ?? []), ...snapshot.loads]) {
     if (!item.card) continue;
     if (cards.has(item.card.instanceId)) error(`Card instance ${item.card.instanceId} is deployed more than once.`);
     cards.add(item.card.instanceId);
@@ -110,6 +120,20 @@ export const structuralSnapshotSchema = rawSnapshot.superRefine((snapshot, ctx) 
     attached.add(c.endpointId);
     const owner = snapshot.members.find((m) => m.start.id === c.endpointId || m.end.id === c.endpointId);
     if (owner && !validFrame(owner.start.position, owner.end.position, c.referenceY)) error(`Connection ${c.id} has an invalid reference direction.`);
+  }
+  const collarSources = new Set<string>();
+  for (const c of snapshot.collars ?? []) {
+    const parent = members.get(c.source.memberId), source = joints.get(c.source.jointId), target = joints.get(c.jointId);
+    const key = `${c.source.memberId}:${c.source.quarter}`;
+    if (!parent || parent.family !== 'frame' || !source || !target)
+      error(`Collar ${c.id} needs a frame source and existing source and target joints.`);
+    else {
+      const point = parent.start.position.map((v, i) => v + (parent.end.position[i] - v) * c.source.quarter / 4);
+      if (!samePoint(point, source.position) || !samePoint(point, target.position))
+        error(`Collar ${c.id} must join its exact original station to a coincident target.`);
+    }
+    if (collarSources.has(key)) error(`Original member port ${key} has multiple collars.`);
+    collarSources.add(key);
   }
   for (const f of snapshot.foundations) if (!joints.has(f.jointId)) error(`Foundation ${f.id} has a missing joint.`);
   for (const l of snapshot.loads) if (!(l.target.kind === 'joint' ? joints : endpoints).has(l.target.id)) error(`Load ${l.id} has a missing target.`);

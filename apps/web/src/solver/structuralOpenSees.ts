@@ -75,6 +75,7 @@ function localY(start: readonly number[], end: readonly number[], referenceY: re
 export function projectOpenSeesRequest(request: StructuralAnalysisRequest, capabilities: OpenSeesCapabilities): OpenSeesProjection | { ok: false; reason: string } {
   const snapshot = request.snapshot;
   const unsupported = (reason: string) => ({ ok: false as const, reason });
+  if (snapshot.collars?.length) return unsupported('This adapter does not translate fixed interior collars. Use the Shared table solver.');
   if (request.analysis.kind !== 'linear-static' || request.analysis.loadPath.length !== 1) return unsupported('Only a single-stage linear static analysis is supported.');
   if (!capabilities.fidelities.includes('linear')) return unsupported('The OpenSees service does not offer linear fidelity.');
   const stage = request.analysis.loadPath[0];
