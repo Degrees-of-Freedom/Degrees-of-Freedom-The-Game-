@@ -14,6 +14,7 @@ import { getSettings } from "../menu/settings";
 import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
 import { addResultArrows, displayPoint, viewBasePoint } from "./sceneResults";
 import { buildDisplacementShadow, labelPeakDisplacement } from "./displacementShadow";
+import { projectIslet } from "./companionIslet";
 import { createFlowParticles } from "./flowParticles";
 import { buildReleaseFlow, markInstability } from "./releaseFlow";
 import { drawBoardDiagram } from "./boardDiagrams";
@@ -236,6 +237,30 @@ export function Scene({
     renderer.domElement.addEventListener("pointermove", trackPointer);
     renderer.domElement.addEventListener("pointerdown", trackPointer);
     renderer.domElement.addEventListener("pointerleave", releasePointer);
+    /**
+     * Tell the page where the companion's islet is on screen. The companion is
+     * an HTML control outside this component, so the position is published as
+     * CSS variables on the workspace element and the stylesheet does the rest.
+     */
+    const workspace = element.closest<HTMLElement>(".environment");
+    let isletKey = "";
+    function anchorCompanion() {
+      if (!workspace) return;
+      const canvas = renderer.domElement;
+      const at = projectIslet(terrain, camera, canvas.clientWidth, canvas.clientHeight);
+      const key = at ? [Math.round(at.x), Math.round(at.y), Math.round(at.size), at.x > canvas.clientWidth - 330].join(",") : "";
+      if (key === isletKey) return;
+      isletKey = key;
+      if (!at) {
+        delete workspace.dataset.islet;
+        return;
+      }
+      // The speech cloud opens towards the side with more room.
+      workspace.dataset.islet = at.x > canvas.clientWidth - 330 ? "left" : "right";
+      workspace.style.setProperty("--islet-x", Math.round(at.x) + "px");
+      workspace.style.setProperty("--islet-y", Math.round(at.y) + "px");
+      workspace.style.setProperty("--islet-size", Math.round(at.size) + "px");
+    }
     function draw() {
       renderer.clear();
       renderer.render(scene, camera);
@@ -581,6 +606,7 @@ export function Scene({
       // Joint glyphs keep a constant on-screen size and avoid each other, so
       // they are positioned against the current camera before each draw.
       glyphs.layout(camera, element.clientWidth, element.clientHeight);
+      anchorCompanion();
       draw();
     });
     /**
@@ -751,6 +777,7 @@ export function Scene({
     }
     return () => {
       if (memory && initial) memory.pose = { seed: initial.seed, eye: camera.position.toArray(), target: controls.target.toArray() };
+      if (workspace) delete workspace.dataset.islet;
       refresh.current = () => {};
       refreshPermissions.current = () => {};
       glyphs.dispose();

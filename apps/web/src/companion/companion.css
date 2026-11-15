@@ -102,3 +102,28 @@
     max-height: max(78px, calc(63dvh - 324px));
   }
 }
+
+/* When the 3D scene has an islet in the water, the companion stands on it:
+   the scene publishes the standing spot as --islet-x/-y and the figure height
+   as --islet-size on the workspace. Without them (other environments, or no
+   WebGL) the drawn islet at the screen edge above remains. */
+.environment[data-islet] .companion-board {
+  left: var(--islet-x); top: var(--islet-y); bottom: auto; width: 0; height: 0;
+  --figure-size: var(--islet-size);
+}
+.environment[data-islet] .companion-island { display: none; }
+.environment[data-islet] .companion-board .companion-figure {
+  left: 0; bottom: 0; transform: translateX(-50%);
+}
+.environment[data-islet] .companion-board .companion-figure > span:last-child {
+  top: calc(100% + 8px); transform: translateX(-50%);
+}
+/* The cloud opens above the islet, over the water, so it does not cover the board. */
+.environment[data-islet] .companion-board .companion-note {
+  left: -34px; bottom: calc(var(--islet-size) + 16px);
+}
+.environment[data-islet] .companion-board .companion-note::before { left: 40px; bottom: -7px; }
+.environment[data-islet] .companion-board .companion-note::after { left: 34px; bottom: -17px; }
+.environment[data-islet="left"] .companion-board .companion-note { left: auto; right: -34px; }
+.environment[data-islet="left"] .companion-board .companion-note::before { left: auto; right: 40px; }
+.environment[data-islet="left"] .companion-board .companion-note::after { left: auto; right: 34px; }

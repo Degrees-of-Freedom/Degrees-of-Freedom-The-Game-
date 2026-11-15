@@ -1,3 +1,4 @@
+import { addCompanionIslet } from "./companionIslet";
 import * as THREE from "three";
 import { CELL_SIZE, type Level } from "../game/model";
 import { terrainCell } from "../game/terrain";
@@ -285,6 +286,8 @@ export function buildDiorama(
     );
   }
   if (style === "kit") addTurntable(group, width, height, deck);
+  // The companion's islet stands in the water of the growth dioramas.
+  if (style === "grow" || style === "grow-dusk") addCompanionIslet(group, deck - thickness * 0.84, height);
   if (hasTerrain) {
     // Preserve the visible shoreline and relief of challenge-specific terrain.
     for (let x = 0; x < level.nx; x++)
