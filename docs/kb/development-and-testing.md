@@ -29,6 +29,8 @@ validated_against:
   - scripts/build-solver-wasm.mjs
   - scripts/bench-solver.mjs
   - apps/web/src/solver/wasm
+  - apps/web/src/viewer/viewModes.test.ts
+  - apps/web/src/components/viewModes/viewModes.test.tsx
 owner: unknown
 status: partial
 ---
@@ -44,6 +46,8 @@ Vitest covers editing rules, draw conservation, turn replay, attachment laws, vi
 Vitest also covers the OpenSees adapter and its health check against a stubbed `fetch`, solver selection, the stored solver setting, and the translation from the game model to the shared contract. Further tests run only when `VITE_OPENSEES_URL` points at a running service: two send a cantilever and the reference examples through it, and three compare its answers with the Rust solver's.
 
 `analysisModel.test.ts` checks SI units, translation to the detailed contract and reference games against the actual WebAssembly module. Vitest loads the checked-in `apps/web/src/solver/wasm/dof_solver.wasm`. Run `npm run build:solver` after editing Rust. The root production build always rebuilds the binary from source.
+
+Grow Dusk view modes have Vitest coverage in `viewModes.test.ts` (reducer, exclusivity, drawer mapping, on-demand response, scale) and `viewLegends.test.ts` (content, colours, unavailable states). `contourRamp.test.ts`, `viewFormat.test.ts`, `displacementShadow.test.ts` (against the analytical cantilever) and `components/viewModes/viewModes.test.tsx` (static panel and legend markup) cover the rest. On 2026-11-15 the panel was also checked in headless Chromium with SwiftShader through the Vite dev server: a six-turn seed 0 match at 1366 × 900, plus 683 × 384 and 412 × 915 touch layouts. The checks covered each mode, the label switch, Escape handling, drawer synchronisation and no horizontal overflow. After a production build, `release-presentation.mjs` passed all nine scenarios, `release-resources.mjs` passed, and `release-browser.mjs` passed seed 0 and its all-pass match, with `DOF_SOFTWARE_GL=1` on Linux Chromium. That build compiled the solver with Rust 1.97.0, and the rebuilt WASM was not committed. The presentation script first found a legend accessible name colliding with the drawer's **Shear diagram** label; the legend cards no longer carry one.
 
 ## Rust solver
 
