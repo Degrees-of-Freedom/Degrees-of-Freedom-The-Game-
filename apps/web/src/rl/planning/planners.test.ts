@@ -5,6 +5,7 @@ import { memberZone, nodeZone } from "../zones";
 import { actionsBetween, MinHeap } from "./common";
 import { ErosionPlanner } from "./erosionPlanner";
 import { GraphPlanner } from "./graphPlanner";
+import { PortfolioPlanner } from "./portfolioPlanner";
 import { runPlanner } from "./run";
 
 describe("MinHeap", () => {
@@ -90,4 +91,25 @@ describe("erosion planner", () => {
     const run = runPlanner(new GoalEnv(GOAL_SCENARIOS.holdAvoid), new ErosionPlanner());
     expect(run.solved).toBe(false);
   }, 90_000);
+});
+
+describe("portfolio planner", () => {
+  it("returns the cheaper solved plan, and never an unsolved one over a solved one", async () => {
+    const stub = (name: string, solved: boolean, cost: number) => ({
+      name,
+      plan: (_s: unknown, model: unknown) => ({ actions: [], model: model as never, solved, cost }),
+    });
+    const scenario = GOAL_SCENARIOS.single;
+    const model = { members: [], attrs: {}, nextId: 1 };
+    const pick = (...planners: ReturnType<typeof stub>[]) => new PortfolioPlanner(planners as never).plan(scenario, model);
+    expect(pick(stub("a", true, 900), stub("b", true, 700)).cost).toBe(700);
+    expect(pick(stub("a", true, 900), stub("b", false, 100))).toMatchObject({ solved: true, cost: 900 });
+    expect(pick(stub("a", false, 300), stub("b", false, 200)).cost).toBe(200);
+    expect(() => new PortfolioPlanner([]).plan(scenario, model)).toThrow(/at least one/);
+  });
+
+  it("solves the staged goal in the environment at the best known cost", () => {
+    const run = runPlanner(new GoalEnv(GOAL_SCENARIOS.staged), new PortfolioPlanner());
+    expect(run).toMatchObject({ solved: true, cost: 1320, invalidMoves: 0 });
+  });
 });

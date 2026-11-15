@@ -11,6 +11,7 @@ import { GoalEnv } from "../goalEnv";
 import { LinearSoftmaxPolicy } from "../policy";
 import { ErosionPlanner } from "../planning/erosionPlanner";
 import { GraphPlanner } from "../planning/graphPlanner";
+import { PortfolioPlanner } from "../planning/portfolioPlanner";
 import type { Planner } from "../planning/common";
 import { runPlanner } from "../planning/run";
 import { GOAL_SCENARIO_IDS, GOAL_SCENARIOS, isGoalScenarioId } from "../scenarios";
@@ -36,7 +37,7 @@ const rows: string[][] = [["scenario", "solver", "solved", "cost", "steps", "inv
 for (const id of ids) {
   if (!isGoalScenarioId(id)) continue;
   const env = new GoalEnv(GOAL_SCENARIOS[id]);
-  const planners: Planner[] = [new GraphPlanner(), new ErosionPlanner()];
+  const planners: Planner[] = [new GraphPlanner(), new ErosionPlanner(), new PortfolioPlanner()];
   for (const planner of planners) {
     const run = runPlanner(env, planner, 0);
     rows.push([id, planner.name, String(run.solved), String(run.cost), String(run.steps), String(run.invalidMoves), (run.planMs / 1000).toFixed(1)]);

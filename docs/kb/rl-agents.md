@@ -45,7 +45,8 @@ The environment calls the same functions the editor uses: `memberIssue` and `nod
 | `schema.ts`, `bridge.ts` | zod-validated JSON-lines protocol for external agents. |
 | `zones.ts` | Keep-out zone geometry (scenario rule, not a game rule). |
 | `demonstrations.ts` | Scripted and planner demonstrations for the imitation term; `trainer.ts` also has `imitate` and `demonstrationAccuracy`, which test what the features can express. |
-| `planning/` | Planners that solve scenarios without learning: `graphPlanner.ts`, `erosionPlanner.ts`, shared `common.ts`, runner `run.ts`. |
+| `planning/` | Planners that solve scenarios without learning: `graphPlanner.ts`, `erosionPlanner.ts`, `portfolioPlanner.ts` (best of both), shared `common.ts`, runner `run.ts`. |
+| `lookahead.ts` | Features of the structure an action would produce (simulated with the game's analysis); tested, not used in training. |
 | `cli/train.ts`, `cli/serve.ts`, `cli/compare.ts` | `npm run train:goal`, `serve:goal`, `compare:goal`. |
 
 ## The environment
@@ -177,7 +178,23 @@ So the multi-stage hold-wait-extend behaviour is learnable from one planner demo
 
 If a policy trained only to copy the planner cannot reproduce it, more reinforcement learning with the same features cannot find it, which matches the 0% results. Some mismatches are harmless ties (which of two needed joints goes first), but the member choices are not: the planner's `holdAvoid` second stage is an irregular tripod of 2-cell columns and short diagonals around the zone, and the policy keeps choosing a single long diagonal. Adding geometric features aimed at it (a foundation one cell from a weight, a foundation mirrored through a weight from an existing one, horizontal/vertical member flags, a member level with a weight) did not change the picture (`zoned` 10 of 19) and was reverted.
 
-What would likely help, untested: a policy that scores whole proposals instead of single moves (for example, learn to choose among planner candidates and repairs); a non-linear scorer; or features that describe the design relative to the whole structure rather than one action.
+**Three follow-ups to that diagnosis** (all tested offline against the graph planner's decisions; the scripts are not kept in the repo):
+
+1. *Look-ahead features* (`lookahead.ts`: simulate each candidate with the game's analysis and describe the result: potential gained, unstable share dropped, objectives gained, connections gained, whether it solves, cost). `holdAvoid` 12 → 14 of 19 decisions reproduced.
+2. *A non-linear scorer* (one hidden layer of 16 or 32 tanh units). No gain over the linear scorer on its own.
+3. *An aliasing count.* On `zoned`, 15 of 19 demonstrated moves have another legal candidate with an identical feature vector (11 of 19 on `holdAvoid`, none on `single` or `staged`), so no scorer on those features can separate them. Position features (offsets of each end from the nearest unconnected weight, member direction) cut it to 8 of 19 and 4 of 19. With look-ahead and position features together, linear, 16-unit and 32-unit scorers all reproduced exactly the same 12 of 19 (`holdAvoid`) and 9 of 19 (`zoned`).
+
+Identical counts across scorer sizes mean capacity is not the limit, but the test cannot say whether the rest is optimisation (my fitting loop may stall: the kind-balanced prior puts hundreds of member candidates about 7 nats down), ties no feature can break, or both. Position features were not added to the trained policy and the agent was not retrained with look-ahead or an MLP, because the offline fit showed no gain to justify it. `lookahead.ts` is committed and tested but unused by training.
+
+**Choosing among whole proposals worked.** `PortfolioPlanner` asks the graph and erosion planners for complete plans and keeps the best by the plan as a whole (solved, then cheapest). On the 16 random staged-and-zoned layouts (seeds 10,000 to 10,015):
+
+| | Solved | Mean cost (solved) | Mean planning time |
+| --- | --- | --- | --- |
+| Graph | 16 | 3,303 | 3.8 s |
+| Erosion | 13 | 2,968 | 13.8 s |
+| Best of both | 16 | 3,005 | about 17.6 s |
+
+That is 9% cheaper than graph alone at about 4.6 times the planning time. It is not a learned policy: the choice is an argmin over plans the game's analysis has already verified. A learned selector could only save time by predicting which planner will win; none was built. So the position this leaves is: the move-by-move RL agent solves `single`, `staged` and `pickup1` (with demonstrations for the last two) but not the zoned scenarios or unseen layouts, while search-based planners solve all of them, and the better of two is cheaper than either's worst case.
 
 ## Limitations and open questions
 
