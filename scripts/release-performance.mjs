@@ -22,10 +22,19 @@ try {
   const system=await browserTools.send("SystemInfo.getInfo");
   const button=name=>page.getByRole("button",{name,exact:true});
   const ready=button("Ready · Reveal my hand");
-  await page.goto(base+"match?seed=6");await ready.click();
+  await page.goto(base+"match?seed=0");await ready.click();
+  await page.getByLabel("Calculate every").selectOption("1");
+  const drawFour = async () => {
+    for (const [index,deck] of ["members","loads","connections","connections"].entries()) {
+      await page.locator('[data-deck="'+deck+'"]').click();
+      if (index < 3) await page.getByText(`${index + 1} of 4 drawn · any mix of decks`, {exact:true}).waitFor();
+    }
+    await page.locator('[aria-label="Draw four cards"]').waitFor({state:"detached"});
+  };
+  await drawFour();
   const hand=page.getByRole("region",{name:"Active hand"});
   const card=(kind,re)=>hand.locator('[data-kind="'+kind+'"]').filter({hasText:re}).first();
-  await card("element",/HEB/).click();
+  await card("element",/HEB|Beam \/ column/).click();
   await page.getByText("Precise placement",{exact:true}).click();
   await page.getByLabel("End A grid x,y,z").fill("5,7,1");
   await page.getByLabel("End B grid x,y,z").fill("5,8,2");
@@ -36,6 +45,8 @@ try {
   await card("load",/kN/).click();
   await page.getByLabel("Load target").selectOption("port:3:2");await button("Place load").click();
   await button("End turn").click();await ready.click();
+  await drawFour();
+  await page.locator('[aria-label="Analysis legend"]').waitFor();
   const measure=async (count,onSample) => {
     const samples=page.evaluate(n => new Promise(resolveSamples => {
       const frames=[]; let before;

@@ -5,6 +5,22 @@ import { SECTION_GEOMETRY } from "../evaluator/sections";
 export type WideFlange = "ipe" | "heb";
 export const READABLE_SECTION_SCALE = 1.5;
 
+/** Square and rectangular tubes share one extruded material rim. Both exposed
+ * ends stay open, and inner walls have actual thickness in physical metres. */
+export function rectangularHollowGeometry(
+  dimensions: { width: number; depth: number; wall: number } = SECTION_GEOMETRY.shs, steps = 1,
+) {
+  const {width, depth, wall} = dimensions;
+  const w = width / 2, d = depth / 2;
+  const face = new THREE.Shape();
+  face.moveTo(-w, -d); face.lineTo(w, -d); face.lineTo(w, d); face.lineTo(-w, d); face.closePath();
+  const hole = new THREE.Path();
+  hole.moveTo(-w + wall, -d + wall); hole.lineTo(-w + wall, d - wall);
+  hole.lineTo(w - wall, d - wall); hole.lineTo(w - wall, -d + wall); hole.closePath();
+  face.holes.push(hole);
+  return new THREE.ExtrudeGeometry(face, {depth:1, steps, bevelEnabled:false}).translate(0,0,-.5);
+}
+
 /** The caps are annuli and the inside wall is visible through either end. */
 export function roundHollowGeometry(steps = 1): THREE.ExtrudeGeometry {
   const { outerDiameter, wall } = SECTION_GEOMETRY.chs;

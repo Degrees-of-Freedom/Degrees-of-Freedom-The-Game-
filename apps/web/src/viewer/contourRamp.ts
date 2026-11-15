@@ -6,7 +6,7 @@ import * as THREE from "three";
  * red for the greatest. The 3D geometry and the CSS legend both read these
  * stops so the legend cannot drift from what the board draws.
  */
-export const DISPLACEMENT_RAMP = ["#1d3fbf", "#22c3e6", "#3fcf6a", "#f2df3a", "#f59a2c", "#e53b35"] as const;
+export const DISPLACEMENT_RAMP = ["#1e40af", "#24c9ed", "#43d68b", "#f5e65b", "#f19c38", "#ef5548"] as const;
 
 const ramp = DISPLACEMENT_RAMP.map(hex => new THREE.Color(hex));
 

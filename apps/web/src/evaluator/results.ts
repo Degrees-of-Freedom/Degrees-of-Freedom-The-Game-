@@ -41,6 +41,9 @@ export interface ComponentResponse {
   verification?: ResponseVerification;
   instabilityWitness?: { memberIds: number[]; nodes: string[]; reason: string;
     comparison?: {topology: string; negativePivots: number; mechanisms: number} };
+  /** Normalized vectors reported by the kernel. Diagnostic motion is separate
+   * from an equilibrium displacement, including when no equilibrium exists. */
+  diagnosticModes?: { kind: 'mechanism' | 'spin' | 'buckling'; displacements: Record<string, readonly number[]> }[];
   /** A converged large displacement is independent of tangent instability. */
   excessiveDeformation?: boolean;
 }
@@ -107,6 +110,12 @@ export function displacementAt(combo: Combo | undefined, active: number): Float6
  * response per load combination, plus design checks, objectives and score.
  * Game-level checks only; not engineering design. */
 export interface StructureEvaluation {
+  /** Complete SI topology sent to the kernel, including unsupported/floating
+   * pieces omitted from the separate equilibrium-assembly context. */
+  diagnosticGeometry?: {
+    positions: Record<string, readonly [number, number, number]>;
+    segments: {memberId: number; a: string; b: string}[];
+  };
   reference?: {modelVersion: string; solverVersion: string; fidelity: 'nonlinear'};
   /** Total physical card gravity, including unavailable components, kN. */
   appliedGravityKN?: number;

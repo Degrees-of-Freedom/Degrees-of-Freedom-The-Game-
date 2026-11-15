@@ -1,11 +1,12 @@
 import type { TurnReport } from "./turns";
 
-/** Foreman presentation policy v1 consumes the charged, pre-repair comparison.
- * An accepted prop may have already resolved the originating physical issue. */
+/** Use the charged, pre-repair comparison. The correction may already have
+ * resolved the physical issue by the time the next player reveals the board. */
 function foremanIssues(report: TurnReport) {
   const event = report.penaltyDecision?.event, assessment = report.issues;
   if (report.penalty !== -1 || !event || !assessment || event.turn !== report.turn ||
       event.playerId !== report.playerId || event.amount !== -1 ||
+      typeof event.id !== "string" || !event.id.endsWith(`/${report.turn}/${report.playerId}`) ||
       event.beforeModelId !== assessment.beforeModelId || event.afterModelId !== assessment.afterModelId) return [];
   return assessment.changes.filter(c => event.issueIds.includes(c.id) && c.eligible &&
     (c.change === "new" || c.change === "worsened") && c.after.validity === "verified" && c.after.active === true)
@@ -18,7 +19,10 @@ export function publicRepairReport(report: TurnReport) {
   const receipt = report.correction;
   const charged = foremanIssues(report);
   if (!receipt && !charged.length) return null;
-  const affected = new Set([...charged, ...(receipt?.attempts ?? []).map(attempt => attempt.issueId), ...(receipt?.pending ?? [])]);
+  const jointAttempts = (receipt?.jointAttempts ?? []).map(({ issueId, memberId, jointId, lockedRotations, status, reason }) =>
+    ({ issueId, memberId, jointId, lockedRotations, status, reason }));
+  const affected = new Set([...charged, ...(receipt?.attempts ?? []).map(attempt => attempt.issueId),
+    ...jointAttempts.map(a => a.issueId), ...(receipt?.pending ?? [])]);
   const issues = report.issues?.changes.filter(change => affected.has(change.id))
     .map(({ id, memberId, end, category, after }) => {
       const finalFinding = receipt?.changes.find(change => change.id === id)?.after;
@@ -38,11 +42,16 @@ export function publicRepairReport(report: TurnReport) {
       const reading = (support: typeof before) => support && ({ upwardKN: support.upwardKN, reason: support.reason });
       return { jointId, owner: (after ?? before)!.owner, before: reading(before), after: reading(after) };
     });
-  return { turn: report.turn, playerId: report.playerId, penalty: report.penalty,
+  const instability = issues.find(issue => charged.includes(issue.id) && issue.category === "instability");
+  // In a single match, turn/player is the unique public suffix of the real
+  // penalty event ID. The private catalogue/seed prefix never reaches the UI.
+  const event = report.penaltyDecision?.event;
+  const charge = charged.length && event ? {
+    id: event.id.split("/").slice(-2).join("/"), unstableMemberId: instability?.memberId,
+  } : undefined;
+  return { turn: report.turn, playerId: report.playerId, penalty: report.penalty, charge,
     foreman: charged.length > 0,
-    releaseForeman: issues.some(issue => charged.includes(issue.id) &&
-      (issue.category === "instability" || (issue.utilization ?? 0) >= 1.25)),
-    issues, attempts, checks, supports,
+    issues, attempts, jointAttempts, checks, supports,
     pending: [...(receipt?.pending ?? [])], policy: receipt?.policy };
 }
 

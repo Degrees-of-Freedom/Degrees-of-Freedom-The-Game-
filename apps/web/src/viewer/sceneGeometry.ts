@@ -11,6 +11,12 @@ import { buildDiorama } from "./diorama";
 export const disposeGroup = (group: THREE.Group) => {
   group.traverse((o) => {
     if (o instanceof THREE.Sprite) {
+      // Three shares Sprite's geometry at module scope. Every renderer adds a
+      // dispose listener that closes over its GL context. Retire the geometry
+      // too, or those listeners keep old renderers/canvases alive after routes.
+      o.geometry.dispose();
+      if (o.material.map?.image?.dataset?.sceneTexture === 'label')
+        o.material.map.image.dataset.sceneTextureState = 'disposed';
       o.material.map?.dispose();
       o.material.dispose();
     } else if (
