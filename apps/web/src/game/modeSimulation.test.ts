@@ -7,6 +7,7 @@ import { modeSetup, type GameMode } from "./modes";
 import { useGameStore } from "./store";
 import { analyzeTurn } from "./turnAnalysis";
 import { createTurnGame } from "./turns";
+import { unavailableSolver } from "../solver/unavailable";
 
 // The multiplayer store now waits for a real write acknowledgement.
 vi.hoisted(() => {
@@ -60,11 +61,11 @@ describe("simulation across game modes", () => {
     expect([...combo.u].every(Number.isFinite)).toBe(true);
   });
 
-  it("records the end-turn simulation result before advancing the active player", () => {
+  it("records the end-turn simulation result before advancing the active player", async () => {
     const initial = useGameStore.getState();
     try {
-      useGameStore.setState({ mode: "multiplayer", turn: createTurnGame() });
-      expect(useGameStore.getState().endTurn()).toBeNull();
+      useGameStore.setState({ mode: "multiplayer", turn: createTurnGame(), turnSolver: unavailableSolver });
+      expect(await useGameStore.getState().endTurn()).toBeNull();
       expect(useGameStore.getState().turn).toMatchObject({
         turn: 2,
         playerIndex: 1,

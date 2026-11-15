@@ -1,4 +1,10 @@
-"""Linear reaction partition and coordinate invariance at the service boundary."""
+"""Tal's reaction-partition tests (origin/main tests/test_reaction_partition.py), ported to contract v2.
+
+Linear reaction partition and coordinate invariance at the service boundary.
+``helpers.run`` analyses at linear fidelity, as her tests did (v1 was linear only).
+A pinned-pinned member without a law is a v2 ``beam`` with two ball ends,
+which carries axial force only between its joints, like her truss.
+"""
 
 import math
 

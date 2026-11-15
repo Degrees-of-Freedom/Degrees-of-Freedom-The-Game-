@@ -1,69 +1,188 @@
 import type {
-  MemberEndFixity,
+  AnalysisFidelity,
+  MemberEndConnection,
+  MemberProperties,
+  StructuralMember,
   StructuralModel,
+  Vector3,
 } from '@dof/solver-contract';
-import { allNodeKeys, CELL_SIZE, parseNodeKey, type GameModel } from './model';
-import { resolveMemberLaw } from '../solver/voxelSections';
+import { ITEMS, resolveMemberLaw, type BeamSection } from '../solver/voxelSections';
+import { allNodeKeys, CELL_SIZE, parseNodeKey, type GameModel, type LoadDirection, type Member } from './model';
 
 /** Game point loads are stored in kN; the contract uses newtons. */
 const NEWTONS_PER_KILONEWTON = 1e3;
+/** Unit vector of each selectable point-load direction, in global axes. */
+const LOAD_DIRECTIONS: Record<LoadDirection, Vector3> = {
+  '-Z': [0, 0, -1], '+Z': [0, 0, 1], '+X': [1, 0, 0], '-X': [-1, 0, 0], '+Y': [0, 1, 0], '-Y': [0, -1, 0],
+};
+/**
+ * The voxel catalog states stiffness in kN/m^2 (E, G), force in kN (P0) and
+ * weight in kN/m; the contract is SI. 1 kN/m^2 = 1e3 Pa and 1 kN/m = 1e3 N/m,
+ * so those convert by multiplying by 1e3. Areas (m^2) and second moments
+ * (m^4) already agree.
+ */
+const SI_PER_KILONEWTON_UNIT = NEWTONS_PER_KILONEWTON;
+
+/** Same threshold the voxel solver uses to call a member vertical (frameMath.localAxes). */
+const VERTICAL_MEMBER = 0.999;
+
+/** Shear modulus of steel in Pa. Cables carry axial force only, so it is never used. */
+const CABLE_PLACEHOLDER_SHEAR_MODULUS = 81e9;
+
+/** Moment connection: all six local axes locked. */
+const FIXED_END: MemberEndConnection = { laws: ['locked', 'locked', 'locked', 'locked', 'locked', 'locked'] };
+/**
+ * The voxel rule for a member end without a moment connection
+ * (frameElement.ts releases dofs 4, 5, 10, 11): translations and torsion stay
+ * locked, both bending rotations are free. This is not the contract's
+ * `pinned` shorthand, which frees torsion as well.
+ */
+const BENDING_RELEASED_END: MemberEndConnection = { laws: ['locked', 'locked', 'locked', 'locked', 'free', 'free'] };
 
 export interface StructuralModelTranslation {
   model: StructuralModel;
-  /** What the shared contract could not express about this game model. */
+  /** What the shared contract or this translation does not carry about this game model. */
   notes: string[];
+}
+
+const beamProperties = (section: BeamSection): MemberProperties => ({
+  elasticModulus: section.E * SI_PER_KILONEWTON_UNIT,
+  shearModulus: section.G * SI_PER_KILONEWTON_UNIT,
+  area: section.A,
+  inertiaY: section.Iy,
+  inertiaZ: section.Iz,
+  torsionConstant: section.J,
+  weightPerLength: section.w * SI_PER_KILONEWTON_UNIT,
+});
+
+/**
+ * Cables are axial only; the contract still requires a full property set, so
+ * bending and torsion values are those of a solid round bar of the same area
+ * (I = A^2 / 4 pi, J = 2 I). They are ignored for cables.
+ */
+function cableProperties(): MemberProperties {
+  const { E, A, w } = ITEMS.cable;
+  const inertia = (A * A) / (4 * Math.PI);
+  return {
+    elasticModulus: E * SI_PER_KILONEWTON_UNIT,
+    shearModulus: CABLE_PLACEHOLDER_SHEAR_MODULUS,
+    area: A,
+    inertiaY: inertia,
+    inertiaZ: inertia,
+    torsionConstant: 2 * inertia,
+    weightPerLength: w * SI_PER_KILONEWTON_UNIT,
+  };
+}
+
+/**
+ * Local Y the way the voxel solver builds it (frameMath.localAxes): Z x ex
+ * for ordinary members, which is horizontal, and global Y for vertical ones.
+ * The contract takes Y as the part of `orientation` perpendicular to the
+ * member, so passing that vector reproduces the voxel axes. Local Z = X x Y
+ * in both.
+ */
+function voxelLocalY(a: Vector3, b: Vector3): Vector3 {
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+  const length = Math.hypot(d[0], d[1], d[2]);
+  if (Math.abs(d[2] / length) > VERTICAL_MEMBER) return [0, 1, 0];
+  // (0,0,1) x d = (-dy, dx, 0)
+  return [-d[1], d[0], 0];
+}
+
+/**
+ * Contract fields that describe one catalog member between two points: its
+ * kind, resolved SI properties, local axes and, for cables, the catalog
+ * pretension as initial strain. Connections are the caller's business.
+ */
+export function catalogMember(
+  type: Exclude<Member['type'], 'spring'>,
+  start: Vector3,
+  end: Vector3,
+): Pick<StructuralMember, 'kind' | 'properties' | 'orientation' | 'initialStrain'> {
+  if (type === 'cable') {
+    const { E, A, P0 } = ITEMS.cable;
+    return { kind: 'cable', properties: cableProperties(), initialStrain: P0 / (E * A) };
+  }
+  return { kind: 'beam', properties: beamProperties(ITEMS[type]), orientation: voxelLocalY(start, end) };
+}
+
+/** Grid key to contract position in metres. */
+export function gridPosition(key: string): Vector3 {
+  const [i, j, k] = parseNodeKey(key);
+  return [i * CELL_SIZE, j * CELL_SIZE, k * CELL_SIZE];
+}
+
+export interface TranslationOptions {
+  /** Contract analysis fidelity. Omitted means linear, the service default. */
+  fidelity?: AnalysisFidelity;
 }
 
 /**
  * Translate the voxel game model to the shared solver contract.
  *
- * The translation carries what decides kinematic stability: geometry,
- * connectivity, connection type and supports. It follows the game's rules:
- *
  * - Node ids are grid keys; positions are grid indices times the cell size,
  *   with Z vertical.
- * - A member end is rigid where its node has a moment connection (`joint`)
- *   and pinned elsewhere. Cables are pinned at both ends.
- * - Explicit support masks preserve all six degrees of freedom; a legacy
- *   foundation without a mask restrains all six.
- * - Point loads preserve their selected axis direction.
+ * - Cables are `cable` members, tension-only. Their pretension (P0 in kN) is
+ *   sent as initial strain P0 / (E A): E in kN/m^2 times A in m^2 is kN, so
+ *   the ratio is dimensionless and needs no conversion.
+ * - Other members are `beam`s with catalog sections in SI and the voxel local
+ *   axes as `orientation`. Catalog Iy is the second moment about local Y
+ *   (frameMath.frameK bends in the local XZ plane with Iy), and Iz in XY.
+ * - A non-cable member end is `fixed` where its node has a moment connection
+ *   (`joint`); otherwise translations and torsion stay locked and both bending
+ *   rotations are free, exactly as the voxel solver condenses them.
+ *   Cable ends are axial, so rotational laws mean nothing to them.
+ * - A foundation restrains all six degrees of freedom unless it carries an
+ *   explicit restraint mask, which is passed through unchanged.
+ * - Point loads act along their selected axis, -Z when none is selected.
  *
- * The optional corotational check carries SI section and cable laws. Both
- * service checks use only the explicit point loads on this editor geometry.
+ * Nonlinear analysis is opt-in, as the service expects: with no option the
+ * model carries no `analysis` and the service solves it linearly. Asked for
+ * nonlinear (`true`, or `{ fidelity: 'nonlinear' }`), the model selects the
+ * corotational formulation and each member carries its physical law: the
+ * catalogue section, or for a cable its rest length. Axial spring printings
+ * cannot be represented and are refused.
  */
-export function toStructuralModel(game: GameModel, nonlinear = false): StructuralModelTranslation {
-  const directions = { '-Z': [0, 0, -1], '+Z': [0, 0, 1], '+X': [1, 0, 0], '-X': [-1, 0, 0], '+Y': [0, 1, 0], '-Y': [0, -1, 0] } as const;
-  const fixityAt = (key: string, cable: boolean): MemberEndFixity =>
-    !cable && game.attrs[key]?.joint ? 'fixed' : 'pinned';
+export function toStructuralModel(
+  game: GameModel,
+  options: boolean | TranslationOptions = {},
+): StructuralModelTranslation {
+  const fidelity = typeof options === 'boolean' ? (options ? 'nonlinear' : undefined) : options.fidelity;
+  const nonlinear = fidelity === 'nonlinear';
+  const positions = new Map<string, Vector3>();
+  const nodes = allNodeKeys(game).map((key) => {
+    const position = gridPosition(key);
+    positions.set(key, position);
+    return { id: key, position };
+  });
+
+  const endAt = (key: string): MemberEndConnection =>
+    game.attrs[key]?.joint ? FIXED_END : BENDING_RELEASED_END;
+
+  const translateMember = (member: Member): StructuralMember => {
+    if (member.type === 'spring')
+      throw new Error('The OpenSees check cannot represent this axial spring printing. Use the Shared table applied analysis.');
+    const start = positions.get(member.a) ?? gridPosition(member.a);
+    const end = positions.get(member.b) ?? gridPosition(member.b);
+    const base = { id: String(member.id), startNodeId: member.a, endNodeId: member.b };
+    const section = catalogMember(member.type, start, end);
+    // Nonlinear: the member law replaces the section and initial strain. The
+    // law is built from the same catalogue, so the two are equivalent; a
+    // cable's rest length L / (1 + P0 / EA) gives the same pretension.
+    const physical = nonlinear
+      ? { kind: section.kind, ...(section.orientation && { orientation: section.orientation }), law: resolveMemberLaw(member.type, Math.hypot(end[0] - start[0], end[1] - start[1], end[2] - start[2])) }
+      : section;
+    if (member.type === 'cable') return { ...base, ...physical };
+    return { ...base, ...physical, startConnection: endAt(member.a), endConnection: endAt(member.b) };
+  };
 
   const model: StructuralModel = {
     units: 'SI',
-    ...(nonlinear ? { analysis: { type: 'corotational' as const } } : {}),
-    nodes: allNodeKeys(game).map((key) => {
-      const [i, j, k] = parseNodeKey(key);
-      return {
-        id: key,
-        position: [i * CELL_SIZE, j * CELL_SIZE, k * CELL_SIZE],
-      };
-    }),
-    members: game.members.map((member) => {
-      if (member.type === 'spring') throw new Error('The separate OpenSees editor check cannot represent this axial spring printing. Use the Shared table applied analysis.');
-      const cable = member.type === 'cable';
-      const length = () => {
-        const a = parseNodeKey(member.a), b = parseNodeKey(member.b);
-        return CELL_SIZE * Math.hypot(...a.map((value, i) => value - b[i]));
-      };
-      return {
-        id: String(member.id),
-        startNodeId: member.a,
-        endNodeId: member.b,
-        startFixity: fixityAt(member.a, cable),
-        endFixity: fixityAt(member.b, cable),
-        ...(nonlinear ? { law: resolveMemberLaw(member.type, length()) } : {}),
-      };
-    }),
+    nodes,
+    members: game.members.map(translateMember),
     supports: [],
     loads: [],
+    ...(nonlinear ? { analysis: { type: 'corotational' as const } } : fidelity ? { analysis: { fidelity } } : {}),
   };
   for (const [key, attrs] of Object.entries(game.attrs)) {
     if (attrs.found)
@@ -72,22 +191,27 @@ export function toStructuralModel(game: GameModel, nonlinear = false): Structura
         restrained: attrs.restraint ? [...attrs.restraint] : [true, true, true, true, true, true],
       });
     if (attrs.load) {
-      const [x, y, z] = directions[attrs.loadDirection ?? '-Z'];
+      const newtons = attrs.load * NEWTONS_PER_KILONEWTON;
+      const [x, y, z] = LOAD_DIRECTIONS[attrs.loadDirection ?? '-Z'];
       model.loads.push({
         nodeId: key,
-        force: [x * attrs.load * NEWTONS_PER_KILONEWTON, y * attrs.load * NEWTONS_PER_KILONEWTON, z * attrs.load * NEWTONS_PER_KILONEWTON],
+        force: [x * newtons, y * newtons, z * newtons],
         moment: [0, 0, 0],
       });
     }
   }
 
-  if (nonlinear) return { model, notes: ['The nonlinear check uses catalogue section properties, reference cable lengths and simultaneous editor point loads. Self-weight and challenge combinations are excluded.'] };
-  const notes: string[] = ['The contract check uses point loads only; it does not include self-weight, wind, or voxel member sections.'];
-  if (game.members.some((member) => member.type !== 'cable' && !game.attrs[member.a]?.joint && !game.attrs[member.b]?.joint))
-    notes.push('The contract solver models members pinned at both ends as axial-only ties, so their bending and torsion differ from the voxel frame model.');
+  const notes: string[] = [
+    nonlinear
+      ? 'The nonlinear check uses catalogue section properties, reference cable lengths and the point loads you placed. Self-weight and challenge load combinations are excluded.'
+      : 'Wind, the tower and bridge loads the game generates, and load combinations are not sent, and self-weight is not applied, so this checks the structure under the point loads you placed.',
+  ];
+  // The turn criteria say a cable card must define its own pretension. The
+  // voxel catalog has one value for every cable, so that is what is sent, and
+  // the reader is told.
   if (game.members.some((member) => member.type === 'cable'))
     notes.push(
-      'Cables are treated as two-way ties here, so a cable that would go slack still counts as a restraint.',
+      `Every cable is sent with the same ${ITEMS.cable.P0} kN pretension, taken from the prototype catalog, not from a per-cable value.`,
     );
   return { model, notes };
 }
