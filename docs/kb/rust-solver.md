@@ -117,7 +117,7 @@ Tal's always-on 10,000-state run and 2-to-4-support load-sharing tests already h
 | M02 connectivity separate from coincidence | Met | Connectivity is by node id. Each member end has its own connection. A fully released end is not a connection. |
 | M03 beam-column, brace, cable | Met | Beam-columns have optional shear deformation. Cables are straight and tension-only. |
 | M04 six-law connections | Met for beam ends | Six rigid, free or elastic laws can use the undeformed member basis or the explicitly selected global basis. Both follow the physical node as it rotates. Axial elements are pinned. |
-| M05 exact rigid constraints | Partly | Rigid laws and restraints are exact (shared or eliminated DOFs). Two foundations on one node are rejected as redundant. The model has no general constraints or prescribed (forced) displacements, so incompatible constraints cannot be expressed or detected, and support settlement cannot be modelled. |
+| M05 exact rigid constraints | Covered for Shared table | Each printed lock imposes zero relative motion in its specified connector component. Fixed foundations impose zero ground motion. The kernel shares or eliminates those DOFs exactly and rejects duplicate foundations on a node. Nonzero prescribed support displacement, support settlement and arbitrary multi-point constraints are outside the input model. |
 | M06 foundations and reactions | Met | Any of six DOFs restrained per foundation id; six signed reaction components. |
 | M07 loads and self-weight | Met | Nodal forces and moments with ids, and uniform member loads (`memberLoads`, N/m, global) along a whole member. Self-weight and member loads are applied once as consistent nodal loads. Loads keep their original direction. Several load cases can share one call. |
 | M08 card properties, one unit system | Met | Sections carry E, G, A, Iy, Iz, J, shear areas, density and capacities; braces and cables carry rest length or initial strain. SI throughout. |
@@ -175,6 +175,10 @@ The independent nonlinear suite runs the shipped binary and OpenSeesPy on the sa
 
 The ordinary preview, ordinary turn and difficult nonlinear cases met their targets in this run. The 4,124-DOF linear stress run took 82.5 ms at p95. An earlier run during development with other suites active took 2,286.5 ms for the largest nonlinear stress case. These measurements cover the kernel on this host. Production browser rendering, worker scheduling, private saves and device variation require separate measurements.
 
+The 4,124-DOF case was profiled separately with 40 linear calls. Of the sampled CPU time, 65.4% went to the skyline LDLᵀ factorization, 4.4% to element assembly, 2.4% to forward/back substitution and 1.7% to system construction. The optimized WASM factor uses packed two-lane double-precision multiply and add. The native phase harness measured 44.3 ms for one factorization, 3.7 ms for system construction and 1.4 ms for one substitution. Closing the measured preview gap calls for work on the matrix algorithm. The measured binary retains its validated factorization and both elements per beam.
+
+To capture a comparable V8 profile, run `node --cpu-prof scripts/bench-solver.mjs 40 "stress, linear preview, 2 elements/beam"`. Node writes a CPU profile to the current directory, or to the directory named by `--cpu-prof-dir`. `DOF_BENCH_WASM` can point at a separately built module with release optimization, symbols and the crate's normal WASM flags to expose function names. Run the native phase harness with `cargo test --release --manifest-path crates/dof-solver/Cargo.toml --test profile -- --ignored --nocapture`.
+
 ## Deflection, member loads and load cases
 
 These were added after the acceptance table and have their own tests (`deflection.rs`, `member_loads.rs`, `cases.rs` and `wasmSolver.test.ts`).
@@ -199,10 +203,10 @@ These are implementation choices, not owner decisions. Each is a default that th
 
 ## Limits
 
-- No plasticity, contact, dynamics, post-buckling path tracing, staged construction or sagging cables.
+- Plasticity, contact, dynamics, post-buckling path tracing and staged construction are outside the model.
 - Loads keep their direction; applied moments are not follower moments.
 - A perfectly straight column past its buckling load is reported unstable; the post-buckled shape is not traced.
-- Self-weight on a slack cable is still carried to its end nodes.
+- Straight, extensible, tension-only cable legs can sag under concentrated loads at their shared clamps. The release uses original material lengths and point gravity loads. For the editor's distributed cable weight the solver assigns half to each end of each leg. A continuously curved self-weight catenary is outside this formulation.
 - Cancellation and the wall-clock limit exist only on the browser worker. Inline (Node, tests) an analysis runs to its iteration limits once started.
 - Deflection is reported only at element boundaries, with no interpolation between them; a finer spacing needs more subdivisions, which cost run time.
 - No prescribed displacements, and no partial-length or varying member loads. Plasticity and dynamic collapse are deferred by the criteria (section 8).

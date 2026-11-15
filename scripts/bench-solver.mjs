@@ -1,14 +1,14 @@
 // Time the WebAssembly solver on a representative game state and on the
 // stress case from the solver criteria (about 500 members).
 //
-//   node scripts/bench-solver.mjs [runs]
+//   node scripts/bench-solver.mjs [runs] [case label substring]
 //
 // Times include JSON encoding and decoding on both sides, as the app pays
 // them. They depend on the machine; record the hardware with the numbers.
 import { readFileSync } from 'node:fs';
 import os from 'node:os';
 
-const bytes = readFileSync(new URL('../apps/web/src/solver/wasm/dof_solver.wasm', import.meta.url));
+const bytes = readFileSync(process.env.DOF_BENCH_WASM ?? new URL('../apps/web/src/solver/wasm/dof_solver.wasm', import.meta.url));
 const { instance } = await WebAssembly.instantiate(bytes, {});
 const solver = instance.exports;
 
@@ -51,6 +51,8 @@ function frame(baysX, baysY, storeys) {
 }
 
 function time(label, model, options, runs) {
+  if (caseFilter && !label.includes(caseFilter)) return;
+  measuredCases++;
   const first = analyze(model, options);
   const dofs = first.components.reduce((sum, c) => sum + c.counts.freeDofs, 0);
   const times = [];
@@ -69,6 +71,8 @@ function time(label, model, options, runs) {
 }
 
 const runs = Number(process.argv[2] ?? 20);
+const caseFilter = process.argv[3];
+let measuredCases = 0;
 console.log(`${os.cpus()[0].model}, ${os.cpus().length} logical cores, Node ${process.version}, ${runs} runs each`);
 const game = frame(2, 2, 2);
 const stress = frame(5, 4, 6);
@@ -79,3 +83,4 @@ time('stress, linear preview, 1 element/beam', stress, { fidelity: 'linear', gra
 time('stress, linear preview, 2 elements/beam', stress, { fidelity: 'linear', gravity }, runs);
 time('stress, nonlinear turn, 1 element/beam', stress, { gravity, subdivisions: 1 }, runs);
 time('stress, nonlinear turn, 2 elements/beam', stress, { gravity }, runs);
+if (!measuredCases) throw new Error('No benchmark label matched ' + caseFilter);
