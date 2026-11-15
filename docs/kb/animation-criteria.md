@@ -1,6 +1,6 @@
 ---
 title: "Animation and Sound Criteria"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
   - docs/kb/game-completion-criteria.md
   - docs/kb/avatar-criteria.md
@@ -182,7 +182,7 @@ Update this page, [3D viewer](3d-viewer.md) and [development and testing](develo
 
 ## 11. Avatar-specific criteria
 
-[Timburr avatar criteria](avatar-criteria.md) extend this presentation specification with the owner-confirmed recurring character and compact cross-screen placement, proposed reactions, rare Conkeldurr foreman mode, model provenance and acceptance scenarios. Read that page for avatar-specific decisions and the distinction between a cosmetic demonstration and a verified game-triggered reaction. Implementation is deferred and preserved in the [prototype handoff](../../prototypes/timburr-companion/README.md), not enabled in the app.
+The release companion plays a 360 ms hop on a card action or direct interaction. Its idle weight shift is limited to one small hop per eight seconds. A verified instability complaint appears in red with a visible exclamation mark and a written member/turn reference. Every third eligible charge for one player can trigger a 240 ms shrink followed by 560 ms of growth and local character shake. A still Conkeldurr carries the same message with reduced motion. The GLB and portrait share the character control, so animation and asset failure leave the camera and board anchored. See [Timburr avatar criteria](avatar-criteria.md) for the public event source, cooldown, skip, handoff and historical-save behavior.
 
 ## 12. Joint DOF overlays
 

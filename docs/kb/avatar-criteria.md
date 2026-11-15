@@ -1,10 +1,14 @@
 ---
 title: "Timburr Avatar Criteria"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
   - docs/kb/game-completion-criteria.md
   - "Project owner avatar request, prominence choice and criteria-first correction, 2026-11-14"
   - docs/kb/animation-criteria.md
+  - apps/web/src/companion/Companion.tsx
+  - apps/web/src/companion/reactions.ts
+  - apps/web/src/game/publicRepairReport.ts
+  - scripts/release-presentation.mjs
   - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria.md
   - prototypes/timburr-companion/README.md
@@ -196,6 +200,10 @@ Use the preserved attributed Timburr and Conkeldurr assets for the release, with
 
 Timburr is a small edge companion with one dismissible bubble, outside board/control safe zones. Routine actions get a glance/nod rather than narration; the board supplies essential feedback. Show one short useful explanation for a new result, correction or invalid target. Idle motion is limited to subtle breathing/weight shift, with no unsolicited repeated tips. Direct activation is rate-limited to one response per five seconds. Suppress the companion on privacy/recovery covers and wherever it would reveal private information.
 
-Automatic Conkeldurr eligibility is one verified newly penalized committed event with witnessed instability or utilization at least 1.25. Use at most one transformation per originating turn, a 45-second cooldown, an 800 ms introduction and at most three seconds of quiet foreman pose. Explain the actual repair or suggest inspecting the unresolved region. Do not transform for invalid input, preview, persistent issues, timeout or unknown evidence. Repair and scoring remain independent of reaction completion. Final victory supersedes other reactions.
+The owner's subsequent three-mistake rule supersedes the earlier single-event trigger. The Shared table counts each player's distinct, committed −1 penalty events in chronological order. Each event needs a verified new or worsened active finding in its recorded pre-correction comparison. All charged issues in one turn count together. A verified overload and a witnessed instability both qualify. Matching turn, player, before/after assessment IDs and charged issue IDs establish provenance. Only the turn/player suffix of the authoritative event ID enters the companion projection.
+
+After a calculation checkpoint settles and the incoming seat selects Ready, a charged instability gets a red dialogue bubble, an exclamation mark and a written member/turn reference. The explanation reports the recorded fitting, legacy prop or pending issue. Each player's third and sixth qualifying turns can call Conkeldurr. A checkpoint that assessed several earlier turns presents one notice. A three-charge milestone has first priority, followed by a charged instability and then an ordinary repair. Among equal priorities the most recent turn wins. The notice names the original acting player and turn. The 45-second cooldown suppresses a second spectacle during that interval. The count comes from the match's committed history and survives reload. The cue requires a newly settled checkpoint in the current workspace, so reopening a save stays quiet. Victory takes priority. The companion contributes no inputs to scoring, repair or hand generation.
+
+Normal motion gives Timburr a short squash and a hop on direct interaction or card actions, with a smaller weight shift after idle time. During the 800 ms introduction Timburr shrinks for 240 ms, then Conkeldurr grows, overshoots and shakes within the character control for 560 ms. Conkeldurr holds for three seconds. The model and matching fallback portrait share these transforms. Reduced motion shows a still character and the same text. Dismiss and Skip transformation settle the cue immediately. Camera and board framing stay anchored throughout.
 
 Keep Show companion, motion and audio settings in the main settings disclosure, with a small restore control when hidden. Reduced motion uses a still pose/brief fade. Missing 3D/audio never blocks play or substitutes the wrong character. Deduplicate by committed event IDs on reload. Celebrate a verified repair without claiming the entire structure is safe.
