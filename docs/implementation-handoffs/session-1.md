@@ -1,0 +1,35 @@
+# Session 1 multiplayer domain handoff
+
+Branch `codex/multiplayer-domain` starts at `bbe4c440eb5720c35ea0dbeee9a17430eb62412d`. Implementation commits in order are `e37bff0`, `d7511cd` and `4f8c8cadd3a13aaeb2c70b4f52d07efdc48531c2`. The following commit adds only this handoff. Resolve the complete integration tip with `git rev-parse codex/multiplayer-domain`.
+
+## Files and interfaces
+
+All production domain code lives under `apps/web/src/multiplayer/domain/`. Import the following from its `index.ts`.
+
+- `createMultiplayerDomain(config)`, `restoreMultiplayerDomain(raw)`, `commandFor(snapshot, action)`. Canonical types include `Configuration`, `Card`, `Play`, `Action`, `Command`, `MatchState`, `DomainEvent` and `MultiplayerDomain`.
+- `catalogue.ts` defines strict data schemas, member laws, reach tiers, rotation-mask counts, `springReference`, `springStiffnessNPerM` and `metresPerUnit`.
+- `geometry.ts` implements setup, legality and `position(model, port)`. `ports.ts` provides `inspectPort(state, port)` for original relative joint rotations and additional local safety constraints. `loadTargets.ts` lists distinct named end/quarter targets, including staged members.
+- `DraftControls` in `apps/web/src/multiplayer/DraftControls.tsx` supplies the Close draft button and keyboard-accessible load target picker. `domain/fixtures.ts`, `domain/domain.test.ts` and `apps/web/fixtures/session-1/{index.html,fixture.tsx}` supply deterministic test data, checks and an independent browser adapter.
+
+## Integration sequence for session 4
+
+1. Integrate this finished branch once onto the integration branch. Existing game/store and persistence exports still serve the baseline UI. Make the domain the single authority for new matches. Supply a unique match ID, distinct IDs and foundation positions for at least two players, ordered card instances, rounds, height and nullable k₀. Shuffle before creation. Keep the exact configuration in the save.
+2. Capture `commandFor(snapshot, action)` at intent creation. Dispatch that envelope once with `domain.dispatch(cmd)`. Reuse the same envelope for retries. Rejections throw and preserve state. Route `ready`, each `draw`, `stage`, `cancel`, `clearDraft`, `commit` and `interval` through the same authority. An empty commit passes after the fourth draw. Stage parents before dependent targets. Cancel dependents first, or clear the complete draft.
+3. Bind local handoff/reveal to `getPlayerView(actor, covered)`. Full snapshots, configuration, raw events and saves contain private information. Refresh the view after successful dispatch and unsubscribe on disposal. Presentation can deduplicate by event ID and derive turn begin/checkpoint queued/final transitions from phase changes. A draw event carries its card ID for private use.
+4. Mount `DraftControls` inside the active player's draft panel with `view`, `selectedCardId`, an action dispatcher and `onClose`. Key by match/turn/card, return focus to the opener on close, and allow reopening. Close only changes panel visibility. Use `clearDraft` for explicit discard. The target picker defaults to the player's column top and restores the staging target on reopen. Scene picking may dispatch the same load play using a stable member ID and quarter index. See the interactive fixture for executable wiring.
+5. Watch `phase === "checkpoint"`. Pass the original model, ordered history with before/after revisions, pending global turn numbers, persistent system corrections and checkpoint ID to session 2. The interval defaults to three and changes apply on the next commit. Match end always closes the last window. Keep request/worker identity and partial numerical progress in the service adapter. Validate returned request ID, rules/solver provenance, model lineage and actual evidence there. Only the trusted adapter dispatches `checkpoint` with the captured command identity and verified local corrections. Use session 2's result record for issues, scoring, partial results and verification. Each correction identifies its originating turn. Translate the stored safety masks as local components in global axes and keep their neutral reactions separately attributable.
+6. Save `domain.serialize()` under a dedicated new storage key after accepted commands, including draws and draft edits. Restore through `restoreMultiplayerDomain(raw)`, which reconstructs authoritative state by strict parsing and legal replay. Wrap storage and restore in error handling. Keep original bytes on any failure, including unsupported future versions and legacy modes. The domain performs no writes or automatic legacy conversion. Retain read-only access/export for legacy saves. Quit suspends the current phase, including pending checkpoints. Resume behind the shell's privacy cover.
+
+## Geometry and outstanding parameters
+
+X and Y run from 0 through 15 inclusive. Z runs from 0 through the match's positive integer height inclusive. One game unit equals two metres. Each locked standard starting column runs from its owner's foundation at Z=0 to Z=1. Standard members carry axial and bending intent. Cable rest length is the original unstretched span. Spring k is the printed factor times the configured version-1 reference axial stiffness in N/m. A null reference yields unavailable stiffness. Production k₀, section/material/capacity values, shear/torsion support, load/deck balance and board height still need authorship. The fixture's values are for tests.
+
+Ports identify the original member and quarter index 0 through 4. Coincidence alone supplies no joint. The first explicit connection selects its joint's profile, with bits 1/2/4 restraining global RX/RY/RZ. Subsequent connections must agree and attached translations are compatible. Setup ports require all three rotation bits. Centreline overlap/interior clashes are checked. Finite section envelopes, fitting clearances and engineering tolerances require authored geometry. The domain supports a configurable fixed round count and finite decks. Empty-deck selection is rejected atomically. Supply enough cards for the intended draw choices until an exhaustion policy is approved.
+
+## Validation
+
+- `npm test -- apps/web/src/multiplayer/domain` passed 21 tests including all 16 four-draw source orders, many plays, identity/retry, cancellation, pass, replay, setup locks, length and mask checks, private views, final checkpoint and separate correction records.
+- `npm run typecheck` and `npm run build` passed. Vite reported its existing large-chunk warning. The independent fixture also passed strict standalone TypeScript compilation.
+- Run `npm run dev -w @dof/web` and open `/fixtures/session-1/` on the printed server. Browser verification placed load l0 at column B's original ¼ point, closed and reopened the panel, and observed the same target and one staged play with four drawn cards.
+- Numerical verification and integrated Workspace behavior are pending their owning sessions. No numerical backend ran as part of these checks.
+
