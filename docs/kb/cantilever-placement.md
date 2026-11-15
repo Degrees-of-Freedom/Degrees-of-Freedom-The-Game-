@@ -92,6 +92,8 @@ The structural snapshot records a collar explicitly with original parent, ration
 
 ## Verification and remaining scope
 
+The revised three-deck integration at `5d5deb2` passed TypeScript checking, shared-contract/web production builds and 72 focused tests across 12 suites. A normal-Play pointer walkthrough also passed with deliberate deck draws, a quarter-supported beam, explicit fixed connector, draft reload, 5 kN load and an interval-one checkpoint/private handoff. Its [raw revised-play result](../evidence/cantilevers/play2-results.json) is separate from the historical six-scenario record below.
+
 The focused regression suites cover:
 
 - `cantileverRules.test.ts`: all three source quarters, declaration and exact coincidence, clashes, fixed-profile compatibility, immutable fittings, card consumption, cancellation, load exclusions, replay tampering and unchanged v1 mechanics.
