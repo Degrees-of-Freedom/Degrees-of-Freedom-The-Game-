@@ -435,6 +435,20 @@ body,
 .environment .drawer-content .turn-card small {
   display: block;
 }
+.environment[data-style="grow-dusk"] .drawer-content .turn-panel button {
+  color: var(--ink);
+}
+.environment[data-style="grow-dusk"] .drawer-content .turn-card[aria-pressed="false"]:hover {
+  background: #e0d4bf;
+}
+.environment[data-style="grow-dusk"] .drawer-content .turn-card[aria-pressed="true"] {
+  background: var(--amber);
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+.environment[data-style="grow-dusk"] .drawer-content .turn-card[aria-pressed]:focus-visible {
+  outline: 3px solid #9cdded;
+  outline-offset: 2px;
+}
 .environment .storage-alert {
   position: absolute;
   left: 50%;

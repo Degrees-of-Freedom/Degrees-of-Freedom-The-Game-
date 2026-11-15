@@ -62,6 +62,8 @@ A blurred/background tab, lost pointer capture or touch cancellation must stop t
 
 ### Shared table input evidence
 
+In the Grow Dusk Turn details drawer, the private hand labels and card families use dark text on cream. Selection has an amber fill and inset border, and keyboard focus has an external outline. The [Chrome check](../evidence/input-parity/hand-contrast.cjs) measures both text sizes and the End turn action after deliberate reveal, on desktop and touch-emulated layouts. [Desktop comparison](../evidence/input-parity/hand-contrast-after.png) · [Touch layout](../evidence/input-parity/hand-contrast-after-touch.png).
+
 In the scored frame preset, Turn details provides grid and original-quarter element placement, explicit member-end connection choices, and persistent gravity placement on any playable shared joint. Input uses the same stage and commit operations as the board. Browser controls own their keyboard events. Enter opens a disclosure or activates its focused button. At narrow widths the Grow Dusk hand tray leaves the turn controls reachable.
 
 The [seed 1 match runner](../evidence/match/check.mjs) exercises a load on the opposing starting foundation followed by cancellation, a midpoint branch and load, a staged-draft reload, a new unstable member and all 16 turns. Keyboard tests use Tab or Shift+Tab to reach controls and the native selection keys. Chrome touch emulation uses taps for buttons, native select changes and text entry at 412 × 915 CSS pixels. The release matrix tracks hardware touch and screen-reader coverage separately. [Touch layout](../evidence/input-parity/touch-hand-controls.png) · [Keyboard quarter form](../evidence/input-parity/keyboard-quarter-form.png).
