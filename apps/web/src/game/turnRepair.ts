@@ -1,10 +1,11 @@
 import { nodeKey, parseNodeKey } from './model';
-import { CARD_DEFINITION_VERSION, RELEASE_CATALOGUE } from './cardCatalogue';
+import { CARD_DEFINITION_VERSION, isReleaseCatalogue } from './cardCatalogue';
 import { finalReceipt, NEUTRAL_OWNER } from './finalScore';
 import { findMaterialClash } from './materialClashes';
 import { analyzeTurn } from './turnAnalysis';
 import { compareIssues, inspectIssues, type IssueAssessment, type IssueFinding, type IssueSnapshot } from './turnIssues';
-import { originalPorts } from './turnPorts';
+import { analysisLoadJoint, originalPorts } from './turnPorts';
+import { attachmentId } from './attachmentSites';
 import type { TurnState } from './turns';
 
 /** Permanent playtest scaffolding uses printed steel sections and the
@@ -12,7 +13,8 @@ import type { TurnState } from './turns';
  * Each candidate adds one real ground foundation and one finite-length member. */
 export const LEGACY_REPAIR_POLICY = 'local-steel-prop-1' as const;
 export const REPAIR_POLICY = 'local-steel-prop-2' as const;
-export type RepairPolicy = typeof REPAIR_POLICY | typeof LEGACY_REPAIR_POLICY;
+export const NODE_REPAIR_POLICY = 'node-release-locks-1' as const;
+export type RepairPolicy = typeof REPAIR_POLICY | typeof LEGACY_REPAIR_POLICY | typeof NODE_REPAIR_POLICY;
 const maxAttempts = 3;
 type Board = TurnState['board'];
 type Member = Board['members'][number];
@@ -51,6 +53,8 @@ export interface CorrectionReceipt {
   beforeModelId: string;
   afterModelId: string;
   attempts: RepairAttempt[];
+  jointAttempts?: { issueId: string; memberId: number; jointId: string; lockedRotations: number;
+    status: 'verified' | 'rejected'; reason: string }[];
   pending: string[];
   memory: IssueAssessment['memory'];
   changes: IssueAssessment['changes'];
@@ -97,17 +101,19 @@ function groundsAt(contact: Contact, member: Member) {
   return z > 0 ? [nodeKey(x, y, 0), diagonal] : [diagonal];
 }
 
-function localCandidates(board: Board, member: Member, baseId: string, issue: IssueFinding) {
+function localCandidates(turn: TurnState, member: Member, baseId: string, issue: IssueFinding) {
+  const board = turn.board;
   const seen = new Set<string>();
   const interfaces = contacts(board, member, baseId);
   if (issue.category !== 'instability') {
     // A prop at the actual loaded fitting can divert card gravity before it
     // enters the overstressed span. Propping an already fixed support cannot.
-    const loaded = new Set(board.loads.map(load => load.jointId));
+    const loaded = new Set(board.loads.flatMap(load => [load.jointId, analysisLoadJoint(turn, load.jointId)]));
     const restrained = new Set(board.joints.filter(j => j.foundationOwner).map(j => j.id));
     const flagged = board.connections.find(c => c.memberId === member.id && c.end === issue.end);
+    const source = flagged && attachmentId(flagged.memberId, flagged.end);
     const priority = (contact: Contact) => restrained.has(contact.id) ? 3 : loaded.has(contact.id) ? 0 :
-      contact.id === flagged?.jointId ? 1 : 2;
+      contact.id === flagged?.jointId || contact.id === source ? 1 : 2;
     interfaces.sort((a,b) => priority(a) - priority(b));
   }
   return interfaces.flatMap(contact => {
@@ -187,7 +193,7 @@ function rejection(before: IssueSnapshot, after: IssueSnapshot, propId: number, 
 export function correctTurnIssues(frozen: TurnState, assessment: IssueAssessment, turnNumber: number, policy: RepairPolicy) {
   const supported = (finding: IssueFinding) => policy === REPAIR_POLICY || finding.category === 'instability';
   const targets = assessment.changes.filter(c => supported(c.after) && c.after.active === true &&
-      (frozen.catalogue !== RELEASE_CATALOGUE || c.eligible))
+      (!isReleaseCatalogue(frozen.catalogue) || c.eligible))
     .sort((a,b) => Number(b.category === 'instability') - Number(a.category === 'instability') || a.memberId - b.memberId);
   if (!targets.length || assessment.beforeModelId === assessment.afterModelId) return undefined;
   const initial = evidence(frozen);
@@ -201,7 +207,7 @@ export function correctTurnIssues(frozen: TurnState, assessment: IssueAssessment
     }
     const member = current.board.members.find(m => m.id === issue.memberId)!;
     const baseId = 'neutral:' + turnNumber + ':' + current.nextId;
-    for (const { contact, ground } of localCandidates(current.board, member, baseId, issue.after)) {
+    for (const { contact, ground } of localCandidates(current, member, baseId, issue.after)) {
       if (attempts.length >= maxAttempts) break;
       const attempt = { issueId: issue.id, memberId: member.id, contact: contact.id, ground, propId: current.nextId };
       const trial = candidate(current, member, contact, ground, turnNumber, issue.after, policy);

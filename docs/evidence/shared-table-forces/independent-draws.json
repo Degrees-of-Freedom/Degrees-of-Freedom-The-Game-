@@ -1,0 +1,96 @@
+{
+  "commit": "2f991411b5fcfc39fcbfe212ed57c5e03f6715b2",
+  "dirtySource": false,
+  "solverFile": "dof_solver-gaCMDH3i.wasm",
+  "solverSha256": "e144aa6c2805188f69924176ddafe19b9d91aafc3f9068f3b713437ef3ce9634",
+  "assetsSha256": "6fd72a530a679971da3eb7f717e7587ace29747f3d322e34e0396d1098a3c3d1",
+  "browser": "157.0.8103.51",
+  "seed": 0,
+  "checks": [
+    "normal Play starts four deliberate three-deck choices",
+    "partial draw reload preserves match, cards and remaining choices",
+    "four member choices yield opening standard members",
+    "multiple members stage without a per-type allowance",
+    "provisional endpoint edit persists and Ctrl+Z undoes one placement",
+    "undo preserves original draws and undealt decks",
+    "a diagonal T junction can target an original quarter of an already staged member",
+    "a genuine interior crossing is rejected without card consumption or draft changes",
+    "four load choices and three staged loads are legal",
+    "draft cancel/reload restores all held loads without extra draws",
+    "genuine legacy private import preserves its original two-deck state",
+    "revised private export/import restores chosen draws and held cards",
+    "restart cancellation preserves the confirmed match"
+  ],
+  "cardTargets": [
+    {
+      "width": 136.59375,
+      "height": 62.125
+    },
+    {
+      "width": 136.59375,
+      "height": 62.125
+    },
+    {
+      "width": 136.59375,
+      "height": 62.125
+    },
+    {
+      "width": 136.59375,
+      "height": 62.125
+    }
+  ],
+  "structural": {
+    "checks": [
+      "startup WASM preload is separated from pending turns: no new numerical request or analysis worker until the due checkpoint",
+      "V opens all eight view tiles, labels toggle, Clear/Reset restore counts, and Escape returns focus to the eye before Menu",
+      "view controls leave a pending checkpoint and stored match unchanged without an additional numerical request",
+      "loaded displacement shadow and deflected shape are exclusive and share state with inspection and the board toolbar",
+      "real member/connector/gravity plays become a checkpoint after three player turns",
+      "normal board exposes calculated deflection and load paths automatically",
+      "shear and bending overlays combine with calculated response",
+      "reaction labels support Off and Large",
+      "committed member is read-only and foundation six-component tables are inspectable",
+      "overlay and reaction settings preserve authoritative match state"
+    ],
+    "reactions": [
+      "Signed global support reactionAxisForce (kN)Moment (kN·m)X00Y00Z00",
+      "Signed global support reactionAxisForce (kN)Moment (kN·m)X0.0000000000044390Y0-5.001Z50"
+    ],
+    "startupWasm": [
+      {
+        "url": "http://127.0.0.1:60737/assets/dof_solver-gaCMDH3i.wasm",
+        "status": 200
+      }
+    ],
+    "wasmResponses": [
+      {
+        "url": "http://127.0.0.1:60737/assets/dof_solver-gaCMDH3i.wasm",
+        "status": 200
+      },
+      {
+        "url": "http://127.0.0.1:60737/assets/dof_solver-gaCMDH3i.wasm",
+        "status": 200
+      },
+      {
+        "url": "http://127.0.0.1:60737/assets/dof_solver-gaCMDH3i.wasm",
+        "status": 200
+      }
+    ],
+    "workerFiles": [
+      "de2a5c42-2765-4c8c-9068-4c16c3809bca",
+      "1378875a-e28e-49a2-8874-f9009e5e82cb",
+      "matchWorker-BjPya6gh.js",
+      "8a36960d-6698-41c8-9afb-dd08e16ddb86",
+      "81b53085-8d1e-4125-959c-5037dc2132d5",
+      "matchWorker-BjPya6gh.js",
+      "134dcf90-3a62-4a5b-b981-35962b8ed6f8",
+      "ccf2c546-66d2-44af-84f7-571b982b6749",
+      "matchWorker-BjPya6gh.js",
+      "releaseInspection.worker-Cxave6A0.js",
+      "43f1c0c7-f56f-4789-832a-0afdfcf558da",
+      "bfcc0c27-1ba1-4739-953b-2e67abe768ea"
+    ],
+    "errors": []
+  },
+  "errors": []
+}

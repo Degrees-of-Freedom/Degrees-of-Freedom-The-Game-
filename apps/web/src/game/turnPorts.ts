@@ -1,6 +1,7 @@
 import { nodeKey, parseNodeKey, type GridPoint, type Member } from "./model";
 import type { TurnState } from "./turns";
-import { RELEASE_CATALOGUE } from "./cardCatalogue";
+import { isReleaseCatalogue } from "./cardCatalogue";
+import { attachmentId, attachmentPoint, isInteriorSite, type AttachmentSite, type InteriorSite } from "./attachmentSites";
 
 export type Quarter = 1 | 2 | 3;
 export interface QuarterPort {
@@ -16,16 +17,22 @@ const quarters = [1, 2, 3] as const;
 /** Loads remember the physical tip they were played on. Attaching that tip later
  * moves its force to the shared analytical node without rewriting its history. */
 export function analysisLoadJoint(state: TurnState, target: string): string {
-  const tip = /^endpoint:([1-9]\d*):(a|b)$/.exec(target);
-  if (!tip) return target;
-  return [...state.board.connections, ...state.draft.connections]
-    .find(c => c.memberId === Number(tip[1]) && c.end === tip[2])?.jointId ?? target;
+  const aliases = new Map([...state.board.connections, ...state.draft.connections]
+    .map(c => [attachmentId(c.memberId, c.end), c.jointId]));
+  const visited = new Set<string>();
+  // Connections follow declared identity, never coordinate coincidence. New
+  // collars can target a quarter that itself aliases an older receiving joint.
+  while (aliases.has(target) && !visited.has(target)) {
+    visited.add(target);
+    target = aliases.get(target)!;
+  }
+  return target;
 }
 
 /** Authoritative targets in the active private draft. A loose tip carries its
  * own identity even when other unattached tips occupy the same coordinates. */
 export function loadTargets(state: TurnState): {id: string; point: string; label: string}[] {
-  if (state.catalogue !== RELEASE_CATALOGUE) return turnJoints(state)
+  if (!isReleaseCatalogue(state.catalogue)) return turnJoints(state)
     .filter(j => !systemTarget(state, j.id)).map(j => ({id: j.id, point: j.point ?? j.id, label: j.id}));
   const members = [...state.board.members, ...state.draft.members];
   const excluded = new Set(state.board.joints.filter(j => j.foundationOwner || j.system).map(j => j.id));
@@ -56,7 +63,16 @@ export function turnJoints(state: TurnState): TurnState["board"]["joints"] {
     const port = findPort(members, jointId);
     joints.set(jointId, port ? { id: jointId, point: nodeKey(...port.point) } : { id: jointId });
   }
-  if (state.catalogue === RELEASE_CATALOGUE) {
+  for (const connection of [...state.board.connections, ...state.draft.connections]) {
+    if (!isInteriorSite(connection.end)) continue;
+    const member = members.find(m => m.id === connection.memberId);
+    if (!member) continue;
+    const id = attachmentId(member.id, connection.end);
+    // Preserve the source's physical identity alongside the canonical target.
+    // Analysis decides how an explicitly fixed collar aliases these DOFs.
+    joints.set(id, {id, point:attachmentPoint(member, connection.end)});
+  }
+  if (isReleaseCatalogue(state.catalogue)) {
     // Rebuild activated load-only tips every time: when a later connector is
     // fitted the old loose analytical node no longer exists.
     for (const id of joints.keys()) if (id.startsWith("endpoint:")) joints.delete(id);
@@ -113,8 +129,13 @@ export function portLabel(port: QuarterPort) {
 /** Several independent parents can occupy the same point in space. Keep their
  * target identities distinct and put the original selection first. */
 export function connectionLocations(
-  members: readonly Member[], member: Member & { endTargets?: Partial<Record<"a" | "b", string>> }, end: "a" | "b",
+  members: readonly Member[], member: Member & { endTargets?: Partial<Record<"a" | "b", string>>;
+    interiorTargets?: Partial<Record<InteriorSite, string>> }, end: AttachmentSite,
 ) {
+  if (isInteriorSite(end)) {
+    const target = member.interiorTargets?.[end];
+    return target ? [target] : [];
+  }
   const targets = new Set<string>();
   const preferred = member.endTargets?.[end];
   if (preferred) targets.add(preferred);

@@ -1,6 +1,7 @@
 import type { AnalysisFidelity, StructuralMember, StructuralModel, StructuralNode } from '@dof/solver-contract';
 import { catalogMember, gridPosition, type StructuralModelTranslation } from './structuralModel';
 import { turnJoints, type TurnState } from './turns';
+import { isInteriorSite } from './attachmentSites';
 
 /** Game load cards are in kN; the contract uses newtons. */
 const NEWTONS_PER_KILONEWTON = 1e3;
@@ -30,6 +31,8 @@ export function toTurnStructuralModel(
   turn: TurnState,
   fidelity: AnalysisFidelity = 'nonlinear',
 ): StructuralModelTranslation {
+  if ([...turn.board.connections, ...turn.draft.connections].some(c => isInteriorSite(c.end)))
+    throw new Error('The standalone contract adapter does not translate interior collars. Use the Shared table solver.');
   const connections = new Map(
     [...turn.board.connections, ...turn.draft.connections].map((connection) => [
       `${connection.memberId}:${connection.end}`,
@@ -49,6 +52,8 @@ export function toTurnStructuralModel(
     const ends = (['a', 'b'] as const).map((side) => {
       const point = side === 'a' ? member.a : member.b;
       const connection = connections.get(`${member.id}:${side}`);
+      if (connection && connection.profile !== 'fixed' && connection.profile !== 'ball')
+        throw new Error('The older fixed/pinned structural-model adapter cannot represent a partial rotational connection. Use the saved-frame browser solver.');
       if (connection) return { node: connection.jointId, fixity: connection.profile === 'ball' ? ('pinned' as const) : ('fixed' as const) };
       const node = `endpoint:${member.id}:${side}`;
       nodes.set(node, { id: node, position: gridPosition(point) });

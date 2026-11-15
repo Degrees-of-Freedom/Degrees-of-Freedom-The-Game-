@@ -35,6 +35,10 @@ validated_against:
   - apps/web/src/viewer/viewModes.test.ts
   - apps/web/src/components/viewModes/viewModes.test.tsx
   - apps/web/src/solver/wasm/crossCheck.test.ts
+  - docs/kb/cantilever-placement.md
+  - docs/evidence/cantilevers/README.md
+  - docs/evidence/cantilevers/main-integration-results.json
+  - scripts/cantilever-browser.mjs
 owner: unknown
 status: partial
 ---
@@ -62,6 +66,25 @@ The structure evaluator runs on that module in tests too. `apps/web/test/setup.t
 After changing the evaluator or the solver binary, refresh the structure-library baseline deliberately (see [structure library](structure-library.md#regenerate-and-verify)). After rebuilding the binary, also run `node scripts/physics/check-saved-solver.mjs <revision with the previous binary>` to confirm that the release's saved matches reproduce.
 
 Grow Dusk view modes have Vitest coverage in `viewModes.test.ts` (reducer, exclusivity, drawer mapping, on-demand response, scale) and `viewLegends.test.ts` (content, colours, unavailable states). `contourRamp.test.ts`, `viewFormat.test.ts`, `displacementShadow.test.ts` (against the analytical cantilever) and `components/viewModes/viewModes.test.tsx` (static panel and legend markup) cover the rest. On 2026-11-15 the panel was also checked in headless Chromium with SwiftShader through the Vite dev server: a six-turn seed 0 match at 1366 × 900, plus 683 × 384 and 412 × 915 touch layouts. The checks covered each mode, the label switch, Escape handling, drawer synchronisation and no horizontal overflow. After a production build, `release-presentation.mjs` passed all nine scenarios, `release-resources.mjs` passed, and `release-browser.mjs` passed seed 0 and its all-pass match, with `DOF_SOFTWARE_GL=1` on Linux Chromium. That build compiled the solver with Rust 1.97.0, and the rebuilt WASM was not committed. The presentation script first found a legend accessible name colliding with the drawer's **Shear diagram** label; the legend cards no longer carry one.
+
+## Cantilever feature and main integration — 2026-11-15
+
+The 608/869/872 counts and six-scenario browser record below predate later main 60005bc (PR #22). That owner revision adds three decks, local release frames, editable provisional actions, checkpoints and joint-fitting corrections. Normal Play combines those rules with the cantilever catalogue; earlier counts remain source-specific history. The latest combined source passed TypeScript checking and 72 focused tests across 12 affected suites.
+
+The revised cantilever integration at `5d5deb2` also passed the shared-contract and web production builds. Its normal-Play pointer walkthrough drew four cards from the three decks, set the calculation interval to one, placed and explicitly fitted a quarter-supported beam, reloaded the exact draft, applied 5 kN, and completed the checkpoint and private handoff. [Raw revised-play result](../evidence/cantilevers/play2-results.json) records this targeted run; it does not claim that the older six-scenario matrix was rerun against the revised rules. The later `d52d04b` merge preserves concurrent documentation and acceptance-runner updates without changing application source.
+
+The integration baselines are cantilever feature `fca92ab`, fetched main `cca5702` and concurrent main `533e1af`. Main's Rust-backed structure evaluator, new-playtest `rust-1` engine selection, legacy replay boundary, companion motion, View modes, compact coloured cards and other added work are preserved. The records below describe the original feature validation; their counts are not presented as a rerun against the combined source.
+
+On the final combined source recorded on local main at `6c8b1ea`, TypeScript checking passed as part of the shared solver-contract and web production builds. The full suite passed **872 tests, with 12 skipped** (884 total), across **101 passed files and 3 skipped files** (104 total). The browser runner completed **6/6 scenarios** on this integrated tree, covering pointer controls, actual scene picks, precise endpoints, keyboard, touch emulation and unavailable-WebGL fallback, with explicit connector use, exact draft reload, a 5 kN load and assessed private handoff. [Integrated results and screenshot](../evidence/cantilevers/README.md) are separate from the earlier 608-test feature run below. The existing upstream physical-device and assistive-technology gates retain their separate acceptance status. This is a local integration record and does not claim a remote push.
+
+| Feature-source check | Result and scope |
+| --- | --- |
+| `npm test` at `323e8be` | 608 passed, 9 skipped, 87 files. Includes original-source stations, declared fitting rules, exact pinned geometry, signed collar capacity, aliases, full scored match/replay and v1 preservation. |
+| Shared-contract and web production builds | Passed against the feature source and its checked-in WASM. |
+| Full root production rebuild on the feature host | Cargo was unavailable (`ENOENT`). The feature changed no Rust source. Main's later solver/evaluator changes and updated module retain their separately recorded evidence below. |
+| `DOF_BROWSER_EXECUTABLE=/usr/bin/chromium node scripts/cantilever-browser.mjs` | Six scenarios passed in Linux Chromium 156.0.8078.79, genuine seed 6: pointer controls, scene picking, precise endpoint entry, keyboard, touch emulation and unavailable-WebGL fallback. Each checked one explicit connector, exact draft reload, persistent 5 kN load, assessed private handoff and no horizontal overflow. |
+
+[Raw browser results, representative screenshot and exact source provenance](../evidence/cantilevers/README.md) distinguish the UI rerun from the final source-authoring guard. These checks do not establish hardware-touch, Safari or assistive-technology acceptance. The older dated validation records below remain evidence for their own source revisions.
 
 ## Rust solver
 

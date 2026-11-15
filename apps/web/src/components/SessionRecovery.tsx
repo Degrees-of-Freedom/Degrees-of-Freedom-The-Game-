@@ -35,9 +35,10 @@ export function SessionRecovery() {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   return <main className="dof-menu dm-pause dm-handoff" aria-labelledby="save-heading">
-    <section className="dm-pause-panel panel" aria-busy={busy}>
-      <h1 id="save-heading" tabIndex={-1} ref={heading}>{invalid ? "Recover saved session" : failed ? "Save interrupted" : "Saving turn"}</h1>
-      {invalid || failed ? <p role="status">{game.persistenceError}</p> : <Spinner label={release ? "Checking and saving the turn" : "Saving turn"} />}
+    <section className="dm-pause-panel panel" aria-busy={busy || (!invalid && !failed)}>
+      <h1 id="save-heading" tabIndex={-1} ref={heading}>{invalid ? "Recover saved session" : failed ? "Save interrupted" : game.turnAnalysing ? "Calculating structural forces…" : release ? "Saving the turn" : "Saving turn"}</h1>
+      {invalid || failed ? <p role="status">{game.persistenceError}</p> : <Spinner label={game.turnAnalysing ? "Calculating structural forces" : "Saving turn"} />}
+
       {!invalid && <p>{game.savedRevision === null ? "No confirmed save yet." : `Last confirmed revision ${game.savedRevision}`}</p>}
       {failed && <>
         <button className="btn mbtn primary" onClick={game.retrySessionSave}>Retry save</button>

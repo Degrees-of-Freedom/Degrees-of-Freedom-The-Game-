@@ -9,6 +9,9 @@ import { assessCardCapacity } from '../evaluator/capacity';
 import type { EvaluatorLevel, EvaluatorModel } from '../evaluator/model';
 import { createTurnSolver } from '../evaluator/engine/releaseTurn';
 import type { WasmSource } from '../solver/wasm/wasmSolver';
+import { isReleaseCatalogue } from './cardCatalogue';
+import { attachmentId, isInteriorSite } from './attachmentSites';
+import { effectiveJointConnections } from './jointCorrections';
 
 let turnSolver = createTurnSolver();
 /** Instantiate the Rust turn solver once per thread before replaying or
@@ -27,15 +30,20 @@ const turnLevel: EvaluatorLevel = { type: 'sandbox', q0: 0, budget: Infinity, in
 /** Expand independent member ends before analysis. Coincident geometry alone
  * confers no constraint, and an unattached end retains free translations. */
 export function toTurnEvaluatorInput(turn: TurnState): EvaluatorModel {
-  const connections = new Map([...turn.board.connections, ...turn.draft.connections]
+  const connections = new Map(effectiveJointConnections({...turn.board, connections: [...turn.board.connections, ...turn.draft.connections]})
     .map((connection) => [`${connection.memberId}:${connection.end}`, connection]));
   const attrs: EvaluatorModel['attrs'] = {};
   const positions: NonNullable<EvaluatorModel['positions']> = {};
   const inactiveRotations = new Set<string>();
+  // Fixed collars identify the same six-DOF analytical node while preserving
+  // every physical source/target id in the turn model. Coincidence is irrelevant.
+  const canonical = (id: string) => analysisLoadJoint(turn, id);
   for (const joint of turnJoints(turn)) {
-    attrs[joint.id] = joint.foundationOwner ? { found: true, locked: true } : { joint: true };
-    if (joint.point) positions[joint.id] = parseNodeKey(joint.point);
-    if (!joint.foundationOwner) inactiveRotations.add(joint.id);
+    const key = canonical(joint.id);
+    attrs[key] = { ...attrs[key], ...(joint.foundationOwner ? { found: true, locked: true } : { joint: true }) };
+    positions[key] = parseNodeKey(joint.point ?? joint.id);
+    if (!joint.foundationOwner && !attrs[key].found) inactiveRotations.add(key);
+    else inactiveRotations.delete(key);
   }
   for (const load of [...turn.board.loads, ...turn.draft.loads]) {
     const joint = attrs[analysisLoadJoint(turn, load.jointId)];
@@ -46,14 +54,14 @@ export function toTurnEvaluatorInput(turn: TurnState): EvaluatorModel {
     const spring = member.springStiffnessNPerM === undefined ? {} : { springStiffnessNPerM: member.springStiffnessNPerM };
     function end(side: 'a' | 'b', point: string) {
       const connection = connections.get(`${id}:${side}`);
-      const key = connection?.jointId ?? `endpoint:${id}:${side}`;
+      const key = connection ? canonical(connection.jointId) : `endpoint:${id}:${side}`;
       if (!connection) positions[key] = parseNodeKey(point);
       const profile = connection?.profile ?? 'fixed';
       const axial = type === 'cable' || type === 'spring';
       if (!axial && profile !== 'ball') inactiveRotations.delete(key);
       if (axial && !connection) inactiveRotations.add(key);
       const simple = profile === 'ball' ? 'ball' as const : 'fixed' as const;
-      const law = profile === 'fixed' || profile === 'ball' ? undefined : connectionDefinition(profile);
+      const law = profile === 'fixed' || profile === 'ball' ? undefined : connectionDefinition(profile, connection?.axes);
       return { key, profile: simple, law };
     }
     const start = end('a', a), finish = end('b', b);
@@ -79,7 +87,8 @@ export function toTurnEvaluatorInput(turn: TurnState): EvaluatorModel {
           ...(part.chord && {unbracedLengthM: chordLength})},
       }));
     }
-    const ports = originalPorts(member).filter(port => port.available && attrs[port.id]);
+    const ports = originalPorts(member).filter(port => port.available && attrs[canonical(port.id)])
+      .map(port => ({ ...port, id: canonical(port.id) }));
     if (!ports.length) return [{ id, a: start.key, b: finish.key, type, ...spring, endA: start.profile, endB: finish.profile,
       ...(member.restLengthM !== undefined && {restLengthM: member.restLengthM}),
       ...(start.law && {connectionA:start.law}), ...(finish.law && {connectionB:finish.law}) }];
@@ -104,9 +113,12 @@ export function toTurnEvaluatorInput(turn: TurnState): EvaluatorModel {
   return { members, attrs, positions, inactiveRotations, nextId: turn.nextId };
 }
 
+/** Compatibility name for existing revised-release adapters and fixtures. */
+export const toTurnVoxelInput = toTurnEvaluatorInput;
+
 /** Whether a match is assessed by the Rust turn solver (see `TurnState.engine`). */
 export function usesRustTurnSolver(turn: Pick<TurnState, 'catalogue' | 'engine'>) {
-  return turn.catalogue === 'grow-dusk-release-1' || turn.engine === RUST_TURN_ENGINE;
+  return isReleaseCatalogue(turn.catalogue) || turn.engine === RUST_TURN_ENGINE;
 }
 
 /** Scoring uses card gravity alone. Ordinary previews also include member
@@ -114,13 +126,46 @@ export function usesRustTurnSolver(turn: Pick<TurnState, 'catalogue' | 'engine'>
  * the Rust migration replay on the legacy voxel kernel. */
 export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card-gravity' = 'with-self-weight') {
   const input = toTurnEvaluatorInput(turn);
-  const release = turn.catalogue === 'grow-dusk-release-1';
+  const release = isReleaseCatalogue(turn.catalogue);
   const response = release ? turnSolver.analyze(input, turn.catalogue)
     : usesRustTurnSolver(turn) ? turnSolver.analyze(input, `${turn.catalogue}/${turn.engine}`, { selfWeight: loading === 'with-self-weight' })
       : analyzeVoxel(input, { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });
+  const originalConnections = [...turn.board.connections, ...turn.draft.connections];
+  const effectiveConnections = effectiveJointConnections({...turn.board, connections: originalConnections});
+  const fittings = originalConnections;
+  const bySource = new Map(fittings.map(c => [attachmentId(c.memberId, c.end), c]));
+  const collarLoads = [...turn.board.loads, ...turn.draft.loads].flatMap(load => {
+    let target = load.jointId;
+    const visited = new Set<string>();
+    // A load on an attached endpoint acts at its receiving joint. Attribute
+    // it to the first collar source encountered, then let nested-collar demand
+    // recovery carry it onward exactly once. A host-joint load never crosses
+    // the collar merely because its analytical node has been aliased.
+    while (!visited.has(target)) {
+      visited.add(target);
+      const connection = bySource.get(target);
+      if (!connection) break;
+      if (isInteriorSite(connection.end)) return [{ memberId: connection.memberId, end: connection.end,
+        force: [0, 0, -load.magnitude] as [number, number, number] }];
+      target = connection.jointId;
+    }
+    return [];
+  });
   const capacity = release || loading === 'card-gravity'
-    ? assessCardCapacity(input, response, [...turn.board.connections, ...turn.draft.connections])
+    ? assessCardCapacity(input, response, originalConnections.map((connection, i) =>
+      effectiveConnections[i].profile === connection.profile ? connection :
+        {...connection, transferProfile: effectiveConnections[i].profile}), collarLoads)
     : undefined;
+  if (capacity && turn.board.jointCorrections?.length) {
+    // Original fittings retain their printed force limits. The added moment
+    // sleeve must independently satisfy the existing rated fixed-fitting law.
+    const effective = assessCardCapacity(input, response, effectiveConnections, collarLoads);
+    for (const [id, check] of Object.entries(effective.connections)) {
+      const original = capacity.connections[id];
+      if (check.status === 'unavailable' || original?.status !== 'verified' ||
+          check.utilization > original.utilization) capacity.connections[id] = check;
+    }
+  }
   const physicalParents = new Map(input.members.filter(m => m.parentSpan).map(m => [m.id, m.parentSpan!.memberId]));
   return { ...response, capacity, physicalParents };
 }

@@ -9,7 +9,7 @@ import type { LevelId } from "../game/model";
 import { savedLevel } from "../game/persistence";
 import { useGameStore } from "../game/store";
 import { KIT_PLAYTEST } from "../game/turns";
-import { isScoredCatalogue, HOLLOW_CATALOGUE, CABLE_CATALOGUE, JOINT_CATALOGUE, PLANAR_CATALOGUE, SCORED_CATALOGUE, TRUSS_CATALOGUE, SPRING_CATALOGUE, type ScoredCatalogue } from "../game/cardCatalogue";
+import { isScoredCatalogue, CANTILEVER_CATALOGUE, HOLLOW_CATALOGUE, CABLE_CATALOGUE, JOINT_CATALOGUE, PLANAR_CATALOGUE, SCORED_CATALOGUE, TRUSS_CATALOGUE, SPRING_CATALOGUE, type ScoredCatalogue } from "../game/cardCatalogue";
 import { PLAYTEST_SETTINGS, TURN_RULES, TURN_RULES_NOTES } from "../menu/turnRules";
 import { hasSavedProgress } from "../menu/saved";
 import { runStart, type StartChoice } from "../menu/startPlan";
@@ -91,7 +91,7 @@ function Setup({ id }: { id: GameMode }) {
     return CHALLENGE_LEVELS.some(([key]) => key === start) ? start : "tower1";
   });
   const [pick, setPick] = useState<string | null>(null);
-  const [catalogue, setCatalogue] = useState<ScoredCatalogue>(SCORED_CATALOGUE);
+  const [catalogue, setCatalogue] = useState<ScoredCatalogue>(CANTILEVER_CATALOGUE);
   const [error, setError] = useState<string | null>(null);
   const saved = useMemo(() => hasSavedProgress(id, levelId), [id, levelId]);
   const turn = initial.turn;
@@ -167,6 +167,17 @@ function Setup({ id }: { id: GameMode }) {
     pick && options.some((option) => option.value === pick && !option.disabled)
       ? pick
       : defaultBegin;
+  // Continuing always keeps the saved mechanics; the default only selects a fresh deal.
+  const cantileverPreset = (begin === "continue" && turn ? turn.catalogue : catalogue) === CANTILEVER_CATALOGUE;
+  const turnRules = cantileverPreset ? TURN_RULES.map(rule => rule.startsWith("One connection card")
+    ? "One connection card attaches one original member interface to a shared joint. A placed connection cannot be changed."
+    : rule) : TURN_RULES;
+  const settings = cantileverPreset ? [
+    `${KIT_PLAYTEST.players} players, ${KIT_PLAYTEST.rounds} rounds.`,
+    "Each player starts with one foundation and a connected column. Unplayed cards stay in hand.",
+    "The 15 × 15-cell board uses HEB 300 members, cables, axial springs and gravity cards.",
+    "Fixed connectors can attach a frame at its original quarter or midpoint, leaving overhangs. Cable and spring source attachments remain at their ends.",
+  ] : PLAYTEST_SETTINGS;
 
   const choice: StartChoice =
     id === "creative"
@@ -280,6 +291,7 @@ function Setup({ id }: { id: GameMode }) {
             </dl>
             {(!turn || begin === "new") && <label>Physical catalogue
               <select value={catalogue} onChange={e => { if (isScoredCatalogue(e.target.value)) setCatalogue(e.target.value); }}>
+                <option value={CANTILEVER_CATALOGUE}>Shared table · cantilevers</option>
                 <option value={SCORED_CATALOGUE}>Frame members</option>
                 <option value={HOLLOW_CATALOGUE}>Round and square hollow sections</option>
                 <option value={PLANAR_CATALOGUE}>Frame members and planar trusses</option>
@@ -297,13 +309,13 @@ function Setup({ id }: { id: GameMode }) {
           <div className="panel">
             <h2>Confirmed turn rules</h2>
             <ul className="rules">
-              {TURN_RULES.map((rule) => (
+              {turnRules.map((rule) => (
                 <li key={rule}>{rule}</li>
               ))}
             </ul>
             <h2 style={{ marginTop: 16 }}>Playtest settings</h2>
             <ul className="rules">
-              {PLAYTEST_SETTINGS.map((item) => (
+              {settings.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>

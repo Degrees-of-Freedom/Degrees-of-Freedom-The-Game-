@@ -48,6 +48,9 @@ describe("scene interaction candidates", () => {
     ).toBe(true);
     expect(growthTargets({ ...state, style: "grow-dusk" })).toEqual(targets);
     expect(growthTargets({ ...state, style: "levels" })).toEqual([]);
+    // Shared table's targets must obey its printed card and selected support
+    // station, rather than expose the unrelated editor tool's growth bloom.
+    expect(growthTargets({ ...state, mode: "multiplayer" })).toEqual([]);
   });
 
   it("offers every point within the section's per-axis reach, not only a sphere", () => {

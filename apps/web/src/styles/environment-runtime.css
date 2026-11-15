@@ -435,6 +435,50 @@ body,
 .environment .drawer-content .turn-card small {
   display: block;
 }
+.environment .turn-panel .release-placement-controls {
+  width: 100%;
+}
+.environment .turn-panel .release-targets,
+.environment .turn-panel .release-precision form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: .5rem;
+}
+.environment .turn-panel .release-targets label {
+  display: grid;
+  width: 100%;
+}
+.environment .turn-panel .release-placement-controls :is(button, select, input),
+.environment .turn-panel .release-staged-attachment button {
+  min-height: 44px;
+  max-width: 100%;
+}
+.environment .turn-panel .release-station-controls,
+.environment .turn-panel .release-precision fieldset {
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+.environment .turn-panel .release-station-controls [role="group"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem;
+}
+.environment .turn-panel .release-station-controls button[aria-pressed="true"] {
+  background: var(--amber, #f2b134);
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+.environment .turn-panel .release-placement-note {
+  flex-basis: 100%;
+  margin: .4rem 0;
+  font-size: .85rem;
+}
+.environment .turn-panel .release-staged-attachment {
+  display: grid;
+  gap: .4rem;
+  margin-block: .5rem;
+}
 .environment[data-style="grow-dusk"] .drawer-content .turn-panel button {
   color: var(--ink);
 }

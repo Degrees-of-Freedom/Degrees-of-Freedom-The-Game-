@@ -1,9 +1,8 @@
-import { RELEASE_CATALOGUE } from "./cardCatalogue";
 import { openMatchDatabase, StaleMatch, type MatchDatabase } from "./releaseDatabase";
 import { InvalidMatch, runMatchJob } from "./matchJobs";
 import { matchRecord, type MatchRecord, type MatchPhase } from "./releaseSave";
 import { useGameStore } from "./store";
-import { createTurnGame, cancelTurnDraft, endTurn, projectTurnModel, stageConnection, stageElement, stageLoad, type TurnState } from "./turns";
+import { createReleaseGame, cancelTurnDraft, undoLastPlacement, chooseTurnDraw, editDraftMember, changeCheckpointInterval, checkpointDueForTurn, endTurn, projectTurnModel, stageConnection, stageElement, stageLoad, type TurnState } from "./turns";
 
 type Transition = ReturnType<typeof endTurn>;
 const state = useGameStore.getState;
@@ -56,7 +55,7 @@ class ReleaseSession {
       }
     }
     this.signal.throwIfAborted();
-    const turn = this.record?.turn ?? createTurnGame(seed ?? randomSeed(), RELEASE_CATALOGUE);
+    const turn = this.record?.turn ?? createReleaseGame(seed ?? randomSeed());
     const stage = (transition: Transition) => {
       const blocked = this.blocked();
       if (blocked) return blocked;
@@ -70,10 +69,14 @@ class ReleaseSession {
       sessionConflict: false, sessionSave: this.damaged ? "invalid" : "idle",
       persistenceError: reason, savedRevision: this.record?.revision ?? null,
       hasSessionBackup: this.recovery !== null,
-      playElement: (card, a, b) => stage(stageElement(state().turn!, card, a, b)),
+      playElement: (card, a, b, contact) => stage(stageElement(state().turn!, card, a, b, contact)),
       playConnection: (card, member, end, joint, profile) => stage(stageConnection(state().turn!, card, member, end, joint, profile ?? state().selectedConnectionProfile)),
       playLoad: (card, joint) => stage(stageLoad(state().turn!, card, joint)),
       cancelDraft: () => stage(cancelTurnDraft(state().turn!)),
+      undoPlacement: () => stage(undoLastPlacement(state().turn!)),
+      drawCard: source => stage(chooseTurnDraw(state().turn!, source)),
+      editPlacement: (memberId, a, b) => stage(editDraftMember(state().turn!, memberId, a, b)),
+      setAnalysisInterval: interval => stage(changeCheckpointInterval(state().turn!, interval)),
       endTurn: async () => {
         const blocked = this.blocked();
         if (blocked) return blocked;
@@ -84,7 +87,7 @@ class ReleaseSession {
       newMatch: () => {
         const blocked = this.blocked();
         if (blocked) return blocked;
-        this.queue(createTurnGame(randomSeed(), RELEASE_CATALOGUE), "planning", crypto.randomUUID());
+        this.queue(createReleaseGame(randomSeed()), "planning", crypto.randomUUID());
         return null;
       },
       retrySessionSave: () => { if (!this.busy && !state().sessionConflict) void this.flush(); },
@@ -100,7 +103,7 @@ class ReleaseSession {
         const previous = this.recovery;
         if (choice === "backup" && !previous) return "failed";
         this.record = previous;
-        const next = choice === "backup" ? previous!.turn : createTurnGame(randomSeed(), RELEASE_CATALOGUE);
+        const next = choice === "backup" ? previous!.turn : createReleaseGame(randomSeed());
         const phase = choice === "backup" ? previous!.phase : "planning";
         this.setCandidate(next, phase, choice === "backup" ? previous!.matchId : crypto.randomUUID());
         await this.flush();
@@ -152,7 +155,12 @@ class ReleaseSession {
     return null;
   }
   private view(turn: TurnState) {
-    return { turn, model: projectTurnModel(turn), selectedCardId: null, selectedConnectionProfile: undefined, selected: null, chainStart: null };
+    const selected = state().selected;
+    const keepMember = turn.board === state().turn?.board && selected?.type === "member" &&
+      [...turn.board.members, ...turn.draft.members].some(member => member.id === selected.id);
+    return { turn, model: projectTurnModel(turn), selectedCardId: null, selectedConnectionProfile: undefined,
+      selected: keepMember ? selected : null, chainStart: null,
+      attachmentSite: "a" as const, placementTip: null, placementPlane: "horizontal" as const };
   }
   private setCandidate(turn: TurnState, phase: MatchPhase, matchId?: string) {
     const record = matchRecord(turn, this.record, phase, matchId);
@@ -185,17 +193,17 @@ class ReleaseSession {
           this.channel?.postMessage(next.record.commitId);
         }
         if (this.record?.phase === "assessing") {
-          update({ sessionSave: "committing", savedRevision: this.record.revision });
+          update({ sessionSave: "committing", savedRevision: this.record.revision, turnAnalysing: !this.record.turn.rulesRevision || checkpointDueForTurn(this.record.turn) });
           const turn = await runMatchJob({ kind: "end", turn: this.record.turn }, this.signal);
           this.signal.throwIfAborted();
           this.setCandidate(turn, turn.finished ? "final" : "planning");
         }
       } while (this.pending);
-      if (this.record) update({ ...this.view(this.record.turn), savedRevision: this.record.revision, sessionSave: "idle", persistenceError: null });
+      if (this.record) update({ ...this.view(this.record.turn), savedRevision: this.record.revision, sessionSave: "idle", turnAnalysing: false, persistenceError: null });
     } catch (error) {
       if (this.signal.aborted) return;
       if (error instanceof StaleMatch) this.conflict();
-      else update({ sessionSave: this.damaged ? "invalid" : "failed", persistenceError: message(error) });
+      else update({ sessionSave: this.damaged ? "invalid" : "failed", turnAnalysing: false, persistenceError: message(error) });
     } finally { this.busy = false; }
   }
 }

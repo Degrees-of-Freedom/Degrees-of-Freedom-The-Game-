@@ -42,6 +42,7 @@ describe("companion islet", () => {
     expect(near.x).toBeLessThan(720);
     expect(near.y).toBeGreaterThan(300);
     expect(near.y).toBeLessThan(420);
+    expect(near.visible).toBe(true);
     look(camera, [islet.position.x + 42, islet.position.y - 42, 30], islet.position);
     const far = projectIslet(terrain, camera, 1280, 720)!;
     expect(far.size).toBeLessThan(near.size);
@@ -59,10 +60,11 @@ describe("companion islet", () => {
     const aside = projectIslet(terrain, camera, 1280, 720)!;
     expect(aside.x).toBeLessThanOrEqual(1280 - aside.size * 0.6);
     expect(aside.y).toBeLessThanOrEqual(720 - 150);
+    expect(aside.visible).toBe(false);
     // The camera facing away from it.
     look(camera, [islet.position.x + 10, islet.position.y, 4], new THREE.Vector3(islet.position.x + 40, islet.position.y, 4));
     const behind = projectIslet(terrain, camera, 1280, 720)!;
-    expect(behind).toEqual({ x: 42 * 0.6, y: 360, size: 42, model: 30 });
+    expect(behind).toEqual({ visible: false, x: 42 * 0.6, y: 360, size: 42, model: 30 });
   });
 
   it("reports nothing for a scene without an islet", () => {

@@ -10,6 +10,16 @@ export async function testOperationalCases(browser, base, saved) {
   const button = name => page.getByRole("button",{name,exact:true});
   const ready = button("Ready · Reveal my hand");
   const checks=[];
+  const drawFour = async () => {
+    const rack = page.locator('[aria-label="Draw four cards"]');
+    while (await rack.count()) {
+      const label = await rack.locator('header span').textContent();
+      const count = Number(label.match(/^(\d)/)?.[1]);
+      await rack.locator('button:not(:disabled)').first().click();
+      if (count < 3) await page.getByText(`${count + 1} of 4 drawn · any mix of decks`, {exact:true}).waitFor();
+      else await rack.waitFor({state:"detached"});
+    }
+  };
   const openFiles = async () => { await button("Menu").click(); await button("Save files").click(); };
   const download = async action => {
     const [file] = await Promise.all([page.waitForEvent("download"), action()]);
@@ -21,7 +31,7 @@ export async function testOperationalCases(browser, base, saved) {
     await button("Validate and replace").click();
   };
   try {
-    await page.goto(base+"match?seed=0"); await ready.click();
+    await page.goto(base+"match?seed=0"); await ready.click(); await drawFour();
     await openFiles();
     const original = await download(()=>button("Export private match").click());
     const publicBytes = await download(()=>button("Export public summary").click());
@@ -69,7 +79,8 @@ export async function testOperationalCases(browser, base, saved) {
     await other.goto(base+"match");
     const otherReady = other.getByRole("button",{name:"Ready · Reveal my hand"});
     await otherReady.waitFor();
-    await page.bringToFront(); await ready.click();
+    await page.bringToFront(); await ready.click(); await drawFour();
+    await page.getByLabel("Calculate every").selectOption("1");
     await button("Pass").dblclick();
     await ready.waitFor();
     await other.getByRole("heading",{name:"Saved session changed"}).waitFor();
@@ -81,7 +92,7 @@ export async function testOperationalCases(browser, base, saved) {
     let releaseRequest;
     const hold = new Promise(resolve=>{ releaseRequest=resolve; });
     await context.route(/dof_solver-.*\.wasm/,async route => { await hold; await route.continue().catch(()=>{}); });
-    await ready.click(); await button("Pass").click();
+    await ready.click(); await drawFour(); await button("Pass").click();
     await page.waitForFunction(async () => {
       const req = indexedDB.open("dof-grow-dusk");
       const db = await new Promise(resolve => {req.onsuccess=()=>resolve(req.result);});

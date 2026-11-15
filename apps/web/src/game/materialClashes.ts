@@ -4,8 +4,10 @@ import { dot, localAxes } from "../evaluator/vector";
 import { CHS, SECTION_GEOMETRY } from "../evaluator/sections";
 import { assemblyParts } from "./assembly";
 import { springParts } from "./springParts";
+import { attachmentPoint, attachmentQuarter, type InteriorSite } from "./attachmentSites";
 
-type Placed = Member & { endTargets?: Partial<Record<"a" | "b", string>>; owner?: string };
+type Placed = Member & { endTargets?: Partial<Record<"a" | "b", string>>;
+  interiorTargets?: Partial<Record<InteriorSite, string>>; owner?: string };
 type Vector = number[];
 type Interval = [number, number];
 type SectionPart = { y: number; z: number; width: number; depth: number; angle?: number };
@@ -99,28 +101,58 @@ function materialIntersects(a: Solid, aSpan: Interval, b: Solid, bSpan: Interval
   });
 }
 
-function contacts(a: Placed, b: Placed): [number[], number[]] {
+function contacts(a: Placed, b: Placed, coordinatePorts = false): [number[], number[]] {
   const aStations: number[] = [], bStations: number[] = [];
   for (const [index, end] of (["a", "b"] as const).entries()) {
     for (const [otherIndex, other] of (["a", "b"] as const).entries()) {
       if (a[end] === b[other]) { aStations.push(index); bStations.push(otherIndex); }
     }
     for (const port of originalPorts(b)) {
-      if (port.available && a.endTargets?.[end] === port.id && port.point.join(",") === a[end]) {
+      if (port.available && (a.endTargets?.[end] === port.id || coordinatePorts && !a.endTargets?.[end]) && port.point.join(",") === a[end]) {
         aStations.push(index); bStations.push(port.quarter / 4);
       }
     }
     for (const port of originalPorts(a)) {
-      if (port.available && b.endTargets?.[end] === port.id && port.point.join(",") === b[end]) {
+      if (port.available && (b.endTargets?.[end] === port.id || coordinatePorts && !b.endTargets?.[end]) && port.point.join(",") === b[end]) {
         aStations.push(port.quarter / 4); bStations.push(index);
       }
     }
   }
+  function interior(source: Placed, target: Placed, sourceStations: number[], targetStations: number[]) {
+    for (const site of ["q1", "q2", "q3"] as const) {
+      const declared = source.interiorTargets?.[site];
+      if (!declared) continue;
+      const at = attachmentPoint(source, site);
+      const station = attachmentQuarter(site) / 4;
+      for (const [index, end] of (["a", "b"] as const).entries()) {
+        if ((declared === target[end] || declared === target.endTargets?.[end]) && at === target[end]) {
+          sourceStations.push(station); targetStations.push(index);
+        }
+      }
+      for (const port of originalPorts(target)) {
+        if (port.available && declared === port.id && at === port.point.join(",")) {
+          sourceStations.push(station); targetStations.push(port.quarter / 4);
+        }
+      }
+      for (const otherSite of ["q1", "q2", "q3"] as const) {
+        // Independent parents may fit the same established interface. Their
+        // stored target identity must agree; coincident quarter geometry alone
+        // is insufficient, including a raw coordinate in place of a named port.
+        if (target.interiorTargets?.[otherSite] === declared && attachmentPoint(target, otherSite) === at) {
+          sourceStations.push(station); targetStations.push(attachmentQuarter(otherSite) / 4);
+        }
+      }
+    }
+  }
+  // A new through-member declares its fitting against an existing interface.
+  // The older immutable member never needs a target pointing to future geometry.
+  interior(a, b, aStations, bStations);
+  interior(b, a, bStations, aStations);
   return [aStations, bStations];
 }
 
-function outsideFittings(length: number, stations: number[], printLength = length): Interval[] {
-  const radius = Math.min(CLASH_POLICY.fittingLengthM, printLength / 4);
+function outsideFittings(length: number, stations: number[], printLength = length, fittedRadius?: number): Interval[] {
+  const radius = fittedRadius ?? Math.min(CLASH_POLICY.fittingLengthM, printLength / 4);
   const spans: Interval[] = [];
   let from = 0;
   for (const station of stations.sort((a, b) => a - b)) {
@@ -132,20 +164,35 @@ function outsideFittings(length: number, stations: number[], printLength = lengt
   return spans;
 }
 
-function clash(a: Solid, b: Solid, allowFitting: boolean, permitted?: Set<string>, printA?: number, printB?: number): boolean {
+/** Centreline-contact joints need enough clearance for the actual angle and
+ * both physical sections. A fixed 250 mm fitting rejects legitimate acute
+ * HEB joints. Parallel spans retain the old small fitting region, so selecting
+ * a contact cannot waive an overlapping or nested member along its length. */
+function jointFittingRadii(a: Solid, b: Solid): [number, number] | undefined {
+  const cosine = Math.min(1, Math.abs(dot(a.axes[0], b.axes[0])));
+  const sine = Math.sqrt(Math.max(0, 1 - cosine * cosine));
+  if (sine < 1e-6) return undefined;
+  const radiusA = Math.hypot(a.bounds.half[1], a.bounds.half[2]);
+  const radiusB = Math.hypot(b.bounds.half[1], b.bounds.half[2]);
+  return [Math.max(CLASH_POLICY.fittingLengthM, (radiusB + cosine * radiusA) / sine + CLASH_POLICY.toleranceM),
+    Math.max(CLASH_POLICY.fittingLengthM, (radiusA + cosine * radiusB) / sine + CLASH_POLICY.toleranceM)];
+}
+
+function clash(a: Solid, b: Solid, allowFitting: boolean, permitted?: Set<string>, printA?: number, printB?: number, angleAwareJointFit = false): boolean {
   if (!intersects(a.bounds, b.bounds)) return false;
   const fullA: Interval = [0, a.length], fullB: Interval = [0, b.length];
   if (!materialIntersects(a, fullA, b, fullB)) return false;
   if (!allowFitting) return true;
-  let [stationsA, stationsB] = contacts(a.member, b.member);
+  let [stationsA, stationsB] = contacts(a.member, b.member, angleAwareJointFit);
   if (permitted) {
     const allowed = (member: Placed, t: number) => permitted.has(pointAt(member,t));
     stationsA = stationsA.filter(t => allowed(a.member,t));
     stationsB = stationsB.filter(t => allowed(b.member,t));
   }
   if (!stationsA.length) return true;
-  return outsideFittings(a.length, stationsA, printA).some(span => materialIntersects(a, span, b, fullB))
-    || outsideFittings(b.length, stationsB, printB).some(span => materialIntersects(a, fullA, b, span));
+  const radii = angleAwareJointFit ? jointFittingRadii(a, b) : undefined;
+  return outsideFittings(a.length, stationsA, printA, radii?.[0]).some(span => materialIntersects(a, span, b, fullB))
+    || outsideFittings(b.length, stationsB, printB, radii?.[1]).some(span => materialIntersects(a, fullA, b, span));
 }
 
 function pointAt(member: Placed, t: number) {
@@ -168,13 +215,18 @@ function physicalSolids(member: Placed) {
 /** A spring's collar occupies real material on both sides of its exact
  * station. Clip each wire/collar by its parent's permitted fitting interval,
  * including for an incoming fitting at an intermediate spring station. */
-function springClash(a: Solid, b: Solid, aParent: Placed, bParent: Placed, allow: boolean) {
+function springClash(a: Solid, b: Solid, aParent: Placed, bParent: Placed, allow: boolean, angleAwareJointFit = false) {
   if (!intersects(a.bounds,b.bounds) || !materialIntersects(a,[0,a.length],b,[0,b.length])) return false;
-  const [aFit,bFit] = contacts(aParent,bParent);
+  const [aFit,bFit] = contacts(aParent,bParent,angleAwareJointFit);
   if (!allow || !aFit.length) return true;
-  function outside(s: Solid, parent: Placed, stations: number[]): Interval[] {
+  const parentSolid = (parent: Placed) => {
+    const section = SECTION_GEOMETRY[parent.type];
+    return solid(parent, section.kind === 'helix' ? section.coilDiameter + section.wireDiameter : undefined);
+  };
+  const radii = angleAwareJointFit ? jointFittingRadii(parentSolid(aParent), parentSolid(bParent)) : undefined;
+  function outside(s: Solid, parent: Placed, stations: number[], radius?: number): Interval[] {
     const length = printLength(parent);
-    const fits = outsideFittings(length,stations);
+    const fits = outsideFittings(length,stations,length,radius);
     if (s.springStation) {
       const [f,t] = s.springStation.map(n => n*length);
       return fits.flatMap(([lo,hi]) => {
@@ -184,10 +236,10 @@ function springClash(a: Solid, b: Solid, aParent: Placed, bParent: Placed, allow
     }
     if (!parent.assembly) return fits;
     const local = ([0,1] as const).filter(t => stations.some(p => pointAt(s.member,t) === pointAt(parent,p)));
-    return outsideFittings(s.length,local,length);
+    return outsideFittings(s.length,local,length,radius);
   }
-  return outside(a,aParent,aFit).some(span => materialIntersects(a,span,b,[0,b.length])) ||
-    outside(b,bParent,bFit).some(span => materialIntersects(a,[0,a.length],b,span));
+  return outside(a,aParent,aFit,radii?.[0]).some(span => materialIntersects(a,span,b,[0,b.length])) ||
+    outside(b,bParent,bFit,radii?.[1]).some(span => materialIntersects(a,[0,a.length],b,span));
 }
 
 function printLength(member: Placed) {
@@ -198,7 +250,7 @@ function printLength(member: Placed) {
 /** Check one proposed physical member against other reference members. Callers
  * supply distinct, previously validated IDs and nonzero finite spans. The same
  * narrow phase is available to candidate system repairs before analysis. */
-export function findMaterialClash(candidate: Placed, others: readonly Placed[], fittingParentId?: number): string | null {
+export function findMaterialClash(candidate: Placed, others: readonly Placed[], fittingParentId?: number, angleAwareJointFit = false): string | null {
   const unavailable = [candidate, ...others].find(member => !Object.hasOwn(SECTION_GEOMETRY, member.type));
   if (unavailable) return `No verified clearance envelope is available for member ${unavailable.id} (${unavailable.type}).`;
   const incoming = physicalSolids(candidate);
@@ -211,12 +263,12 @@ export function findMaterialClash(candidate: Placed, others: readonly Placed[], 
     // but only a parent tip or explicitly selected lower-chord port can host
     // a fitting to a different player object.
     const permitted = candidate.assembly || existing.assembly
-      ? new Set(contacts(candidate, existing)[0].map(t => pointAt(candidate,t))) : undefined;
+      ? new Set(contacts(candidate, existing,angleAwareJointFit)[0].map(t => pointAt(candidate,t))) : undefined;
     const occupied = physicalSolids(existing);
     const occupiedLength = existing.assembly ? printLength(existing) : undefined;
     if (incoming.some(a => occupied.some(b => a.springStation || b.springStation
-      ? springClash(a,b,candidate,existing,fittingAllowed)
-      : clash(a, b, fittingAllowed, permitted, incomingLength, occupiedLength)))) {
+      ? springClash(a,b,candidate,existing,fittingAllowed,angleAwareJointFit)
+      : clash(a, b, fittingAllowed, permitted, incomingLength, occupiedLength,angleAwareJointFit)))) {
       return `Member ${candidate.id} (${candidate.type}) would intersect material in member ${existing.id} (${existing.type}). Choose a clear span or target an original attachment port.`;
     }
   }

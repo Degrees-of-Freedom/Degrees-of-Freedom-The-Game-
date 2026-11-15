@@ -15,6 +15,7 @@ import { createPicker } from "./scenePicking";
 import { selectedTurnCard } from "./turnPicking";
 import { targetCoordinate } from "../game/turnPorts";
 import { isGrowthStyle } from "./sceneStyle";
+import { placementFromTip } from "../game/cantileverPlacement";
 export function bindSceneInteraction(
   canvas: HTMLCanvasElement,
   getCamera: () => THREE.Camera,
@@ -24,7 +25,7 @@ export function bindSceneInteraction(
   point: (key: string) => THREE.Vector3,
   getView: () => SceneView,
   rebuild: () => void,
-  getCameraActions: () => { fit(): void; orbit(step: number): void },
+  getCameraActions: () => { fit(): void; orbit(step: number): void; pitch?(step: number): void },
   onHover?: (hover: SceneHover | null) => void,
 ) {
   let shiftDown = false;
@@ -32,6 +33,11 @@ export function bindSceneInteraction(
   const buildPlane = (): BuildPlane => {
     const s = useGameStore.getState(),
       start = s.chainStart ? parseNodeKey(targetCoordinate(s.model.members, s.chainStart)) : null;
+    if (s.mode === "multiplayer") {
+      const axis = s.placementPlane === "xz" ? "y" : s.placementPlane === "yz" ? "x" : "z";
+      const index = axis === "x" ? 0 : axis === "y" ? 1 : 2;
+      return {axis, value: start ? start[index] : axis === "z" ? s.workK : 0};
+    }
     if (s.style === "levels" || s.style === "blocks")
       return { axis: "z", value: s.workK };
     if (!start || shiftDown)
@@ -125,8 +131,10 @@ export function bindSceneInteraction(
         const target = hit.target ?? nodeKey(...hit.p);
         if (!issue && card.kind === "load") issue = s.playLoad(card.id, target);
         else if (!issue && card.kind === "element") {
-          if (s.chainStart)
-            issue = s.playElement(card.id, s.chainStart, target);
+          if (s.chainStart) {
+            const placement = placementFromTip(s, hit.p, hit.target);
+            issue = "issue" in placement ? placement.issue : s.playElement(card.id, placement.a, placement.b, placement.contact);
+          }
           else s.setChainStart(target);
         }
       } else if (card && !hit) {
@@ -266,10 +274,12 @@ export function bindSceneInteraction(
       !e.ctrlKey &&
       !e.metaKey &&
       !e.altKey &&
-      (["f", "q", "e", "pageup", "pagedown"].includes(key) || s.style === "levels" && ["w", "s"].includes(key) || s.style === "kit" && ["a", "d"].includes(key))
+      (["f", "q", "e", "arrowleft", "arrowright", "arrowup", "arrowdown", "pageup", "pagedown"].includes(key) || s.style === "levels" && ["w", "s"].includes(key) || s.style === "kit" && ["a", "d"].includes(key))
     ) {
       e.preventDefault();
       if (key === "f") getCameraActions().fit();
+      else if (key === "arrowleft" || key === "arrowright") getCameraActions().orbit(key === "arrowleft" ? -0.125 : 0.125);
+      else if (key === "arrowup" || key === "arrowdown") getCameraActions().pitch?.(key === "arrowup" ? 1 : -1);
       else if (key === "q" || key === "e" || key === "a" || key === "d")
         getCameraActions().orbit(key === "q" || key === "a" ? -1 : 1);
       else s.setWorkK(s.workK + (key === "pageup" || key === "w" ? 1 : -1));

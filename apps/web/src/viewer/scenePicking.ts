@@ -34,7 +34,9 @@ import { isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
 import { memberEndPosition } from "./turnGuides";
 import { assemblyParts } from "../game/assembly";
 import { loadTargets, portLabel, targetCoordinate } from "../game/turnPorts";
-import { RELEASE_CATALOGUE } from "../game/cardCatalogue";
+import { isReleaseCatalogue } from "../game/cardCatalogue";
+import { placementCandidates, placementFromTip, type ElementPlacement } from "../game/cantileverPlacement";
+import { attachmentLabel, attachmentQuarter } from "../game/attachmentSites";
 import {
   selectedTurnCard,
   turnConnectionTargets,
@@ -135,6 +137,7 @@ export function createPicker(
       } else considerMember(m.id, point(m.a), point(m.b));
     }
     let hit: Hit = null;
+    let turnPreview: ElementPlacement | undefined;
     let stackLabel = "";
     let hoverRole: SceneHover["role"] = null;
     ghost.visible = false;
@@ -162,7 +165,7 @@ export function createPicker(
         ghost.visible = true;
         if (choices.length > 1) stackLabel = `${choice + 1}/${choices.length}, [ or ] to cycle`;
       } else stack.reset();
-    } else if (card?.kind === "load" && s.turn?.catalogue === RELEASE_CATALOGUE) {
+    } else if (card?.kind === "load" && s.turn && isReleaseCatalogue(s.turn.catalogue)) {
       const candidates = buildStack(loadTargets(s.turn).flatMap(target => {
         const [sx, sy, depth] = screen(basePoint(target.point));
         const dist = Math.hypot(sx - x, sy - y);
@@ -283,9 +286,16 @@ export function createPicker(
         )
           intersection = terrainHit.point;
       }
-      const isGrowing = !!start && isMember && (!card || card.kind === "element") && isGrowthStyle(s.style);
-      if (!isGrowing) stack.reset();
+      const isGrowing = !!start && isMember && !card && isGrowthStyle(s.style);
+      if (!isGrowing && !(card?.kind === "element" && s.chainStart)) stack.reset();
+
       const reachable = isGrowing ? closestGrowthTarget() : null;
+      const turnCandidates = card?.kind === "element" && s.chainStart ? buildStack(placementCandidates(s).flatMap(candidate => {
+        const [sx, sy, depth] = screen(basePoint(candidate.point.join(",")));
+        const dist = Math.hypot(sx - x, sy - y);
+        return depth >= -1 && depth < 1 ? [{item: candidate, sx, sy, depth, dist}] : [];
+      }), 14) : [];
+      const turnCandidate = turnCandidates.length ? turnCandidates[stack.choose(turnCandidates.map(c => c.item.key), s.chainStart)].item : undefined;
       hoverRole = reachable?.role ?? null;
       if (!card && s.style === "blocks" && isMember && intersection) {
         const baySize = getView().baySize ?? DEFAULT_BAY_SIZE;
@@ -298,7 +308,7 @@ export function createPicker(
           preview,
           face,
         );
-      } else if (reachable || (!isGrowing && (intersection || nearNode))) {
+      } else if (reachable || turnCandidate || (!isGrowing && (intersection || nearNode))) {
         const useExisting =
           nearNode &&
           nearNode !== s.chainStart &&
@@ -310,6 +320,8 @@ export function createPicker(
             ? nearNode
               ? parseNodeKey(nearNode)
               : null
+            : turnCandidate
+              ? [...turnCandidate.point]
             : reachable
               ? reachable.point
               : useExisting
@@ -345,7 +357,7 @@ export function createPicker(
           if (s.style !== "levels")
             p[2] = Math.max(p[2], groundK(level, p[0], p[1]));
           const issue = card
-            ? turnPointIssue(s, p)
+            ? turnPointIssue(s, p, turnCandidate?.key)
             : isMember
               ? start
                 ? memberIssue(level, s.model, start, p, tool as MemberType)
@@ -353,7 +365,7 @@ export function createPicker(
                   ? "No items left in supply"
                   : null
               : nodeItemIssue(level, s.model, p, tool as NodeItem);
-          hit = { kind: "point", p, issue };
+          hit = { kind: "point", p, issue, ...(turnCandidate && {target: turnCandidate.key}) };
           ghost.position.set(...p).multiplyScalar(CELL_SIZE);
           const roles = SCENE_STYLES[s.style].roles;
           const roleColor =
@@ -432,9 +444,30 @@ export function createPicker(
       return [label, (member.util * 100).toFixed(0) + "% utilization", member.gov]
         .filter(Boolean).join(" · ");
     }
+    // Draw the complete parent around its pinned support, including the arm
+    // behind it. This same derivation is used by keyboard targeting and commit.
+    if (card?.kind === "element" && s.chainStart && hit?.kind === "point") {
+      const placement = placementFromTip(s, hit.p, hit.target);
+      if (!("issue" in placement)) {
+        turnPreview = placement;
+        const a = basePoint(targetCoordinate(s.model.members, placement.a));
+        const b = basePoint(targetCoordinate(s.model.members, placement.b));
+        const points = [a, b];
+        for (const tip of [a, b]) {
+          points.push(tip.clone().add(new THREE.Vector3(0, 0, -0.14)), tip.clone().add(new THREE.Vector3(0, 0, 0.14)));
+          points.push(tip.clone().add(new THREE.Vector3(-0.14, 0, 0)), tip.clone().add(new THREE.Vector3(0.14, 0, 0)));
+        }
+        preview.geometry.dispose();
+        preview.geometry = new THREE.BufferGeometry().setFromPoints(points);
+        preview.material.color.set("#f6ad49"); preview.visible = true;
+        const length = a.distanceTo(b), q = attachmentQuarter(s.attachmentSite) / 4;
+        stackLabel = `${length.toFixed(2)} m total · ${(length*q).toFixed(2)} m / ${(length*(1-q)).toFixed(2)} m from attachment · free tips`;
+      } else preview.visible = false;
+    }
     onHover?.(
       hit?.kind === "point"
-        ? { p: hit.p, issue: hit.issue, role: hoverRole, stack: stackLabel }
+        ? { p: hit.p, issue: hit.issue, role: hoverRole, stack: stackLabel,
+          ...(turnPreview && {span: {a: parseNodeKey(targetCoordinate(s.model.members, turnPreview.a)), b: parseNodeKey(targetCoordinate(s.model.members, turnPreview.b))}}) }
         : null,
     );
     // The growth styles label the hovered point in the scene instead of a tooltip.
@@ -461,8 +494,7 @@ export function createPicker(
                 ? [
                     "Connect member",
                     hit.memberId,
-                    "end",
-                    hit.end.toUpperCase(),
+                    attachmentLabel(hit.end),
                     "→", hit.key, stackLabel,
                   ].join(" ")
                 : "";

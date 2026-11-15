@@ -77,6 +77,8 @@ export function isletStand(terrain: THREE.Object3D, out: THREE.Vector3): THREE.V
 }
 
 export interface IsletView {
+  /** Whether the standing spot is actually visible, before clamping the HTML target. */
+  visible: boolean;
   /** Screen position of the companion's feet, in CSS pixels of the view. */
   x: number;
   y: number;
@@ -106,6 +108,7 @@ export function projectIslet(terrain: THREE.Object3D, camera: THREE.Camera, widt
   const x = behind ? 0 : (foot.x * 0.5 + 0.5) * width;
   const y = behind ? height / 2 : (-foot.y * 0.5 + 0.5) * height;
   return {
+    visible: !behind && foot.x >= -1 && foot.x <= 1 && foot.y >= -1 && foot.y <= 1,
     x: Math.min(width - size * 0.6, Math.max(size * 0.6, x)),
     y: Math.min(height - 150, Math.max(size + 8, y)),
     size,

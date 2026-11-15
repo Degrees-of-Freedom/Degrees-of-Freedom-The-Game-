@@ -9,6 +9,7 @@ import { LEVELS } from './levels';
 /** Reference structures supplied by the standalone prototype. */
 export function exampleModel(id: LevelId): GameModel | null {
   if (id === 'tower2') return towerTwoExample();
+  if (id === 'bridge2') return bridgeTwoExample();
   if (id !== 'tower1' && id !== 'bridge1' && id !== 'pickup1') return null;
   const m = initialModel(LEVELS[id]);
   const add = (a: string, b: string, type: MemberType) =>
@@ -102,4 +103,36 @@ function towerTwoExample(): GameModel {
     add(nodeKey(x, y, z), nodeKey(u, v, z + 3), 'shs');
   }
   return model;
+}
+
+/** The gorge truss uses four added supports on solid bank edges. */
+function bridgeTwoExample(): GameModel {
+  const m = initialModel(LEVELS.bridge2);
+  const add = (x: number, y: number, z: number, u: number, v: number, w: number, type: MemberType = 'shs') =>
+    m.members.push({ id: m.nextId++, a: nodeKey(x, y, z), b: nodeKey(u, v, w), type });
+  for (const y of [4, 6]) {
+    for (let x = 4; x < 18; x += 2) add(x, y, 4, x + 2, y, 4, 'ipe');
+    for (let x = 6; x < 16; x += 2) add(x, y, 7, x + 2, y, 7);
+    add(4, y, 4, 6, y, 7, 'ipe');
+    add(18, y, 4, 16, y, 7, y === 4 ? 'shs' : 'ipe');
+    for (let x = 6; x <= 16; x += 2) {
+      add(x, y, 4, x, y, 7, x === 14 || x === 16 ? 'ipe' : 'shs');
+      m.attrs[nodeKey(x, y, 7)] = { joint: true };
+    }
+    for (let x = 6; x < 16; x += 2)
+      if (x === 14) add(16, y, 7, 14, y, 4);
+      else add(x, y, 7, x + 2, y, 4);
+    for (const x of [6, 16]) {
+      m.attrs[nodeKey(x, y, 0)] = { found: true, joint: true };
+      add(x, y, 0, x, y, 2, 'heb');
+      add(x, y, 2, x, y, 4, 'heb');
+    }
+  }
+  for (let x = 6; x <= 16; x += 2) {
+    add(x, 4, 4, x, 6, 4);
+    add(x, 4, 7, x, 6, 7, [6, 14, 16].includes(x) ? 'ipe' : 'shs');
+  }
+  for (let x = 4; x < 18; x += 2) add(x, 4, 4, x + 2, 6, 4);
+  for (let x = 6; x < 16; x += 2) add(x, 4, 7, x + 2, 6, 7);
+  return m;
 }

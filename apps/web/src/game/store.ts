@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { ConnectionProfile } from "./jointFreedom";
+import type { AttachmentSite, InteriorContact } from "./attachmentSites";
+import type { PlacementPlane } from "./cantileverPlacement";
 import type { SolverAdapter } from "@dof/solver-contract";
 import { analyzeCompletedTurn, assessTurn } from "./turnAnalysis";
 import { SCORED_CATALOGUE, isScoredCatalogue, type CatalogueId } from "./cardCatalogue";
@@ -43,6 +45,10 @@ import { openSessionWriter, sessionLocks, SESSION_CONFLICT, SESSION_KEY, SESSION
 import {
   activeTurnHand,
   cancelTurnDraft,
+  undoLastPlacement,
+  chooseTurnDraw,
+  editDraftMember,
+  changeCheckpointInterval,
   createTurnGame,
   endTurn,
   projectTurnModel,
@@ -75,20 +81,30 @@ interface GameState {
   turn: TurnState | null;
   selectedCardId: string | null;
   selectedConnectionProfile?: ConnectionProfile;
+  attachmentSite: AttachmentSite;
+  setAttachmentSite: (site: AttachmentSite) => void;
+  placementPlane: PlacementPlane;
+  setPlacementPlane: (plane: PlacementPlane) => void;
+  placementTip: string | null;
+  setPlacementTip: (key: string | null) => void;
   setConnectionProfile: (profile?: ConnectionProfile) => void;
   loadBrush: { magnitude: number; direction: LoadDirection };
   setLoadBrush: (magnitude: number, direction: LoadDirection) => void;
   selectCard: (id: string | null) => void;
-  playElement: (cardId: string, a: string, b: string) => string | null;
+  playElement: (cardId: string, a: string, b: string, contact?: InteriorContact) => string | null;
   playLoad: (cardId: string, jointId: string) => string | null;
   playConnection: (
     cardId: string,
     memberId: number,
-    end: "a" | "b",
+    end: AttachmentSite,
     jointId?: string,
     profile?: ConnectionProfile,
   ) => string | null;
   cancelDraft: () => string | null;
+  undoPlacement: () => string | null;
+  drawCard: (source: "members" | "connections" | "loads") => string | null;
+  editPlacement: (memberId: number, a: string, b: string) => string | null;
+  setAnalysisInterval: (interval: number) => string | null;
   /**
    * Commit the staged turn. The verified in-browser analysis decides issues,
    * penalties, repair and score; the structural solver chosen in Settings
@@ -196,7 +212,7 @@ export const useGameStore = create<GameState>((set, get) => {
   let attempted: Session | null = null;
   let deferredTurn: TurnState | null = null;
   const turnView = (turn: TurnState) => ({ turn, model: projectTurnModel(turn),
-    selectedCardId: null, chainStart: null, selected: null });
+    selectedCardId: null, chainStart: null, selected: null, attachmentSite: "a" as const, placementTip: null });
   const saveSession = (session: Session) => {
     attempted = session;
     const result = writer?.save(session) ?? "failed";
@@ -362,6 +378,16 @@ export const useGameStore = create<GameState>((set, get) => {
     style: session.style,
     turn: session.turn,
     selectedCardId: null,
+    attachmentSite: "a",
+    setAttachmentSite: (attachmentSite) => {
+      if (["a", "b", "q1", "q2", "q3"].includes(attachmentSite)) set({attachmentSite, placementTip: null});
+    },
+    placementPlane: "horizontal",
+    setPlacementPlane: (placementPlane) => {
+      if (["horizontal", "xz", "yz"].includes(placementPlane)) set({placementPlane, placementTip: null});
+    },
+    placementTip: null,
+    setPlacementTip: (placementTip) => set({placementTip}),
     setConnectionProfile: (selectedConnectionProfile) => set({ selectedConnectionProfile }),
     loadBrush: { magnitude: 50, direction: "-Z" },
     setLoadBrush: (magnitude, direction) => {
@@ -376,16 +402,19 @@ export const useGameStore = create<GameState>((set, get) => {
     selectCard: (id) =>
       set((s) => ({
         selectedConnectionProfile: undefined,
+        attachmentSite: "a",
+        placementPlane: "horizontal",
+        placementTip: null,
         selectedCardId:
           id && s.turn && activeTurnHand(s.turn).some((c) => c.id === id)
             ? id
             : null,
         chainStart: null,
       })),
-    playElement: (cardId, a, b) => {
+    playElement: (cardId, a, b, contact) => {
       const s = get();
       return s.mode === "multiplayer" && s.turn
-        ? turnTransition(stageElement(s.turn, cardId, a, b))
+        ? turnTransition(stageElement(s.turn, cardId, a, b, contact))
         : "No multiplayer game is active";
     },
     playLoad: (cardId, jointId) => {
@@ -407,6 +436,24 @@ export const useGameStore = create<GameState>((set, get) => {
       return s.mode === "multiplayer" && s.turn
         ? turnTransition(cancelTurnDraft(s.turn))
         : "No multiplayer game is active";
+    },
+    undoPlacement: () => {
+      const s = get();
+      return s.mode === "multiplayer" && s.turn
+        ? turnTransition(undoLastPlacement(s.turn))
+        : "No multiplayer game is active";
+    },
+    drawCard: source => {
+      const s = get();
+      return s.turn ? turnTransition(chooseTurnDraw(s.turn, source)) : "No multiplayer game is active";
+    },
+    editPlacement: (memberId, a, b) => {
+      const s = get();
+      return s.turn ? turnTransition(editDraftMember(s.turn, memberId, a, b)) : "No multiplayer game is active";
+    },
+    setAnalysisInterval: interval => {
+      const s = get();
+      return s.turn ? turnTransition(changeCheckpointInterval(s.turn, interval)) : "No multiplayer game is active";
     },
     turnAnalysing: false,
     turnSolver: null,
@@ -698,7 +745,7 @@ export const useGameStore = create<GameState>((set, get) => {
       commit(clone(model));
       return true;
     },
-    undo: () =>
+    undo: () => get().mode === "multiplayer" ? void get().undoPlacement() :
       set((s) => {
         if (s.mode === "multiplayer" || !s.history.length) return {};
         const model = s.history[s.history.length - 1];
@@ -731,7 +778,7 @@ export const useGameStore = create<GameState>((set, get) => {
       set((s) => ({
         workK: Math.max(0, Math.min(LEVELS[s.levelId].nz, Math.round(k))),
       })),
-    setChainStart: (chainStart) => set({ chainStart }),
+    setChainStart: (chainStart) => set({ chainStart, placementTip: null, ...(!chainStart && {attachmentSite: "a" as const}) }),
     setSelected: (selected) => set({ selected }),
     addMember: (a, b, type) => {
       const s = get();

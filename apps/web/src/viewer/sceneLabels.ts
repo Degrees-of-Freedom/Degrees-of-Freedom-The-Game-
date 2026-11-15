@@ -1,12 +1,15 @@
 import * as THREE from 'three';
 
-export type LabelPaint = 'load' | 'reaction' | 'selection' | 'tension' | 'compression' | 'bending' | 'deflection' | 'shear' | 'moment' | 'warning';
+export type LabelPaint = 'load' | 'reaction' | 'selection' | 'player1' | 'player2'
+  | 'tension' | 'compression' | 'bending' | 'deflection' | 'shear' | 'moment' | 'warning';
 
 /** Background, ink and outline per label kind; each matches its overlay colour in `viewPalette`. */
 const PAINT: Record<LabelPaint, [string, string, string]> = {
   load: ['#f2b134', '#22313f', '#704e19'],
   reaction: ['#d2ecc9', '#264a39', '#597965'],
   selection: ['#233442', '#fff6e4', '#ae9c81'],
+  player1: ['#efb0a1', '#3e2424', '#a86155'],
+  player2: ['#b1cfee', '#23354d', '#617da6'],
   tension: ['#cfe8ff', '#123458', '#4da3ff'],
   compression: ['#ffd9cf', '#5a1a0c', '#ff6b4a'],
   bending: ['#efe0ff', '#3c1a5c', '#c58cff'],
@@ -16,8 +19,12 @@ const PAINT: Record<LabelPaint, [string, string, string]> = {
   warning: ['#ffd3e0', '#5a0b25', '#ff477e'],
 };
 
-export function addSceneLabel(group: THREE.Group, position: THREE.Vector3, text: string, style: LabelPaint) {
+export function addSceneLabel(group: THREE.Group, position: THREE.Vector3, text: string, style: LabelPaint, size = 1) {
   const canvas = document.createElement('canvas');
+  // This off-DOM canvas is an active texture source, not an orphaned renderer.
+  // Disposal marks its provenance so lifecycle tests can distinguish the two.
+  canvas.dataset.sceneTexture = 'label';
+  canvas.dataset.sceneTextureState = 'active';
   const context = canvas.getContext('2d');
   if (!context) return;
   const font = '700 28px system-ui';
@@ -44,7 +51,7 @@ export function addSceneLabel(group: THREE.Group, position: THREE.Vector3, text:
     map: texture, depthTest: false, depthWrite: false, sizeAttenuation: false,
   }));
   label.position.copy(position);
-  label.scale.set((canvas.width / canvas.height) * 0.032, 0.032, 1);
+  label.scale.set((canvas.width / canvas.height) * 0.032 * size, 0.032 * size, 1);
   label.center.set(-0.06, 0.22);
   label.renderOrder = 80;
   group.add(label);

@@ -3,6 +3,7 @@ import { analyzeTurn, toTurnEvaluatorInput } from './turnAnalysis';
 import { rigidBodyWitnesses } from '../evaluator/rigidBodyFreedom';
 import type { CapacityCheck } from '../evaluator/capacity';
 import { verifiedResponse } from '../evaluator/evidence';
+import type { AttachmentSite } from './attachmentSites';
 
 export const ISSUE_POLICY = 'card-gravity-issues-1' as const;
 const overloadEntry = 1.001, overloadExit = 0.999, worseningIncrement = 0.10;
@@ -14,7 +15,7 @@ export interface IssueFinding {
   id: string;
   category: IssueCategory;
   memberId: number;
-  end?: 'a' | 'b';
+  end?: AttachmentSite;
   validity: 'verified' | 'unknown';
   active: boolean | null;
   reason: string;
@@ -33,7 +34,7 @@ export interface IssueChange {
   id: string;
   category: IssueCategory;
   memberId: number;
-  end?: 'a' | 'b';
+  end?: AttachmentSite;
   change: 'new' | 'worsened' | 'persistent' | 'improved' | 'resolved' | 'unknown';
   eligible: boolean;
   before: IssueFinding | null;
@@ -69,8 +70,10 @@ function evidenceId(turn: TurnState) {
   const connections = [...turn.board.connections, ...turn.draft.connections]
     .sort((a, b) => a.memberId-b.memberId || a.end.localeCompare(b.end));
   const joints = [...turn.board.joints].sort((a, b) => a.id.localeCompare(b.id));
-  const signature = JSON.stringify([turn.catalogue, ISSUE_POLICY, members, loads, connections,
-    joints.filter(j => j.foundationOwner).map(j => [j.id, j.foundationOwner, j.point])]);
+  const physical: unknown[] = [turn.catalogue, ISSUE_POLICY, members, loads, connections,
+    joints.filter(j => j.foundationOwner).map(j => [j.id, j.foundationOwner, j.point])];
+  if (turn.board.jointCorrections?.length) physical.push(turn.board.jointCorrections);
+  const signature = JSON.stringify(physical);
   let hash = 2166136261;
   for (let i = 0; i < signature.length; ++i) hash = Math.imul(hash ^ signature.charCodeAt(i), 16777619);
   return `${turn.seed}/${(hash >>> 0).toString(16)}`;

@@ -25,6 +25,12 @@ function fakeStorage(initial?: string): SettingsStorage & { raw: string | null }
 }
 
 describe("menu settings", () => {
+  it("restores Shared table release visibility and reaction-size preferences from older settings", () => {
+    expect(parseSettings('{"jointDisplay":"off"}')).toMatchObject({ jointDisplay: "off", releaseJointDisplay: "all", reactionLabels: "normal" });
+    expect(parseSettings('{"releaseJointDisplay":"selected","reactionLabels":"small"}')).toMatchObject({ releaseJointDisplay: "selected", reactionLabels: "small" });
+    expect(parseSettings('{"releaseJointDisplay":"off","reactionLabels":"off"}')).toMatchObject({ releaseJointDisplay: "off", reactionLabels: "off" });
+    expect(parseSettings('{"releaseJointDisplay":"invalid","reactionLabels":20}')).toMatchObject({ releaseJointDisplay: "all", reactionLabels: "normal" });
+  });
   it("uses defaults when nothing is stored or the value is corrupt", () => {
     expect(parseSettings(null)).toEqual(DEFAULT_SETTINGS);
     expect(parseSettings("{not json")).toEqual(DEFAULT_SETTINGS);

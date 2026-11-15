@@ -5,6 +5,10 @@ validated_against:
   - docs/kb/game-completion-criteria.md
   - "Project owner avatar request, prominence choice and criteria-first correction, 2026-11-14"
   - docs/kb/animation-criteria.md
+  - apps/web/src/companion/Companion.tsx
+  - apps/web/src/companion/reactions.ts
+  - apps/web/src/game/publicRepairReport.ts
+  - scripts/release-presentation.mjs
   - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria.md
   - prototypes/timburr-companion/README.md
@@ -184,7 +188,7 @@ Timburr now plays short procedural clips chosen by public scenario. The models r
 | Newly committed verified-stable report without deduction | cheer | reaction |
 | Partial, unresolved or persistent issue without a new deduction | perk only | routine |
 | Repair announcement: verified with nothing pending / otherwise | dance / concern | reaction |
-| Conkeldurr foreman entrance (existing eligibility unchanged) | foreman | dramatic |
+| Third eligible deduction for the same player | foreman, shared by Timburr and Conkeldurr | dramatic |
 | Final results | victory | dramatic |
 | Idle: release board | breathe, shift | idle |
 | Idle: launcher, menus and other workspaces | breathe, shift, glance, adjust, stretch, tapFoot, peek | idle |
@@ -194,7 +198,7 @@ Behavior guarantees, each covered by unit tests in `apps/web/src/companion/`:
 - **Bounded and interruptible.** One clip plays at a time (0.5–2.4 s). A cue may replace a clip of equal or lower priority, so routine chatter never overwrites a result reaction or Conkeldurr. Every clip starts and ends exactly at rest; hop, tilt and squash stay inside the badge's headroom.
 - **Sparse idle.** Nothing renders while resting. One fidget plays after a random 6–12 s pause and never repeats the previous one. This replaces the earlier "zero idle draw calls" behavior when motion is enabled; under reduced motion it still holds.
 - **Still mode.** Reduced motion, *Skip effects* and hidden tabs settle the figure at rest and refuse clips; a figure swap only fades briefly.
-- **Truthful and public.** Cues carry only the public card family, never card identity. Unknown results are never cheered. After a reload, a remount or a different match only the routine perk plays; an old committed result is not reenacted. Foreman eligibility, cooldown and timing are unchanged.
+- **Public result cues.** Routine cues carry the public card family. A verified stable result can earn a cheer. A reload can introduce the current seat with a perk. The three-deduction policy below governs the foreman entrance.
 
 Modules: `motion.ts` contains the clip library, sampling, interruption, idle choice, scenario mapping and portrait transform. It is pure. `animator.ts` contains the frame/timer scheduler with an injectable host. `turnCues.ts` contains the committed-report policy. `figure.ts` applies poses to the 3D rig; `Companion.tsx` routes cues to whichever view is showing. On the board the control also publishes every sampled pose through `boardPose.ts`, and `viewer/companionFigure.ts` applies it to the model standing on the islet in the 3D scene (see [unified runtime](unified-runtime.md)), so the islet figure plays the same clips as the badge; it adds only a small lean toward the viewer under the pointer or while its cloud is open. Both portraits were regenerated with the new feet-anchored framing, which leaves headroom for hops. The [motion browser check](../evidence/companion-motion/check.mjs) renders every clip in 3D and in portrait form as a [contact sheet](../evidence/companion-motion/motion-sheet.png). It also plays a match through visible controls and asserts the scenario-to-clip sequence.
 
@@ -233,6 +237,12 @@ Use the preserved attributed Timburr and Conkeldurr assets for the release, with
 
 Timburr is a small edge companion with one dismissible bubble, outside board/control safe zones. Routine actions get a glance/nod rather than narration; the board supplies essential feedback. Show one short useful explanation for a new result, correction or invalid target. Idle motion is limited to subtle breathing/weight shift, with no unsolicited repeated tips. Direct activation is rate-limited to one response per five seconds. Suppress the companion on privacy/recovery covers and wherever it would reveal private information.
 
-Automatic Conkeldurr eligibility is one verified newly penalized committed event with witnessed instability or utilization at least 1.25. Use at most one transformation per originating turn, a 45-second cooldown, an 800 ms introduction and at most three seconds of quiet foreman pose. Explain the actual repair or suggest inspecting the unresolved region. Do not transform for invalid input, preview, persistent issues, timeout or unknown evidence. Repair and scoring remain independent of reaction completion. Final victory supersedes other reactions.
+The owner's subsequent three-mistake rule supersedes the earlier single-event trigger. The Shared table counts each player's distinct, committed −1 penalty events in chronological order. Each event needs a verified new or worsened active finding in its recorded pre-correction comparison. All charged issues in one turn count together. A verified overload and a witnessed instability both qualify. Matching turn, player, before/after assessment IDs and charged issue IDs establish provenance. Only the turn/player suffix of the authoritative event ID enters the companion projection.
+
+After a calculation checkpoint settles and the incoming seat selects Ready, a charged instability gets a red dialogue bubble, an exclamation mark and a written member/turn reference. The explanation reports the recorded fitting, legacy prop or pending issue. Each player's third and sixth qualifying turns can call Conkeldurr. A checkpoint that assessed several earlier turns presents one notice. A three-charge milestone has first priority, followed by a charged instability and then an ordinary repair. Among equal priorities the most recent turn wins. The notice names the original acting player and turn. The 45-second cooldown suppresses a second spectacle during that interval. The count comes from the match's committed history and survives reload. The cue requires a newly settled checkpoint in the current workspace, so reopening a save stays quiet. Victory takes priority. The companion contributes no inputs to scoring, repair or hand generation.
+
+The board companion stands on a 3D islet. The control publishes the sampled pose through `boardPose.ts` and identifies the requested character with `data-character`. During the 800 ms `foreman` clip Timburr starts the crouch. At its first squash peak, 160 ms in, Conkeldurr takes over the same sampler and completes the rise, flex and turn. Conkeldurr then holds for under three seconds. The scene displays its matching loaded model when the islet is visible. An offscreen islet, pending model or failed renderer leaves the screen control available with its matching model or portrait. A newly charged instability opens a red speech cloud with the member and originating turn. Reduced motion shows the still character and the same text. Dismiss and Skip transformation return to Timburr immediately.
+
+The production browser fixture builds five loose members in alternating seats and passes turn six. Player 1 has three verified deductions and Player 2 has two. On `2f99141` Chrome observed Timburr measuring on the islet, the same foreman clip on both characters, a red report identifying member 7 on turn five, and one audio accent. With reduced motion and sound muted, the matching in-scene Conkeldurr appeared directly in a still pose. Both tests reloaded between checkpoints and retained the per-player counts. [Browser results](../evidence/shared-table-forces/islet-foreman.json) · [Timburr measuring](../evidence/shared-table-forces/islet-timburr.png) · [Conkeldurr and the report](../evidence/shared-table-forces/islet-foreman.png)
 
 Keep Show companion, motion and audio settings in the main settings disclosure, with a small restore control when hidden. Reduced motion uses a still pose/brief fade. Missing 3D/audio never blocks play or substitutes the wrong character. Deduplicate by committed event IDs on reload. Celebrate a verified repair without claiming the entire structure is safe.

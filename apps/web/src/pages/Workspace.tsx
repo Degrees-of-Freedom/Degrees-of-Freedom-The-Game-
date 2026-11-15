@@ -6,7 +6,7 @@ import { LEVELS } from "../game/levels";
 import { useGameStore } from "../game/store";
 import { analyzeGame } from "../game/analysis";
 import { analyzeTurn } from "../game/turnAnalysis";
-import { isScoredCatalogue, RELEASE_CATALOGUE } from "../game/cardCatalogue";
+import { isReleaseCatalogue, isScoredCatalogue } from "../game/cardCatalogue";
 import { ReleaseBoard } from "../components/ReleaseBoard";
 import type { CameraMemory } from "../viewer/sceneView";
 import { deformationField } from "../viewer/deformationField";
@@ -53,7 +53,7 @@ type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 /** The environment variants compose the same store, scene and analysis boundary. */
 export function Workspace() {
   const game = useGameStore();
-  const release = game.mode === "multiplayer" && game.turn?.catalogue === RELEASE_CATALOGUE;
+  const release = game.mode === "multiplayer" && isReleaseCatalogue(game.turn?.catalogue);
   const cameraMemory = useRef<CameraMemory>({});
   // Editor and archived presets may request the configured solver. Release
   // End turn and inspection use their versioned in-browser workers.
@@ -95,13 +95,26 @@ export function Workspace() {
   // Only a turn actually ended in this workspace can prompt Timburr after
   // handoff. Resume and replay retain the report for deliberate inspection.
   const [pendingRepairNotice, setPendingRepairNotice] = useState<string | null>(null);
+  const [announceFromTurn, setAnnounceFromTurn] = useState<number>();
+  const localEnd = useRef<{ turn: number; from: number } | undefined>(undefined);
   const reports = game.mode === "multiplayer" ? game.turn?.reports : undefined;
   const repairs = useMemo(() => reports?.map(publicRepairReport).filter(item => item !== null), [reports]);
   const latestRepair = repairs?.at(-1);
   const repairNoticeId = game.turn && latestRepair &&
     `repair-speech-1/${game.turn.catalogue}/${game.turn.seed}/${latestRepair.turn}`;
   const companion = { repairs, announceRepair: !!repairNoticeId && repairNoticeId === pendingRepairNotice,
+    announceFromTurn,
     onPresented: () => setPendingRepairNotice(null) };
+  useEffect(() => {
+    const pending = localEnd.current;
+    const current = game.turn;
+    if (!pending || !current || current.turn <= pending.turn && !current.finished) return;
+    localEnd.current = undefined;
+    if (latestRepair && latestRepair.turn >= pending.from) {
+      setAnnounceFromTurn(pending.from);
+      setPendingRepairNotice(`repair-speech-1/${current.catalogue}/${current.seed}/${latestRepair.turn}`);
+    }
+  }, [game.turn, latestRepair]);
   const privateTurn = game.mode === "multiplayer" && !game.turn?.finished ? game.turn : null;
   const privateMatchActive = privateTurn !== null;
   const needsHandoff = !!privateTurn && readyBoard !== privateTurn.board;
@@ -139,10 +152,10 @@ export function Workspace() {
     if (current.mode !== "multiplayer" || !current.turn || current.turn.finished ||
         current.turn.board !== readyBoard || paused || document.hidden || current.turnAnalysing) return;
     const ended = current.turn;
+    localEnd.current = { turn: ended.turn, from: (ended.checkpoints?.lastAttemptTurn ?? ended.turn - 1) + 1 };
     setMessage("Analysing the turn…");
     const error = await current.endTurn();
-    if (error) { setMessage(error); return; }
-    setPendingRepairNotice(`repair-speech-1/${ended.catalogue}/${ended.seed}/${ended.turn}`);
+    if (error) { localEnd.current = undefined; setMessage(error); return; }
     setReadyBoard(null);
     setDrawer(null);
     setMessage("");

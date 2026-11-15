@@ -6,6 +6,10 @@ import { displacementColor } from "./contourRamp";
 import { REFERENCE_COLOR } from "./viewPalette";
 import { READABLE_SECTION_SCALE, roundHollowGeometry, wideFlangeGeometry } from "./sectionGeometry";
 
+/** Keep the release's public helper name while sharing its exact contour
+ * with the view-mode legend and displacement-shadow renderer. */
+export { displacementColor as deflectionColor } from "./contourRamp";
+
 /** Sweep the existing section along sampled analytical centrelines. The
  * recovered axial twist rotates the section about the deformed tangent. */
 export function deflectedFrameGeometry(spans: DeflectedSpan[], scale: number, radius: number, trueScale = false, contourPeak?: number) {

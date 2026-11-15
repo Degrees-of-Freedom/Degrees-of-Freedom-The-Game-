@@ -1,6 +1,7 @@
 import { allNodeKeys, type GameModel } from "../game/model";
 import { CONNECTION_PROFILES, conflictingJointAxes, connectionDefinition, connectionLabel, type ConnectionProfile } from "../game/jointFreedom";
 import type { TurnState } from "../game/turns";
+import { attachmentId, attachmentLabel, isInteriorSite } from "../game/attachmentSites";
 
 export type JointDisplay = "selected" | "all" | "off";
 export type JointState = "locked" | "free" | "elastic" | "coupled" | "unavailable" | "conflict" | "inactive";
@@ -41,8 +42,8 @@ const axialOnly: JointComponents = ["locked", "locked", "locked", "inactive", "i
 
 /** A world direction crossing distinct eigenspaces cannot be described with
  * a single independent release. Elastic directions also retain their real axes. */
-function globalComponents(profile: ConnectionProfile): JointComponents {
-  const { axes, laws } = connectionDefinition(profile);
+function globalComponents(connection: Connection): JointComponents {
+  const { axes, laws } = connectionDefinition(connection.profile, connection.axes);
   function component(index: number): JointState {
     const group = index < 3 ? 0 : 3;
     const active = axes.flatMap((axis, i) => Math.abs(axis[index % 3]) > 1e-12 ? [laws[group + i]] : []);
@@ -57,24 +58,28 @@ function globalComponents(profile: ConnectionProfile): JointComponents {
  * endpoints, inactive original ports and internal subdivision nodes are absent. */
 export function sharedJointPermissions(board: TurnState["board"]): JointPermission[] {
   const connections = new Map<string, Connection[]>();
+  const add = (id: string, connection: Connection) => {
+    const group = connections.get(id);
+    if (group) group.push(connection);
+    else connections.set(id, [connection]);
+  };
   for (const end of board.connections) {
-    const group = connections.get(end.jointId);
-    if (group) group.push(end);
-    else connections.set(end.jointId, [end]);
+    add(end.jointId, end);
+    if (isInteriorSite(end.end)) add(attachmentId(end.memberId, end.end), end);
   }
   return board.joints.map(joint => {
     const attached = connections.get(joint.id) ?? [];
     const profile = attached[0]?.profile;
     const valid = profile && Object.hasOwn(CONNECTION_PROFILES, profile);
-    const established = valid ? connectionDefinition(profile) : undefined;
+    const established = valid ? connectionDefinition(profile, attached[0].axes) : undefined;
     const invalid = attached.some(end => !Object.hasOwn(CONNECTION_PROFILES, end.profile));
     const mixed = !invalid && established && attached.some(end => {
-      const other = connectionDefinition(end.profile);
+      const other = connectionDefinition(end.profile, end.axes);
       return conflictingJointAxes(established.laws, other.laws, established.axes, other.axes).length > 0;
     });
     const varied = !mixed && established?.laws.some((law, i) => law.kind === "elastic" && attached.some(end => {
       if (invalid) return false;
-      const other = connectionDefinition(end.profile);
+      const other = connectionDefinition(end.profile, end.axes);
       const axis = established.axes[i % 3];
       const aligned = other.axes.findIndex(b => Math.abs(axis[0]*b[0] + axis[1]*b[1] + axis[2]*b[2]) > 1 - 1e-12);
       const matched = other.laws[(i < 3 ? 0 : 3) + aligned];
@@ -86,12 +91,12 @@ export function sharedJointPermissions(board: TurnState["board"]): JointPermissi
       profile: mixed ? "Conflicting attached-end freedoms" : !valid || invalid ? "Connection unavailable"
         : varied ? "Elastic · stiffness varies" : connectionLabel(profile),
       components: mixed ? conflict : valid && !invalid ? CONNECTION_PROFILES[profile] : unknown,
-      global: valid && !invalid && !mixed ? globalComponents(profile) : undefined,
+      global: valid && !invalid && !mixed ? globalComponents(attached[0]) : undefined,
       frame: !invalid && !mixed ? established?.axes : undefined,
       ground: joint.foundationOwner ? CONNECTION_PROFILES.fixed : undefined,
       attachments: attached.map(end => {
         const label = Object.hasOwn(CONNECTION_PROFILES, end.profile) ? connectionLabel(end.profile) : "Unavailable";
-        return `Member ${end.memberId} end ${end.end.toUpperCase()} · ${label}`;
+        return `Member ${end.memberId} ${attachmentLabel(end.end)} · ${label}${end.axes ? ' · member-local axes' : ''}`;
       }),
       parent: port ? `Member ${port[1]} · original ${Number(port[2]) * 25}% port. The parent continues through this port.` : undefined,
     };

@@ -14,8 +14,9 @@ export function HowToPlay() {
     <section className="panel"><h2>Your turn</h2>
       <ol className="rules">
         <li>Pass the device to the named player. Ready reveals their hand, including two cards from each deck. Unused cards stay in hand.</li>
-        <li>Select a card and choose its target. Each turn allows one element, one gravity load and two end connections. Endpoints and original quarter points are available on either player’s pieces.</li>
-        <li>Connect an end to transfer force. Ends at the same location stay separate until connected. Gravity cards go on an above-ground player-built tip or port.</li>
+        <li>Select a card and choose its target. Each turn allows one element, one gravity load and two connections. Endpoints and original quarter points are available on either player’s pieces.</li>
+        <li>For a cantilever, choose an attachment point and aim toward a free tip. In new matches, a frame beam can attach at its own quarter or midpoint to overhang the support. It remains one continuous element.</li>
+        <li>Place the element, then choose a connection card to attach it. New interior collars use fixed connectors. Snapping alone leaves pieces unconnected. Gravity cards go on an above-ground player-built tip or port.</li>
         <li>End turn commits the draft. Pass commits an empty turn. The browser checks the structure and saves before handoff.</li>
       </ol>
     </section>
@@ -25,7 +26,7 @@ export function HowToPlay() {
     </section>
     <details className="panel"><summary>Controls and inspection</summary>
       <p>Drag to orbit and pinch or scroll to zoom. Fit frames the structure. Focus centers the selected object. Use Inspect for member properties, joint freedoms, turn history and committed response.</p>
-      <p>Tab and Enter reach every card and target. Precise placement accepts grid coordinates or named original ports. Use [ and ] to cycle overlapping scene targets. Escape backs out of the current targeting step.</p>
+      <p>Tab and Enter reach every card and target. Attachment point and Free tip selectors provide the same placement choices as the board. Build plane stays horizontal until you choose a vertical plane. Precise placement accepts grid coordinates or named original ports. Use [ and ] to cycle overlapping scene targets. Escape backs out of the current targeting step.</p>
     </details>
     <details className="panel"><summary>Creative and other modes</summary>
       <p>Open More modes from the menu to build freely or try structural challenges. The editor offers member, joint, support and load tools. Use Results to inspect a simulation and the controls panel for editor shortcuts.</p>

@@ -16,18 +16,34 @@ export const JOINT_CATALOGUE = 'shared-table-joints-1' as const;
 export const CABLE_CATALOGUE = 'shared-table-cables-1' as const;
 export const HOLLOW_CATALOGUE = 'shared-table-hollow-1' as const;
 export const RELEASE_CATALOGUE = 'grow-dusk-release-1' as const;
-export type ScoredCatalogue = typeof HOLLOW_CATALOGUE | typeof RELEASE_CATALOGUE | typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE | typeof TRUSS_CATALOGUE | typeof SPRING_CATALOGUE | typeof JOINT_CATALOGUE | typeof CABLE_CATALOGUE;
+/** Interior-collar capability is versioned independently of the card/play revision. */
+export const CANTILEVER_CATALOGUE = 'grow-dusk-release-2' as const;
+export function isReleaseCatalogue(catalogue: unknown): catalogue is typeof RELEASE_CATALOGUE | typeof CANTILEVER_CATALOGUE {
+  return catalogue === RELEASE_CATALOGUE || catalogue === CANTILEVER_CATALOGUE;
+}
+export type ScoredCatalogue = typeof HOLLOW_CATALOGUE | typeof CANTILEVER_CATALOGUE | typeof RELEASE_CATALOGUE | typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE | typeof TRUSS_CATALOGUE | typeof SPRING_CATALOGUE | typeof JOINT_CATALOGUE | typeof CABLE_CATALOGUE;
+export const PLAY_REVISION = 'grow-dusk-play-2' as const;
+export const PLAY_SPRING_REFERENCE = {id: 'k0-play-2', stiffnessNPerM: SPRING.stiffnessNPerM,
+  unit: 'N/m', source: 'Existing authored axial-spring playtest reference'} as const;
 export type CatalogueId = typeof LEGACY_CATALOGUE | ScoredCatalogue;
 export function isScoredCatalogue(catalogue: unknown): catalogue is ScoredCatalogue {
-  return catalogue === HOLLOW_CATALOGUE || catalogue === RELEASE_CATALOGUE || catalogue === SCORED_CATALOGUE || catalogue === PLANAR_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === SPRING_CATALOGUE || catalogue === JOINT_CATALOGUE || catalogue === CABLE_CATALOGUE;
+  return catalogue === HOLLOW_CATALOGUE || isReleaseCatalogue(catalogue) || catalogue === SCORED_CATALOGUE || catalogue === PLANAR_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === SPRING_CATALOGUE || catalogue === JOINT_CATALOGUE || catalogue === CABLE_CATALOGUE;
 }
 
 const legacyTypes = ['shs', 'glulam', 'ipe', 'heb', 'cable'] as const;
 const scoredTypes = ['shs', 'glulam', 'ipe', 'heb'] as const;
 
+/** Plain member names for gameplay. Technical section printings remain in
+ * the property inspector; a vertical beam is the same physical member. */
+export function memberName(type: MemberType) {
+  const names: Record<MemberType, string> = {heb: 'Beam / column', ipe: 'Steel beam', shs: 'Square tube',
+    chs: 'Round tube', glulam: 'Timber beam', cable: 'Cable', spring: 'Spring'};
+  return names[type];
+}
+
 export function memberDeckTypes(catalogue: CatalogueId): readonly (MemberType | AssemblyId)[] {
   if (catalogue === HOLLOW_CATALOGUE) return ['chs','shs'];
-  if (catalogue === RELEASE_CATALOGUE) return ['heb', 'cable', 'spring'];
+  if (isReleaseCatalogue(catalogue)) return ['heb', 'cable', 'spring'];
   if (catalogue === CABLE_CATALOGUE) return legacyTypes;
   if (catalogue === SPRING_CATALOGUE) return [...scoredTypes, 'spring'];
   if (catalogue === TRUSS_CATALOGUE) return [...scoredTypes, PLANAR.id, TRICHORD.id];
@@ -37,7 +53,7 @@ export function memberDeckTypes(catalogue: CatalogueId): readonly (MemberType | 
 
 interface Printing {
   definitionId: string;
-  definitionVersion: typeof CARD_DEFINITION_VERSION | typeof RELEASE_CATALOGUE;
+  definitionVersion: typeof CARD_DEFINITION_VERSION | typeof RELEASE_CATALOGUE | typeof PLAY_REVISION;
   label: string;
 }
 
@@ -127,15 +143,40 @@ function authoredReleaseDecks() {
 const releaseDecks = authoredReleaseDecks();
 const releaseDefinitions = new Map(releaseDecks.flat().map(card => [card.definitionId, Object.freeze(card)]));
 
-export function createReleaseDecks() {
+/** The revised mix contains 18 standard members, four cables and two springs.
+ * Old release decks and their printed labels remain frozen for exact replay. */
+function revisedReleaseDecks() {
+  const elements: CardDefinition[] = [];
+  const families = [
+    ['heb', 'Beam / column', 18], ['cable', 'Cable', 4],
+  ] as const;
+  for (const [type, name, count] of families) for (let i = 0; i < count; i++) {
+    const maxSteps = [5, 5, 7, 10][i % 4];
+    elements.push({ kind: 'element', type, maxSteps, definitionVersion: PLAY_REVISION,
+      definitionId: `element/${type}/reach-${maxSteps}`, label: `${name} · ≤${maxSteps} cells` });
+  }
+  for (const [name, factor, family] of [['Quarter spring', 0.25, 'spring-quarter'], ['Half spring', 0.5, 'spring-half']] as const) {
+    const stiffness = factor * PLAY_SPRING_REFERENCE.stiffnessNPerM;
+    elements.push({ kind: 'element', type: 'spring', maxSteps: 5, springStiffnessNPerM: stiffness,
+      definitionVersion: PLAY_REVISION, definitionId: `element/${family}/reach-5`, label: `${name} · ≤5 cells` });
+  }
+  return [elements, releaseDecks[1].map(card => ({...card, definitionVersion: PLAY_REVISION})),
+    releaseDecks[0].filter(card => card.kind === 'load').map(card => ({...card, definitionVersion: PLAY_REVISION}))] as const;
+}
+const playDecks = revisedReleaseDecks();
+const playDefinitions = new Map(playDecks.flat().map(card => [card.definitionId, Object.freeze(card)]));
+
+export function createReleaseDecks(revision?: typeof PLAY_REVISION) {
   const instances = (deck: readonly CardDefinition[], name: string) =>
     deck.map((card, index) => ({ ...card, id: name + '-' + index }));
+  if (revision === PLAY_REVISION) return [instances(playDecks[0], 'member'), instances(playDecks[1], 'connector'),
+    instances(playDecks[2], 'load')] as const;
   return [instances(releaseDecks[0], 'piece'), instances(releaseDecks[1], 'connector')] as const;
 }
 
 /** Unknown or future revisions cannot silently acquire current mechanics. */
 export function resolveCardDefinition(definitionId: string, version: string): Readonly<CardDefinition> {
-  const definition = version === RELEASE_CATALOGUE ? releaseDefinitions.get(definitionId) :
+  const definition = version === PLAY_REVISION ? playDefinitions.get(definitionId) : version === RELEASE_CATALOGUE ? releaseDefinitions.get(definitionId) :
     version === CARD_DEFINITION_VERSION ? definitions.get(definitionId) : undefined;
   if (!definition) {
     throw new Error(`Unsupported card definition ${definitionId} at ${version}.`);
@@ -144,7 +185,7 @@ export function resolveCardDefinition(definitionId: string, version: string): Re
 }
 
 export function printedCards(index: number, catalogue: CatalogueId) {
-  if (catalogue === RELEASE_CATALOGUE) throw new Error('The release uses its finite authored decks.');
+  if (isReleaseCatalogue(catalogue)) throw new Error('The release uses its finite authored decks.');
   const types = memberDeckTypes(catalogue);
   const type = types[index % types.length];
   // Even-sized catalogues shift the reach after each pass through the families
@@ -168,7 +209,7 @@ export function describePrinting(card: CardDefinition): string {
     return `One persistent ${card.magnitude} kN force in global −Z at the selected joint.`;
   }
   if (card.kind === 'connection') {
-    if (card.rotationsToLock) return `Locks all translations and ${card.rotationsToLock} of the three global rotational axes. All incoming freedoms must match the shared joint.`;
+    if (card.rotationsToLock) return `Locks all translations and ${card.rotationsToLock} of the three ${card.definitionVersion === PLAY_REVISION ? 'member-local' : 'global'} rotational axes. All incoming physical freedoms must match the shared joint.`;
     if (card.profile === 'hinge-diagonal') return 'Allows rotation about the horizontal 45° axis pointing equally along global +X and +Y. All other motions are locked.';
     if (card.profile === 'guided-x') return 'Slides along global X with zero transferred X force. Locks the other five motions.';
     if (card.profile === 'seat-20' || card.profile === 'seat-80') return `Global vertical stiffness is ${card.profile === 'seat-20' ? 20 : 80} MN/m in tension and compression. The other five motions are locked.`;
@@ -178,7 +219,7 @@ export function describePrinting(card: CardDefinition): string {
       : 'Locks all three translations and rotations at one end. Existing joint permissions must match.';
   }
   const section = ITEMS[card.type];
-  if (card.definitionVersion === RELEASE_CATALOGUE) {
+  if (card.definitionVersion === RELEASE_CATALOGUE || card.definitionVersion === PLAY_REVISION) {
     const reach = `Maximum straight-line reach ${card.maxSteps * S} m (${card.maxSteps} grid units).`;
     if (card.type === 'cable') return 'Cable Ø24 · E 160 GPa, metallic area 360 mm², tensile limit 260 kN. Rest length equals the placed span. Slack carries zero tension. ' + reach;
     if (card.type === 'spring') return `Axial spring · ${card.springStiffnessNPerM! / 1000} kN/m, strength 5 kN, verified stroke within 10% of its placed span. ${reach}`;
