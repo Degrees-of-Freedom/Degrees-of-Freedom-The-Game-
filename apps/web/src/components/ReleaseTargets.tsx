@@ -44,13 +44,12 @@ function ElementCoordinates({ turn, stage }: { turn: TurnState; stage(a: string,
 
 /** The select controls use the same geometry and authority as scene picks. */
 export function ElementPlacementControls({ game, card, notify }: { game: Game; card: ElementCard; notify: Notify }) {
-  const [destination, setDestination] = useState("");
   const [coordinates, setCoordinates] = useState("");
   const turn = game.turn!;
   const anchors = placementAnchorTargets(turn);
   const anchor = anchors.find(target => target.id === game.chainStart);
   const candidates = game.chainStart ? placementCandidates(game) : [];
-  const candidate = candidates.find(target => target.key === destination);
+  const candidate = candidates.find(target => target.key === game.placementTip);
   const pointA = candidate ? parseNodeKey(targetCoordinate(turn.board.members, candidate.a)) : null;
   const pointB = candidate ? parseNodeKey(targetCoordinate(turn.board.members, candidate.b)) : null;
   const lengthM = pointA && pointB ? CELL_SIZE * Math.hypot(...pointB.map((value, axis) => value - pointA[axis])) : 0;
@@ -74,7 +73,7 @@ export function ElementPlacementControls({ game, card, notify }: { game: Game; c
     <div className="release-targets">
       <label>Attachment point
         <select aria-label="Element attachment point" value={anchor?.id ?? ""} onChange={event => {
-          game.setChainStart(event.target.value || null); setDestination(""); setCoordinates("");
+          game.setChainStart(event.target.value || null); game.setPlacementTip(null); setCoordinates("");
         }}>
           <option value="">Choose on the board or start on the grid</option>
           {anchors.map(target => <option key={target.id} value={target.id}>{target.label}</option>)}
@@ -85,7 +84,7 @@ export function ElementPlacementControls({ game, card, notify }: { game: Game; c
           <legend>Attach at</legend>
           <div role="group" aria-label="Attachment on new element">
             {sites.map(site => <button key={site.value} type="button" aria-pressed={game.attachmentSite === site.value}
-              aria-label={`Attach at ${site.label}`} onClick={() => { game.setAttachmentSite(site.value); setDestination(""); }}>
+              aria-label={`Attach at ${site.label}`} onClick={() => { game.setAttachmentSite(site.value); game.setPlacementTip(null); }}>
               {site.label}
             </button>)}
           </div>
@@ -94,13 +93,13 @@ export function ElementPlacementControls({ game, card, notify }: { game: Game; c
           <select aria-label="Element build plane" value={game.placementPlane} onChange={event => {
             const plane = event.target.value;
             if (plane === "horizontal" || plane === "xz" || plane === "yz") game.setPlacementPlane(plane);
-            setDestination("");
+            game.setPlacementTip(null);
           }}>
             <option value="horizontal">Horizontal</option><option value="xz">Vertical XZ</option><option value="yz">Vertical YZ</option>
           </select>
         </label>
         <label>Free tip
-          <select aria-label="Element free tip" value={candidate?.key ?? ""} onChange={event => setDestination(event.target.value)}>
+          <select aria-label="Element free tip" value={candidate?.key ?? ""} onChange={event => game.setPlacementTip(event.target.value || null)}>
             <option value="">Choose on the board or select a point</option>
             {candidates.map(target => <option key={target.key} value={target.key}>{anchors.find(anchor => anchor.id === target.key)?.label ?? target.point.join(", ")}</option>)}
           </select>
