@@ -30,6 +30,8 @@ status: partial
 
 # Structural Solver
 
+The OpenSees service and shared adapter retain local force, displacement and support-reaction fields on successful connected regions beside an unstable or unresolved region. Member-end IDs establish connectivity in both analysis modes. The editor's OpenSees check identifies members, signed vertical support reactions and peak translation by region, with reasons for unavailable physical results. See the [mixed-region editor fixture](../evidence/service-components/check.mjs) and [service response format](../../services/opensees/README.md#independent-regions).
+
 OpenSees now accepts a corotational request on the existing adapter. The editor results panel exposes it for contract-compatible models. Explicit section properties and cable rest lengths are passed through the game boundary. Segmented frames, a deformed-equilibrium check and a final tangent check support the analytical fixtures in `services/opensees/tests/test_nonlinear.py`. See the [before and after walkthrough](../evidence/nonlinear/check.mjs) and [implementation ledger](criteria-ledger.md) for numerical bounds and known scope.
 
 For a computed small-displacement frame component, the applied-load path now checks normalized six-axis equilibrium, member end laws, releases and displacement compatibility. A scoped `verified-linear` result records residuals and the formulation. The preliminary applicability screens limit member motion and compression. Cables and nonlinear/capacity behavior require separate verification. The score-specific load option excludes self-weight, while the existing preview retains its load set.

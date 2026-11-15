@@ -84,10 +84,11 @@ def create_app() -> FastAPI:
             "units": "SI",
             "memberEndFixities": ["fixed", "pinned"],
             "loads": ["nodal-force", "nodal-moment"],
-            "results": ["displacements", "reactions", "memberForces", "stability"],
+            "results": ["displacements", "reactions", "memberForces", "stability", "components"],
             "memberProperties": asdict(STEEL_MEMBER),
             "limits": {"maxNodes": limits.max_nodes, "maxMembers": limits.max_members, "maxModes": limits.max_modes,
-                       "maxLinearEquations": limits.max_linear_equations, "maxNonlinearEquations": 1200},
+                       "maxLinearEquations": limits.max_linear_equations, "maxNonlinearEquations": 1200,
+                       "maxNonlinearAttempts": limits.max_nonlinear_attempts},
         }
 
     # A plain ``def`` endpoint runs in FastAPI's thread pool, so a long solve

@@ -71,6 +71,12 @@ A model is `unstable` when it has any translational mechanism, or a rotational m
 
 Rotational mechanisms that no load acts on do not stop the analysis. The usual case is a straight run of rigidly joined members that can spin about its own axis between pin supports. The service reports the mode, adds rotational springs one millionth as stiff as the members to hold it still, and solves. Results on such models match closed-form values to about `1e-5` relative.
 
+## Independent regions
+
+The service finds connected regions by original member end-node IDs. On a model with multiple active regions, the response includes `components`. Each entry carries its original `nodeIds`, `memberIds` and the same `result` shape as an isolated solve. Linear mechanisms keep their local stability report. An unverified nonlinear equilibrium carries a reason. Displacements, member forces and signed support reactions are available only on successful component results. Fully successful requests also retain their conventional whole-model fields. A partially computed model returns `unstable` when linear stability identifies a mechanism, or `unresolved` when the full response is unavailable. Single-component responses retain their existing shape.
+
+Unused nodes are listed separately in `inactiveNodeIds` on multi-region requests. The complete request shares its input, expanded mesh, equation, load-increment and mode-shape limits across regions. Smaller anchored regions are attempted first. Unknown or duplicate physical IDs invalidate the request before solving. A bad local span, incompatible local formulation or out-of-range local load leaves other valid regions available. All native solves use the existing process lock.
+
 ## Measured speed
 
 Wall time for one `analyze` call on one development machine, rigid-jointed cubic lattices at 2 m spacing, fixed at the base. These are single measurements, not benchmarks.

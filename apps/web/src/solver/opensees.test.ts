@@ -55,6 +55,24 @@ describe('OpenSees solver adapter', () => {
     expect(result).toEqual({ status: 'error', message: expect.stringContaining('Could not reach') });
   });
 
+  it('retains a solved component exclusively on its physical IDs beside an unresolved region', async () => {
+    const model = {...cantilever, nodes:[...cantilever.nodes, {id:'c', position:[9, 0, 0] as const}],
+      loads:[...cantilever.loads, {...cantilever.loads[0], nodeId:'c'}]};
+    const vec = [0, 0, 0, 0, 0, 0];
+    const solved = {nodeIds:['a','b'], memberIds:['m'], result:{status:'success',
+      displacements:{a:vec,b:vec}, reactions:{a:[0,0,1000,0,-3000,0]}, warnings:[]}};
+    const unknown = {nodeIds:['c'],memberIds:[],result:{status:'unresolved',message:'No tangent.'}};
+    const response = {status:'unresolved', message:'One region unresolved.', components:[solved,unknown]};
+    const request = (body:unknown) => createOpenSeesSolver('http://solver.test', respond(body)).analyze(model);
+    expect(await request(response)).toEqual(response);
+    for (const corrupted of [
+      [solved,{...unknown,nodeIds:['a']}], [solved,{...unknown,memberIds:['m']}],
+      [solved,{...unknown,result:{...unknown.result,reactions:{c:vec}}}],
+      [{...solved,result:{...solved.result,reactions:{c:vec}}},unknown],
+      [{...solved,result:{...solved.result,displacements:{a:vec,b:[1]}}},unknown],
+    ]) expect((await request({...response,components:corrupted})).status).toBe('error');
+  });
+
   it('rejects when the caller aborts', async () => {
     const controller = new AbortController();
     const hanging = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_, reject) => {

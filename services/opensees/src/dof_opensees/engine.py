@@ -24,13 +24,14 @@ from __future__ import annotations
 
 import math
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from fractions import Fraction
 
 import numpy as np
 import openseespy.opensees as ops
 
 from . import stability
+from .component_results import compose
 from .properties import STEEL_MEMBER, MemberProperties
 from .schema import CableLaw, FrameLaw, StructuralModel
 
@@ -60,6 +61,12 @@ class Limits:
     #: Dense linear extraction is benchmarked through the 2,688-DOF lattice.
     #: Count released end rotations too, before allocating any dense matrix.
     max_linear_equations: int = 2688
+    max_nonlinear_attempts: int = 96
+
+
+@dataclass
+class _IncrementBudget:
+    remaining: int
 
 
 @dataclass
@@ -69,6 +76,7 @@ class _Node:
     tag: int = 0
     restrained: list[bool] = field(default_factory=lambda: [False] * 6)
     load: list[float] = field(default_factory=lambda: [0.0] * 6)
+    load_overflow: bool = False
     has_member: bool = False
     has_fixed_end: bool = False
     #: Equation number per DOF, -1 where the DOF is not in the system.
@@ -78,7 +86,7 @@ class _Node:
 
     @property
     def loaded(self) -> bool:
-        return any(value != 0.0 for value in self.load)
+        return self.load_overflow or any(value != 0.0 for value in self.load)
 
     @property
     def rotations_in_system(self) -> bool:
@@ -135,15 +143,6 @@ def _prepare(model: StructuralModel, limits: Limits) -> tuple[list[_Node], list[
         seen.add(item.id)
         start = node_for(item.startNodeId, f"Member '{item.id}'")
         end = node_for(item.endNodeId, f"Member '{item.id}'")
-        length = math.dist(start.position, end.position)
-        if start is end or length < MIN_MEMBER_LENGTH:
-            raise ModelError(f"Member '{item.id}' has zero length.")
-        if not math.isfinite(length * length):
-            raise ModelError(f"Member '{item.id}' has a reference span outside the numeric range of OpenSees.")
-        if item.law and not model.analysis:
-            raise ModelError("An explicit member law requires the corotational analysis option.")
-        if isinstance(item.law, CableLaw) and (item.startFixity != "pinned" or item.endFixity != "pinned"):
-            raise ModelError(f"Cable '{item.id}' requires pinned ends.")
         member = _Member(item.id, start, end, item.startFixity == "fixed", item.endFixity == "fixed", law=item.law)
         start.has_member = end.has_member = True
         start.has_fixed_end |= member.start_fixed
@@ -161,7 +160,7 @@ def _prepare(model: StructuralModel, limits: Limits) -> tuple[list[_Node], list[
         try:
             nodes[node_id].load = [_sum_component(values) for values in zip(*vectors)]
         except OverflowError:
-            raise ModelError(f"The combined force or moment at node '{node_id}' exceeds the numeric range.") from None
+            nodes[node_id].load_overflow = True
 
     return list(nodes.values()), members
 
@@ -448,7 +447,7 @@ def _member_forces(member: _Member) -> dict[str, float]:
     }
 
 
-def _advance_nonlinear() -> int | None:
+def _advance_nonlinear(budget: _IncrementBudget) -> int | None:
     """Reach full dead load with bounded Newton iterations and cutbacks."""
     ops.constraints("Transformation")
     ops.numberer("RCM")
@@ -458,7 +457,8 @@ def _advance_nonlinear() -> int | None:
     step = 0.125
     ops.integrator("LoadControl", step)
     ops.analysis("Static")
-    for attempt in range(96):
+    for attempt in range(budget.remaining):
+        budget.remaining -= 1
         step = min(step, 1 - ops.getTime())
         ops.integrator("LoadControl", step)
         if ops.analyze(1) == 0:
@@ -473,7 +473,7 @@ def _advance_nonlinear() -> int | None:
 
 
 def _nonlinear_response(model: StructuralModel, nodes: list[_Node], members: list[_Member],
-                        properties: MemberProperties, limits: Limits) -> dict:
+                        properties: MemberProperties, limits: Limits, budget: _IncrementBudget) -> dict:
     """Extract an equilibrium of the deformed model with no stabilizing springs."""
     segments = model.analysis.segmentsPerFrame
     mesh_nodes, mesh_members, parents = _discretize(nodes, members, segments, limits)
@@ -488,7 +488,7 @@ def _nonlinear_response(model: StructuralModel, nodes: list[_Node], members: lis
         if node.loaded:
             ops.load(node.tag, *node.load)
     if free:
-        steps = _advance_nonlinear()
+        steps = _advance_nonlinear(budget)
         if steps is None:
             return {"status": "unresolved", "message": "Full nonlinear load could not be equilibrated within the increment budget."}
     else:
@@ -619,13 +619,26 @@ def _linear_equilibrium(nodes: list[_Node], reactions: dict[str, list[float]]) -
     return np.linalg.norm(np.sum(couples + moments, axis=0)) <= 1e-5 * scale
 
 
-def _analyze(model: StructuralModel, properties: MemberProperties, limits: Limits) -> dict:
-    nodes, members = _prepare(model, limits)
+def _solve_component(model: StructuralModel, nodes: list[_Node], members: list[_Member],
+                     properties: MemberProperties, limits: Limits, budget: _IncrementBudget) -> dict:
+    for node in nodes:
+        if node.load_overflow:
+            raise ModelError(f"The combined force or moment at node '{node.id}' exceeds the numeric range.")
+    for member in members:
+        length = math.dist(member.start.position, member.end.position)
+        if length < MIN_MEMBER_LENGTH:
+            raise ModelError(f"Member '{member.id}' has zero length.")
+        if not math.isfinite(length * length):
+            raise ModelError(f"Member '{member.id}' has a reference span outside the numeric range of OpenSees.")
+        if member.law and not model.analysis:
+            raise ModelError("An explicit member law requires the corotational analysis option.")
+        if isinstance(member.law, CableLaw) and (member.start_fixed or member.end_fixed):
+            raise ModelError(f"Cable '{member.id}' requires pinned ends.")
 
     if model.analysis:
         with _LOCK:
             try:
-                return _nonlinear_response(model, nodes, members, properties, limits)
+                return _nonlinear_response(model, nodes, members, properties, limits, budget)
             finally:
                 ops.wipe()
 
@@ -730,15 +743,11 @@ def _finite_response(value) -> bool:
     return True
 
 
-def analyze(
-    model: StructuralModel,
-    properties: MemberProperties = STEEL_MEMBER,
-    limits: Limits = Limits(),
-) -> dict:
-    """Return finite JSON numbers only, even when a native solve overflows."""
+def _checked_component(model: StructuralModel, nodes: list[_Node], members: list[_Member],
+                       properties: MemberProperties, limits: Limits, budget: _IncrementBudget) -> dict:
     try:
         with np.errstate(over="raise", invalid="raise", divide="raise"):
-            result = _analyze(model, properties, limits)
+            result = _solve_component(model, nodes, members, properties, limits, budget)
         if not _finite_response(result):
             raise FloatingPointError("Nonfinite response from OpenSees.")
         return result
@@ -746,3 +755,74 @@ def analyze(
         return {"status": "error", "message": str(error)}
     except (ArithmeticError, np.linalg.LinAlgError, ops.OpenSeesError) as error:
         return {"status": "unresolved", "message": f"Numerical response unavailable: {type(error).__name__}."}
+
+
+def analyze(model: StructuralModel, properties: MemberProperties = STEEL_MEMBER, limits: Limits = Limits()) -> dict:
+    """Solve each connected physical component. Preserve old unscoped responses for one component."""
+    try:
+        nodes, members = _prepare(model, limits)
+    except ModelError as error:
+        return {"status": "error", "message": str(error)}
+    active = [n for n in nodes if n.has_member or n.loaded]
+    # Only named end-node references are edges. In particular, coincident
+    # coordinates in distinct regions introduce no constraint or reaction.
+    neighbours = {n.id: [] for n in active}
+    for m in members:
+        neighbours[m.start.id].append(m.end.id)
+        neighbours[m.end.id].append(m.start.id)
+    groups = {}
+    for n in active:
+        if n.id in groups:
+            continue
+        groups[n.id] = n.id
+        stack = [n.id]
+        while stack:
+            for other in neighbours[stack.pop()]:
+                if other not in groups:
+                    groups[other] = n.id
+                    stack.append(other)
+    budget = _IncrementBudget(limits.max_nonlinear_attempts)
+    # Keep global cardinality, expanded mesh, equation, increment and mode
+    # budgets across all native calls. Skipping an oversized region consumes
+    # no native allocation and leaves independent small regions eligible.
+    extra_left = min(limits.max_nodes - len(nodes), limits.max_members - len(members))
+    equations_left = 1200 if model.analysis else limits.max_linear_equations
+    modes_left = limits.max_modes
+
+    def solve_region(region_nodes, region_members):
+        nonlocal extra_left, equations_left, modes_left
+        internal = ((model.analysis.segmentsPerFrame - 1) * sum(not m.is_truss for m in region_members)
+                    if model.analysis else 0)
+        if internal > extra_left:
+            return {"status": "error", "message": "Requested nonlinear mesh exceeds the service node or member limit."}
+        free = 6 * internal + sum(6 - sum(n.fixity) for n in region_nodes if n.has_member or n.loaded)
+        free += sum(3 * (2 - m.start_fixed - m.end_fixed) for m in region_members if not m.is_truss)
+        if free > equations_left:
+            message = ("Expanded nonlinear mesh exceeds the 1200-equation tangent check limit." if model.analysis else
+                       f"The {free}-equation linear model exceeds the {equations_left}-equation dense analysis limit.")
+            return {"status": "unresolved", "message": message}
+        equations_left -= free
+        extra_left -= internal
+        result = _checked_component(model, region_nodes, region_members, properties,
+                                    replace(limits, max_modes=modes_left), budget)
+        modes_left -= len(result.get("stability", {}).get("modes", []))
+        return result
+
+    if len(set(groups.values())) <= 1:
+        return solve_region(nodes, members)
+
+    separated = {}
+    for n in active:
+        separated.setdefault(groups[n.id], ([], []))[0].append(n)
+    for m in members:
+        separated[groups[m.start.id]][1].append(m)
+    scopes = []
+    # Resolve anchored regions before unsupported ones spend the remaining
+    # bounded Newton attempts. Stable ordering makes the boundary reproducible.
+    ordered = sorted(separated.values(), key=lambda group: (
+        not any(any(n.restrained) for n in group[0]), len(group[1]), min(n.id for n in group[0])))
+    for region_nodes, region_members in ordered:
+        result = solve_region(region_nodes, region_members)
+        scopes.append({"nodeIds": [n.id for n in region_nodes], "memberIds": [m.id for m in region_members],
+                       "result": result})
+    return compose(scopes, [n for n in nodes if n.id not in groups], limits.max_modes)

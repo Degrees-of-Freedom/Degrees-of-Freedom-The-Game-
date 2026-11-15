@@ -99,7 +99,7 @@ export interface StabilityReport {
   modes: MechanismMode[];
 }
 
-export type AnalysisResult =
+export type ComponentResult =
   | {
       status: 'success';
       /** Displacement of every node in the model. */
@@ -119,6 +119,21 @@ export type AnalysisResult =
       warnings: string[];
     }
   | { status: 'unsupported' | 'unresolved' | 'error'; message: string };
+
+export interface ComponentAnalysis {
+  /** Original physical IDs; internal subdivision and released-end nodes are excluded. */
+  nodeIds: string[];
+  memberIds: string[];
+  result: ComponentResult;
+}
+
+/** The original top-level response describes the whole model. On a mixed
+ * result each successful connected component retains its own signed fields.
+ * Inspect individual statuses before reading displacements or support reactions. */
+export type AnalysisResult = ComponentResult & {
+  components?: ComponentAnalysis[];
+  inactiveNodeIds?: string[];
+};
 
 /** Adapters translate models to their solver and explicitly report unsupported input. */
 export interface SolverAdapter { readonly id: string; readonly name: string; analyze(model: StructuralModel, signal?: AbortSignal): Promise<AnalysisResult> }
