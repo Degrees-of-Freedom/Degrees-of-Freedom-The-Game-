@@ -15,9 +15,30 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: rustup target add wasm32-unknown-unknown
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install uv
       - run: npm run typecheck
       - run: npm test
+      - run: npm run test:solver
       - run: npm run build
+      - run: npm run test:opensees
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:release
+        env:
+          DOF_SOFTWARE_GL: '1'
+          DOF_EVIDENCE_DIR: release-evidence
+      - run: npm run test:release -- --faults
+        env:
+          DOF_SOFTWARE_GL: '1'
+          DOF_EVIDENCE_DIR: release-evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-browser-evidence
+          path: release-evidence
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist
