@@ -72,3 +72,9 @@ The game owns the board, rules, committed revisions and which result a turn acce
 - Rust uses a separate detailed model and local Z orientation reference. Transform the shared local Y basis into its Z reference. Validate a section with unequal inertias and preserve the native residual and force-sign definitions.
 
 The active Shared table currently archives the voxel playtest. Wiring these three solver paths into it, defining quarter ports and assembly mappings, measuring representative turn latency and enabling verified scoring are subsequent work. Solver comparison should include the input, component verdicts, residual checks and end-to-end latency alongside solver compute time.
+
+## Results panel presentation
+
+The workspace presents the selected structural solver first, with its name visible for idle, running, completed and unavailable checks. Detailed and stability-only adapters share metric labels and layout; unsupported values are not invented. Changing solver hides the previous solver's result immediately. Stability, capacity use and support reactions remain distinct, and unresolved states use a caution treatment rather than a failure verdict.
+
+The separate approximate voxel calculation is labelled Scene preview. It supplies the viewer overlays and must not be attributed to the selected structural solver. Load-case selection, deformation exaggeration and member inspection operate on this preview. The displacement slider multiplies the viewer's automatic exaggeration, not physical displacement. Model checks are expandable. Shared-table results identify the selected structural solver but explain that current shared-table analysis uses the approximate voxel solver.

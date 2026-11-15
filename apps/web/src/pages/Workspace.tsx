@@ -648,9 +648,14 @@ export function Workspace() {
               {drawer === "library" && <StructureLibrary index={libraryIndex} setIndex={setLibraryIndex} />}
               {drawer === "analysis" && (
                 <>
-                  <p className="analysis-notice">
-                    Experimental analysis · not mock data
-                  </p>
+                  <p className="analysis-notice">Experimental results · current model</p>
+                  {contractCompatible && (
+                    <StabilityCheckPanel
+                      check={stability.check}
+                      solverName={stability.solverName}
+                    />
+                  )}
+                  {!contractCompatible && <p className="result-source">Selected structural solver: <strong>{stability.solverName}</strong><br />Shared-table analysis currently uses the approximate voxel solver. The selected structural solver is used for single-player checks.</p>}
                   <AnalysisPanel
                     result={result}
                     message={message}
@@ -680,12 +685,7 @@ export function Workspace() {
                       game.setSelected({ type: "node", key })
                     }
                   />
-                  {contractCompatible && (
-                    <StabilityCheckPanel
-                      check={stability.check}
-                      solverName={stability.solverName}
-                    />
-                  )}
+
                 </>
               )}
               {drawer === "model" && (

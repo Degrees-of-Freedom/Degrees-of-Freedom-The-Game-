@@ -1,0 +1,28 @@
+/* Shared result language across solver capabilities and environment themes. */
+.environment .drawer-content .analysis { margin: 0 0 24px; }
+.environment .drawer-content .result-header { margin-bottom: 16px; }
+.environment .drawer-content .result-eyebrow { display: block; font: 600 10px/1.5 sans-serif; letter-spacing: .14em; text-transform: uppercase; opacity: .7; }
+.environment .drawer-content .result-header h3 { margin: 5px 0 12px; font-size: 22px; line-height: 1.2; }
+.environment .drawer-content .result-source { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; padding: 10px 12px; border: 1px solid #83999a55; border-radius: 8px; font-size: 12px; }
+.environment .drawer-content .result-source strong { overflow-wrap: anywhere; }
+.environment .drawer-content .result-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 16px 0 10px; }
+.environment .drawer-content .result-metric { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid #83999a40; border-radius: 8px; background: #83999a0c; min-width: 0; }
+.environment .drawer-content .result-metric span { font-size: 11px; opacity: .8; }
+.environment .drawer-content .result-metric b { font-size: 17px; font-variant-numeric: tabular-nums; line-height: 1.4; overflow-wrap: anywhere; }
+.environment .drawer-content .verdict { padding: 12px 14px; border-radius: 8px; border: 1px solid currentColor; border-left-width: 4px; font-size: 15px; line-height: 1.5; }
+.environment .drawer-content .verdict.good { color: #8ed8b2; background: #8ed8b210; }
+.environment .drawer-content .verdict.bad { color: #ffb1a3; background: #ffb1a310; }
+.environment .drawer-content .verdict.unknown { color: #f1cf8e; background: #f1cf8e10; }
+.environment .drawer-content .result-caption { font-size: 12px; line-height: 1.6; opacity: .8; }
+.environment .drawer-content .result-details { margin: 14px 0; padding: 12px 0; border-top: 1px solid #83999a40; }
+.environment .drawer-content .result-details summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+.environment .drawer-content .result-details .result-metric { flex-direction: row; align-items: baseline; justify-content: space-between; margin-top: 6px; }
+.environment .drawer-content .result-details .result-metric b { font-size: 13px; }
+.environment .drawer-content .preview-analysis { border-top: 1px solid #83999a66; padding-top: 24px; }
+.environment .drawer-content .view-options { display: grid; gap: 12px; margin-top: 18px; padding-top: 16px; }
+.environment .drawer-content .view-options h4 { margin: 0; font-size: 15px; }
+.environment .drawer-content .view-options p { margin: 0; }
+.environment .drawer-content .view-options label { line-height: 1.5; }
+.environment .drawer-content .view-options input[type="range"] { display: block; width: 100%; margin-top: 8px; }
+.environment .drawer-content :is(button, input, select, summary):focus-visible { outline: 2px solid #e8bf78; outline-offset: 3px; }
+@media (max-width: 360px) { .environment .drawer-content .result-metrics { grid-template-columns: 1fr; } }
