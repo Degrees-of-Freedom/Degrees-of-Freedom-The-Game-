@@ -1,4 +1,9 @@
-"""Independent dead-load equilibrium and stability fixtures for corotational analysis."""
+"""Tal's corotational fixtures (origin/main tests/test_nonlinear.py), ported to contract v2.
+
+Independent dead-load equilibrium and stability fixtures for corotational
+analysis, requested in her vocabulary: ``analysis: {type: 'corotational',
+segmentsPerFrame}`` and member ``law``.
+"""
 
 import math
 
@@ -33,6 +38,7 @@ def test_compression_amplifies_sway_to_beam_column_solution():
     for segments in [2, 8, 16]:
         result = column(compression, 40, segments)
         assert result["status"] == "success", result
+        assert result["nonlinear"]["segmentsPerFrame"] == segments
         errors.append(abs(result["displacements"]["tip"][0]/expected - 1))
     print("Sway relative errors, 2/8/16 segments:", errors)
     assert errors[2] < errors[1] < errors[0]
@@ -47,9 +53,10 @@ def test_critical_load_from_loss_of_positive_tangent():
     for _ in range(8):
         ratio = sum(bracket)/2
         solution = column(euler*ratio, 0, 16)
-        assert solution["status"] in {"success", "unresolved"}, solution
-        if solution["status"] == "unresolved":
-            assert "tangent" in solution["message"], solution
+        # v2 reports a verified `unstable` with the critical factor (v1: `unresolved`, "tangent").
+        assert solution["status"] in {"success", "unstable"}, solution
+        if solution["status"] == "unstable":
+            assert "load_induced_instability" in solution["components"][0]["reasonCodes"], solution
         bracket[0 if solution["status"] == "success" else 1] = ratio
     assert abs(sum(bracket)/2 - 1) < 0.02
     print("Critical load bracket / Euler:", bracket)
@@ -95,6 +102,7 @@ def test_pretensioned_two_leg_cable_under_large_transverse_movement():
     assert result["displacements"]["m"][2] == pytest.approx(reference_sag - sag, rel=.01)
     assert result["memberForces"]["l-m"]["axial"] == pytest.approx(tension, rel=.01)
     assert result["reactions"]["l"][2] == pytest.approx(load/2, rel=.01)
+    assert result["nonlinear"]["cableState"] == {"l-m": "taut", "r-m": "taut"}
 
 
 @pytest.mark.parametrize("load", [-1e5, 1e5])
@@ -122,6 +130,7 @@ def test_fully_restrained_pretension_and_applied_load():
     tension = 160e9*.00036*(2/1.999 - 1)
     assert result["reactions"]["a"][0] == pytest.approx(-tension, rel=1e-6)
     assert result["reactions"]["b"][0] == pytest.approx(tension-2000, rel=1e-6)
+    assert result["nonlinear"]["steps"] == 0
 
 
 def test_initially_slack_single_cable_can_find_a_hanging_equilibrium():
@@ -139,12 +148,16 @@ def test_initially_slack_single_cable_can_find_a_hanging_equilibrium():
 def test_free_floating_net_load_has_bounded_unresolved_result():
     data = model({"a": (0, 0, 0), "b": (2, 0, 0)}, [("a", "b")], {}, {"b": (0, 0, -150)})
     result = solve(data)
-    assert result["status"] == "unresolved", result
-    assert "reactions" not in result and "memberForces" not in result
+    # v2 reports a verified `unstable` unsupported component (v1: `unresolved`); absent entries are empty maps.
+    assert result["status"] == "unstable", result
+    assert result["components"][0]["reasonCodes"] == ["unsupported_component"]
+    assert result["reactions"] == {} and result["memberForces"] == {}
 
 
 def test_legacy_analysis_explicitly_rejects_nonlinear_laws():
     data = model({"a": (0, 0, 0), "b": (2, 0, 0)}, [("a", "b", "pinned", "pinned")], {"a": FIXED})
     data["members"][0]["law"] = cable(2)
     result = client.post("/analyze", json=data).json()
-    assert result["status"] == "error" and "corotational" in result["message"]
+    # v2 accepts a law at linear fidelity (same tension-only law, linearised; v1: `error`
+    # "requires corotational"). The cable's free end is an unloaded mechanism: `unstable`.
+    assert result["status"] == "unstable" and result["analysis"]["fidelity"] == "linear"

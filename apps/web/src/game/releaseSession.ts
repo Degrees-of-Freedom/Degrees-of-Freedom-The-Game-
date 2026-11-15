@@ -65,7 +65,7 @@ class ReleaseSession {
       return null;
     };
     update({
-      mode: "multiplayer", style: "grow-dusk", levelId: "environment",
+      mode: "multiplayer", style: "grow-dusk", levelId: "environment", turnAnalysing: false,
       ...this.view(turn), history: [], future: [], workK: 0,
       sessionConflict: false, sessionSave: this.damaged ? "invalid" : "idle",
       persistenceError: reason, savedRevision: this.record?.revision ?? null,
@@ -74,7 +74,7 @@ class ReleaseSession {
       playConnection: (card, member, end, joint, profile) => stage(stageConnection(state().turn!, card, member, end, joint, profile ?? state().selectedConnectionProfile)),
       playLoad: (card, joint) => stage(stageLoad(state().turn!, card, joint)),
       cancelDraft: () => stage(cancelTurnDraft(state().turn!)),
-      endTurn: () => {
+      endTurn: async () => {
         const blocked = this.blocked();
         if (blocked) return blocked;
         if (!this.record || this.record.turn.finished) return "This match has ended.";

@@ -11,6 +11,7 @@ import { ReleaseBoard } from "../components/ReleaseBoard";
 import type { CameraMemory } from "../viewer/sceneView";
 import { deformationField } from "../viewer/deformationField";
 import { useStabilityCheck } from "../game/useStabilityCheck";
+import type { VoxelAnalysis } from "../solver/voxel";
 import { StabilityCheckPanel } from "../components/StabilityCheckPanel";
 import { modeProgress } from "../game/modes";
 import { environmentExample } from "../game/environmentExamples";
@@ -18,7 +19,6 @@ import { useEditorSound } from "../game/useEditorSound";
 import { createGameSave } from "../game/structuralState";
 import { publicTurnModel } from "../game/publicTurnModel";
 import { publicRepairReport } from "../game/publicRepairReport";
-import type { VoxelAnalysis } from "../solver/voxel";
 import { AnalysisPanel } from "../components/AnalysisPanel";
 import { ConnectivityPanel } from "../components/ConnectivityPanel";
 import { CoordinateEditor, ModelIO } from "../components/RuntimeControls";
@@ -55,6 +55,8 @@ export function Workspace() {
   const game = useGameStore();
   const release = game.mode === "multiplayer" && game.turn?.catalogue === RELEASE_CATALOGUE;
   const cameraMemory = useRef<CameraMemory>({});
+  // Editor and archived presets may request the configured solver. Release
+  // End turn and inspection use their versioned in-browser workers.
   const stability = useStabilityCheck(
     game.model,
     LEVELS[game.levelId],
@@ -131,14 +133,16 @@ export function Workspace() {
   const isSharedTable = game.mode === "multiplayer";
   const progress = result ? modeProgress(game.mode, result) : null;
 
-  function endPrivateTurn() {
+  async function endPrivateTurn() {
     const current = useGameStore.getState();
     // A queued click from the previous render cannot pass the new player's turn.
     if (current.mode !== "multiplayer" || !current.turn || current.turn.finished ||
-        current.turn.board !== readyBoard || paused || document.hidden) return;
-    const error = current.endTurn();
+        current.turn.board !== readyBoard || paused || document.hidden || current.turnAnalysing) return;
+    const ended = current.turn;
+    setMessage("Analysing the turn…");
+    const error = await current.endTurn();
     if (error) { setMessage(error); return; }
-    setPendingRepairNotice(`repair-speech-1/${current.turn.catalogue}/${current.turn.seed}/${current.turn.turn}`);
+    setPendingRepairNotice(`repair-speech-1/${ended.catalogue}/${ended.seed}/${ended.turn}`);
     setReadyBoard(null);
     setDrawer(null);
     setMessage("");
@@ -235,7 +239,7 @@ export function Workspace() {
       }
       if (event.key === "Enter" && !event.repeat && privateTurn) {
         event.preventDefault();
-        endPrivateTurn();
+        void endPrivateTurn();
       }
     };
     window.addEventListener("keydown", keys);
@@ -523,7 +527,7 @@ export function Workspace() {
           <>
             <div id="top-left">{historyActions}</div>
             <div id="top-right">{analysisActions}</div>
-            <TurnBanner onEndTurn={endPrivateTurn} />
+            <TurnBanner onEndTurn={() => void endPrivateTurn()} />
             <div id="corner">
               <EnvironmentBrand />
               <EnvironmentStats />
@@ -557,7 +561,7 @@ export function Workspace() {
           <>
             <div id="topleft">
               <EnvironmentBrand />
-              <TurnBanner onEndTurn={endPrivateTurn} />
+              <TurnBanner onEndTurn={() => void endPrivateTurn()} />
             </div>
             <div id="actions" className="chip">
               {growthActions}
@@ -594,7 +598,7 @@ export function Workspace() {
           <>
             <div id="topleft">
               <EnvironmentBrand />
-              {!isLevels && <TurnBanner onEndTurn={endPrivateTurn} />}
+              {!isLevels && <TurnBanner onEndTurn={() => void endPrivateTurn()} />}
             </div>
             <div
               id={isBlocks ? "top-right" : "actions"}
@@ -625,6 +629,8 @@ export function Workspace() {
                   ? "Choose the next point · Esc to release"
                   : game.tool === "joint"
                     ? "Click a joint to explore its degrees of freedom"
+                    : game.tool === "found"
+                      ? "Click solid ground to place or remove a foundation"
                     : game.tool === "load"
                       ? "Click a joint to place or edit a load"
                       : isBlocks
@@ -886,7 +892,7 @@ export function Workspace() {
               )}
               {drawer === "turn" && (
                 <>
-                  <TurnPanel game={game} onMessage={setMessage} onEndTurn={endPrivateTurn} />
+                  <TurnPanel game={game} onMessage={setMessage} onEndTurn={() => void endPrivateTurn()} />
                   <p role="status">{game.sessionSave === "writing" ? "Saving draft. " : ""}{game.savedRevision === null
                     ? "No confirmed save yet." : `Last confirmed save revision ${game.savedRevision}`}</p>
                 </>

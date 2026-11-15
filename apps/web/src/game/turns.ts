@@ -68,7 +68,7 @@ type Event =
       jointId?: string;
       profile?: ConnectionProfile;
     }
-  | { kind: "end"; turn: number; status?: TurnReport["status"]; analysis?: StructuralAnalysisResult; final?: FinalScore; issues?: IssueAssessment; penaltyDecision?: PenaltyDecision; repairPolicy?: RepairPolicy; correction?: CorrectionReceipt };
+  | { kind: "end"; turn: number; status?: TurnReport["status"]; analysis?: StructuralAnalysisResult; final?: FinalScore; issues?: IssueAssessment; penaltyDecision?: PenaltyDecision; repairPolicy?: RepairPolicy; correction?: CorrectionReceipt; reason?: string };
 
 export type TurnReport = {
   turn: number;
@@ -454,8 +454,10 @@ export function endTurn(
   expectedTurn = state.turn,
   status: TurnReport["status"] = "unresolved",
   analysis?: StructuralAnalysisResult,
+  /** The analysis's own explanation; a generic one for the status otherwise. */
+  reason?: string,
 ): Transition {
-  return commitTurn(state, expectedTurn, status, undefined, analysis);
+  return commitTurn(state, expectedTurn, status, undefined, analysis, reason);
 }
 
 /** Recheck the frozen player operations against the committed board, hand and
@@ -483,6 +485,8 @@ function commitTurn(
   status: TurnReport["status"] = "unresolved",
   replay?: { final: unknown; issues: unknown; penaltyDecision: unknown; repairPolicy: unknown; correction: unknown },
   analysis?: StructuralAnalysisResult,
+  /** Account of the turn to record and replay; a generic sentence for the status otherwise. */
+  reason?: string,
 ): Transition {
   if (state.finished || expectedTurn !== state.turn)
     return fail("This turn has already ended.");
@@ -507,7 +511,9 @@ function commitTurn(
   // evidence scope while replaying. A new assessed event must reproduce it.
   const previous = state.reports.at(-1);
   const release = state.catalogue === RELEASE_CATALOGUE;
-  if (release && replay && (!replay.issues || !replay.penaltyDecision || replay.repairPolicy !== REPAIR_POLICY || analysis))
+  if (release && (reason !== undefined || analysis !== undefined))
+    return fail("Release turn evidence must come from the assessed structure.");
+  if (release && replay && (!replay.issues || !replay.penaltyDecision || replay.repairPolicy !== REPAIR_POLICY))
     return fail("Missing or unsupported release turn evidence.");
   const outcome = isScoredCatalogue(state.catalogue) && (!replay || replay.issues !== undefined)
     ? assessTurnOutcome(state, previous?.correction?.memory ?? previous?.issues?.memory) : undefined;
@@ -539,6 +545,7 @@ function commitTurn(
     ...(issues && { issues }), ...(penaltyDecision && { penaltyDecision }),
     ...(repairPolicy && { repairPolicy }),
     ...(repair && { correction: repair.receipt }),
+    ...(reason !== undefined && { reason }),
   };
   const report: TurnReport = {
     turn: state.turn,
@@ -549,7 +556,7 @@ function commitTurn(
       unstable: "A physical instability was witnessed.",
       partial: "Only part of the structure has verified equilibrium.",
       unresolved: "Equilibrium could not be verified.",
-    }[status] : {
+    }[status] : reason ?? {
       stable: "The experimental applied-load solve converged.",
       unstable: "The experimental solve indicates a mechanism or excessive displacement.",
       partial: "Supported geometry was analyzed. Floating components are excluded from the numerical solve.",
@@ -679,6 +686,9 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
   if (event.kind === "end" && typeof event.turn === "number") {
     if (event.status !== undefined && event.status !== "stable" && event.status !== "unstable" &&
       event.status !== "partial" && event.status !== "unresolved") return null;
+    // The structural cross-check's account replays with the turn, so a
+    // restored match shows what the selected solver said.
+    const reason = typeof event.reason === "string" ? event.reason : undefined;
     let analysis: StructuralAnalysisResult | undefined;
     if (event.analysis !== undefined) {
     const parsed = structuralAnalysisResultSchema.safeParse(event.analysis);
@@ -702,7 +712,7 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
     return commitTurn(state, event.turn, event.status, {
       final: event.final, issues: event.issues, penaltyDecision: event.penaltyDecision,
       repairPolicy: event.repairPolicy, correction: event.correction,
-    }, analysis);
+    }, analysis, reason);
   }
   if (typeof event.cardId !== "string") return null;
   if (

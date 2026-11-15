@@ -156,7 +156,7 @@ export function TurnPanel({
               className="primary-action"
               onClick={onEndTurn}
             >
-              End turn / pass
+              {game.turnAnalysing ? "Analysing…" : "End turn / pass"}
             </button>
           </div>
         </>

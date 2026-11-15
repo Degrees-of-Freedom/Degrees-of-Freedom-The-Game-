@@ -1,8 +1,11 @@
-"""Reproducible stress matrix for the current linear OpenSees entry point.
+"""Tal's 10,000-seed stress matrix (origin/main tests/test_seeded_states.py), ported to contract v2.
 
 The elastic cases use an isotropic-in-bending cantilever on a random 3D axis.
 Random subdivisions, member directions and input ordering preserve that exact
 solution. Invalid references and real mechanisms must never return a force field.
+
+Every model is sent without an ``analysis`` object, as hers were, so this also
+exercises the default fidelity, which is linear.
 """
 
 import json
@@ -14,7 +17,12 @@ from collections import Counter
 
 import numpy as np
 
-from helpers import EA, EI, FIXED, PINNED, run
+from helpers import EA, EI, FIXED, PINNED
+from helpers import run as run_with
+
+
+def run(*args, **kwargs):
+    return run_with(*args, analysis=None, **kwargs)
 
 
 def generated_case(seed):
@@ -67,9 +75,11 @@ def test_10000_seeded_structural_states():
         if reference is None:
             status = "error" if family in {"unknown-node", "zero-length"} else "unstable"
             assert result["status"] == status, (seed, family, result["status"])
-            assert not any(key in result for key in ("reactions", "displacements", "memberForces")), seed
+            # v2 bodies always carry these maps; absent entries mean unavailable, so they must be empty.
+            assert not any(result.get(key) for key in ("reactions", "displacements", "memberForces")), seed
             continue
         assert result["status"] == "success", (seed, result["status"])
+        assert result["analysis"]["fidelity"] == "linear", seed
         tip, expected, force, moment, length = reference
         reaction = np.array(result["reactions"]["0"])
         # Characteristic scales use net load and load times member length.

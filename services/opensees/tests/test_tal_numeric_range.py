@@ -1,4 +1,10 @@
-"""Arithmetic and native range boundaries at the normal analysis endpoint."""
+"""Tal's numeric-range tests (origin/main tests/test_numeric_range.py), ported to contract v2.
+
+Arithmetic and native range boundaries at the normal analysis endpoint. v1
+answered every case with a bare ``{status, message}``. v2 keeps that shape
+for invalid input (``error``) and reports a component that could not be
+verified as ``unknown`` with a reason code, with none of its entries.
+"""
 
 import json
 
@@ -22,9 +28,18 @@ def post(data):
 
 
 def unavailable(result, reason):
-    assert result["status"] in ("error", "unresolved"), result
+    """Invalid input: a bare ``error`` naming the reason (v1 shape, kept by v2)."""
+    assert result["status"] == "error", result
     assert reason in result["message"], result
     assert set(result) == {"status", "message"}
+
+
+def withheld(result, code):
+    """v2 form of v1's withheld response: `unresolved`, the component `unknown` with ``code``, no entries."""
+    json.dumps(result, allow_nan=False)
+    assert result["status"] == "unresolved", result
+    assert all(c["state"] == "unknown" and code in c["reasonCodes"] for c in result["components"]), result
+    assert result["displacements"] == result["reactions"] == result["memberForces"] == {}
 
 
 def applied_components(values, index, nonlinear=False):
@@ -81,7 +96,8 @@ def test_nonfinite_native_field_withholds_the_entire_response_then_service_recov
     data = model({"a": (0, 0, 0), "b": (2, 0, 0)}, [("a", "b")], {"a": FIXED}, {"b": (120, 0, 0)})
     with monkeypatch.context() as patch:
         patch.setattr(engine.ops, "nodeDisp", lambda tag: [float("nan")] * 6)
-        unavailable(post(data), "Numerical response unavailable")
+        # v2: the component is `unknown` with `non_finite_result` (v1: message "Numerical response unavailable").
+        withheld(post(data), "non_finite_result")
     assert post(data)["reactions"]["a"][0] == pytest.approx(-120)
 
 
@@ -98,13 +114,16 @@ def test_finite_but_unbalanced_native_force_or_moment_is_withheld(monkeypatch, l
 
     with monkeypatch.context() as patch:
         patch.setattr(engine.ops, "nodeReaction", corrupt)
-        unavailable(post(data), "equilibrium")
+        # v2: `unknown` with `equilibrium_not_verified` (v1: message naming equilibrium).
+        withheld(post(data), "equilibrium_not_verified")
     assert post(data)["reactions"]["a"][2] == pytest.approx(1e160)
 
 
 def test_dense_budget_counts_pinned_end_rotations_before_matrix_extraction(monkeypatch):
     data = model({"a": (0, 0, 0), "b": (2, 0, 0)}, [("a", "b", "fixed", "pinned")], {"a": FIXED})
-    monkeypatch.setattr(engine, "_stiffness", lambda *_: pytest.fail("Dense allocation exceeded request budget"))
+    # v2 reads dense matrices through tangent.extract_tangent (v1: engine._stiffness).
+    monkeypatch.setattr(engine.tangent, "extract_tangent", lambda *_: pytest.fail("Dense allocation exceeded request budget"))
     result = engine.analyze(StructuralModel.model_validate(data), limits=engine.Limits(max_linear_equations=5))
-    unavailable(result, "6-equation linear model exceeds the 5-equation")
-
+    # v2: the component is `unknown` with `not_converged`, the reason in a warning (v1: message).
+    withheld(result, "not_converged")
+    assert any("6-equation linear model exceeds the 5-equation" in warning for warning in result["warnings"])
