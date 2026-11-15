@@ -46,6 +46,9 @@ describe("companion islet", () => {
     const far = projectIslet(terrain, camera, 1280, 720)!;
     expect(far.size).toBeLessThan(near.size);
     expect(far.size).toBeGreaterThanOrEqual(42);
+    // The click target follows the model, which is drawn smaller than the islet is wide.
+    expect(near.model).toBeGreaterThan(far.model);
+    expect(near.model).toBeLessThan(near.size);
   });
 
   it("keeps the companion inside the view when the islet is off screen or behind the camera", () => {
@@ -59,7 +62,7 @@ describe("companion islet", () => {
     // The camera facing away from it.
     look(camera, [islet.position.x + 10, islet.position.y, 4], new THREE.Vector3(islet.position.x + 40, islet.position.y, 4));
     const behind = projectIslet(terrain, camera, 1280, 720)!;
-    expect(behind).toEqual({ x: 42 * 0.6, y: 360, size: 42 });
+    expect(behind).toEqual({ x: 42 * 0.6, y: 360, size: 42, model: 30 });
   });
 
   it("reports nothing for a scene without an islet", () => {

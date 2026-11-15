@@ -127,3 +127,16 @@
 .environment[data-islet="left"] .companion-board .companion-note { left: auto; right: -34px; }
 .environment[data-islet="left"] .companion-board .companion-note::before { left: auto; right: 40px; }
 .environment[data-islet="left"] .companion-board .companion-note::after { left: auto; right: 34px; }
+
+/* With the companion's 3D model standing on the islet, the HTML figure is not
+   drawn. Its button stays as an invisible click and focus target laid over the
+   model, so a frame of lag while the view orbits is never visible. */
+.environment[data-islet-figure] .companion-board .figure-stage { display: none; }
+.environment[data-islet-figure] .companion-board .companion-figure {
+  width: calc(var(--islet-model) * 0.95); height: calc(var(--islet-model) * 1.1);
+  filter: none; border-radius: 12px;
+}
+.environment[data-islet-figure] .companion-board .companion-figure > span:last-child {
+  width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%);
+}
+.environment[data-islet-figure] .companion-board .companion-note { bottom: calc(var(--islet-model) * 1.1 + 16px); }

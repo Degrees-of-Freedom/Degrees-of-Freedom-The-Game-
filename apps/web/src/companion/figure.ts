@@ -4,7 +4,8 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 export type FigureName = "timburr" | "conkeldurr";
 
-function release(root: THREE.Object3D) {
+/** Free the geometry, materials and textures of a loaded model. */
+export function release(root: THREE.Object3D) {
   const materials = new Set<THREE.Material>();
   const textures = new Set<THREE.Texture>();
   root.traverse(node => {
