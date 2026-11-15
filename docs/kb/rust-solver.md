@@ -15,6 +15,9 @@ validated_against:
   - apps/web/src/game/finalScore.ts
   - apps/web/src/game/releaseAssessment.test.ts
   - services/opensees/tests/test_release_wasm_reference.py
+  - apps/web/src/solver/wasm/crossCheck.test.ts
+  - services/opensees/src/dof_opensees/builder.py
+  - packages/solver-contract/src/index.ts
   - apps/web/src/game/structuralSummary.ts
   - apps/web/src/game/useStabilityCheck.ts
   - apps/web/src/components/StabilityCheckPanel.tsx
@@ -176,7 +179,7 @@ Large-rotation references also pass at the 1 % gate: a cantilever rolled through
 
 `apps/web/src/solver/wasm/turnCatalogue.test.ts` checks 24 cases through match topology expansion and the shipped WASM adapter. All three material quarters of the zero-pretension release cable match the independent extensible-string force solution. Each quarter of HEB, IPE, SHS, CHS and glulam matches cantilever bending with shear flexibility. For the 19-piece planar and 41-piece spatial assemblies, deflection and spatial twist agree within 1% with independently assembled OpenSeesPy models. Regenerate the assembly references with `docs/evidence/planar/reference.py --shear` and `docs/evidence/trichord/reference.py --shear`. The expanded family fixtures use their authored catalogue geometries. The curated release deck deals HEB, cable and spring.
 
-Two things support the linear results beyond the closed-form cases. A unit test checks the closed-form beam stiffness against the automatically differentiated one, and the automatic gradient and Hessian against finite differences of the energy. And `crossCheck.test.ts` compares this solver with the OpenSees service through the original contract: on a mixed-connection space frame, a mechanism, and the Tower I, Bridge I and Pickup I examples, they agree on status, mechanisms, moving nodes and static indeterminacy, and on displacements, reactions and member forces within `2e-5`. That test needs the service running and is skipped otherwise.
+Two things support the linear results beyond the closed-form cases. A unit test checks the closed-form beam stiffness against the automatically differentiated one, and the automatic gradient and Hessian against finite differences of the energy. And `crossCheck.test.ts` compares this solver with the OpenSees service through the shared contract: on a mixed-connection space frame, a mechanism, the Tower I, Bridge I and Pickup I examples and the twenty library structures at both fidelities. Tower I and Bridge I carry no placed point loads, so for them it checks stability and redundancy only. That test needs the service running and is skipped otherwise. Its measured results are in [Cross-check with OpenSees](#cross-check-with-opensees--2026-11-15).
 
 The independent nonlinear suite runs the shipped binary and OpenSeesPy on the same geometries, material constants, boundary conditions and loading paths. The sway fixture gives 0.0054120214 m and 0.0054067377 m respectively (0.098% difference). The perfect-column critical multiplier is 1.00004883 times the analytical Euler load in WASM. OpenSees brackets loss of positive tangent stiffness at 1.00078125 to 1.00156250 on the same straight column. The symmetric sagging cable gives 379632.4530 N and 379632.4526 N in tension. Run `uv run --project services/opensees pytest -qs services/opensees/tests/test_release_wasm_reference.py`.
 
@@ -205,6 +208,34 @@ The rebuilt module keeps the release's results: `node scripts/physics/check-save
 
 The option `maxRequestIterations`, which the Rust parser already accepted, is now declared in the TypeScript contract.
 
+## Cross-check with OpenSees — 2026-11-15
+
+Run on `main` at `39508f0` plus the extended `crossCheck.test.ts`, in a Linux container (4-core Xeon, Node 22.23, OpenSees 3.8.0 / dof-opensees 0.1.0 started with `npm run dev:opensees`), using the committed WASM module. Each of the 20 library structures and 3 reference examples was translated with `toStructuralModel` and sent to both solvers at linear and nonlinear fidelity (46 runs). Differences are the largest absolute difference divided by the OpenSees maximum of that quantity: translations, signed reactions (forces and moments scaled separately), member axial force and end moments.
+
+| Group | Runs with results | Largest displacement difference | Reaction | Axial force | End moment |
+| --- | --- | --- | --- | --- | --- |
+| Linear, no prestressed cables | 18 | 3.9e-13 | 1.2e-13 | 1.3e-13 | 1.3e-11 |
+| Linear, prestressed cables (15 cable bridge, 18 guyed mast) | 2 | 5.8e-3 (cable bridge) | 3.0e-3 | 3.9e-3 | 4.9e-3 |
+| Nonlinear | 18 | 4.7e-4 (cable bridge) | 2.0e-4 (roof grid) | 5.3e-4 (timber portal) | 3.7e-4 (pyramid) |
+
+All linear runs without prestress agree to rounding. All nonlinear runs are within the criteria's 1 % reference gate. Verdicts, translational mechanism counts and static indeterminacy agree on 44 of 46 runs, including the released portal, floating component and missing foundation (unstable) and the slender column (nonlinear buckling). For buckling the two solvers list different moving nodes, because a mode shape's node list depends on each solver's cut-off, so the test compares only the verdict there.
+
+**Prestressed linear cables: a contract reading, not a defect.** With `initialStrain` removed, both cable fixtures agree to 1e-14 (pinned by a test). The difference grows in proportion to the prestrain and comes from two choices for a prestressed axial member in a *linear* analysis:
+
+- Rust linearises about the prestressed state, including the geometric stiffness `N₀/L` transverse to the member (`BarGeom::linear` in `crates/dof-solver/src/element.rs`). OpenSees' linear `Truss` with `InitStrainMaterial` has no geometric stiffness.
+- Rust takes `initialStrain` as defining a rest length `L₀ = L/(1+ε₀)` with axial stiffness `EA/L₀`. OpenSees uses `N = EA(Δ/L + ε₀)`, stiffness `EA/L`. At the game's ε₀ = 4.3e-4 this alone is a 4e-4 relative difference, which is what the guyed mast shows (2.6e-5 after scaling).
+
+Both readings fit the contract text in `packages/solver-contract/src/index.ts`. Nonlinear analysis sends cables as a `law` with an explicit rest length, so no ambiguity arises there (the guyed mast agrees to 1e-12). The contract should state which linear convention is intended. Until it does, the test accepts 1 % for this case.
+
+**Rust leaves two nonlinear cases unresolved where OpenSees classifies them.**
+
+| Fixture | Rust nonlinear | OpenSees nonlinear | Rust linear |
+| --- | --- | --- | --- |
+| 03 cantilever (L-shaped column and arm) | `unresolved`, `not_converged`, load factor 0.486 | `unstable`, `load_induced_instability` (out-of-plane mode at the tip) | `stable` |
+| 05 released portal | `unresolved`, `not_converged` | `unstable`, `internal_mechanism` (9 translational) | `unstable`, `internal_mechanism` (9 translational) |
+
+Rust's answer is conservative: it reports no result rather than a wrong one. But it is less informative than OpenSees. In the released portal it drops a mechanism that its own linear stage found, because the nonlinear stage decides the verdict and then fails to converge. Under the confirmed turn rules unresolved results do not trigger a deduction. This run did not check whether the Shared table turn model can produce an equivalent structure. The test pins exactly these two cases, so an improvement or regression in either solver shows up as a failure.
+
 ## Timings
 
 `npm run bench:solver` times the checked-in WebAssembly including JSON encoding and decoding. The following run used Node 24.15.0 on an Intel Core Ultra 9 185H with 22 logical cores. Each row uses 20 samples.
@@ -217,6 +248,8 @@ The option `maxRequestIterations`, which the Rust parser already accepted, is no
 | Stress frame, linear, 2 elements per beam | 504 | 4,124 | 65.4 ms | 78.2 ms | |
 | Stress frame, nonlinear, 1 element per beam | 504 | 1,280 | 112.2 ms | 124.0 ms | difficult ≤ 2 s |
 | Stress frame, nonlinear, 2 elements per beam | 504 | 4,124 | 331.7 ms | 390.0 ms | difficult ≤ 2 s |
+
+A re-run on 15 November 2026 at `39508f0`, in a 4-core Intel Xeon (2.1 GHz) Linux container with Node 22.23.4, gave p95 values of 5.0 ms and 23.7 ms for the game-sized linear and nonlinear rows, 34.8 ms and 94.2 ms for the linear stress rows, and 170.5 ms and 482.8 ms for the nonlinear stress rows. All proposed targets were met again.
 
 The ordinary preview, ordinary turn and difficult nonlinear cases met their targets in this run. The 4,124-DOF linear stress run took 78.2 ms at p95. An earlier run during development with other suites active took 2,286.5 ms for the largest nonlinear stress case. These measurements cover the kernel on this host. Production browser rendering, worker scheduling, private saves and device variation require separate measurements.
 
@@ -241,6 +274,7 @@ These are implementation choices, not owner decisions. Each is a default that th
 - **`marginal` means a reserve below 25 %.** A stable state that is not stable at 1.25 times its loads is `marginal`. This costs an extra solve.
 - **Failure removes or releases.** A failed member is removed; a failed beam connection is fully released. One object fails per event, the most overloaded first, ties broken by id.
 - **A removed member takes its own load with it.** When the failure sequence removes a member, its self-weight and member loads leave the model rather than being moved to its end nodes.
+- **Linear analysis of prestressed bars** is linearised about the prestressed state, with geometric stiffness `N₀/L` and axial stiffness `EA/L₀`. The OpenSees service reads `initialStrain` differently. See [Cross-check with OpenSees](#cross-check-with-opensees--2026-11-15).
 - **Linear axial–bending interaction** for member utilisation.
 - **Two beam elements per member** by default, which gives the Euler load to 0.8 %.
 - **Self-weight needs a gravity vector** in the options; there is no default direction.

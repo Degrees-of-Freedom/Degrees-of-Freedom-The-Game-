@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { AnalysisResult, StructuralModel } from '@dof/solver-contract';
 import { exampleModel } from '../../game/examples';
 import type { LevelId } from '../../game/model';
+import { parseStructureLibrary } from '../../game/structureLibrary';
 import { toStructuralModel } from '../../game/structuralModel';
 import { createOpenSeesSolver } from '../opensees';
 import { createWasmSolver } from './wasmSolver';
@@ -16,8 +17,9 @@ import { createWasmSolver } from './wasmSolver';
  *
  * The two are independent implementations (OpenSees elements and a NumPy
  * eigen-decomposition against this repository's Rust elements and LDLᵀ
- * pivots), so agreement here is evidence for both. It covers linear
- * analysis only, which is all the OpenSees service does.
+ * pivots), so agreement here is evidence for both. It covers linear and
+ * corotational nonlinear analysis on hand-built frames, the reference
+ * examples and the twenty-structure library.
  */
 const liveUrl: string | undefined = import.meta.env.VITE_OPENSEES_URL;
 
@@ -56,7 +58,12 @@ function expectAgreement(name: string, rust: AnalysisResult, opensees: AnalysisR
   const [a, b] = [rust.stability!, opensees.stability!];
   expect(a.stable, name).toBe(b.stable);
   expect(a.translationalMechanisms, `${name} translational mechanisms`).toBe(b.translationalMechanisms);
-  expect([...a.unstableNodeIds].sort(), `${name} unstable nodes`).toEqual([...b.unstableNodeIds].sort());
+  // A mechanism's moving nodes are topological and must match. A buckling
+  // (load-induced) mode is a shape whose listed nodes depend on each solver's
+  // participation cut-off (Rust: negative-pivot direction, OpenSees: an
+  // eigenvector), so only the verdict is compared there.
+  const buckling = !a.stable && a.translationalMechanisms === 0 && b.translationalMechanisms === 0;
+  if (!buckling) expect([...a.unstableNodeIds].sort(), `${name} unstable nodes`).toEqual([...b.unstableNodeIds].sort());
   // Static indeterminacy is physical, so it must match even though the two
   // count free DOFs and spin modes over different internal variables.
   expect(a.staticIndeterminacy, `${name} redundancy`).toBe(b.staticIndeterminacy);
@@ -107,9 +114,49 @@ describe.skipIf(!liveUrl)('Rust solver against the OpenSees service', () => {
   });
 
   it('agrees on the reference game structures', async () => {
+    // Tower I and Bridge I carry no placed point loads (the translation sends
+    // only those), so for them this checks stability and redundancy, and the
+    // numerical comparison is of zero responses. Pickup I is loaded.
+    expect(toStructuralModel(exampleModel('pickup1')!).model.loads.length).toBeGreaterThan(0);
     for (const id of ['tower1', 'bridge1', 'pickup1'] satisfies LevelId[]) {
       const { model } = toStructuralModel(exampleModel(id)!);
       expectAgreement(id, await rust.analyze(model), await opensees.analyze(model), model);
+    }
+  });
+
+  it('agrees on the twenty library structures at both fidelities', { timeout: 120_000 }, async () => {
+    const catalog = parseStructureLibrary(JSON.parse(await readFile(new URL('../../../public/structures/catalog.json', import.meta.url), 'utf8')));
+    expect(catalog).toHaveLength(20);
+    const unresolved: string[] = [];
+    for (const record of catalog) {
+      for (const fidelity of ['linear', 'nonlinear'] as const) {
+        const { model } = toStructuralModel(record.save.model, { fidelity });
+        const [r, o] = [await rust.analyze(model), await opensees.analyze(model)];
+        const name = `${record.id} ${fidelity}`;
+        // Rust reports `unresolved` when its nonlinear path cannot certify a
+        // verdict; OpenSees classifies these two as unstable. Recorded, not
+        // hidden: the list is pinned so a change in either direction is seen.
+        if (r.status === 'unresolved' && o.status === 'unstable') {
+          unresolved.push(name);
+          continue;
+        }
+        // Linear analysis of a prestressed axial member differs by contract
+        // reading (see docs/kb/rust-solver.md, "Cross-check with OpenSees"):
+        // Rust adds prestress geometric stiffness and uses EA/L0, OpenSees
+        // uses EA/L without it. Measured 5.8e-3 on the cable bridge.
+        const prestressed = fidelity === 'linear' && model.members.some((m) => (m.initialStrain ?? 0) !== 0);
+        expectAgreement(name, r, o, model, fidelity === 'nonlinear' || prestressed ? 1e-2 : 2e-5);
+      }
+    }
+    expect(unresolved).toEqual(['03-cantilever nonlinear', '05-released-portal nonlinear']);
+  });
+
+  it('agrees on prestressed linear cables once the initial strain is removed', async () => {
+    const catalog = parseStructureLibrary(JSON.parse(await readFile(new URL('../../../public/structures/catalog.json', import.meta.url), 'utf8')));
+    for (const id of ['15-cable-bridge', '18-guyed-mast']) {
+      const { model } = toStructuralModel(catalog.find((c) => c.id === id)!.save.model, { fidelity: 'linear' });
+      const unstrained: StructuralModel = { ...model, members: model.members.map(({ initialStrain: _, ...m }) => m) };
+      expectAgreement(id, await rust.analyze(unstrained), await opensees.analyze(unstrained), unstrained);
     }
   });
 });
