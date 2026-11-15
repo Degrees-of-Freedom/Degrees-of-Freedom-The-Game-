@@ -242,6 +242,11 @@ pub struct Options {
     /// Newton iterations allowed for a whole component. This is the solver's
     /// deterministic time limit: running out returns `unknown`.
     pub max_total_iterations: u32,
+    /// Newton iterations allowed for the whole request: every component and
+    /// every failure event share it, in a fixed order. Like the per-component
+    /// limit it is a count, not a time, so results do not depend on how fast
+    /// the machine is. Components left without budget report `unknown`.
+    pub max_request_iterations: u32,
     /// A component whose largest displacement exceeds this fraction of its
     /// bounding-box diagonal is reported as excessively deformed.
     pub excessive_displacement_ratio: f64,
@@ -268,6 +273,7 @@ impl Default for Options {
             residual_gate: 1e-5,
             max_iterations: 40,
             max_total_iterations: 400,
+            max_request_iterations: 2000,
             excessive_displacement_ratio: 0.1,
             critical_load_search: true,
             stability_margin: 1.25,
@@ -286,12 +292,89 @@ pub struct Issue {
     pub ids: Vec<String>,
 }
 
+/// Sum of floating-point values, exact before the final rounding (the
+/// algorithm of Shewchuk, as Python's `math.fsum`). Equal and opposite
+/// extreme loads, such as 1e308, 3 and -1e308, keep their small remainder
+/// instead of losing it to rounding or overflowing on the way. If the
+/// running sum would overflow, the values are scaled down by a power of two,
+/// which is exact, summed, and scaled back. A total that is itself beyond
+/// the range of a double comes back as an infinity.
+pub fn exact_sum(values: &[f64]) -> f64 {
+    fn msum(values: impl Iterator<Item = f64>) -> f64 {
+        let mut partials: Vec<f64> = Vec::new();
+        for mut x in values {
+            let mut kept = 0;
+            for i in 0..partials.len() {
+                let mut y = partials[i];
+                if x.abs() < y.abs() {
+                    std::mem::swap(&mut x, &mut y);
+                }
+                let high = x + y;
+                let low = y - (high - x);
+                if low != 0.0 {
+                    partials[kept] = low;
+                    kept += 1;
+                }
+                x = high;
+            }
+            partials.truncate(kept);
+            partials.push(x);
+        }
+        partials.iter().rev().fold(0.0, |total, p| total + p)
+    }
+    let total = msum(values.iter().copied());
+    if total.is_finite() || values.iter().any(|v| !v.is_finite()) {
+        return total;
+    }
+    const SHIFT: f64 = 18446744073709551616.0; // 2^64
+    msum(values.iter().map(|v| v / SHIFT)) * SHIFT
+}
+
 fn issue(code: &'static str, message: String, ids: &[&str]) -> Issue {
     Issue { code, message, ids: ids.iter().map(|s| s.to_string()).collect() }
 }
 
 fn finite(values: &[f64]) -> bool {
     values.iter().all(|v| v.is_finite())
+}
+
+/// Whether the stiffness coefficients an element is built from are all
+/// positive, finite doubles. Finite card values can still overflow or
+/// underflow once multiplied, for example E = 1e308 on an area of 2, or a
+/// cable whose rest length is 1e-308.
+fn coefficients_out_of_range(m: &Member, s: &Section, length: f64, piece: f64, options: &Options) -> Option<&'static str> {
+    let ea = s.e * s.a;
+    let mut positive = vec![ea, ea / piece, piece * piece];
+    if m.kind == MemberKind::Beam {
+        let gj = s.g * s.j;
+        positive.extend([gj, gj / piece, piece * piece * piece]);
+        for inertia in [s.iy, s.iz] {
+            let ei = s.e * inertia;
+            positive.extend([ei, 4.0 * ei / piece, 12.0 * ei / (piece * piece * piece)]);
+        }
+    } else {
+        let rest = match (m.rest_length, m.initial_strain) {
+            (Some(rest), _) => rest,
+            (None, Some(strain)) => length / (1.0 + strain),
+            (None, None) => length,
+        };
+        let ratio = length / rest;
+        positive.extend([rest, ratio, 1.0 / ratio, ea / rest]);
+        if !(ea * (ratio - 1.0)).is_finite() {
+            return Some("its force at the built length is outside the numeric range.");
+        }
+    }
+    if let Some(g) = options.gravity {
+        let weight = s.density * s.a * (g[0] * g[0] + g[1] * g[1] + g[2] * g[2]).sqrt() * length;
+        if !weight.is_finite() {
+            return Some("its self-weight is outside the numeric range.");
+        }
+    }
+    if positive.iter().all(|v| v.is_finite() && *v > 0.0) {
+        None
+    } else {
+        Some("its geometry and section give stiffness coefficients outside the numeric range.")
+    }
 }
 
 /// Check that a model is analysable. Returns every problem found.
@@ -345,8 +428,21 @@ pub fn validate(model: &Model, options: &Options) -> Vec<Issue> {
         };
         let axis = [0, 1, 2].map(|i| b.position[i] - a.position[i]);
         let length = (axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]).sqrt();
+        if !(length * length).is_finite() && a.position.iter().chain(&b.position).all(|v| v.is_finite()) {
+            issues.push(issue("numericRange", format!("Member '{}' spans a distance whose square is outside the numeric range.", m.id), &[&m.id]));
+            continue;
+        }
         if m.start_node_id == m.end_node_id || !(length >= MIN_MEMBER_LENGTH) {
             issues.push(issue("zeroLength", format!("Member '{}' has zero length.", m.id), &[&m.id]));
+            continue;
+        }
+        // Element stations along a subdivided beam must stay distinct at the
+        // precision of the coordinates.
+        let pieces = if m.kind == MemberKind::Beam { m.subdivisions.unwrap_or(options.subdivisions).max(1) } else { 1 };
+        let piece = length / pieces as f64;
+        let magnitude = a.position.iter().chain(&b.position).fold(0.0_f64, |most, v| most.max(v.abs()));
+        if piece <= 64.0 * f64::EPSILON * magnitude {
+            issues.push(issue("numericRange", format!("Member '{}' is too short for coordinates this large: its element stations would coincide.", m.id), &[&m.id]));
             continue;
         }
         match sections.get(m.section_id.as_str()) {
@@ -354,6 +450,8 @@ pub fn validate(model: &Model, options: &Options) -> Vec<Issue> {
             Some(s) => {
                 if m.kind == MemberKind::Beam && !(s.g > 0.0 && s.iy > 0.0 && s.iz > 0.0 && s.j > 0.0) {
                     issues.push(issue("invalidSection", format!("Beam '{}' needs a section with positive G, Iy, Iz and J.", m.id), &[&m.id, &s.id]));
+                } else if let Some(problem) = coefficients_out_of_range(m, s, length, piece, options) {
+                    issues.push(issue("numericRange", format!("Member '{}': {problem}", m.id), &[&m.id, &s.id]));
                 }
             }
         }
@@ -420,6 +518,18 @@ pub fn validate(model: &Model, options: &Options) -> Vec<Issue> {
         }
     }
 
+    // Finite loads can still add up to more than a double holds.
+    let mut on_node: BTreeMap<&str, Vec<[f64; 6]>> = BTreeMap::new();
+    for l in &model.loads {
+        on_node.entry(l.node_id.as_str()).or_default().push([l.force[0], l.force[1], l.force[2], l.moment[0], l.moment[1], l.moment[2]]);
+    }
+    for (node, loads) in &on_node {
+        let finite = loads.iter().flatten().all(|v| v.is_finite());
+        if finite && (0..6).any(|i| !exact_sum(&loads.iter().map(|l| l[i]).collect::<Vec<_>>()).is_finite()) {
+            issues.push(issue("numericRange", format!("The loads on node '{node}' add up to a combined force or moment outside the numeric range."), &[node]));
+        }
+    }
+
     for l in &model.member_loads {
         if !load_ids.insert(l.id.as_str()) {
             issues.push(issue("duplicateId", format!("Duplicate load id {}.", l.id), &[&l.id]));
@@ -437,7 +547,7 @@ pub fn validate(model: &Model, options: &Options) -> Vec<Issue> {
     if !finite(&numbers) || o.tolerance <= 0.0 || o.residual_gate <= 0.0 || o.excessive_displacement_ratio <= 0.0 || o.gravity.is_some_and(|g| !finite(&g)) {
         issues.push(issue("invalidOptions", "Analysis options must be finite, with positive tolerances.".into(), &[]));
     }
-    if o.subdivisions == 0 || o.subdivisions > 64 || o.max_iterations == 0 || o.max_total_iterations == 0 {
+    if o.subdivisions == 0 || o.subdivisions > 64 || o.max_iterations == 0 || o.max_total_iterations == 0 || o.max_request_iterations == 0 {
         issues.push(issue("invalidOptions", "Subdivisions must be between 1 and 64 and iteration limits positive.".into(), &[]));
     }
     issues
