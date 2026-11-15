@@ -649,6 +649,15 @@ impl SparseMatrix {
         self.values[sym.col_ptr[k]] = 1.0;
     }
 
+    /// `self + t (other - self)`, for two matrices on the same pattern (both
+    /// built by the same system), entry by entry as
+    /// [`crate::skyline::Skyline::blend`].
+    pub fn blend(&self, other: &SparseMatrix, t: f64) -> SparseMatrix {
+        debug_assert!(Rc::ptr_eq(&self.sym, &other.sym));
+        let values = self.values.iter().zip(&other.values).map(|(x, y)| x + t * (y - x)).collect();
+        SparseMatrix { sym: self.sym.clone(), values }
+    }
+
     /// Product with a vector, using the unfactored matrix.
     pub fn mul(&self, x: &[f64]) -> Vec<f64> {
         let sym = &*self.sym;

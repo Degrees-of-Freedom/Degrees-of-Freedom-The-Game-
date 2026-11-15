@@ -982,7 +982,7 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
                     let start = out.solution.as_ref().and_then(|s| s.state.clone()).expect("a nonlinear solution");
                     let probe_options = Options { max_iterations: options.max_iterations.min(RESERVE_MAX_ITERATIONS), ..options.clone() };
                     let mut search = Newton { budget: newton.budget.saturating_sub(out.iterations.saturating_sub(newton.iterations)),
-                        iterations: 0, steps: 0, stiffness: sys.stiffness(), carry: None, options: &probe_options, ..newton };
+                        iterations: 0, steps: 0, stiffness: sys.stiffness(), carry: None, carry_exact: None, options: &probe_options, ..newton };
                     let found = match options.reserve_method {
                         ReserveMethod::Path => search.reserve(start, lam, options.reserve_search),
                         ReserveMethod::Linearized => search.linearized_reserve(&start, lam, options.reserve_search),

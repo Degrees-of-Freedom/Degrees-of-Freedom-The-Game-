@@ -244,3 +244,24 @@ fn large_buckling_and_critical_load_agree() {
     assert_eq!(sparse.status(0), "stable");
     agree(&sparse, &skyline, 1e-7);
 }
+
+#[test]
+fn large_stability_reserve_agrees_across_factorisations() {
+    // Below its buckling load (critical factor 0.52 of 1e7 N per column):
+    // a reserve of about 1.3 by either search.
+    for method in [ReserveMethod::Linearized, ReserveMethod::Path] {
+        let mut b = columns(6, 3, 0.4e7);
+        b.options.reserve_search = 4.0;
+        b.options.reserve_method = method;
+        let (sparse, skyline) = both(&b);
+        assert_eq!(sparse.status(0), "stable", "{method:?}");
+        let reserve = |r: &Run| r.component(0).get("reserve").unwrap().to_json_string();
+        let text = reserve(&sparse);
+        let lower = sparse.component(0).get("reserve").unwrap().get("lower").unwrap().as_f64().unwrap();
+        assert!(lower > 1.1 && lower < 1.5, "{method:?}: {text}");
+        assert!(text.contains("\"cause\":\"instability\""), "{method:?}: {text}");
+        // Each probe's verdict agrees, so the brackets are the same.
+        assert_eq!(text, reserve(&skyline), "{method:?}");
+        agree(&sparse, &skyline, 1e-7);
+    }
+}

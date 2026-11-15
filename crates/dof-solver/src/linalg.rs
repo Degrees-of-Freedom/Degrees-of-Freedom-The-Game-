@@ -130,6 +130,15 @@ impl Stiffness {
         }
     }
 
+    /// `self + t (other - self)`, for two matrices of the same system.
+    pub fn blend(&self, other: &Stiffness, t: f64) -> Stiffness {
+        match (self, other) {
+            (Stiffness::Profile(a), Stiffness::Profile(b)) => Stiffness::Profile(a.blend(b, t)),
+            (Stiffness::Sparse(a), Stiffness::Sparse(b)) => Stiffness::Sparse(a.blend(b, t)),
+            _ => panic!("blended stiffness matrices of different systems"),
+        }
+    }
+
     /// Product with a vector, using the unfactored matrix.
     pub fn mul(&self, x: &[f64]) -> Vec<f64> {
         match self {
