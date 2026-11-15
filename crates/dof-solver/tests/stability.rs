@@ -458,3 +458,46 @@ fn a_fully_released_end_is_not_a_connection() {
     assert_eq!(r.component_of("a").get("status").unwrap().as_str(), Some("stable"));
     assert_eq!(r.displacement("b"), [0.0; 6]);
 }
+
+/// The two-to-four-player load sharing of the shared frame also holds in the
+/// nonlinear analysis: under gravity the supports carry exactly the applied
+/// load, and each share stays within 0.1 % of the total load of the linear
+/// share for these stiff, lightly loaded legs.
+#[test]
+fn shared_frame_load_sharing_holds_in_the_nonlinear_analysis() {
+    let p = 1.2e5;
+    let feet = [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [-4.0, 0.0, 0.0], [0.0, -4.0, 0.0]];
+    for areas in [[1.0, 1.0, 1.0, 1.0], [1.0, 3.0, 1.0, 3.0], [1.0, 2.0, 3.0, 4.0], [1.0, 2.5, 0.0, 4.0]] {
+        let build = |fidelity: Fidelity| {
+            let mut b = Build::new();
+            b.options.fidelity = fidelity;
+            b.node("hub", [0.0, 0.0, 3.0]);
+            for (i, (foot, area)) in feet.iter().zip(areas).enumerate() {
+                if area == 0.0 {
+                    continue;
+                }
+                let mut section = steel(&format!("s{i}"));
+                section.a = A * area;
+                b.model.sections.push(section);
+                b.node(&format!("p{i}"), *foot);
+                b.brace(&format!("leg{i}"), "hub", &format!("p{i}")).section_id = format!("s{i}");
+                b.support(&format!("p{i}"), PINNED);
+            }
+            b.load("hub", [0.0, 0.0, -p]);
+            b.run()
+        };
+        let (linear, nonlinear) = (build(Fidelity::Linear), build(Fidelity::Nonlinear));
+        assert_eq!(nonlinear.status(0), "stable", "{:?}", nonlinear.reasons(0));
+        let mut total = 0.0;
+        for i in 0..4 {
+            if areas[i] == 0.0 {
+                continue;
+            }
+            let (a, b) = (linear.reaction(&format!("p{i}"))[2], nonlinear.reaction(&format!("p{i}"))[2]);
+            // Measured against the total load, because a share can be zero.
+            assert!((b - a).abs() <= 1e-3 * p, "support p{i}: linear {a}, nonlinear {b}");
+            total += b;
+        }
+        close(total, p, 1e-8);
+    }
+}

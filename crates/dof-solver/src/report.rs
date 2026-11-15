@@ -231,7 +231,7 @@ fn deflection_json(sys: &System, solution: &solve::Solution, range: &std::ops::R
     object([("stations", Json::Arr(stations)), ("maxFromChord", max_from_chord.into()), ("atMax", at_max.into()), ("length", length.into())])
 }
 
-fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> Pass {
+fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>, remaining: &mut u32) -> Pass {
     let model = index.model;
     let mut pass = Pass {
         components: Vec::new(),
@@ -259,7 +259,16 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
     for (number, (nodes, members)) in components(index).into_iter().enumerate() {
         let id = format!("c{}", number + 1);
         let sys = System::build(index, &nodes, &members, options);
-        let outcome: Outcome = solve::analyze(&sys, options);
+        // Each component gets what is left of the request's budget, up to its
+        // own limit, in component order: the same work in the same order
+        // every time, on any machine.
+        let mut budgeted = options.clone();
+        budgeted.max_total_iterations = options.max_total_iterations.min(*remaining);
+        let outcome: Outcome = solve::analyze(&sys, &budgeted);
+        *remaining = remaining.saturating_sub(outcome.iterations);
+        if budgeted.max_total_iterations < options.max_total_iterations && outcome.reasons.contains(&"iterationLimit") {
+            pass.reasons.insert("requestIterationLimit");
+        }
         pass.iterations += outcome.iterations;
         let solution = outcome.solution.as_ref();
         let lam = options.load_factor;
@@ -533,8 +542,9 @@ pub fn analyze(input: &Model, options: &Options) -> Json {
     let mut events: Vec<Json> = Vec::new();
     let mut iterations = 0;
     let mut event_limit_hit = false;
+    let mut remaining = options.max_request_iterations;
     let pass = loop {
-        let pass = analyse_once(&Index::new(&model), options, &failed);
+        let pass = analyse_once(&Index::new(&model), options, &failed, &mut remaining);
         iterations += pass.iterations;
         let Some(overload) = pass.overload.clone().filter(|_| options.failure == FailureMode::Remove) else { break pass };
         if events.len() >= options.max_failure_events as usize {

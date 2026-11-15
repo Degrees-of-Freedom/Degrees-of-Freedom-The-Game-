@@ -267,6 +267,7 @@ fn parse_options(value: Option<&Json>) -> Parsed<Options> {
         residual_gate: f.num_or("residualGate", d.residual_gate)?,
         max_iterations: f.count("maxIterations")?.unwrap_or(d.max_iterations),
         max_total_iterations: f.count("maxTotalIterations")?.unwrap_or(d.max_total_iterations),
+        max_request_iterations: f.count("maxRequestIterations")?.unwrap_or(d.max_request_iterations),
         excessive_displacement_ratio: f.num_or("excessiveDisplacementRatio", d.excessive_displacement_ratio)?,
         critical_load_search: f.flag_or("criticalLoadSearch", d.critical_load_search)?,
         stability_margin: f.num_or("stabilityMargin", d.stability_margin)?,
