@@ -70,9 +70,17 @@ class Node:
     joint_id: str | None = None
     #: Joint a member end node sits at (duplicate or unattached end node).
     at_joint: str | None = None
-    #: Retained joint tag when this node is the constrained side of ``equalDOF``.
+    #: Retained joint tag when this node is the constrained side of ``equalDOF``
+    #: (or would be, see ``held``).
     retained: int | None = None
+    #: DOFs (1..6) tied to the joint by ``equalDOF``.
     tied: tuple[int, ...] = ()
+    #: DOFs (1..6) the connection locks to the joint but the joint has fixed:
+    #: fixed on this node instead of tied (see ``_end_node``). Their reactions
+    #: belong to the joint.
+    held: tuple[int, ...] = ()
+    #: True for a beam's interior segment node (absent from a coarse build).
+    interior: bool = False
 
 
 @dataclass
@@ -90,11 +98,14 @@ class Domain:
     nodes: dict[int, Node]
     joint_tags: dict[str, int]
     members: dict[str, BuiltMember]
-    #: Reference load per node tag: joint loads plus lumped self-weight.
+    #: Reference load per node tag: joint loads plus braces' and cables' lumped self-weight.
     loads: dict[int, np.ndarray]
     free_dofs: int
     temp_tag_base: int
     geometry: str
+    #: Beam self-weight element loads: (element tag, start node, end node,
+    #: total force vector in global axes acting at the element's chord midpoint).
+    distributed: list[tuple[int, int, int, np.ndarray]] = field(default_factory=list)
 
     def duplicates_of(self, joint_tag: int) -> list[Node]:
         return [node for node in self.nodes.values() if node.retained == joint_tag]
@@ -206,8 +217,9 @@ def build(prepared: PreparedModel, component: Component, geometry: str, segments
 
     The full reference load is one ``Plain`` pattern on a ``Linear`` time
     series, so the pseudo-time of a ``LoadControl`` analysis is the load
-    factor. Self-weight, when requested, is lumped onto the member's own
-    nodes. No analysis objects are created.
+    factor. Self-weight, when requested, is a uniform element load on beams
+    (``_add_beam_weight``) and is lumped onto the two end nodes of braces and
+    cables. No analysis objects are created.
 
     Tags do not depend on ``segments`` except for beam elements and interior
     segment nodes, which are allocated after every other node: the nonlinear
@@ -239,23 +251,57 @@ def build(prepared: PreparedModel, component: Component, geometry: str, segments
         else:
             built = add_beam(context, member, start, end, geometry, segment_count(segments, member))
         domain.members[member_id] = built
-        if prepared.self_weight and member.properties.weight_per_length > 0.0:
-            # Half of each element's weight to each of its nodes, along -Z.
-            share = member.properties.weight_per_length * member.length / len(built.elements) / 2.0
-            for left, right in zip(built.nodes[:-1], built.nodes[1:]):
-                for tag in (left, right):
-                    context.add_load(tag, np.array([0.0, 0.0, -share, 0.0, 0.0, 0.0]))
+        if prepared.self_weight and member.axial and member.properties.weight_per_length > 0.0:
+            # A straight axial element cannot carry a transverse load, so the
+            # weight of a brace or cable goes to its own two end nodes, half
+            # each, along -Z (statically exact for the reactions; it gives the
+            # member no bending, which it cannot have).
+            share = member.properties.weight_per_length * member.length / 2.0
+            for tag in built.nodes:
+                context.add_load(tag, np.array([0.0, 0.0, -share, 0.0, 0.0, 0.0]))
 
     ops.timeSeries("Linear", 1)
     ops.pattern("Plain", 1, 1)
     for tag, load in domain.loads.items():
         if np.any(load != 0.0):
             ops.load(tag, *(float(v) for v in load))
+    if prepared.self_weight:
+        _add_beam_weight(prepared, component, domain)
 
     domain.free_dofs = sum(6 - sum(node.fixed) - len(node.tied) for node in domain.nodes.values())
     if context.tags.node >= domain.temp_tag_base or context.tags.element >= domain.temp_tag_base:
         raise RuntimeError("Tag bound underestimated.")  # Guards tag_bound against future edits.
     return domain
+
+
+def _add_beam_weight(prepared: PreparedModel, component: Component, domain: Domain) -> None:
+    """Beam self-weight as a uniform element load, in the current load pattern.
+
+    ``eleLoad -beamUniform Wy Wz Wx`` takes the load per unit length in the
+    element's local axes, so the global -Z weight is resolved on the member's
+    local axes. Unlike lumping on nodes this gives the true fixed-end forces
+    (a fixed-fixed beam reports end shear wL/2 and end moments wL^2/12).
+
+    Verified in OpenSeesPy 3.8 (fixed-fixed, propped with a moment release,
+    skew member; Linear and Corotational): end forces and reactions match the
+    closed forms, and under Corotational geometry the element's load resultant
+    stays w L along global -Z, acting at the deformed chord midpoint (moment
+    balance to 1e-15 with a 0.94 m tip deflection), so it behaves as gravity
+    at any rotation. ``Domain.distributed`` records each element load so the
+    engine can include it in the equilibrium check.
+    """
+    for member_id in component.member_ids:
+        member = prepared.members[member_id]
+        weight = member.properties.weight_per_length
+        if member.axial or not weight > 0.0:
+            continue
+        gravity = np.array([0.0, 0.0, -weight])
+        x, y, z = member.axes
+        built = domain.members[member_id]
+        element_length = member.length / len(built.elements)
+        for tag, start, end in zip(built.elements, built.nodes[:-1], built.nodes[1:]):
+            ops.eleLoad("-ele", tag, "-type", "-beamUniform", float(gravity @ y), float(gravity @ z), float(gravity @ x))
+            domain.distributed.append((tag, start, end, gravity * element_length))
 
 
 def _end_node(context: _Context, member: Member, end: End) -> int:
@@ -268,9 +314,23 @@ def _end_node(context: _Context, member: Member, end: End) -> int:
     if end.representation == UNATTACHED:
         return context.add_node(end.position, fixed, at_joint=end.node_id if joint_tag else None)
     retained = joint_tag if end.tied else None
-    tag = context.add_node(end.position, fixed, at_joint=end.node_id, retained=retained, tied=end.tied)
-    if end.tied:
-        ops.equalDOF(joint_tag, tag, *end.tied)
+    # A locked DOF that the joint has fixed (a support, or a removed joint
+    # rotation) is fixed on this node instead of tied: the same exact
+    # constraint, since both are zero. It must not be tied, because OpenSees
+    # 3.8's Transformation handler mishandles an equalDOF whose retained DOF
+    # also carries a fix: from the second step on, the joint's displacements
+    # (including its free DOFs) no longer match the tied node, and with an
+    # element on the joint the solution itself drifts with the load path.
+    # One step from rest is unaffected, which is why linear fidelity was
+    # right while every nonlinear step sequence failed (audit D1; measured on
+    # a joint with UX free and UY, UZ fixed, Linear and Corotational alike).
+    joint_fixed = context.domain.nodes[joint_tag].fixed if end.tied else ()
+    held = tuple(dof for dof in end.tied if joint_fixed[dof - 1])
+    tied = tuple(dof for dof in end.tied if dof not in held)
+    fixed = tuple(flag or (index + 1) in held for index, flag in enumerate(fixed))
+    tag = context.add_node(end.position, fixed, at_joint=end.node_id, retained=retained, tied=tied, held=held)
+    if tied:
+        ops.equalDOF(joint_tag, tag, *tied)
     if end.springs:
         directions, materials = [], []
         for direction, stiffness in end.springs:
@@ -304,7 +364,7 @@ def add_beam(context: _Context, member: Member, start: int, end: int, geometry: 
     nodes = [start]
     for index in range(1, segments):
         position = member.start.position + (member.end.position - member.start.position) * index / segments
-        nodes.append(context.add_node(position, (False,) * 6))
+        nodes.append(context.add_node(position, (False,) * 6, interior=True))
     nodes.append(end)
 
     def released(end_: End, axis: int) -> bool:

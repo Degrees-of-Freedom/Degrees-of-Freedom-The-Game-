@@ -11,10 +11,15 @@ Environment:
 * ``DOF_GENERATED_SEED``: run only this one seed (valid state, then the invalid
   state with the same seed), printing the model and result on failure.
 * ``DOF_GENERATED_BASE_SEED``: first seed of the range (default 0).
+* ``DOF_MAX_UNRESOLVED_FRACTION``: limit on unresolved moderate-load well-formed nonlinear states.
+
+Run with ``-s`` to see the summary table (status by family, reason codes, unresolved fractions).
+The 10000-state gate can be split across processes by base seed; see benchmarks/README or the audit notes.
 """
 
 from __future__ import annotations
 
+import collections
 import copy
 import json
 import math
@@ -31,6 +36,7 @@ from accept_generators import (  # noqa: E402
     DEFAULT_WEIGHT_PER_LENGTH,
     INVALID_KINDS,
     generate_invalid_state,
+    generate_labelled,
     generate_state,
     state_family,
     invalid_kind,
@@ -43,6 +49,12 @@ BASE_SEED = int(os.environ.get("DOF_GENERATED_BASE_SEED", "0"))
 ONE_SEED = os.environ.get("DOF_GENERATED_SEED")
 DETERMINISM_EVERY = 10
 DETERMINISM_TIMEOUT_MS = 60000.0
+MODERATE_LOAD_LIMIT = 1e6  # N; the well-formed generator's heavy minority starts at 1e6
+# Fail when more than this fraction of moderate-load well-formed nonlinear states is unresolved
+# (only judged once at least MIN_FRACTION_SAMPLE such states were run).
+MAX_UNRESOLVED_FRACTION = float(os.environ.get("DOF_MAX_UNRESOLVED_FRACTION", "0.10"))
+MIN_FRACTION_SAMPLE = 20
+MECHANISM_CODES = {"rigid_body_mechanism", "internal_mechanism", "unsupported_component", "near_mechanism"}
 
 STATUSES = {"success", "unstable", "unresolved", "unsupported", "error"}
 STATES = {"stable", "marginal", "unstable", "unknown"}
@@ -164,6 +176,8 @@ def check_result(model: dict, result: dict) -> list[str]:
         if state not in STATES:
             problems.append(f"component {cid}: bad state {state!r}")
         for code in comp.get("reasonCodes", []):
+            if code == "solver_error":
+                problems.append(f"component {cid}: solver_error (internal solver failure is always a defect)")
             if code not in REASON_CODES:
                 problems.append(f"component {cid}: unknown reason code {code!r}")
         if "reasonCodes" not in comp:
@@ -187,7 +201,10 @@ def check_result(model: dict, result: dict) -> list[str]:
             valid_nodes.update(comp.get("nodeIds", []))
             valid_members.update(comp.get("memberIds", []))
             residual = comp.get("residual")
-            if residual is not None and not residual <= RESIDUAL_LIMIT:
+            if residual is None:
+                if comp.get("stability", {}).get("freeDofs", 1) > 0:
+                    problems.append(f"component {cid}: valid result without a residual")
+            elif not residual <= RESIDUAL_LIMIT:
                 problems.append(f"component {cid}: residual {residual} above {RESIDUAL_LIMIT}")
 
     expected = "unstable" if "unstable" in states else "unresolved" if "unknown" in states else "success"
@@ -218,13 +235,119 @@ def check_result(model: dict, result: dict) -> list[str]:
     return problems
 
 
-def check_state(seed: int) -> list[str]:
-    model = generate_state(seed)
+class Stats:
+    """Information collected over a run; printed at the end (visible with -s)."""
+
+    def __init__(self) -> None:
+        self.status_by_family: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
+        self.reason_codes: collections.Counter = collections.Counter()
+        self.component_states: collections.Counter = collections.Counter()
+        self.valid_components = 0
+        # moderate-load well-formed nonlinear states, per subfamily: status counts
+        self.moderate_nonlinear: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
+
+    def add(self, family: str, model: dict, result: dict) -> None:
+        status = result.get("status", "?")
+        self.status_by_family[family][status] += 1
+        for comp in result.get("components", []) or []:
+            self.component_states[comp.get("state")] += 1
+            self.valid_components += bool(comp.get("resultsValid"))
+            for code in comp.get("reasonCodes", []):
+                self.reason_codes[code] += 1
+        if family.startswith("wellformed") and _moderate(model) and _fidelity(model) == "nonlinear":
+            self.moderate_nonlinear[family][status] += 1
+
+    def unresolved_fraction(self) -> tuple[int, int]:
+        total = sum(sum(c.values()) for c in self.moderate_nonlinear.values())
+        unresolved = sum(c["unresolved"] for c in self.moderate_nonlinear.values())
+        return unresolved, total
+
+    def render(self) -> str:
+        lines = ["", "=== generated-state summary ===", "status by family:"]
+        overall: collections.Counter = collections.Counter()
+        for family in sorted(self.status_by_family):
+            counts = self.status_by_family[family]
+            overall.update(counts)
+            lines.append(f"  {family:<28}{dict(sorted(counts.items()))}")
+        lines.append(f"  {'ALL':<28}{dict(sorted(overall.items()))}")
+        lines.append(f"component states: {dict(sorted(self.component_states.items(), key=str))}; resultsValid true: {self.valid_components}")
+        lines.append("reason codes (components):")
+        for code in sorted(REASON_CODES):
+            lines.append(f"  {code:<28}{self.reason_codes.get(code, 0)}")
+        lines.append("moderate-load well-formed nonlinear states, unresolved fraction per subfamily:")
+        for family in sorted(self.moderate_nonlinear):
+            counts = self.moderate_nonlinear[family]
+            total = sum(counts.values())
+            lines.append(f"  {family:<28}{counts['unresolved']}/{total} = {counts['unresolved'] / total:.2f}  {dict(sorted(counts.items()))}")
+        unresolved, total = self.unresolved_fraction()
+        if total:
+            lines.append(f"  {'ALL':<28}{unresolved}/{total} = {unresolved / total:.2f} (limit {MAX_UNRESOLVED_FRACTION})")
+        return "\n".join(lines)
+
+
+def _fidelity(model: dict) -> str:
+    return (model.get("analysis") or {}).get("fidelity", "nonlinear")
+
+
+def _moderate(model: dict) -> bool:
+    peak = max((abs(v) for load in model["loads"] for v in load["force"]), default=0.0)
+    return peak < MODERATE_LOAD_LIMIT
+
+
+def check_classification(family: str, model: dict, result: dict) -> list[str]:
+    """Classification expectations that the construction of the state guarantees."""
+    problems: list[str] = []
+    if "components" not in result:
+        return problems
+    components = result["components"]
+
+    # A component with no support restraint is a verified rigid-body mechanism: unstable, unsupported_component.
+    supported_nodes = {sup["nodeId"] for sup in model["supports"] if any(sup["restrained"])}
+    # (Not applied when the state deliberately carries its own short time budget: timeout is then legitimate.)
+    short_budget = "timeoutMs" in (model.get("analysis") or {})
+    for comp in components:
+        if not short_budget and not supported_nodes.intersection(comp["nodeIds"]):
+            if comp["state"] != "unstable" or "unsupported_component" not in comp["reasonCodes"]:
+                problems.append(
+                    f"component {comp['id']} has no support but is {comp['state']} {comp['reasonCodes']}, "
+                    "expected unstable with unsupported_component"
+                )
+    if not short_budget and not model["supports"] and result["status"] != "unstable":
+        problems.append(f"model with no support at all returned {result['status']!r}, expected 'unstable'")
+
+    # A floating part (random family, built with no member to the main structure) is its own component.
+    floating = {n["id"] for n in model["nodes"] if n["id"].startswith("fl")}
+    if floating and not any(n["id"].startswith("dup") for n in model["nodes"]):
+        for comp in components:
+            ids = set(comp["nodeIds"])
+            if ids & floating and ids - floating:
+                problems.append(f"floating part shares component {comp['id']} with the main structure")
+
+    if family.startswith("wellformed") and _moderate(model):
+        for comp in components:
+            if comp["state"] == "unstable" and MECHANISM_CODES.intersection(comp["reasonCodes"]):
+                problems.append(
+                    f"well-formed moderate-load component {comp['id']} reported as mechanism {comp['reasonCodes']}"
+                )
+        if _fidelity(model) == "linear" and result["status"] != "success":
+            problems.append(
+                f"well-formed moderate-load linear state returned {result['status']!r} "
+                f"{[(c['state'], c['reasonCodes']) for c in components]}, expected 'success'"
+            )
+    return problems
+
+
+def check_state(seed: int, stats: Stats | None = None) -> list[str]:
+    family, model = generate_labelled(seed)
     result, problem = _run(model)
     if problem:
         return [problem]
+    if stats is not None:
+        stats.add(family, model, result)
+    if result.get("status") == "error":
+        return [f"generated (semantically valid) state returned error: {result.get('message')}"]
     problems = check_result(model, result)
-    analysis = model.get("analysis") or {}
+    problems += check_classification(family, model, result)
     if seed % DETERMINISM_EVERY == 0 and not problems:
         # Compare two runs under a generous budget so the wall clock cannot decide the result.
         relaxed = copy.deepcopy(model)
@@ -265,11 +388,19 @@ def _report(failures: list[tuple[str, int, list[str]]]) -> str:
 @pytest.mark.skipif(ONE_SEED is not None, reason="single-seed run requested")
 def test_generated_states_hold_invariants() -> None:
     failures = []
+    stats = Stats()
     for seed in range(BASE_SEED, BASE_SEED + N_STATES):
-        problems = check_state(seed)
+        problems = check_state(seed, stats)
         if problems:
             failures.append((f"state [{state_family(seed)}]", seed, problems))
+    print(stats.render())
     assert not failures, _report(failures)
+    unresolved, total = stats.unresolved_fraction()
+    if total >= MIN_FRACTION_SAMPLE:
+        assert unresolved / total <= MAX_UNRESOLVED_FRACTION, (
+            f"{unresolved}/{total} moderate-load well-formed nonlinear states are unresolved "
+            f"(limit {MAX_UNRESOLVED_FRACTION})"
+        )
 
 
 @pytest.mark.skipif(ONE_SEED is not None, reason="single-seed run requested")
@@ -329,7 +460,6 @@ def test_generated_models_are_schema_valid_and_varied() -> None:
             saw["initialStrain"] |= "initialStrain" in member
             saw["properties"] |= "properties" in member
         saw["dup"] |= any(n["id"].startswith("dup") for n in model["nodes"])
-        assert 1 <= len(model["supports"]) + 1  # supports may legitimately be empty; just well-formed
     assert kinds == {"beam", "brace", "cable"}
     assert fidelities == {"linear", "nonlinear"}
     assert all(saw.values()), saw

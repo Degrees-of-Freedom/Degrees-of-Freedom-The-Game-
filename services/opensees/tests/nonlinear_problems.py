@@ -308,6 +308,34 @@ def single_guy(prestrain: float) -> HandBuilt:
     return HandBuilt(define, 0.1 * 3.0)
 
 
+def cable_braced_portal(lateral: float, gravity: float = 0.0, width: float = 4.0, height: float = 3.0) -> HandBuilt:
+    """Pin-jointed portal (posts 1-3 and 2-4, top bar 3-4) braced by one
+    unstrained cable from base 1 to top 4 (element 4). ``lateral`` acts
+    along +X at node 3, putting the cable in tension; ``gravity`` is split
+    between the two top nodes. Without the cable it is a sway mechanism; at
+    the reference the cable sits at exactly zero strain, on the kink of its
+    tension-only law (audit D2).
+    """
+
+    def define() -> Loads:
+        ops.model("basic", "-ndm", 2, "-ndf", 2)
+        ops.node(1, 0.0, 0.0)
+        ops.node(2, width, 0.0)
+        ops.node(3, 0.0, height)
+        ops.node(4, width, height)
+        ops.fix(1, 1, 1)
+        ops.fix(2, 1, 1)
+        ops.uniaxialMaterial("Elastic", 2, E)
+        _tension_only(1)
+        ops.element("corotTruss", 1, 1, 3, CABLE_A, 2)
+        ops.element("corotTruss", 2, 2, 4, CABLE_A, 2)
+        ops.element("corotTruss", 3, 3, 4, CABLE_A, 2)
+        ops.element("corotTruss", 4, 1, 4, CABLE_A, 1)
+        return {3: (lateral, -gravity / 2.0), 4: (0.0, -gravity / 2.0)}
+
+    return HandBuilt(define, 0.1 * min(width, height))
+
+
 def fully_fixed_bar(load: float) -> HandBuilt:
     """A bar between two fully fixed nodes, loaded at one: no free DOFs."""
 

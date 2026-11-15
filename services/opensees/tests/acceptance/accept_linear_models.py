@@ -25,6 +25,7 @@ import math
 from typing import Any, Iterable, Sequence
 
 import numpy as np
+import pytest
 
 from dof_opensees.engine import analyze
 from dof_opensees.schema import StructuralModel
@@ -168,7 +169,16 @@ def combine(*models: dict) -> dict:
     return out
 
 
+# Per-test fidelity override. A test module may set GATE["fidelity"] ("linear" or "nonlinear",
+# via an autouse fixture) to re-run every model at that fidelity; GATE["rel"] is the relative
+# gate that ``check`` / ``check_vec`` use when no ``rel`` is passed. Reset to None / REL afterwards.
+GATE: dict[str, Any] = {"fidelity": None, "rel": REL}
+
+
 def solve(model: dict) -> dict:
+    if GATE["fidelity"] is not None:
+        model = copy.deepcopy(model)
+        model["analysis"]["fidelity"] = GATE["fidelity"]
     return analyze(StructuralModel.model_validate(model))
 
 
@@ -204,14 +214,18 @@ def require_success(result: dict, what: str = "model") -> dict:
         f"{what}: expected status 'success', got {result['status']!r}: {result.get('message')!r}; "
         f"components={[(c['id'], c['state'], c['reasonCodes']) for c in result.get('components', [])]}"
     )
+    # An 'unresolved' or merely 'marginal' answer must never pass as agreement.
+    bad = [(c["id"], c["state"], c["resultsValid"]) for c in result["components"] if c["state"] != "stable" or c["resultsValid"] is not True]
+    assert not bad, f"{what}: every component must be 'stable' with resultsValid true, got {bad}"
     return result
 
 
 # --- numeric checks ---------------------------------------------------------
 
 
-def check(label: str, actual: float, expected: float, rel: float = REL, abs_tol: float = 0.0) -> None:
+def check(label: str, actual: float, expected: float, rel: float | None = None, abs_tol: float = 0.0) -> None:
     """Pass if |actual - expected| <= max(rel * |expected|, abs_tol)."""
+    rel = GATE["rel"] if rel is None else rel
     actual, expected = float(actual), float(expected)
     err = abs(actual - expected)
     allowed = max(rel * abs(expected), abs_tol)
@@ -222,9 +236,10 @@ def check(label: str, actual: float, expected: float, rel: float = REL, abs_tol:
     )
 
 
-def check_vec(label: str, actual: Iterable[float], expected: Iterable[float], rel: float = REL, abs_tol: float = 0.0) -> None:
+def check_vec(label: str, actual: Iterable[float], expected: Iterable[float], rel: float | None = None, abs_tol: float = 0.0) -> None:
     a, e = np.asarray(list(actual), dtype=float), np.asarray(list(expected), dtype=float)
     assert a.shape == e.shape, f"{label}: shape {a.shape} != {e.shape}"
+    rel = GATE["rel"] if rel is None else rel
     for i, (x, y) in enumerate(zip(a, e)):
         check(f"{label}[{i}]", x, y, rel, abs_tol)
 
@@ -374,3 +389,59 @@ def cantilever_model(
         {b: (*force, *moment)},
         fidelity=fidelity,
     )
+
+
+# --- running a test at both fidelities ----------------------------------------------------------
+
+
+@pytest.fixture(params=["linear", "nonlinear"])
+def both_fidelities(request):
+    """Request this fixture (``@pytest.mark.usefixtures("both_fidelities")``) to run a test twice:
+    every ``solve`` is forced to the fidelity and ``check`` uses REL (linear) or REL_NL (nonlinear)."""
+    GATE["fidelity"] = request.param
+    GATE["rel"] = REL if request.param == "linear" else REL_NL
+    yield request.param
+    GATE["fidelity"] = None
+    GATE["rel"] = REL
+
+
+def is_nonlinear() -> bool:
+    return GATE["fidelity"] == "nonlinear"
+
+
+def membrane_force(deflection: float, length: float) -> float:
+    """Bound on the axial force that second-order (large-displacement) theory can add to a member
+    whose ends are both held axially while it deflects ``deflection`` over ``length``: the chord
+    stretches by int w'^2/2 dx = k d^2/L with k = 3/5 (cantilever tip load, guided cantilever 0.6) up to
+    k = 2.4 (simply supported, midspan point load: w' = (d/L)(3 - 12 xi^2), int = 4.8 d^2/L, half of it), so
+    N <= 2.5 EA (d/L)^2 covers every shape used here. Zero at linear fidelity (small-displacement
+    theory has no such coupling)."""
+    return 2.5 * EA * (deflection / length) ** 2 if is_nonlinear() else 0.0
+
+
+def second_order_allowances(d: float, length: float):
+    """(axial shift, axial force, moment) allowed on expected zeros at nonlinear fidelity; zeros at linear.
+
+    Axial shift of a free point <= k d^2/L and membrane force <= 2.5 EA (d/L)^2, with the shape factor
+    k <= 2.4 derived in ``membrane_force``, taken as 2.5; the moment is that force times d."""
+    if not is_nonlinear():
+        return 0.0, 0.0, 0.0
+    n = membrane_force(d, length)
+    return 2.5 * d * d / length, n, n * d
+
+
+def check_point(label, actual, expected, t, d, length):
+    """Compare a point displacement. Along the member axis t the expectation is the linear value (0 for a
+    transverse load) plus, at nonlinear fidelity, the second-order shift up to 2.5 d^2/L; the part
+    perpendicular to t keeps the full relative gate."""
+    t = np.asarray(t, float)
+    a, e = np.asarray(actual, float), np.asarray(expected, float)
+    shift, _, _ = second_order_allowances(d, length)
+    check(f"{label} (along member axis)", a @ t, e @ t, abs_tol=1e-6 * d + shift)
+    check_vec(f"{label} (transverse)", a - (a @ t) * t, e - (e @ t) * t, abs_tol=1e-6 * d)
+
+
+def tilt_axial_allowance(load: float, d: float, length: float) -> float:
+    """Axial force a transverse fixed-direction tip load develops along the tilted chord at nonlinear
+    fidelity: <= P x tip slope = P (3 d / 2L) for a cantilever (zero in small-displacement theory)."""
+    return load * 1.5 * d / length if is_nonlinear() else 0.0

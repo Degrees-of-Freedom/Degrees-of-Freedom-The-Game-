@@ -119,18 +119,41 @@ class Settings:
     #: below the engine's 1e-5 equilibrium gate. Absolute force tolerances
     #: are avoided because load scales vary by orders of magnitude.
     displacement_tolerance: float = 1.0e-10
-    max_iterations: int = 30
+    #: Newton iterations per attempt. A converging Newton needs well under
+    #: ten here (the elastica's large steps took at most 9); an attempt that
+    #: has not converged by 15 is diverging or crawling, and halving the step
+    #: is cheaper than 15 more iterations (measured on heavily loaded frames,
+    #: where 30 per attempt spent most of the run on failing attempts).
+    max_iterations: int = 15
 
-    #: A converged step whose increment and tangent predictor differ by more
-    #: than this factor (see ``_Driver.jumped``) may have reached a distant
-    #: equilibrium, for example by snapping through a limit point. Load
-    #: control cannot follow that path and the service does not simulate
-    #: dynamic snap-through, so the step is rejected and cut.
-    jump_ratio: float = 10.0
     #: Undo and redo every load step to prove it stayed on its branch (see
     #: ``_Driver.step``). Only for experiments: without it a snap-through
     #: can be reported as a stable equilibrium.
     verify_branch: bool = True
+    #: The branch check steps back by all but this fraction of the increment,
+    #: so it never has to converge exactly onto the start state. The start
+    #: state may sit on a kink of a tension-only law (a cable at exactly zero
+    #: strain), where Newton alternates between the slack and taut tangents
+    #: and need not converge at all (audit D2).
+    branch_check_shortfall: float = 0.01
+    #: The step is on its branch if the state stepped back to is within this
+    #: fraction of the step's own displacement of the start state. On one
+    #: smooth branch the distance is about ``branch_check_shortfall`` times
+    #: the step (0.01); the margin allows the path to move ten times faster
+    #: near the start than on average (a cable activating there). A snapped
+    #: branch is about one whole step away.
+    branch_check_tolerance: float = 0.1
+
+    #: Largest nodal translation of the linear solution of the same problem,
+    #: in metres, when the caller has one. Enables the one-step fast path
+    #: (see ``_Driver.fast_path``).
+    expected_peak_displacement: float | None = None
+    #: The fast path is accepted only if the nonlinear peak displacement is
+    #: within this fraction of ``expected_peak_displacement``.
+    fast_path_tolerance: float = 0.1
+    #: ... or within this many times the model size (absolute floor), for
+    #: displacements too small to carry information about stability.
+    fast_path_floor: float = 1.0e-7
 
     #: Upper bound on bisection steps, a guard only: the tolerance normally
     #: stops bisection after a handful.
@@ -228,6 +251,11 @@ class _Driver:
         self.steps = 0
         self.iterations = 0
         self.tolerance = settings.displacement_tolerance
+        self.size = 1.0
+        # Algorithm of the analysis objects currently set up, or None when
+        # they must be created again (after a build, an assessment, or a
+        # change of temporary springs).
+        self.analysis: tuple[str, ...] | None = None
         # Last verified stable state, reported by unknown outcomes.
         self.verified_factor = 0.0
         self.verified_assessment: stability.Assessment | None = None
@@ -260,12 +288,13 @@ class _Driver:
 
     def run(self) -> Outcome:
         self.check_deadline()
-        self.problem.build()
+        self.build()
         if _free_dof_count() == 0:
             return self.outcome("stable", [], 1.0, stability.Assessment(free_dofs=0), [])
         # Convergence is judged on displacements, so scale the tolerance by
         # the size of the model to make it independent of units and scale.
-        self.tolerance = self.settings.displacement_tolerance * _model_size()
+        self.size = _model_size()
+        self.tolerance = self.settings.displacement_tolerance * self.size
 
         self.check_deadline()
         reference, dofs = self.assess()
@@ -300,7 +329,60 @@ class _Driver:
                 # not stable: the prestress itself buckles the structure.
                 return self.outcome("unstable", ["load_induced_instability"], 0.0, reference, dofs)
         self.verified(0.0, reference, dofs)
+        if self.settings.expected_peak_displacement is not None:
+            fast = self.fast_path()
+            if fast is not None:
+                return fast
         return self.load_path()
+
+    def fast_path(self) -> Outcome | None:
+        """The whole load in one step, accepted only on evidence; None to fall back.
+
+        Accepted when Newton converges in one full step, the tangent at full
+        load is positive definite, and the peak displacement agrees with the
+        linear solution (``Settings.expected_peak_displacement``) within
+        ``fast_path_tolerance`` (10%, or the absolute floor).
+
+        Why agreement with the linear solution is evidence enough:
+
+        * Near a critical point the response is amplified by about
+          1 / (1 - P / P_cr) in the mode the load excites, so agreement
+          within 10% bounds P / P_cr below about 0.09 for every mode that
+          contributes to the peak. A column near or past its Euler load, or a
+          truss near its limit load, cannot agree.
+        * A snap-through ends on a far branch whose displacement includes the
+          snap distance, which the linear solution does not have.
+        * A critical point passed by a perfect structure (a bifurcation the
+          load does not excite) leaves a negative direction at full load,
+          which the tangent test sees, exactly as careful stepping would.
+
+        What it does not cover: a snap whose distance is below about 10% of
+        the total response (a limit load exceeded about tenfold or more, where
+        the snapped state is the only equilibrium and close to linear), and a
+        critical point passed and re-stabilised before full load (careful
+        stepping can also miss one between its steps). Both are far outside
+        ordinary game structures.
+
+        Cost: one Newton solve and one tangent test. On refusal the domain is
+        rebuilt to the verified prestressed state and careful stepping
+        starts from scratch, unchanged.
+        """
+        expected = float(self.settings.expected_peak_displacement)
+        result = self.newton(1.0, _displacements())
+        if result == _FAILED:
+            return None  # the failed analyze left the domain at factor 0
+        if isinstance(result, int):
+            self.check_deadline()
+            peak = self.problem.peak_displacement()
+            floor = self.settings.fast_path_floor * self.size
+            if abs(peak - expected) <= max(self.settings.fast_path_tolerance * expected, floor):
+                assessment, dofs = self.assess()
+                if assessment.positive_definite:
+                    self.verified(1.0, assessment, dofs)
+                    return self.outcome("stable", [], 1.0, assessment, dofs)
+        if not self.rebuild_to(0.0):
+            return self.unverified("not_converged")
+        return None
 
     def prestress(self) -> bool | None:
         """Equilibrate the initial strains at load factor 0.
@@ -315,11 +397,22 @@ class _Driver:
 
         Returns True if the structure moved, False if the reference already
         was an equilibrium, None if no equilibrium was found.
+
+        A zero increment gets no branch check, and Newton's own history is no
+        guide here: a cable going slack while the prestress settles changes
+        the tangent mid-iteration, and legitimate settlements were seen with
+        later corrections ten times the first (audit D2, generated guyed
+        mast). The bound is the recovery displacement limit instead: an
+        equilibrium further away than that is not near the reference
+        geometry and is not accepted.
         """
         result = self.step(0.0)
         if not isinstance(result, int):
             return None
-        return float(ops.testNorm()[0]) > self.tolerance
+        moved = float(ops.testNorm()[0]) > self.tolerance
+        if moved and self.too_far():
+            return None
+        return moved
 
     def load_path(self) -> Outcome:
         """Load from 0 to 1, checking the tangent after every step."""
@@ -411,6 +504,7 @@ class _Driver:
         whatever happens, so no temporary object survives into results.
         """
         held = _held_dofs(reference, dofs, self.settings.mode_participation)
+        self.analysis = None  # reading the tangent replaces the analysis objects
         translational, rotational = _diagonal_scales()
         springs = _Springs(self, held, translational, rotational)
         try:
@@ -492,7 +586,7 @@ class _Driver:
         Replays exactly the verified steps that led there, which converged on
         the right branch before and, being deterministic, do so again.
         """
-        self.problem.build()
+        self.build()
         # The verified path starts from the prestressed equilibrium.
         if self.prestress() is None:
             return False
@@ -510,75 +604,74 @@ class _Driver:
         domain was committed to a state that is not known to be on the
         branch it started from, so the caller must rebuild or give up.
 
-        Branch check: a converged step is undone by stepping back by the same
-        load increment. On the same branch of an elastic structure that
-        returns to the start state; after a snap-through it does not, because
-        the snapped branch has its own equilibrium at the start load (or none
-        nearby). Load control cannot tell the two apart any other way: from
-        far enough below a limit point, a large step can snap through with a
-        perfectly ordinary looking Newton iteration (seen on a von Mises
-        truss loaded to 3 and 7 times its limit load). The check costs two
-        more Newton solves per step and no tangent assessment. It is skipped
-        for zero increments (recovery stages), whose change is in the
-        springs, not the load.
+        Branch check: a converged step is undone by stepping back by nearly
+        the same load increment (all but ``branch_check_shortfall`` of it).
+        On the same branch of an elastic structure that lands next to the
+        start state; after a snap-through it does not, because the snapped
+        branch has its own equilibrium at the start load (or none nearby).
+        Load control cannot tell the two apart any other way: from far enough
+        below a limit point, a large step can snap through with a perfectly
+        ordinary looking Newton iteration (seen on a von Mises truss loaded
+        to 3 and 7 times its limit load). Newton's own history is not used:
+        a cable changing state inside a step makes it look irregular on a
+        perfectly continuous path (audit D2).
+
+        Stopping short of the start state matters when the start state is on
+        a kink of a tension-only law, as a cable at exactly zero strain is at
+        factor 0: Newton converging onto the kink alternates between the
+        slack and taut tangents and may never meet the tolerance, which used
+        to be read as a jump. Just short of it the cable is strained and
+        Newton converges normally.
+
+        The check costs two more Newton solves per step and no tangent
+        assessment. It is skipped for zero increments (prestress and
+        recovery stages), whose change is not in the load.
         """
         before = _displacements()
         result = self.newton(increment, before)
         if not isinstance(result, int) or increment == 0.0 or not self.settings.verify_branch:
             return result
         after = _displacements()
-        if not isinstance(self.newton(-increment, after), int):
+        back = (1.0 - self.settings.branch_check_shortfall) * increment
+        if not isinstance(self.newton(-back, after), int):
             return _JUMPED
         returned = float(np.linalg.norm(_displacements() - before))
-        if returned > 1.0e-3 * float(np.linalg.norm(after - before)) + 10.0 * self.tolerance:
+        step = float(np.linalg.norm(after - before))
+        if returned > self.settings.branch_check_tolerance * step + 10.0 * self.tolerance:
             return _JUMPED
-        # Back at the start state, verified; take the step again. A failure
-        # here leaves the domain at the start state, like any failed step.
-        again = self.newton(increment, _displacements())
-        return result if isinstance(again, int) else again
+        # Next to the start state, on its branch; take the step again. A
+        # failure here leaves the domain next to the start state, which is
+        # not a verified state, so it counts as a jump: the caller rebuilds.
+        again = self.newton(back, _displacements())
+        if not isinstance(again, int):
+            return _JUMPED
+        return result
 
     def newton(self, increment: float, before: np.ndarray) -> int | str:
-        """One load step without the branch check."""
+        """One load step without the branch check.
+
+        The deadline is checked before each attempt, so the driver overruns
+        it by at most one attempt (``max_iterations`` Newton iterations).
+        The analysis objects are kept between calls when nothing invalidated
+        them; only the load increment changes.
+        """
         for algorithm in _ALGORITHMS:
-            self.setup(increment, algorithm)
+            self.check_deadline()
+            if self.analysis == algorithm:
+                ops.integrator("LoadControl", increment)
+            else:
+                self.setup(increment, algorithm)
             converged = ops.analyze(1) == 0
             iterations = int(ops.testIter())
             self.iterations += iterations
             if not converged:
                 continue
             self.steps += 1
-            norms = [float(value) for value in ops.testNorm()[: max(iterations, 1)]]
             moved = float(np.linalg.norm(_displacements() - before))
-            if not all(math.isfinite(value) for value in norms) or not math.isfinite(moved):
-                return _JUMPED
-            if self.jumped(norms, moved):
+            if not math.isfinite(moved):
                 return _JUMPED
             return iterations
         return _FAILED
-
-    def jumped(self, norms: list[float], moved: float) -> bool:
-        """Did Newton reach an equilibrium unrelated to the tangent predictor?
-
-        On a smooth path the converged increment is close to the first
-        correction (the predictor). Two signs that it is not:
-
-        * Later corrections add up to many times the predictor: the
-          iteration wandered off, for example snapping through a limit point.
-        * The predictor is many times the converged increment: the tangent
-          at the start was nearly singular (a limit point), so the predictor
-          was meaningless, and whatever Newton converged to is not known to
-          be on the same branch. Seen on a von Mises truss stepping from its
-          limit point: predictor 8e4 m, converged increment 0.36 m, which is
-          the snapped-through state.
-
-        ``moved`` is measured over all nodal DOFs, which counts equalDOF
-        duplicates twice; the ratio is loose enough for that.
-        """
-        ratio = self.settings.jump_ratio
-        first = norms[0]
-        if first <= self.tolerance:
-            return False
-        return sum(norms) > ratio * first or first > ratio * moved
 
     def setup(self, increment: float, algorithm: tuple[str, ...]) -> None:
         ops.wipeAnalysis()
@@ -591,10 +684,18 @@ class _Driver:
         ops.algorithm(*algorithm)
         ops.integrator("LoadControl", increment)
         ops.analysis("Static")
+        self.analysis = algorithm
 
     def assess(self) -> tuple[stability.Assessment, list[tuple[int, int]]]:
+        # ``Problem.assess`` replaces the analysis objects.
+        self.analysis = None
+        self.check_deadline()
         assessment = self.problem.assess()
         return assessment, self.problem.equation_dofs()
+
+    def build(self) -> None:
+        self.analysis = None
+        self.problem.build()
 
     def check_deadline(self) -> None:
         if time.monotonic() > self.deadline:
@@ -641,6 +742,7 @@ class _Springs:
 
     def set(self, ratio: float) -> None:
         """Replace the springs with springs of ``ratio`` times the reference scales."""
+        self.driver.analysis = None  # the domain changes
         self.remove_elements()
         translation = self.driver.new_tag()
         rotation = self.driver.new_tag()
@@ -660,6 +762,7 @@ class _Springs:
 
     def remove(self) -> None:
         """Take every temporary object out of the domain. Safe to call twice."""
+        self.driver.analysis = None  # the domain changes
         self.remove_elements()
         for anchor in self.anchors.values():
             for dof in range(1, len(ops.nodeDisp(anchor)) + 1):

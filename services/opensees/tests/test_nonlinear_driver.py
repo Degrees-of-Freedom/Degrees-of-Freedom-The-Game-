@@ -624,3 +624,133 @@ def test_same_problem_gives_the_same_outcome() -> None:
     assert len(first.assessment.negative_modes) == len(second.assessment.negative_modes)
     for a, b in zip(first.assessment.negative_modes, second.assessment.negative_modes):
         assert np.array_equal(a, b)
+
+
+# Cable at exactly zero strain at the reference (audit D2) -----------------
+
+
+def test_cable_braced_portal_activates_its_cable_from_zero_strain() -> None:
+    # Statics of the pin-jointed portal: only the diagonal cable can resist
+    # the lateral load H, so its horizontal component carries it all:
+    # T * (width / diagonal) = H, T = H * 5 / 4 = 1250 N for H = 1 kN on a
+    # 4 x 3 frame. Second-order terms are of order the sway over the height
+    # (about 1e-6). Every load step starts the branch check's return next to
+    # the cable's kink at zero strain; it used to be read as a jump.
+    problem = nlp.cable_braced_portal(1000.0)
+
+    outcome = solve(problem)
+
+    assert outcome.state == "stable"
+    assert relative_error(ops.basicForce(4)[0], 1250.0) <= NONLINEAR_GATE
+
+
+# One-step fast path ---------------------------------------------------------
+
+
+def _cantilever_tip_linear(lateral: float) -> float:
+    # Linear cantilever: tip deflection H L^3 / (3 EI).
+    return lateral * nlp.COLUMN_LENGTH**3 / (3.0 * nlp.EI)
+
+
+def test_fast_path_is_taken_on_a_lightly_loaded_cantilever() -> None:
+    # Tip deflection about L / 4000: geometric effects of order (d / L)^2.
+    lateral = 1.0e3
+    expected = _cantilever_tip_linear(lateral)
+    problem = nlp.column("cantilever", 8, 0.0, lateral=lateral)
+
+    outcome = solve(problem, expected_peak_displacement=expected)
+
+    assert outcome.state == "stable" and outcome.load_factor == 1.0
+    assert outcome.steps <= 2 and outcome.iterations <= 6  # prestress stage + one step
+    assert relative_error(ops.nodeDisp(9, 1), expected) <= NONLINEAR_GATE
+
+
+def test_fast_path_with_a_wrong_expectation_falls_back_to_the_right_answer() -> None:
+    lateral = 1.0e3
+    truth = _cantilever_tip_linear(lateral)
+    problem = nlp.column("cantilever", 8, 0.0, lateral=lateral)
+
+    outcome = solve(problem, expected_peak_displacement=2.0 * truth)
+
+    assert outcome.state == "stable"
+    assert outcome.steps > 2  # careful stepping ran
+    assert relative_error(ops.nodeDisp(9, 1), truth) <= NONLINEAR_GATE
+
+
+def test_fast_path_is_refused_for_an_amplified_column_near_its_euler_load() -> None:
+    # Bowed pin-ended column at 0.9 P_e. The linear solution has no lateral
+    # response to an axial load: its peak is the axial shortening P L / EA.
+    # The nonlinear added midspan deflection is e0 * 0.9 / 0.1 = 9 e0, so
+    # the two cannot agree and the driver must step carefully.
+    e0 = nlp.COLUMN_LENGTH / 1000.0
+    axial = 0.9 * nlp.euler_load("pinned")
+    shortening = axial * nlp.COLUMN_LENGTH / (nlp.E * nlp.COLUMN_A)
+    problem = nlp.column("pinned", 16, axial, bow=e0)
+
+    outcome = solve(problem, expected_peak_displacement=shortening)
+
+    assert outcome.state == "stable"
+    assert outcome.steps > 2
+    assert relative_error(ops.nodeDisp(9, 1), 9.0 * e0) <= 0.05  # gate widened: 1/(1-a) magnifies mesh error tenfold
+
+
+def test_fast_path_is_refused_for_a_perfect_column_past_its_euler_load() -> None:
+    # Straight column at 2 P_e: one step converges on the straight primary
+    # path and its peak (the shortening) agrees with the linear one, but the
+    # tangent there is indefinite, so the fast path must still be refused.
+    axial = 2.0 * nlp.euler_load("pinned")
+    shortening = axial * nlp.COLUMN_LENGTH / (nlp.E * nlp.COLUMN_A)
+    problem = nlp.column("pinned", 8, axial)
+
+    outcome = solve(problem, expected_peak_displacement=shortening)
+
+    assert outcome.state == "unstable"
+    assert outcome.reason_codes == ["load_induced_instability"]
+    assert relative_error(outcome.load_factor, 0.5) <= BUCKLING_GATE
+
+
+def test_fast_path_is_refused_near_a_limit_point() -> None:
+    # Von Mises truss at 0.95 of its limit load. Linear apex deflection:
+    # P / k0 with k0 = 2 (EA / l0) (h / l0)^2, the vertical stiffness of the
+    # two bars at the reference. Near the limit point the truss is far
+    # softer than k0, so the nonlinear deflection is well above P / k0.
+    half_span, rise = 2.0, 0.2
+    load = 0.95 * _shallow_truss_limit_load(half_span, rise)
+    length = math.hypot(half_span, rise)
+    linear = load / (2.0 * nlp.CABLE_EA / length * (rise / length) ** 2)
+    problem = nlp.shallow_truss(load, half_span, rise)
+
+    outcome = solve(problem, expected_peak_displacement=linear)
+
+    assert outcome.state == "stable"
+    assert outcome.steps > 2
+    assert -ops.nodeDisp(1, 2) > 1.5 * linear
+
+
+# Engine level: beam end joined through a duplicate node (audit D1) ----------
+
+
+def test_engine_propped_cantilever_with_a_ball_end_solves_at_nonlinear_fidelity() -> None:
+    # Fixed at a, roller at b, P at midspan: R_b = 5 P / 16 (propped
+    # cantilever). The end at b is a ball joint, a duplicate node tied to the
+    # support by equalDOF; before the builder fix every nonlinear step
+    # sequence failed there.
+    from dof_opensees.engine import analyze
+    from dof_opensees.schema import StructuralModel
+
+    load = 20.0e3
+    model = {
+        "units": "SI",
+        "nodes": [{"id": "a", "position": [0, 0, 0]}, {"id": "m", "position": [3, 0, 0]}, {"id": "b", "position": [6, 0, 0]}],
+        "members": [{"id": "am", "startNodeId": "a", "endNodeId": "m"},
+                    {"id": "mb", "startNodeId": "m", "endNodeId": "b", "endFixity": "pinned"}],
+        "supports": [{"nodeId": "a", "restrained": [True] * 6},
+                     {"nodeId": "b", "restrained": [False, True, True, False, False, False]}],
+        "loads": [{"nodeId": "m", "force": [0, 0, -load], "moment": [0, 0, 0]}],
+        "analysis": {"fidelity": "nonlinear", "timeoutMs": 20000},
+    }  # fmt: skip
+
+    result = analyze(StructuralModel.model_validate(model))
+
+    assert result["status"] == "success"
+    assert relative_error(result["reactions"]["b"][2], 5.0 * load / 16.0) <= NONLINEAR_GATE

@@ -27,11 +27,13 @@ from accept_linear_models import (
     PIN,
     REL,
     X_AXIS,
+    both_fidelities,  # noqa: F401 - used through pytestmark
     Z_AXIS,
     build,
     cantilever_model,
     cantilever_reference,
     check,
+    check_point,
     check_vec,
     check_zero,
     disp,
@@ -43,8 +45,13 @@ from accept_linear_models import (
     require_success,
     section,
     solve,
+    is_nonlinear,
+    second_order_allowances,
+    tilt_axial_allowance,
     unit,
 )
+
+pytestmark = pytest.mark.usefixtures("both_fidelities")  # every case at linear and nonlinear fidelity
 
 # --- axial bar --------------------------------------------------------------
 
@@ -127,13 +134,13 @@ def test_cantilever_tip_load(name):
     tip = disp(r, "b")
     delta = load * length**3 / (3 * EI)
     theta = load * length**2 / (2 * EI)
-    check_vec("tip deflection (P L^3 / 3EI along load)", tip[:3], ref["tip_u"], abs_tol=1e-6 * delta)
+    check_point("tip deflection (P L^3 / 3EI along load)", tip[:3], ref["tip_u"], t, delta, length)
     check_vec("tip rotation (P L^2 / 2EI about t x n)", tip[3:], ref["tip_theta"], abs_tol=1e-6 * theta)
     f = forces(r, "ab")
     check("shear P", f["shear"], load)
     check("root moment P L", f["momentStart"], load * length)
     check_zero("tip moment", f["momentEnd"], load * length, scale_name="load x length")
-    check_zero("axial force", f["axial"], load, scale_name="applied load")
+    check_zero("axial force", f["axial"], 1e-6 * load + tilt_axial_allowance(load, delta, length), frac=1.0, scale_name="1e-6 x load + P x tip slope (nonlinear)")
     check_zero("torsion", f["torsion"], load * length, scale_name="load x length")
     check_vec("reaction force", reac(r, "a")[:3], ref["reaction_force"], abs_tol=1e-6 * load)
     check_vec("reaction moment", reac(r, "a")[3:], ref["reaction_moment"], abs_tol=1e-6 * load * length)
@@ -160,14 +167,14 @@ def test_simply_supported_beam_midspan_load(n_in):
     delta = load * length**3 / (48 * EI)
     slope = load * length**2 / (16 * EI)
     t = X_AXIS
-    check_vec("midspan deflection", disp(r, "m")[:3], delta * n, abs_tol=1e-6 * delta)
+    check_point("midspan deflection", disp(r, "m")[:3], delta * n, t, delta, length)
     check_vec("rotation at a", disp(r, "a")[3:], slope * np.cross(t, n), abs_tol=1e-6 * slope)
     check_vec("rotation at b", disp(r, "b")[3:], -slope * np.cross(t, n), abs_tol=1e-6 * slope)
     check_vec("reaction at a", reac(r, "a")[:3], -load / 2 * n, abs_tol=1e-6 * load)
     check_vec("reaction at b", reac(r, "b")[:3], -load / 2 * n, abs_tol=1e-6 * load)
     for mid in ("am", "mb"):
         check(f"{mid} shear", forces(r, mid)["shear"], load / 2)
-        check_zero(f"{mid} axial", forces(r, mid)["axial"], load, scale_name="applied load")
+        check_zero(f"{mid} axial", forces(r, mid)["axial"], 1e-6 * load + tilt_axial_allowance(load, delta, length), frac=1.0, scale_name="1e-6 x load + P x end slope (nonlinear: P/2 x 3d/L)")
     check("moment at midspan (am end)", forces(r, "am")["momentEnd"], load * length / 4)
     check("moment at midspan (mb start)", forces(r, "mb")["momentStart"], load * length / 4)
     check_zero("moment at support a", forces(r, "am")["momentStart"], load * length, scale_name="load x length")
@@ -244,7 +251,7 @@ def test_unequal_inertia_literal_axes(name, sign):
     delta = load * length**3 / (3 * E * inertia)
     m = cantilever_model(t, length, force=tuple(load * n), props=_unequal_props(), orientation=orientation)
     r = require_success(solve(m), name)
-    check_vec(f"tip deflection using {which}", disp(r, "b")[:3], delta * n, abs_tol=1e-6 * delta)
+    check_point(f"tip deflection using {which}", disp(r, "b")[:3], delta * n, t, delta, length)
     theta = load * length**2 / (2 * E * inertia)
     check_vec("tip rotation", disp(r, "b")[3:], theta * np.cross(t, n), abs_tol=1e-6 * theta)
     check("root moment", forces(r, "ab")["momentStart"], load * length)
@@ -271,7 +278,7 @@ def test_unequal_inertia_skew_member_follows_contract_axes(name, which):
     delta = load * length**3 / (3 * E * inertia)
     m = cantilever_model(t, length, force=tuple(load * n), props=_unequal_props(), orientation=orientation)
     r = require_success(solve(m), name)
-    check_vec(f"tip deflection, load along local {which}", disp(r, "b")[:3], delta * n, abs_tol=1e-6 * delta)
+    check_point(f"tip deflection, load along local {which}", disp(r, "b")[:3], delta * n, t, delta, length)
 
 
 # --- parallel springs under a common displacement -------------------------------
@@ -495,8 +502,13 @@ def test_asymmetric_three_support_truss_frame():
     check("N2", forces(r, "b2")["axial"], -k2 * ux)
     check("N3", forces(r, "b3")["axial"], -load * k2 * k3 / (math.sqrt(2) * det))
     g = load * k2 * k3 / (2 * det)
-    check_vec("R1", reac(r, "s1")[[0, 2]], (0.0, load * k1 * (k2 + k3 / 2) / det), abs_tol=1e-6 * load)
-    check_vec("R2", reac(r, "s2")[[0, 2]], (g, 0.0), abs_tol=1e-6 * load)
+    # Expected zeros R1x and R2z are first-order in the geometry change at nonlinear fidelity: a bar force N tilts
+    # by u/L, giving a transverse component <= N u/L. Allowance load x (|ux|+|uz|) / 3 m (shortest bar).
+    geo = load * (abs(ux) + abs(uz)) / 3.0 if is_nonlinear() else 0.0
+    check("R1x (zero in small-displacement theory)", reac(r, "s1")[0], 0.0, abs_tol=1e-6 * load + geo)
+    check("R1z", reac(r, "s1")[2], load * k1 * (k2 + k3 / 2) / det)
+    check("R2x", reac(r, "s2")[0], g)
+    check("R2z (zero in small-displacement theory)", reac(r, "s2")[2], 0.0, abs_tol=1e-6 * load + geo)
     check_vec("R3", reac(r, "s3")[[0, 2]], (-g, g), abs_tol=1e-6 * load)
     check("vertical reactions sum to P", sum(reac(r, k)[2] for k in feet), load)
 
@@ -554,7 +566,10 @@ def test_self_weight_total_reaction_equals_total_member_weight():
         moment += np.cross((p0 + p1) / 2, (0.0, 0.0, -weight))
     check("vertical reaction = total weight", reac(r, "a")[2], total)
     check_zero("horizontal reaction", np.linalg.norm(reac(r, "a")[:2]), total, scale_name="total weight")
-    check_vec("reaction moment = -sum(r x W)", reac(r, "a")[3:], -moment, abs_tol=1e-6 * total * 5.0)
+    # Nonlinear: the weights act on the deformed geometry, so the moment about the origin changes by at most
+    # total weight x largest node displacement (first order in d/L; zero in small-displacement theory).
+    geo = total * max(float(np.abs(disp(r, n)[:3]).max()) for n in r["displacements"]) if is_nonlinear() else 0.0
+    check_vec("reaction moment = -sum(r x W)", reac(r, "a")[3:], -moment, abs_tol=1e-6 * total * 5.0 + geo)
 
 
 def test_self_weight_simply_supported_beam_splits_evenly():
@@ -624,7 +639,11 @@ def test_orthogonal_tripod_decouples_load_components():
         check(f"axial force in b{i}", forces(r, f"b{i}")["axial"], -f)
         expected_r = np.zeros(3)
         expected_r[i] = -f
-        check_vec(f"reaction at {name}", reac(r, name)[:3], expected_r, abs_tol=1e-6 * abs(f))
+        # Expected zeros (the two off-axis components) are first order in the geometry change at nonlinear
+        # fidelity: a force |F| tilts by u/L, so its transverse component is <= |F| u/L.
+        geo = max(abs(v) for v in forces_applied) * max(abs(v) for v in expected_u) / min(lengths) if is_nonlinear() else 0.0
+        for ax in range(3):
+            check(f"reaction at {name}[{ax}]", reac(r, name)[ax], expected_r[ax], abs_tol=1e-6 * abs(f) + (geo if expected_r[ax] == 0.0 else 0.0))
 
 
 def _tetra_model(kind):

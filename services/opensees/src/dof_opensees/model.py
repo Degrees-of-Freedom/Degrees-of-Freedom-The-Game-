@@ -365,6 +365,14 @@ def _span(vectors: list[np.ndarray]) -> np.ndarray:
     return u[:, s > DIRECTION_TOLERANCE * max(1.0, float(s[0]))]
 
 
+def _independent(groups: list[list[np.ndarray]]) -> bool:
+    """Whether the spans of these groups of directions are linearly independent."""
+    bases = [_span(group) for group in groups]
+    total = sum(basis.shape[1] for basis in bases)
+    combined = _span([vector for basis in bases for vector in basis.T])
+    return combined.shape[1] == total
+
+
 def _relevant_rotations(
     node_ids: list[str],
     attachments: dict[str, list[tuple[Member, End]]],
@@ -378,15 +386,32 @@ def _relevant_rotations(
     and no meaning; keeping it would show up as a false mechanism. Removing it
     changes no result because nothing could transmit a moment through it.
 
-    The held directions span a subspace S of rotation space. OpenSees can only
-    ``fix`` global axes, so a partial S is handled exactly in two cases: S is
-    spanned by global axes (fix the others), or a single member end is the
-    only rotational attachment (it then transmits no moment, so its rotational
-    laws are freed and the joint rotations removed). Anything else cannot be
-    reduced exactly and is ``unsupported``.
+    The held directions span a subspace S of rotation space. A full S (rank
+    3) is analysed natively, whatever the attachments. OpenSees can only
+    ``fix`` global axes, so a partial S is handled in these cases, in order:
 
-    A moment load keeps the rotations it acts on, so that an unheld loaded
-    rotation appears as the loaded mechanism it is.
+    1. S is spanned by global axes: fix the others. No law changes.
+    2. A moment load acts: keep every rotation, so an unheld loaded rotation
+       appears as the loaded mechanism it is (``unsupported`` if the moment
+       lies entirely in a skew S, which could not be reduced exactly).
+    3. Independent attachments. Each attachment a (a member end, or the
+       support's restrained rotations) can transmit a moment m_a only in the
+       span H_a of the directions it holds. With no moment load, rotational
+       equilibrium of the joint is sum(m_a) = 0. When the spans are linearly
+       independent (the dimension of their sum equals the sum of their
+       dimensions; for example one attachment, two non-parallel torsion-only
+       ends, or three non-coplanar ones) that sum can only vanish term by
+       term: every m_a is zero, so no attachment transmits any moment. Their
+       rotational laws are then set to free, which changes no result, and the
+       joint rotations not restrained by the support are removed. This
+       generalises the single-attachment rule and is, after twist anchoring,
+       the other place a requested law is replaced.
+    4. Otherwise (dependent attachments spanning a skew line or plane) the
+       rotation cannot be reduced exactly: ``unsupported``.
+
+    A joint where nothing holds a rotation but a moment acts keeps only the
+    global rotations the moment has a component on; the others are as
+    irrelevant as at an unloaded joint.
 
     Returns the removed rotations per node, and per node the projection onto
     the directions that are held or removed (used to place twist anchors).
@@ -408,7 +433,7 @@ def _relevant_rotations(
         loaded = bool(np.any(moment != 0.0))
         removed = [False, False, False]
         if rank == 0:
-            removed = [not loaded] * 3
+            removed = [bool(moment[axis] == 0.0) for axis in range(3)]
         elif rank < 3:
             in_span = [float(eye[axis] @ projection @ eye[axis]) for axis in range(3)]
             if all(min(value, 1.0 - value) < DIRECTION_TOLERANCE for value in in_span):
@@ -420,10 +445,15 @@ def _relevant_rotations(
                         f"Node '{node_id}': its rotation is held about some skew axes only and a moment acts "
                         "on it; the service cannot remove the remaining rotation exactly."
                     )
-            elif len(ends) == 1 and not support_axes:
-                member, end = ends[0]
-                end.laws = (*end.laws[:3], FREE, FREE, FREE)
-                removed = [True, True, True]
+            elif _independent(
+                [[member.axes[axis - 3] for axis in (3, 4, 5) if end.laws[axis] != FREE] for member, end in ends]
+                + ([support_axes] if support_axes else [])
+            ):
+                for _, end in ends:
+                    end.laws = (*end.laws[:3], FREE, FREE, FREE)
+                # Only the support's restrained global axes remain held.
+                basis = _span(support_axes)
+                removed = [not restrained[3 + axis] for axis in range(3)]
             else:
                 names = ", ".join(sorted({f"'{member.id}'" for member, _ in ends}))
                 raise _unsupported(

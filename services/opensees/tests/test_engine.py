@@ -336,7 +336,8 @@ def test_moment_on_a_pin_joint_keeps_its_rotations_as_a_mechanism():
     assert result["status"] == "unstable"
     stability = result["stability"]
     assert stability["translationalMechanisms"] == 0
-    assert stability["rotationalMechanisms"] == 3
+    # Only the loaded rotation (about Y) is kept; the other two are irrelevant.
+    assert stability["rotationalMechanisms"] == 1
     assert stability["unstableNodeIds"] == ["top"]
     assert result["components"][0]["reasonCodes"] == ["internal_mechanism"]
 
@@ -857,8 +858,10 @@ def preview_segments(load):
     prepared = prepare(StructuralModel.model_validate(body))
     part = prepared.components[0]
     with engine._LOCK:
-        reference = engine._coarse_reference(prepared, part)
-        return engine._preview_segments(prepared, part, reference[0])["a-b"]
+        from dof_opensees import builder
+        coarse = builder.build(prepared, part, builder.COROTATIONAL)
+        assessment, _, _ = engine._classify(prepared, part, coarse, deformed=False)
+        return engine._preview(prepared, part, coarse, assessment)[0]["a-b"]
 
 
 def test_large_preview_rotation_refines_the_beam():
@@ -873,3 +876,111 @@ def test_small_preview_rotation_keeps_one_element():
     # A tip rotation of 1e-3 rad is an ordinary structure: one element.
     load = 1e-3 * 2 * EI / 4.0**2
     assert preview_segments(load) == 1
+
+
+# --- round four: one-sided cables, beam self-weight, independent joint attachments ---
+
+PORTAL_CABLE = {"elasticModulus": 160e9, "shearModulus": 60e9, "area": 4.5e-4, "inertiaY": 1e-9, "inertiaZ": 1e-9,
+                "torsionConstant": 1e-9}
+
+
+def cable_portal(loads, crossed=False, fidelity="linear"):
+    """Pin-jointed portal of braces (3 m columns, 4 m chord) held in its plane by cables only."""
+    nodes = {"a": (0, 0, 0), "b": (4, 0, 0), "c": (0, 0, 3), "d": (4, 0, 3)}
+    members = [member("a", "c", kind="brace"), member("b", "d", kind="brace"), member("c", "d", kind="brace"),
+               member("a", "d", kind="cable", properties=PORTAL_CABLE)]
+    if crossed:
+        members.append(member("b", "c", kind="cable", properties=PORTAL_CABLE))
+    top = [False, True, False, False, False, False]
+    return run(nodes, members, {"a": PINNED, "b": PINNED, "c": top, "d": top}, loads,
+               analysis={"fidelity": fidelity, "timeoutMs": 20000})
+
+
+@pytest.mark.parametrize("fidelity", ["linear", "nonlinear"])
+def test_slack_cable_does_not_hold_a_mechanism(fidelity):
+    # Unloaded: the frame sways freely in the direction that shortens the cable.
+    unloaded = cable_portal({}, fidelity=fidelity)
+    assert unloaded["status"] == "unstable"
+    assert unloaded["components"][0]["reasonCodes"] == ["internal_mechanism"]
+    # Pushed toward the slack side: the load drives the free sway.
+    slack_side = cable_portal({"c": (-1e3, 0, 0)}, fidelity=fidelity)
+    assert slack_side["status"] == "unstable"
+
+
+def test_cable_takes_load_toward_its_taut_side():
+    # Horizontal 1 kN at c: the cable's horizontal component 4/5 T balances it, T = 1250 N.
+    result = cable_portal({"c": (1e3, 0, 0)})
+    assert result["status"] == "success"
+    assert result["memberForces"]["a-d"]["axial"] == approx(1250.0)
+    assert result["memberForces"]["a-d"]["state"] == "active"
+
+
+def test_crossed_cables_hold_both_ways():
+    unloaded = cable_portal({}, crossed=True)
+    assert unloaded["status"] == "success" and unloaded["components"][0]["state"] == "stable"
+    loaded = cable_portal({"c": (1e3, 0, 0)}, crossed=True)
+    assert loaded["status"] == "success"
+    assert loaded["memberForces"]["a-d"]["axial"] == approx(1250.0)
+    assert loaded["memberForces"]["b-c"]["state"] == "slack"
+
+
+@pytest.mark.parametrize("fidelity", ["linear", "nonlinear"])
+def test_fixed_fixed_beam_self_weight_has_fixed_end_forces(fidelity):
+    # w L / 2 end shear and w L^2 / 12 end moments (audit D4).
+    length, w = 6.0, P.weight_per_length
+    result = run({"a": (0, 0, 0), "b": (length, 0, 0)}, [("a", "b")], {"a": FIXED, "b": FIXED},
+                 analysis={"fidelity": fidelity, "selfWeight": True})
+    assert result["status"] == "success"
+    forces = result["memberForces"]["a-b"]
+    assert forces["shear"] == pytest.approx(w * length / 2, rel=1e-6)
+    assert forces["momentStart"] == pytest.approx(w * length**2 / 12, rel=1e-6)
+    assert forces["momentEnd"] == pytest.approx(w * length**2 / 12, rel=1e-6)
+    assert result["reactions"]["a"][2] == pytest.approx(w * length / 2, rel=1e-6)
+    assert abs(result["reactions"]["a"][4]) == pytest.approx(w * length**2 / 12, rel=1e-6)
+
+
+def test_propped_beam_self_weight_and_skew_member():
+    length, w = 6.0, P.weight_per_length
+    propped = run({"a": (0, 0, 0), "b": (length, 0, 0)}, [("a", "b", "fixed", "pinned")],
+                  {"a": FIXED, "b": PINNED}, analysis={"fidelity": "linear", "selfWeight": True})
+    assert propped["reactions"]["a"][2] == approx(5 * w * length / 8)
+    assert propped["memberForces"]["a-b"]["momentStart"] == approx(w * length**2 / 8)
+    # Skew fixed-fixed member: the transverse part of the weight bends it.
+    end = tuple(length * v / 7 for v in (2, 3, 6))
+    skew = run({"a": (0, 0, 0), "b": end}, [("a", "b")], {"a": FIXED, "b": FIXED},
+               analysis={"fidelity": "linear", "selfWeight": True})
+    transverse = w * math.sqrt(1 - (6 / 7) ** 2)
+    assert skew["memberForces"]["a-b"]["momentStart"] == approx(transverse * length**2 / 12)
+    assert skew["reactions"]["a"][2] == approx(w * length / 2)
+
+
+def test_web_default_ends_on_a_3d_diagonal_match_the_brace_model():
+    # Torsion locked, bending free (L L L L F F) at joints where only other
+    # pin-ended members meet: the joints' rotations are held about skew axes
+    # only, and the attachments are independent, so they transmit no moment.
+    nodes = {"a": (0, 0, 0), "b": (3, 3, 0), "c": (0, 0, 3), "e": (3, 0, 0), "f": (0, 3, 0)}
+    hinge = laws("LLLLFF")
+
+    def frame(kind_fields):
+        members = [member("c", "b", **kind_fields), member("a", "c", kind="brace"),
+                   member("e", "c", kind="brace"), member("f", "c", kind="brace")]
+        return run(nodes, members, {"a": PINNED, "b": PINNED, "e": PINNED, "f": PINNED}, {"c": (1e3, 2e3, -5e3)})
+
+    web = frame({"startConnection": hinge, "endConnection": hinge})
+    brace = frame({"kind": "brace"})
+    assert web["status"] == brace["status"] == "success"
+    for member_id in ("c-b", "a-c", "e-c", "f-c"):
+        assert web["memberForces"][member_id]["axial"] == pytest.approx(brace["memberForces"][member_id]["axial"],
+                                                                           rel=1e-9)
+        assert web["memberForces"][member_id]["momentStart"] == pytest.approx(0.0, abs=1e-6)
+
+
+def test_dependent_skew_rotation_holds_stay_unsupported():
+    # Two torsion-locked ends along the same skew line plus a third out of line:
+    # direction: dependent, spanning a plane with normal (2, -4, 1), not a global axis.
+    nodes = {"j": (0, 0, 0), "p": (2, 1, 0), "q": (-2, -1, 0), "r": (1, 1, 2)}
+    hinge = laws("LLLLFF")
+    members = [member("p", "j", endConnection=hinge), member("q", "j", endConnection=hinge),
+               member("r", "j", endConnection=hinge)]
+    result = run(nodes, members, {"p": FIXED, "q": FIXED, "r": FIXED}, {"j": (0, 0, -1e3)})
+    assert result["status"] == "unsupported"

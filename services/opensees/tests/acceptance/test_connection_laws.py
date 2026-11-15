@@ -28,6 +28,7 @@ from accept_linear_models import (
     GJ,
     PIN,
     X_AXIS,
+    both_fidelities,  # noqa: F401 - used through pytestmark
     Y_AXIS,
     Z_AXIS,
     build,
@@ -37,6 +38,11 @@ from accept_linear_models import (
     conn,
     disp,
     flags,
+    check_point,
+    is_nonlinear,
+    membrane_force,
+    second_order_allowances,
+    tilt_axial_allowance,
     forces,
     member,
     reac,
@@ -46,6 +52,8 @@ from accept_linear_models import (
     transform_model,
     unit,
 )
+
+pytestmark = pytest.mark.usefixtures("both_fidelities")
 
 L = 4.0
 
@@ -57,6 +65,25 @@ def skew_frame() -> np.ndarray:
 
 
 FRAMES = {"aligned": np.eye(3), "skew": skew_frame()}
+
+
+# --- running every case at both fidelities -------------------------------------------------------
+#
+# Each test runs at linear fidelity (REL = 1e-4 gate) and at nonlinear fidelity (REL_NL = 1e-3).
+# Second-order size of the nonlinear correction, which fixes the load sizes below:
+#   * a member bent by d over length L with its ends held axially develops a membrane force of order
+#     EA (d/L)^2 / 2, which changes transverse results by a relative amount of order
+#     (d/L)^2 (A L^2 / I) = (d/L)^2 x 1600 (L = 4 m, A/I = 100 /m^2). The loads are chosen so that
+#     d/L <= 2.7e-4 for such members (relative effect <= ~1.2e-4, ten times under the gate) and
+#     d/L <= 5e-4 for cantilevers with a free tip (effect of order (d/L)^2 <= 3e-7);
+#   * the tip of a free-tip cantilever moves inward by 3 d^2 / (5 L) <= d^2 / L (derived in
+#     test_component_isolation.py); it is zero in small-displacement theory;
+#   * quantities that are exactly zero in linear theory (axial force and axial reaction of bent
+#     members, moment N d) are allowed their second-order size at nonlinear fidelity only:
+#     axial force <= 2.5 EA (d/L)^2, moment <= that times d, axial shift <= 2.5 d^2 / L
+#     (2.5 bounds the shape factor k = 3/5 ... 2.4 derived in accept_linear_models.membrane_force).
+
+
 
 
 # --- shared joint: moment connection, ball joint, hinges, unattached end -----------
@@ -116,21 +143,22 @@ def test_shared_joint_transmits_and_releases_per_law(spec, frame):
     if frame == "skew" and not skew_ok:
         pytest.skip("pattern is only representable on axis-aligned members (see test_unsupported_patterns_on_skew_members)")
     Q = FRAMES[frame]
-    load = 2.0e4
+    load = 2.0e3  # d/L <= 2.7e-4 for the stiff families: see the second-order note above
     n = Q @ Z_AXIS
     r = require_success(solve(shared_joint_model(end_kwargs, Q, load)), f"{spec}/{frame}")
     d_coef, v_a, v_b, (a_start, a_end, b_start, b_end) = SHARED_EXPECTED[family]
     d = d_coef * load * L**3 / EI
-    check_vec("joint displacement", disp(r, "j")[:3], d * n, abs_tol=1e-6 * d)
+    shift, n_f, m_f = second_order_allowances(d, L)
+    check_point("joint displacement", disp(r, "j")[:3], d * n, Q @ X_AXIS, d, L)
     for mid, v, (ms, me) in (("A", v_a, (a_start, a_end)), ("B", v_b, (b_start, b_end))):
         f = forces(r, mid)
         check(f"{mid} shear", f["shear"], v * load, abs_tol=1e-6 * load)
-        check(f"{mid} moment at root", f["momentStart"], ms * load * L, abs_tol=1e-6 * load * L)
-        check(f"{mid} moment at joint", f["momentEnd"], me * load * L, abs_tol=1e-6 * load * L)
-        check_zero(f"{mid} axial", f["axial"], load, scale_name="applied load")
+        check(f"{mid} moment at root", f["momentStart"], ms * load * L, abs_tol=1e-6 * load * L + m_f)
+        check(f"{mid} moment at joint", f["momentEnd"], me * load * L, abs_tol=1e-6 * load * L + m_f)
+        check_zero(f"{mid} axial", f["axial"], 1e-6 * load + n_f, frac=1.0, scale_name="1e-6 x load + membrane bound 2.5 EA (d/L)^2")
         check_zero(f"{mid} torsion", f["torsion"], load * L, scale_name="load x length")
-    check_vec("reaction at a", reac(r, "a")[:3], -v_a * load * n, abs_tol=1e-6 * load)
-    check_vec("reaction at b", reac(r, "b")[:3], -v_b * load * n, abs_tol=1e-6 * load)
+    check_vec("reaction at a", reac(r, "a")[:3], -v_a * load * n, abs_tol=1e-6 * load + n_f)
+    check_vec("reaction at b", reac(r, "b")[:3], -v_b * load * n, abs_tol=1e-6 * load + n_f)
     if family == "fixed":
         check_zero("joint rotation (symmetric, guided)", np.linalg.norm(disp(r, "j")[3:]), load * L**2 / EI, scale_name="P L^2/EI")
 
@@ -183,22 +211,23 @@ def test_start_connection_releases_exactly_the_free_rotation(name, load_axis, fr
     axis = Z_AXIS if load_axis == "Z" else Y_AXIS
     n = Q @ axis
     released = rel_z if load_axis == "Z" else rel_y
-    load = 1.2e4
+    load = 1.2e3  # d <= 2.7e-4 m over a 6 m span: d/L = 4.5e-5
     r = require_success(solve(hinge_beam_model(laws, axis, load, Q)), f"{name}/{load_axis}/{frame}")
     if released:
         d, m_j, m_m, r_j, r_t = load * SPAN**3 / (48 * EI), 0.0, load * SPAN / 4, load / 2, load / 2
     else:
         d, m_j, m_m, r_j, r_t = 7 * load * SPAN**3 / (768 * EI), 3 * load * SPAN / 16, 5 * load * SPAN / 32, 11 * load / 16, 5 * load / 16
-    check_vec("midspan displacement", disp(r, "m")[:3], d * n, abs_tol=1e-6 * d)
-    check("moment transmitted at j", forces(r, "jm")["momentStart"], m_j, abs_tol=1e-6 * load * SPAN)
+    shift, n_f, m_f = second_order_allowances(d, SPAN)
+    check_point("midspan displacement", disp(r, "m")[:3], d * n, Q @ X_AXIS, d, SPAN)
+    check("moment transmitted at j", forces(r, "jm")["momentStart"], m_j, abs_tol=1e-6 * load * SPAN + m_f)
     check("moment at m (jm end)", forces(r, "jm")["momentEnd"], m_m)
     check("moment at m (mt start)", forces(r, "mt")["momentStart"], m_m)
-    check_zero("moment at pinned t", forces(r, "mt")["momentEnd"], load * SPAN, scale_name="load x length")
+    check_zero("moment at pinned t", forces(r, "mt")["momentEnd"], 1e-6 * load * SPAN + m_f, frac=1.0, scale_name="1e-6 x load x length + membrane N d")
     check("shear in jm", forces(r, "jm")["shear"], r_j)
     check("shear in mt", forces(r, "mt")["shear"], r_t)
-    check_vec("reaction force at j", reac(r, "j")[:3], -r_j * n, abs_tol=1e-6 * load)
-    check_vec("reaction force at t", reac(r, "t")[:3], -r_t * n, abs_tol=1e-6 * load)
-    check("reaction moment at j (magnitude)", np.linalg.norm(reac(r, "j")[3:]), m_j, abs_tol=1e-6 * load * SPAN)
+    check_vec("reaction force at j", reac(r, "j")[:3], -r_j * n, abs_tol=1e-6 * load + n_f)
+    check_vec("reaction force at t", reac(r, "t")[:3], -r_t * n, abs_tol=1e-6 * load + n_f)
+    check("reaction moment at j (magnitude)", np.linalg.norm(reac(r, "j")[3:]), m_j, abs_tol=1e-6 * load * SPAN + m_f)
 
 
 # --- hinge with torsion locked still carries torque --------------------------------
@@ -227,7 +256,7 @@ def test_torsion_locked_connection_transmits_torque_and_no_bending(laws):
 
 # --- moment connection and ball joint at a column/arm corner -------------------------
 
-H, ARM, P_CORNER = 3.0, 2.0, 1.0e4
+H, ARM, P_CORNER = 3.0, 2.0, 5.0e2
 
 
 def _corner_model(arm_start: dict):
@@ -277,14 +306,19 @@ def test_ball_joint_arm_transmits_force_not_moment(arm_start):
     ]
     m = build(nodes, members, {"c": FIXED, "t": FIXED}, {"m": (0, 0, -p)})
     r = require_success(solve(m), "ball joint arm")
+    # Second order: the arm (ends held axially, bent by d) gets a tension <= EA (d/a)^2 that bends the
+    # column through its height H; the column top can shift by up to the arm chord change d^2/a.
+    d_arm = p * a**3 / (48 * EI)
+    shift, n_f, _ = second_order_allowances(d_arm, a)
+    m_col = n_f * H
     check("column axial", forces(r, "col")["axial"], -p / 2)
     for key in ("momentStart", "momentEnd"):
-        check_zero(f"column {key}", forces(r, "col")[key], p * a, scale_name="load x arm length")
-    check_zero("arm moment at the ball joint", forces(r, "jm")["momentStart"], p * a, scale_name="load x arm length")
+        check_zero(f"column {key}", forces(r, "col")[key], 1e-6 * p * a + m_col, frac=1.0, scale_name="1e-6 x load x arm length + membrane N H")
+    check_zero("arm moment at the ball joint", forces(r, "jm")["momentStart"], 1e-6 * p * a + m_col, frac=1.0, scale_name="1e-6 x load x arm length + membrane N H")
     check("arm moment at midspan", forces(r, "jm")["momentEnd"], p * a / 4)
     check("arm shear", forces(r, "jm")["shear"], p / 2)
     check("midspan drop", disp(r, "m")[2], -(p * a**3 / (48 * EI) + p * H / (4 * EA)))
-    check_zero("column top sway", disp(r, "j")[0], p * a**3 / (48 * EI), scale_name="midspan deflection")
+    check_zero("column top sway", disp(r, "j")[0], 1e-6 * d_arm + shift, frac=1.0, scale_name="1e-6 x midspan deflection + d^2/a")
     check("reaction at t", reac(r, "t")[2], p / 2)
     check("reaction at column base", reac(r, "c")[2], p / 2)
 
@@ -316,12 +350,12 @@ def test_semi_rigid_joint_bending(axis_name, frame):
     #   tip deflection = P L^3/(3EI) + P L^2/k;  tip rotation = P L^2/(2EI) + P L/k.
     Q = FRAMES[frame]
     axis, k = (Z_AXIS, K_ROT[1]) if axis_name == "Z" else (Y_AXIS, K_ROT[2])
-    load = 1.0e4
+    load = 1.0e3  # d <= 1.9e-3 m, d/L <= 5e-4: second-order effects ~ (d/L)^2 < 3e-7
     n, t = Q @ axis, Q @ X_AXIS
     r = require_success(solve(_semi_rigid_model(Q, force=tuple(load * axis))), f"semi-rigid {axis_name}/{frame}")
     d = load * L**3 / (3 * EI) + load * L**2 / k
     theta = load * L**2 / (2 * EI) + load * L / k
-    check_vec("tip deflection", disp(r, "t")[:3], d * n, abs_tol=1e-6 * d)
+    check_point("tip deflection", disp(r, "t")[:3], d * n, t, d, L)
     check_vec("tip rotation", disp(r, "t")[3:], theta * np.cross(t, n), abs_tol=1e-6 * theta)
     check("moment transmitted through the spring", forces(r, "jt")["momentStart"], load * L)
     check("shear", forces(r, "jt")["shear"], load)
@@ -389,12 +423,12 @@ def test_elastic_coupler_transverse_series(axis_name, frame):
     #   tip deflection = P L^3/(3EI) + P/k_t + P L^2/k_r;  tip rotation = P L^2/(2EI) + P L/k_r.
     Q = FRAMES[frame]
     axis, kt, kr = (Z_AXIS, K_ALL[2], K_ALL[4]) if axis_name == "Z" else (Y_AXIS, K_ALL[1], K_ALL[5])
-    load = 1.0e4
+    load = 1.0e3  # d <= 1.9e-3 m, d/L <= 5e-4: second-order effects ~ (d/L)^2 < 3e-7
     n, t = Q @ axis, Q @ X_AXIS
     r = require_success(solve(_coupler_model(Q, force=tuple(load * axis))), f"coupler {axis_name}/{frame}")
     d = load * L**3 / (3 * EI) + load / kt + load * L**2 / kr
     theta = load * L**2 / (2 * EI) + load * L / kr
-    check_vec("tip deflection", disp(r, "t")[:3], d * n, abs_tol=1e-6 * d)
+    check_point("tip deflection", disp(r, "t")[:3], d * n, t, d, L)
     check_vec("tip rotation", disp(r, "t")[3:], theta * np.cross(t, n), abs_tol=1e-6 * theta)
     check("shear through the coupler", forces(r, "jt")["shear"], load)
     check("moment through the coupler", forces(r, "jt")["momentStart"], load * L)
@@ -418,7 +452,7 @@ def test_elastic_coupler_torsion_series(frame):
 def test_slider_on_axis_aligned_member_releases_exactly_the_axial_force():
     # Start law F L L L L L (axial slide) on a member along global X. Tip restrained in UX only.
     # Transverse load P: cantilever bending is untouched, d = P L^3/(3EI), axial force 0.
-    load = 1.0e4
+    load = 1.0e3
     m = build(
         {"j": (0, 0, 0), "t": (L, 0, 0)},
         [member("jt", "j", "t", orientation=Y_AXIS, start_connection=conn("FLLLLL"))],
@@ -427,7 +461,12 @@ def test_slider_on_axis_aligned_member_releases_exactly_the_axial_force():
     )
     r = require_success(solve(m), "slider, transverse load")
     check("tip deflection", disp(r, "t")[2], -load * L**3 / (3 * EI))
-    check_zero("axial force", forces(r, "jt")["axial"], load, scale_name="applied load")
+    # Second order (nonlinear only): the tip support takes no x force and the slider none at the root, so
+    # the member axial force is the component of the vertical tip load along the tilted chord, <= P x tip
+    # slope = P (3 d/2L) (observed value is P d/L, the chord tilt).
+    d_tip = load * L**3 / (3 * EI)
+    axial_allow = 1e-6 * load + (load * 1.5 * d_tip / L if is_nonlinear() else 0.0)
+    check_zero("axial force", forces(r, "jt")["axial"], axial_allow, frac=1.0, scale_name="1e-6 x load + P x tip slope")
     check("root moment", forces(r, "jt")["momentStart"], load * L)
     # Axial load F at the tip: nothing goes through the member; the tip support takes it all.
     load = 5.0e3
