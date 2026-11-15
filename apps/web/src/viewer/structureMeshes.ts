@@ -10,8 +10,8 @@ import {
   visualLoadDirection,
 } from "./scenePieces";
 import { isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
-import { poseSection, wideFlangeGeometry, type WideFlange } from "./sectionGeometry";
-import { assemblyGeometry } from "./assemblyGeometry";
+import { poseSection, roundHollowGeometry, wideFlangeGeometry, type WideFlange } from "./sectionGeometry";
+import { assemblyGeometry, assemblySectionGeometry } from "./assemblyGeometry";
 import { springDisplayAxis, springGeometry } from "./springGeometry";
 import { deflectedFrameGeometry, undeformedReference } from "./deflectedGeometry";
 import { viewBasePoint } from "./sceneResults";
@@ -36,7 +36,7 @@ export function buildStructure(
   const playerColors = ["#e9806e", "#6a9bd8"];
   const neutralSteel = "#d7b55f";
   // Each rebuilt structure owns its profiles; sliced pieces share the same unit prism.
-  const sections = new Map<WideFlange, THREE.BufferGeometry>();
+  const sections = new Map<WideFlange | "chs" | "shs", THREE.BufferGeometry>();
   const turnOwners = new Map(
     turn
       ? [...turn.board.members, ...turn.draft.members].map((member) => [
@@ -190,8 +190,9 @@ export function buildStructure(
         ? width / 2
         : CELL_SIZE * (s.style === "kit" ? 0.1 : 0.072);
       let profile: THREE.BufferGeometry | undefined;
-      if (member.type === "ipe" || member.type === "heb") {
-        profile = sections.get(member.type) ?? wideFlangeGeometry(member.type);
+      if (member.type === "ipe" || member.type === "heb" || member.type === "chs" || member.type === "shs") {
+        profile = sections.get(member.type) ?? (member.type === "chs" ? roundHollowGeometry() :
+          member.type === "shs" ? assemblySectionGeometry() : wideFlangeGeometry(member.type));
         sections.set(member.type, profile);
       }
       const mesh = new THREE.Mesh(

@@ -9,7 +9,7 @@ import type { LevelId } from "../game/model";
 import { savedLevel } from "../game/persistence";
 import { useGameStore } from "../game/store";
 import { KIT_PLAYTEST } from "../game/turns";
-import { isScoredCatalogue, CABLE_CATALOGUE, JOINT_CATALOGUE, PLANAR_CATALOGUE, SCORED_CATALOGUE, TRUSS_CATALOGUE, SPRING_CATALOGUE, type ScoredCatalogue } from "../game/cardCatalogue";
+import { isScoredCatalogue, HOLLOW_CATALOGUE, CABLE_CATALOGUE, JOINT_CATALOGUE, PLANAR_CATALOGUE, SCORED_CATALOGUE, TRUSS_CATALOGUE, SPRING_CATALOGUE, type ScoredCatalogue } from "../game/cardCatalogue";
 import { PLAYTEST_SETTINGS, TURN_RULES, TURN_RULES_NOTES } from "../menu/turnRules";
 import { hasSavedProgress } from "../menu/saved";
 import { runStart, type StartChoice } from "../menu/startPlan";
@@ -281,6 +281,7 @@ function Setup({ id }: { id: GameMode }) {
             {(!turn || begin === "new") && <label>Physical catalogue
               <select value={catalogue} onChange={e => { if (isScoredCatalogue(e.target.value)) setCatalogue(e.target.value); }}>
                 <option value={SCORED_CATALOGUE}>Frame members</option>
+                <option value={HOLLOW_CATALOGUE}>Round and square hollow sections</option>
                 <option value={PLANAR_CATALOGUE}>Frame members and planar trusses</option>
                 <option value={TRUSS_CATALOGUE}>Frame members, planar and trichord trusses</option>
                 <option value={SPRING_CATALOGUE}>Frame members and axial springs</option>

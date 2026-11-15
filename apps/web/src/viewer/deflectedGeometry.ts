@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { assemblySectionGeometry } from "./assemblyGeometry";
 import { SHAPE_INTERVALS, spanPoint, type DeflectedSpan, type DeformationField } from "./deformationField";
-import { READABLE_SECTION_SCALE, wideFlangeGeometry } from "./sectionGeometry";
+import { READABLE_SECTION_SCALE, roundHollowGeometry, wideFlangeGeometry } from "./sectionGeometry";
 
 /** Sweep the existing section along sampled analytical centrelines. The
  * recovered axial twist rotates the section about the deformed tangent. */
@@ -11,10 +11,11 @@ export function deflectedFrameGeometry(spans: DeflectedSpan[], scale: number, ra
     const { element: e } = span;
     const type = e.m.type;
     const assembled = !!e.m.parentSpan?.assemblyPart;
-    const profile = assembled ? assemblySectionGeometry(SHAPE_INTERVALS)
+    const profile = assembled || type === "shs" ? assemblySectionGeometry(SHAPE_INTERVALS)
+      : type === "chs" ? roundHollowGeometry(SHAPE_INTERVALS)
       : type === "ipe" || type === "heb" ? wideFlangeGeometry(type, SHAPE_INTERVALS)
       : new THREE.CylinderGeometry(radius, radius, 1, 12, SHAPE_INTERVALS).rotateX(Math.PI/2);
-    const width = assembled || type === "ipe" || type === "heb" ? READABLE_SECTION_SCALE : 1;
+    const width = assembled || type === "ipe" || type === "heb" || type === "chs" || type === "shs" ? READABLE_SECTION_SCALE : 1;
     const position = profile.getAttribute("position");
     const ex = new THREE.Vector3().fromArray(e.R[0]), ey = new THREE.Vector3().fromArray(e.R[1]);
     const ez = new THREE.Vector3().fromArray(e.R[2]);

@@ -4,7 +4,7 @@ import { createTurnGame } from "./turns";
 import { displacementAt } from "../solver/voxelResults";
 import { ITEMS } from "../solver/voxelSections";
 
-describe.each(["shs", "ipe", "heb", "glulam"] as const)("continuous %s frame quarter-port force transfer", type => {
+describe.each(["shs", "chs", "ipe", "heb", "glulam"] as const)("continuous %s frame quarter-port force transfer", type => {
   it.each([1, 2, 3])("matches cantilever bending and reactions at original quarter %i", q => {
     // The unloaded free-ended branch follows the port without adding a support.
     // For the 8 m cantilever on global X the point-load solution is closed form.

@@ -1,6 +1,6 @@
 import type { AssemblyId } from "./assembly";
 
-export type MemberType = "shs" | "glulam" | "ipe" | "heb" | "cable" | "spring";
+export type MemberType = "shs" | "chs" | "glulam" | "ipe" | "heb" | "cable" | "spring";
 export type NodeItem = "joint" | "found" | "load";
 export type Tool =
   | MemberType

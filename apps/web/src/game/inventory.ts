@@ -5,6 +5,7 @@ import {
   type NodeItem,
 } from './model';
 export const ITEMS = {
+  chs: {kind: 'beam', label: 'CHS 100×6', color: '#9babc1', cost: 120, maxCells: 3},
   spring: {kind: 'spring', label: 'Axial spring', color: '#a7afba', cost: 100, maxCells: 4},
   shs: {
     kind: 'beam',

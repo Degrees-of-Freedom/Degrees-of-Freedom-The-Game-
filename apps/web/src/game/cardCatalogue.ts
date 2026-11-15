@@ -14,17 +14,19 @@ export const TRUSS_CATALOGUE = 'shared-table-trusses-1' as const;
 export const SPRING_CATALOGUE = 'shared-table-springs-1' as const;
 export const JOINT_CATALOGUE = 'shared-table-joints-1' as const;
 export const CABLE_CATALOGUE = 'shared-table-cables-1' as const;
+export const HOLLOW_CATALOGUE = 'shared-table-hollow-1' as const;
 export const RELEASE_CATALOGUE = 'grow-dusk-release-1' as const;
-export type ScoredCatalogue = typeof RELEASE_CATALOGUE | typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE | typeof TRUSS_CATALOGUE | typeof SPRING_CATALOGUE | typeof JOINT_CATALOGUE | typeof CABLE_CATALOGUE;
+export type ScoredCatalogue = typeof HOLLOW_CATALOGUE | typeof RELEASE_CATALOGUE | typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE | typeof TRUSS_CATALOGUE | typeof SPRING_CATALOGUE | typeof JOINT_CATALOGUE | typeof CABLE_CATALOGUE;
 export type CatalogueId = typeof LEGACY_CATALOGUE | ScoredCatalogue;
 export function isScoredCatalogue(catalogue: unknown): catalogue is ScoredCatalogue {
-  return catalogue === RELEASE_CATALOGUE || catalogue === SCORED_CATALOGUE || catalogue === PLANAR_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === SPRING_CATALOGUE || catalogue === JOINT_CATALOGUE || catalogue === CABLE_CATALOGUE;
+  return catalogue === HOLLOW_CATALOGUE || catalogue === RELEASE_CATALOGUE || catalogue === SCORED_CATALOGUE || catalogue === PLANAR_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === SPRING_CATALOGUE || catalogue === JOINT_CATALOGUE || catalogue === CABLE_CATALOGUE;
 }
 
 const legacyTypes = ['shs', 'glulam', 'ipe', 'heb', 'cable'] as const;
 const scoredTypes = ['shs', 'glulam', 'ipe', 'heb'] as const;
 
 export function memberDeckTypes(catalogue: CatalogueId): readonly (MemberType | AssemblyId)[] {
+  if (catalogue === HOLLOW_CATALOGUE) return ['chs','shs'];
   if (catalogue === RELEASE_CATALOGUE) return ['heb', 'cable', 'spring'];
   if (catalogue === CABLE_CATALOGUE) return legacyTypes;
   if (catalogue === SPRING_CATALOGUE) return [...scoredTypes, 'spring'];
@@ -52,7 +54,7 @@ export function connectionChoices(card: Extract<CardDefinition, {kind:'connectio
 }
 
 const printings: CardDefinition[] = [];
-for (const type of [...legacyTypes, 'spring'] as const) {
+for (const type of [...legacyTypes, 'spring', 'chs'] as const) {
   for (const maxSteps of [1, 2, 3, 4]) {
     printings.push({
       definitionId: `element/${type}/axis-${maxSteps}`, definitionVersion: CARD_DEFINITION_VERSION,
@@ -147,7 +149,7 @@ export function printedCards(index: number, catalogue: CatalogueId) {
   const type = types[index % types.length];
   // Even-sized catalogues shift the reach after each pass through the families
   // so each family can draw all four reaches. Five-family deals already cycle.
-  const rotateReach = catalogue === SCORED_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === JOINT_CATALOGUE;
+  const rotateReach = catalogue === HOLLOW_CATALOGUE || catalogue === SCORED_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === JOINT_CATALOGUE;
   const reachIndex = rotateReach ? index + Math.floor(index / types.length) : index;
   const maxSteps = 1 + reachIndex % 4;
   const load = GRAVITY_CARDS_KN[index % GRAVITY_CARDS_KN.length];
@@ -183,6 +185,7 @@ export function describePrinting(card: CardDefinition): string {
     return `${section.label} · ${section.sub}. ${reach}`;
   }
   const reach = `Up to ${card.maxSteps * S} m on each grid axis, including diagonals.`;
+  if (card.type === 'chs') return 'CHS 100×6 · steel circular annulus, 100 mm outside diameter and 6 mm wall. Quarter load and connection ports preserve the continuous section. ' + reach;
   if (section.kind === 'spring') return 'Axial spring · 50 kN/m in tension and compression, 5 kN printed limit. The placed span is unloaded. Three sliding collars expose the original quarters. Attached pieces must provide transverse restraint. ' + reach;
   if (card.assembly === TRICHORD.id) return 'Four-panel trichord truss · three SHS 100×6 chords on a 500 mm equilateral triangle. Welded rings and pin-ended diagonals brace all three faces. External tips and 25%, 50% and 75% branch joints lie on the first chord. ' + reach;
   if (card.assembly === PLANAR.id) return 'Four-panel planar truss · 500 mm deep · two continuous SHS 100×6 chords, welded posts and pin-ended alternating diagonals. External connectors fit the lower chord tips. Branch ports lie on its 25%, 50% and 75% joints. ' + reach;
