@@ -43,7 +43,10 @@ export interface ComponentResponse {
   reason?: string;
   /** Absence means there is no verified response. This evidence only covers the declared linear formulation. */
   verification?: LinearVerification;
-  instabilityWitness?: { memberIds: number[]; nodes: string[]; reason: string };
+  instabilityWitness?: { memberIds: number[]; nodes: string[]; reason: string;
+    comparison?: {topology: string; negativePivots: number; mechanisms: number} };
+  /** A converged large displacement is independent of tangent instability. */
+  excessiveDeformation?: boolean;
 }
 export type Demand = {
   Nt: number;

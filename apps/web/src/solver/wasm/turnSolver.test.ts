@@ -44,6 +44,26 @@ describe('scored turn Rust/WASM projection', () => {
     expect(combo.reac![a]).toBeUndefined();
     expect(combo.reac![c][2]).toBeCloseTo(5, 6);
   });
+  it('keeps seed 14 spring sag separate from its axial stroke and strength', () => {
+    // 10 m horizontal half-reference cartridge, pinned axial material at
+    // both foundation columns. A central 5 kN load causes large sag with
+    // less than 10% extension. Both supports must carry exactly half.
+    const span: VoxelModel = { nextId:4,
+      positions:{a:[5,7,1], b:[10,7,1], mid:[7.5,7,1], l:[5,7,0], r:[10,7,0]},
+      attrs:{l:{found:true},r:{found:true},mid:{load:5}},
+      members:[{id:1,type:'heb',a:'l',b:'a',endA:'fixed',endB:'fixed'},
+        {id:2,type:'heb',a:'r',b:'b',endA:'fixed',endB:'fixed'},
+        {id:-12,type:'spring',a:'a',b:'mid',springStiffnessNPerM:25000,parentSpan:{memberId:3,fromQuarter:0,toQuarter:2}},
+        {id:-14,type:'spring',a:'mid',b:'b',springStiffnessNPerM:25000,parentSpan:{memberId:3,fromQuarter:2,toQuarter:4}}]};
+    const result = solver.analyze(span, 'seed-14');
+    const combo = result.combos[0];
+    expect(combo.components![0]).toMatchObject({status:'computed',excessiveDeformation:true});
+    const l = result.ctx!.aid[result.ctx!.idx.get('l')!], r = result.ctx!.aid[result.ctx!.idx.get('r')!];
+    expect(combo.reac![l][2]).toBeCloseTo(2.5,6);
+    expect(combo.reac![r][2]).toBeCloseTo(2.5,6);
+    const spring = result.ctx!.els.find(e => e.m.id === -12)!;
+    expect(combo.ef!.get(spring)!.f[6]).toBeGreaterThan(5);
+  });
   it('isolates an unloaded free member and retains its physical identity', () => {
     const model: VoxelModel = {nextId:3, attrs:{base:{found:true},tip:{load:10}},
       positions:{base:[0,0,0],tip:[0,0,1],other:[0,0,1],loose:[1,0,1]},

@@ -64,13 +64,14 @@ function springStrokeExceeded(e: Element, result: DetailedAnalysisResult): boole
   return Math.abs(currentLength - e.L) > 0.1*e.L + 1e-12*e.L;
 }
 
-function scopeResponse(scope: AnalysisComponent, result: DetailedAnalysisResult, ctx: Context): ComponentResponse {
+function scopeResponse(scope: AnalysisComponent, result: DetailedAnalysisResult, ctx: Context, model: AnalysisModel): ComponentResponse {
   const memberIds = scope.memberIds.map(Number);
   const ids = new Set(memberIds);
   const parts = ctx.els.filter(e => ids.has(e.m.id));
   const {residual, forceImbalance: force, momentImbalance: moment} = scope.convergence;
   const exceeded = scope.resultsValid && parts.some(e => springStrokeExceeded(e, result));
-  const valid = !exceeded && scope.resultsValid && scope.status !== 'unstable' && scope.status !== 'unknown' &&
+  const serviceabilityOnly = scope.flags.excessiveDeformation && !scope.flags.loadInducedInstability && !scope.flags.mechanism;
+  const valid = !exceeded && scope.resultsValid && (scope.status !== 'unstable' || serviceabilityOnly) && scope.status !== 'unknown' &&
     scope.convergence.converged && [residual, force, moment].every(n => n !== null && Number.isFinite(n) && n >= 0 && n <= 1e-5);
   const reason = exceeded ? 'A spring exceeded its printed 10% stroke envelope.'
     : scope.reasonCodes.join(', ') || (valid ? 'Verified nonlinear equilibrium.' : 'Nonlinear equilibrium unavailable.');
@@ -78,8 +79,22 @@ function scopeResponse(scope: AnalysisComponent, result: DetailedAnalysisResult,
     ? 'excessive-displacement' : scope.status === 'unstable' && (scope.flags.mechanism || scope.flags.loadInducedInstability) ? 'mechanism' : 'unresolved';
   const nodes = [...scope.unstableNodeIds];
   const witnessed = parts.filter(e => nodes.includes(e.m.a) || nodes.includes(e.m.b)).map(e => e.m.id);
+  const tangent = scope.unstableTangent;
+  // A single analytical parent may buckle between immovable end stations.
+  if (tangent && !witnessed.length && memberIds.length === 1) witnessed.push(memberIds[0]);
+  let comparison: NonNullable<ComponentResponse['instabilityWitness']>['comparison'];
+  if (tangent && status === 'mechanism' && witnessed.length) {
+    const nodeIds = new Set(scope.nodeIds), sections = new Set<string>();
+    const byId = (a:{id:string}, b:{id:string}) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    const members = model.members.filter(m => ids.has(Number(m.id))).sort(byId);
+    members.forEach(m => sections.add(m.sectionId));
+    const topology = JSON.stringify([RELEASE_SOLVER, model.nodes.filter(n => nodeIds.has(n.id)).sort(byId), members,
+      model.sections.filter(s => sections.has(s.id)).sort(byId), model.foundations.filter(s => nodeIds.has(s.nodeId)).sort(byId)]);
+    comparison = {topology, ...tangent};
+  }
   return { status, nodes: [...scope.nodeIds], memberIds, reason,
-    ...(status === 'mechanism' && witnessed.length > 0 && {instabilityWitness: {nodes, memberIds: witnessed, reason}}),
+    ...(scope.flags.excessiveDeformation && {excessiveDeformation:true}),
+    ...(status === 'mechanism' && witnessed.length > 0 && {instabilityWitness: {nodes, memberIds: witnessed, reason, comparison}}),
     verification: valid ? {formulation: RELEASE_SOLVER, status: 'verified-nonlinear', nonlinear: {residual: residual!, force: force!, moment: moment!}}
       : {formulation: RELEASE_SOLVER, status: 'unverified', reason} };
 }
@@ -87,8 +102,8 @@ function scopeResponse(scope: AnalysisComponent, result: DetailedAnalysisResult,
 /** Adopt only quantities computed by the Rust kernel. The game view and card
  * strengths use kN, kN m and m. Rust reports N and N m on the positive cut
  * face; the legacy view's start actions are outward nodal actions. */
-function project(input: VoxelModel, ctx: Context, result: DetailedAnalysisResult): VoxelAnalysis {
-  const components = result.components.map(c => scopeResponse(c, result, ctx));
+function project(input: VoxelModel, ctx: Context, result: DetailedAnalysisResult, model: AnalysisModel): VoxelAnalysis {
+  const components = result.components.map(c => scopeResponse(c, result, ctx, model));
   const combo: Combo = { combo: {name: 'Card gravity', short: 'Gravity', type: 'SLS', dir: [0, 0, -1]},
     components, F: new Float64Array(6*ctx.NA), vis: [], partialDisplacements: new Map(), ef: new Map(), reac: {} };
   const analysis: VoxelAnalysis = { ctx, combos: [combo], members: {}, nodes: {}, found: {}, objectives: [],
@@ -146,14 +161,14 @@ export function createTurnSolver(source?: WasmSource) {
       const {ctx} = prepareTurnGeometry(input);
       const model = turnReferenceModel(input, ctx, version);
       const key = JSON.stringify(model);
-      if (previous?.key === key) return project(input, ctx, previous.result);
+      if (previous?.key === key) return project(input, ctx, previous.result, model);
       let hash = 2166136261;
       for (let i = 0; i < key.length; i++) hash = Math.imul(hash ^ key.charCodeAt(i), 16777619);
       model.version = version + '/' + (hash >>> 0).toString(16);
       const result = solver.analyzePrepared(model, {fidelity: 'nonlinear', subdivisions: 2, failure: 'report', residualGate: 1e-5, memberFields:true});
       if (result.analysis.status === 'ok' && result.analysis.solverVersion !== '0.2.0') throw new Error('Unsupported browser solver version.');
       if (result.analysis.status === 'ok') previous = {key, result};
-      return project(input, ctx, result);
+      return project(input, ctx, result, model);
     },
   };
 }

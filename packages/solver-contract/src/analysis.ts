@@ -216,6 +216,9 @@ export interface AnalysisComponent {
   };
   /** Load multiplier at which a load-induced instability first occurs. */
   criticalLoadFactor: number | null;
+  /** Exact negative and translational-null counts at a verified full-load
+   * tangent. Null means no comparable unstable tangent was established. */
+  unstableTangent?: {negativePivots: number; mechanisms: number} | null;
   minPivot: number | null;
   maxDisplacement: number | null;
   /** Sum of the external forces on this part, N. */

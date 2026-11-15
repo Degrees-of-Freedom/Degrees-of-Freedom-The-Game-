@@ -66,6 +66,9 @@ pub struct Solution {
 }
 
 pub struct Outcome {
+    /// Inertia of the full-load constrained tangent after force/moment checks.
+    /// Omitted for initial-tangent diagnoses and approximate mode splits.
+    pub unstable_tangent: Option<(usize, usize)>,
     pub status: Status,
     pub reasons: Vec<&'static str>,
     pub solution: Option<Solution>,
@@ -545,6 +548,7 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
     let f = sys.load_vector();
     let lam = options.load_factor;
     let mut out = Outcome {
+        unstable_tangent: None,
         status: Status::Unknown,
         reasons: Vec::new(),
         solution: None,
@@ -652,6 +656,28 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
             out.load_fraction_reached = 1.0;
             out.min_pivot = Some(converged.factor.inertia.min_pivot);
             let tangent = classify(sys, &converged.factor, &load);
+            if !converged.factor.inertia.negative.is_empty() || !tangent.translational.is_empty() {
+                // A witnessed mode is physical evidence only at an equilibrated
+                // state. Its count is independent of the order/sign of vectors.
+                let (force, moment) = imbalance(sys, &converged.eval, Some(&state), lam);
+                let residual = converged.residual;
+                out.force_imbalance = Some(force);
+                out.moment_imbalance = Some(moment);
+                out.residual = Some(residual);
+                if ![force,moment,residual].iter().all(|v| v.is_finite() && *v <= options.residual_gate) {
+                    out.reasons.push("equilibriumNotVerified");
+                    return out;
+                }
+                if converged.factor.inertia.null.len() <= MAX_CLASSIFIED {
+                    out.unstable_tangent = Some((converged.factor.inertia.negative.len(), tangent.translational.len()));
+                }
+                // Report the final modes, including a change in nullity from
+                // the initial tangent. Zero-energy spins have no translational
+                // rank and never raise the severity.
+                out.modes.retain(|m| m.kind == "spin");
+                out.mechanisms = tangent.translational.len();
+                out.modes.extend(tangent.translational.iter().map(|v| Mode {kind: "mechanism", shape:v.clone()}));
+            }
             if !converged.factor.inertia.negative.is_empty() {
                 out.status = Status::Unstable;
                 out.reasons.push("loadInducedInstability");
@@ -664,10 +690,6 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
                 out.status = Status::Unstable;
                 if !first_order_unstable {
                     out.reasons.push("mechanism");
-                    out.mechanisms = tangent.translational.len();
-                    for v in tangent.translational {
-                        out.modes.push(Mode { kind: "mechanism", shape: v });
-                    }
                 }
             } else {
                 if first_order_unstable {

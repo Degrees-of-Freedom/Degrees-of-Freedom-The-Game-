@@ -73,6 +73,23 @@ fn stability_margin_grades_a_compressed_column() {
     assert_eq!(linear.run().status(0), "stable");
 }
 
+#[test]
+fn a_second_euler_mode_increases_full_load_negative_inertia() {
+    let length = 12.0;
+    let weak_euler = PI * PI * E * I / (length * length);
+    // The orthogonal flexural critical loads are P and 2P. At both test
+    // loads the straight equilibrium balances but is unsafe in different
+    // numbers of directions. Report neither set of reactions as valid.
+    for (ratio, expected) in [(1.3, 1.), (2.3, 2.)] {
+        let mut b = column(length, ratio*weak_euler, 8);
+        b.model.sections[0].iy = 2.0*I;
+        let r = b.run();
+        let tangent = r.component(0).get("unstableTangent").unwrap();
+        assert_eq!(tangent.get("negativePivots").unwrap().as_f64(), Some(expected));
+        assert_eq!(r.component(0).get("resultsValid").unwrap().as_bool(), Some(false));
+    }
+}
+
 /// Imperfect column: a lateral load at mid-height is amplified by the axial
 /// load. Beam-column theory gives δ = (HL³/48EI) · 3(tan u − u)/u³ with
 /// u = (π/2)√(P/Pcr).

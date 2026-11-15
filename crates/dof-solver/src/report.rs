@@ -469,6 +469,9 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
                 ]),
             ),
             ("criticalLoadFactor", outcome.critical_load_factor.into()),
+            ("unstableTangent", outcome.unstable_tangent.map(|(negative, null)| object([
+                ("negativePivots", negative.into()), ("mechanisms", null.into())
+            ])).unwrap_or(Json::Null)),
             ("minPivot", outcome.min_pivot.into()),
             ("maxDisplacement", outcome.max_displacement.into()),
             ("appliedForce", applied.into()),

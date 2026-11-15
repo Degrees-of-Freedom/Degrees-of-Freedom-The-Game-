@@ -84,7 +84,8 @@ export function finalReceipt(turn: TurnState, analysis: VoxelAnalysis | null): S
     });
     return {
       nodes: scope.nodes, memberIds: scope.memberIds, verified,
-      reason: verified ? (scope.verification?.status === "verified-nonlinear" ? "Verified nonlinear equilibrium." : scope.verification?.status === "verified-cable" ? "Verified cable equilibrium and frame response." : "Verified linear frame response.") : scope.verification?.reason ?? scope.reason ?? "Response unavailable.",
+      reason: verified ? (scope.excessiveDeformation ? "Verified nonlinear equilibrium with excessive displacement."
+        : scope.verification?.status === "verified-nonlinear" ? "Verified nonlinear equilibrium." : scope.verification?.status === "verified-cable" ? "Verified cable equilibrium and frame response." : "Verified linear frame response.") : scope.verification?.reason ?? scope.reason ?? "Response unavailable.",
       ...(scope.verification?.residuals && { residuals: scope.verification.residuals }),
       ...(scope.verification?.nonlinear && { nonlinear: scope.verification.nonlinear }),
       foundations: forces.map(f => ({ jointId: f.jointId, upwardKN: verified ? f.upwardKN : null })),
