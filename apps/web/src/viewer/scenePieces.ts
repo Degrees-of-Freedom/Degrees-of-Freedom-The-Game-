@@ -97,6 +97,7 @@ export function paintedLoad(
   style: SceneStyle,
   memberDirections: THREE.Vector3[],
   gravityNodeCanHang: boolean,
+  labels = true,
 ) {
   if (!attrs.load) return;
   const direction = visualLoadDirection(attrs.loadDirection);
@@ -146,7 +147,7 @@ export function paintedLoad(
     group.add(new THREE.ArrowHelper(direction, origin, length, color, 0.25 * size * scale, 0.22 * size * scale));
     labelPoint.copy(origin).addScaledVector(direction, 0.35 * length);
   }
-  addSceneLabel(group, labelPoint, forceLabel(direction.multiplyScalar(attrs.load)), 'load');
+  if (labels) addSceneLabel(group, labelPoint, forceLabel(direction.multiplyScalar(attrs.load)), 'load');
 }
 
 export function paintedJoint(

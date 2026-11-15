@@ -51,7 +51,7 @@ export function addSceneLabel(group: THREE.Group, position: THREE.Vector3, text:
     map: texture, depthTest: false, depthWrite: false, sizeAttenuation: false,
   }));
   label.position.copy(position);
-  label.scale.set((canvas.width / canvas.height) * 0.032 * size, 0.032 * size, 1);
+  label.scale.set((canvas.width / canvas.height) * 0.019 * size, 0.019 * size, 1);
   label.center.set(-0.06, 0.22);
   label.renderOrder = 80;
   group.add(label);

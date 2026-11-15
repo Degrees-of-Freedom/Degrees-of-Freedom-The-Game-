@@ -59,6 +59,7 @@ type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 /** The environment variants compose the same store, scene and analysis boundary. */
 export function Workspace() {
   const game = useGameStore();
+  const visualWorkspace = game.mode === "creative" || game.levelId === "library";
   const release = game.mode === "multiplayer" && isReleaseCatalogue(game.turn?.catalogue);
   const cameraMemory = useRef<CameraMemory>({});
   // Editor and archived presets may request the configured solver. Release
@@ -71,17 +72,17 @@ export function Workspace() {
   const { jointDisplay } = useSettings();
   const board = game.mode === "multiplayer" ? game.turn?.board : undefined;
   const editorModel = game.mode !== "multiplayer" ? game.model : undefined;
-  const joints = useMemo(() => (game.style !== "grow-dusk" && game.mode !== "creative") ? [] : board ? sharedJointPermissions(board)
-    : editorModel ? editorJointPermissions(editorModel) : [], [game.style, game.mode, board, editorModel]);
+  const joints = useMemo(() => (game.style !== "grow-dusk" && !visualWorkspace) ? [] : board ? sharedJointPermissions(board)
+    : editorModel ? editorJointPermissions(editorModel) : [], [game.style, visualWorkspace, board, editorModel]);
   const [permissionPick, setPermissionPick] = useState<{ id: string; selection: typeof game.selected; board: typeof board } | null>(null);
   const selectedJoint = useMemo(() => {
     if (permissionPick && permissionPick.selection === game.selected && permissionPick.board === board)
       return joints.find(joint => joint.id === permissionPick.id);
     if (game.selected?.type === "node") return jointAtSceneSelection(joints, game.selected.key, board ? game.turn : null);
   }, [joints, permissionPick, game.selected, board, game.turn]);
-  const jointLayer = useMemo(() => (game.style === "grow-dusk" || game.mode === "creative") && jointDisplay !== "off"
+  const jointLayer = useMemo(() => (game.style === "grow-dusk" || visualWorkspace) && jointDisplay !== "off"
     ? { joints: jointDisplay === "all" ? joints : selectedJoint ? [selectedJoint] : [], selected: selectedJoint?.id }
-    : undefined, [game.style, game.mode, jointDisplay, joints, selectedJoint]);
+    : undefined, [game.style, visualWorkspace, jointDisplay, joints, selectedJoint]);
   // Multiplayer uses independent member-end connections, not the node model.
   const contractCompatible = game.mode !== "multiplayer";
   const [analysis, setAnalysis] = useState<{
@@ -129,7 +130,7 @@ export function Workspace() {
   const covered = game.sessionConflict || saveCovered || needsHandoff;
   const [creativeView, dispatchCreative] = useReducer(sharedTableViewReducer, SHARED_TABLE_VIEW);
   const [creativePanel, setCreativePanel] = useState(false);
-  const creative = game.mode === "creative";
+  const creative = visualWorkspace;
   const creativeDispatch = (action: ViewModeAction) => {
     if (action.type === "clear") updateSettings({ jointDisplay: "off" });
     if (action.type === "reset") updateSettings({ jointDisplay: "all" });
@@ -724,7 +725,7 @@ export function Workspace() {
           </div>
         )}
         <EnvironmentInspector onMessage={setMessage} />
-        <div className="environment-switch">
+        {!isGrowth && <div className="environment-switch">
           <button className="btn" onClick={() => setDrawer("build")}>
             Build options
           </button>
@@ -733,7 +734,7 @@ export function Workspace() {
               Turn details
             </button>
           )}
-        </div>
+        </div>}
         {pauseMenu}
         {message && (
           <div id="toast" className="chip show" role="status">

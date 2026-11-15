@@ -56,4 +56,4 @@ Grow Dusk's **Build options → Joint permissions** controls Selected joint / Al
 
 ## Creative view modes
 
-Creative exposes the Shared table view-mode panel (eye button or V): load path, deflected shape or displacement shadow, joint freedoms, loads and reactions, shear and bending diagrams, and witnessed instability. Run simulation to produce results; changing the model invalidates them. The Results drawer selects the load case used for the overlays. Visualizations are experimental and show only available solver response.
+Creative and the Library workspace expose the Shared table view-mode panel (side eye button or V): load path, deflected shape or displacement shadow, joint freedoms, loads and reactions, shear and bending diagrams, and witnessed instability. Run simulation to produce results; changing the model invalidates them. The Results drawer selects the load case used for the overlays. Visualizations are experimental and show only available solver response.
