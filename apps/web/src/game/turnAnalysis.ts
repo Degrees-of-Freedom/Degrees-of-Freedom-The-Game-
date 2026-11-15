@@ -1,5 +1,6 @@
 import { parseNodeKey } from './model';
-import { turnJoints, type TurnState } from './turns';
+import { recordTurnAnalysis } from './turnEvidence';
+import { turnJoints, type TurnReport, type TurnState } from './turns';
 import { analyzeVoxel } from '../solver/voxel';
 import type { VoxelLevel, VoxelModel } from '../solver/voxelInput';
 
@@ -41,13 +42,27 @@ export function analyzeTurn(turn: TurnState) {
   return analyzeVoxel(toTurnVoxelInput(turn), turnLevel);
 }
 
-export function assessTurn(turn: TurnState): 'stable' | 'unstable' | 'partial' | 'unresolved' {
+type Status = TurnReport['status'];
+
+function classify(result: ReturnType<typeof analyzeTurn>): Status {
+  if (result.error || !result.combos.length) return 'unresolved';
+  if (result.mechanism) return 'unstable';
+  return result.floating.length ? 'partial' : 'stable';
+}
+
+/** A single solve feeds both the game summary and the saved run. */
+export function analyzeCompletedTurn(
+  turn: TurnState,
+  newMatchId = () => Array.from(crypto.getRandomValues(new Uint32Array(4)), value => value.toString(16).padStart(8, '0')).join(''),
+) {
+  const startedAt = new Date().toISOString();
+  let result: ReturnType<typeof analyzeTurn> | undefined;
   try {
-    const result = analyzeTurn(turn);
-    if (result.error || !result.combos.length) return 'unresolved';
-    if (result.mechanism) return 'unstable';
-    return result.floating.length ? 'partial' : 'stable';
+    result = analyzeTurn(turn);
   } catch {
-    return 'unresolved';
+    // The turn can still commit with unavailable evidence.
   }
+  const status = result ? classify(result) : 'unresolved';
+  const matchId = turn.reports.at(-1)?.analysis?.request.snapshot.modelId ?? newMatchId();
+  return { status, analysis: recordTurnAnalysis(turn, result, status, startedAt, matchId) };
 }

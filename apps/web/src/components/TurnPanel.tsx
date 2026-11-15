@@ -146,6 +146,21 @@ export function TurnPanel({
         {report?.reason ??
           "Run simulation to inspect loads, reactions and stability with individual end connections. End turn records an experimental analysis status; scoring penalties are not yet applied."}
       </p>
+      {report?.analysis && (
+        <details>
+          <summary>Last turn reactions (experimental)</summary>
+          <ul>
+            {report.analysis.foundations.map(({ foundationId, reaction }) => (
+              <li key={foundationId}>
+                {foundationId.replace("foundation:", "")} ·{" "}
+                {reaction.validity === "unavailable"
+                  ? "Unavailable"
+                  : (reaction.value[2] / 1000).toFixed(2) + " kN vertical"}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       <details>
         <summary>Placed connections</summary>
         <ul>

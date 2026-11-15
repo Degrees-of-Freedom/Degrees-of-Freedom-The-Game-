@@ -59,6 +59,8 @@ See [structural solver](structural-solver.md) for the backend capabilities and a
 
 The voxel game uses versioned browser saves and an experimental analysis snapshot; see [structural state](structural-state.md) for validation, replay limits, and the proposed solver-neutral model.
 
-The shared contract also defines a versioned solver-neutral structural snapshot and immutable revision service. The existing voxel game and OpenSees adapter are not yet wired to that model; see [structural state](structural-state.md).
+The shared contract also defines a versioned solver-neutral structural snapshot and immutable revision service. The voxel game and legacy OpenSees check do not use that model. A separate manual workspace flow can run a narrow shared-snapshot subset through OpenSees and store unverified results; see [structural state](structural-state.md) and [analysis results](analysis-results.md).
+
+Shared table writes the completed structural request and available experimental reactions in its versioned turn event. The same session write records the card and turn transition. [Analysis results](analysis-results.md#shared-table-save-and-reload) describes the load policy and replay boundary.
 
 See [structural solver](structural-solver.md) for analysis limitations and candidate frameworks, and [Rust solver](rust-solver.md) for that backend. The Rust solver ships inside the web bundle, so it needs no deployment of its own. The OpenSees service runs locally for development and has an untested Dockerfile. Persistence beyond local browser storage, turn flow, and deployment remain open.
