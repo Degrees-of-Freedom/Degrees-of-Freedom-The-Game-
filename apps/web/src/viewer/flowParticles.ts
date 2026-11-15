@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { LoadPathMember } from '../solver/loadPath';
+import type { LoadPathMember } from '../evaluator/loadPath';
 const capacity = 2500;
 export function createFlowParticles(
   scene: THREE.Scene,

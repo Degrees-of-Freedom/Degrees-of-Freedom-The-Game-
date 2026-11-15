@@ -79,6 +79,8 @@ pub struct Outcome {
     /// Fraction of the requested load at which equilibrium was last found.
     pub load_fraction_reached: f64,
     pub critical_load_factor: Option<f64>,
+    /// Stability reserve of a verified stable equilibrium, when searched.
+    pub reserve: Option<Reserve>,
     pub residual: Option<f64>,
     pub force_imbalance: Option<f64>,
     pub moment_imbalance: Option<f64>,
@@ -89,6 +91,52 @@ pub struct Outcome {
     pub modes: Vec<Mode>,
     pub max_displacement: Option<f64>,
 }
+
+/// Why the equilibrium path stopped being stable above the applied load.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ReserveCause {
+    /// The tangent at a converged equilibrium lost positive definiteness:
+    /// a bifurcation, or a new mechanism.
+    Instability,
+    /// No equilibrium could be continued to the load: a limit point.
+    NoEquilibrium,
+}
+
+/// Bracket of the load multiplier, relative to the applied load, at which a
+/// stable equilibrium path first loses stability. Every multiplier up to
+/// `lower` was verified stable at its end point; `upper` was not, and is
+/// `None` when the path stayed stable up to the search limit.
+#[derive(Clone, Copy, Debug)]
+pub struct Reserve {
+    pub lower: f64,
+    pub upper: Option<f64>,
+    pub cause: Option<ReserveCause>,
+}
+
+/// Geometric bisection steps after bracketing: a factor-of-two bracket
+/// narrows to about 1.1 %.
+const RESERVE_REFINEMENTS: u32 = 6;
+
+/// Largest translation of any node in one reserve continuation increment,
+/// as a fraction of the component size. An energy-descent step can land on
+/// a remote equilibrium (the inverted arch after a snap-through); a jump
+/// cannot be split into smaller increments, so capping each increment turns
+/// it into a failure to continue, which is the limit point.
+const RESERVE_INCREMENT: f64 = 0.01;
+
+/// Smallest continuation increment, as a fraction of the probed interval.
+/// The geometric bisection supplies the final resolution, so a probe gives
+/// up well before the main path's [`MIN_LOAD_STEP`].
+const RESERVE_MIN_STEP: f64 = 1.0 / 32.0;
+
+/// Newton iterations allowed per reserve increment. Every increment starts
+/// at a nearby converged state, so a solve that needs more is treated as a
+/// failure to continue and the increment is halved.
+const RESERVE_MAX_ITERATIONS: u32 = 12;
+
+/// Load increment, as a fraction of the applied load, over which the
+/// linearised reserve differences the tangent.
+const RESERVE_DIFFERENCE: f64 = 1e-2;
 
 struct Nulls {
     translational: Vec<Vec<f64>>,
@@ -538,6 +586,135 @@ impl Newton<'_> {
     }
 }
 
+impl Newton<'_> {
+    /// Continue the equilibrium from `state`, at `from` times the loads, to
+    /// `to` times the loads, in adaptive increments. Each increment starts
+    /// from the previous equilibrium, so the path followed is the one the
+    /// structure takes under slowly increasing load.
+    fn continue_to(&mut self, state: &State, from: f64, to: f64) -> Result<(State, Converged), Failure> {
+        let mut state = state.clone();
+        let (mut fraction, mut step) = (0.0_f64, 1.0_f64);
+        self.carry = None;
+        loop {
+            let next = (fraction + step).min(1.0);
+            let mut trial = state.clone();
+            let solved = self.solve(&mut trial, from + next * (to - from), false);
+            let moved = state.u.iter().zip(&trial.u).map(|(a, b)| norm(&[b[0] - a[0], b[1] - a[1], b[2] - a[2]])).fold(0.0, f64::max);
+            match solved {
+                Ok(result) if moved <= RESERVE_INCREMENT * self.sys.size => {
+                    state = trial;
+                    fraction = next;
+                    if fraction >= 1.0 {
+                        return Ok((state, result));
+                    }
+                    self.carry = Some(result.factor);
+                    step *= 1.5;
+                }
+                Err(Failure::Budget) => return Err(Failure::Budget),
+                Err(Failure::NonFinite) => return Err(Failure::NonFinite),
+                _ => {
+                    self.carry = None;
+                    step *= 0.5;
+                    if step < RESERVE_MIN_STEP {
+                        return Err(Failure::NoConvergence);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Linearised stability reserve about the verified state `state` at
+    /// `lam` times the loads: the tangent at multiplier `t` is extrapolated
+    /// to first order along the equilibrium path, `K(t) = Kt + (t - 1) dK/dt`,
+    /// where `dK/dt` is a forward difference of the tangent along the path
+    /// direction `du = Kt^-1 (lam f)` over `RESERVE_DIFFERENCE` of the load.
+    /// The multiplier at which `K(t)` stops being positive definite or gains
+    /// a null pivot is bracketed and bisected. About the verified state,
+    /// cable states and large-displacement stiffness are those the structure
+    /// actually has; for a straight column this is the classical buckling
+    /// eigenvalue. `None` if the verified tangent cannot be factorised.
+    fn linearized_reserve(&mut self, state: &State, lam: f64, limit: f64) -> Option<Reserve> {
+        self.assemble(state, false);
+        let tangent = self.stiffness.clone();
+        let factor = tangent.factor(0.0);
+        if !factor.inertia.negative.is_empty() {
+            return None;
+        }
+        let nulls = factor.inertia.null.len();
+        let mut load: Vec<f64> = self.f.iter().map(|v| v * lam).collect();
+        for &dof in self.gauge {
+            load[dof] = 0.0;
+        }
+        let du = factor.solve(&load);
+        if !du.iter().all(|v| v.is_finite()) {
+            return None;
+        }
+        let ahead = self.sys.advance(state, &du, RESERVE_DIFFERENCE);
+        self.assemble(&ahead, false);
+        let next = self.stiffness.clone();
+        let stable = |t: f64| {
+            let inertia = tangent.blend(&next, (t - 1.0) / RESERVE_DIFFERENCE).factor(0.0).inertia;
+            inertia.negative.is_empty() && inertia.null.len() <= nulls
+        };
+        let mut low = 1.0_f64;
+        let mut high = None;
+        while low < limit {
+            let target = (2.0 * low).min(limit);
+            if stable(target) { low = target } else { high = Some(target); break; }
+        }
+        if let Some(mut top) = high {
+            for _ in 0..RESERVE_REFINEMENTS {
+                let middle = (low * top).sqrt();
+                if stable(middle) { low = middle } else { top = middle }
+            }
+            high = Some(top);
+        }
+        Some(Reserve { lower: low, upper: high, cause: high.map(|_| ReserveCause::Instability) })
+    }
+
+    /// Stability reserve of the stable equilibrium `start` at `lam` times
+    /// the loads: double the load multiplier until the path is no longer
+    /// stable or `limit` is reached, then bisect geometrically. `None` means
+    /// the iteration budget ran out or a result was not finite.
+    fn reserve(&mut self, start: State, lam: f64, limit: f64) -> Option<Reserve> {
+        let sys = self.sys;
+        let f = self.f;
+        // The stable state at `to`, or why there is none: `Err(None)` gives up.
+        let probe = |newton: &mut Self, state: &State, from: f64, to: f64| -> Result<State, Option<ReserveCause>> {
+            match newton.continue_to(state, lam * from, lam * to) {
+                Ok((next, converged)) => {
+                    let load: Vec<f64> = f.iter().map(|v| v * lam * to).collect();
+                    if tangent_stable(sys, &converged, &load) { Ok(next) } else { Err(Some(ReserveCause::Instability)) }
+                }
+                Err(Failure::NoConvergence) => Err(Some(ReserveCause::NoEquilibrium)),
+                Err(Failure::Budget | Failure::NonFinite) => Err(None),
+            }
+        };
+        let (mut low, mut state) = (1.0_f64, start);
+        let (mut high, mut cause) = (None, None);
+        while low < limit {
+            let target = (2.0 * low).min(limit);
+            match probe(self, &state, low, target) {
+                Ok(next) => { low = target; state = next; }
+                Err(Some(why)) => { high = Some(target); cause = Some(why); break; }
+                Err(None) => return None,
+            }
+        }
+        if let Some(mut top) = high {
+            for _ in 0..RESERVE_REFINEMENTS {
+                let middle = (low * top).sqrt();
+                match probe(self, &state, low, middle) {
+                    Ok(next) => { low = middle; state = next; }
+                    Err(Some(why)) => { top = middle; cause = Some(why); }
+                    Err(None) => return None,
+                }
+            }
+            high = Some(top);
+        }
+        Some(Reserve { lower: low, upper: high, cause })
+    }
+}
+
 /// Whether a converged tangent shows a stable equilibrium.
 fn tangent_stable(sys: &System, converged: &Converged, load: &[f64]) -> bool {
     converged.factor.inertia.negative.is_empty() && classify(sys, &converged.factor, load).translational.is_empty()
@@ -597,6 +774,7 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
         load_steps: 0,
         load_fraction_reached: 0.0,
         critical_load_factor: None,
+        reserve: None,
         residual: None,
         force_imbalance: None,
         moment_imbalance: None,
@@ -797,6 +975,22 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
                         } else if survives.is_none() {
                             out.reasons.push("reserveUnresolved");
                         }
+                    }
+                }
+                if options.reserve_search > 1.0 && lam != 0.0 && out.solution.is_some() &&
+                    matches!(out.status, Status::Stable | Status::Marginal) {
+                    let start = out.solution.as_ref().and_then(|s| s.state.clone()).expect("a nonlinear solution");
+                    let probe_options = Options { max_iterations: options.max_iterations.min(RESERVE_MAX_ITERATIONS), ..options.clone() };
+                    let mut search = Newton { budget: newton.budget.saturating_sub(out.iterations.saturating_sub(newton.iterations)),
+                        iterations: 0, steps: 0, stiffness: sys.stiffness(), carry: None, options: &probe_options, ..newton };
+                    let found = match options.reserve_method {
+                        ReserveMethod::Path => search.reserve(start, lam, options.reserve_search),
+                        ReserveMethod::Linearized => search.linearized_reserve(&start, lam, options.reserve_search),
+                    };
+                    out.iterations += search.iterations;
+                    match found {
+                        Some(reserve) => out.reserve = Some(reserve),
+                        None => out.reasons.push("reserveSearchIncomplete"),
                     }
                 }
             }

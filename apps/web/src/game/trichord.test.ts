@@ -3,11 +3,11 @@ import { assemblyParts, TRICHORD } from './assembly';
 import { PLANAR_CATALOGUE, printedCards, SCORED_CATALOGUE, TRUSS_CATALOGUE } from './cardCatalogue';
 import { findMaterialClash } from './materialClashes';
 import { CELL_SIZE, type Member } from './model';
-import { analyzeTurn, toTurnVoxelInput } from './turnAnalysis';
+import { analyzeTurn, toTurnEvaluatorInput } from './turnAnalysis';
 import { createTurnGame } from './turns';
-import { analyzeVoxel } from '../solver/voxel';
-import { displacementAt } from '../solver/voxelResults';
-import { ITEMS } from '../solver/voxelSections';
+import { analyzeVoxel } from '../solver/voxel/analyze';
+import { displacementAt } from '../evaluator/results';
+import { ITEMS } from '../evaluator/sections';
 
 const parent = {id: 3, assembly: TRICHORD.id, type: 'shs', owner: 'player-1', a: '1,3,0', b: '3,3,0'} as const;
 function fixture(quarter: number, magnitude = 1, rotated = false) {
@@ -30,7 +30,7 @@ describe('triangular four-panel assembly', () => {
     const pieces = assemblyParts(parent);
     expect(pieces).toHaveLength(41);
     expect(new Set(pieces.map(p => p.id)).size).toBe(41);
-    const expanded = toTurnVoxelInput(fixture(2)).members;
+    const expanded = toTurnEvaluatorInput(fixture(2)).members;
     expect(expanded.map(m => m.id)).toEqual(pieces.map(p => p.id));
     expect(expanded.every(m => m.parentSpan?.memberId === parent.id)).toBe(true);
     expect(expanded.map(m => m.parentSpan?.assemblyPart)).toEqual(pieces.map(p => p.name));
@@ -57,7 +57,7 @@ describe('triangular four-panel assembly', () => {
   };
   for (const q of [1,2,3]) it('transfers force and twist through the ' + q*25 + '% original joint', () => {
     const state = fixture(q), port = 'port:3:' + q;
-    const model = toTurnVoxelInput(state);
+    const model = toTurnEvaluatorInput(state);
     for (const direction of ['-Y','-Z'] as const) {
       model.attrs[port].loadDirection = direction;
       const result = analyzeVoxel(model, applied);
@@ -79,7 +79,7 @@ describe('triangular four-panel assembly', () => {
 
   it('resists a pure torque as independently predicted, and transforms signed results under rigid rotation', () => {
     for (const rotated of [false, true]) {
-      const state = fixture(2,1,rotated), model = toTurnVoxelInput(state);
+      const state = fixture(2,1,rotated), model = toTurnEvaluatorInput(state);
       model.attrs['assembly:3:second-2'] = {load: 1, loadDirection: '+Z'};
       model.members.reverse();
       const result = analyzeVoxel(model,applied), ctx = result.ctx!, combo = result.combos[0];
@@ -93,12 +93,16 @@ describe('triangular four-panel assembly', () => {
     }
   });
 
-  it('counts each physical piece once and withholds unverified capacity beyond the linear envelope', () => {
+  it('counts each physical piece once and reports a gross overload of a deformed assembly', () => {
     const physicalWeight = assemblyParts(parent).reduce((sum, p) =>
       sum + CELL_SIZE * Math.hypot(...p.b.point.map((v,k) => v-p.a.point[k])) * ITEMS.shs.w, 0);
     const preview = analyzeTurn(fixture(2)), ctx = preview.ctx!;
     expect(preview.combos[0].reac![ctx.aid[ctx.idx.get(parent.a)!]][2]).toBeCloseTo(1 + physicalWeight,8);
-    expect(analyzeTurn(fixture(3,500),'card-gravity').capacity!.members[3].status).toBe('unavailable');
+    // Nonlinear and verified despite excessive deformation: a gross overload,
+    // not withheld as on the legacy linear kernel.
+    const overloaded = analyzeTurn(fixture(3,500),'card-gravity').capacity!.members[3];
+    expect(overloaded.status).toBe('verified');
+    if (overloaded.status === 'verified') expect(overloaded.utilization).toBeGreaterThan(10);
   });
 
   it('detects interference with the second chord and permits a deliberate fitting only on the exposed first chord', () => {

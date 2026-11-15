@@ -11,7 +11,7 @@ import { ReleaseBoard } from "../components/ReleaseBoard";
 import type { CameraMemory } from "../viewer/sceneView";
 import { deformationField } from "../viewer/deformationField";
 import { useStabilityCheck } from "../game/useStabilityCheck";
-import type { VoxelAnalysis } from "../solver/voxel";
+import type { StructureEvaluation } from "../evaluator/results";
 import { StabilityCheckPanel } from "../components/StabilityCheckPanel";
 import { modeProgress } from "../game/modes";
 import { environmentExample } from "../game/environmentExamples";
@@ -80,7 +80,7 @@ export function Workspace() {
   const contractCompatible = game.mode !== "multiplayer";
   const [analysis, setAnalysis] = useState<{
     model: typeof game.model;
-    result: VoxelAnalysis;
+    result: StructureEvaluation;
   } | null>(null);
   const [drawer, setDrawer] = useState<Drawer>(() =>
     new URLSearchParams(window.location.search).has("library") ? "library" :
@@ -175,24 +175,37 @@ export function Workspace() {
       document.removeEventListener("visibilitychange", visibilityChanged);
     };
   }, [privateMatchActive]);
+  // Each run supersedes the previous one; a slower earlier result is dropped.
+  const runToken = useRef(0);
   function run() {
     if (contractCompatible) void stability.run(game.model, LEVELS[game.levelId]);
-    try {
-      setCombo(0);
-      setAnalysis({
-        model: game.model,
-        result:
-          game.mode === "multiplayer" && game.turn
-            ? analyzeTurn(game.turn, scoredPreview ? "card-gravity" : "with-self-weight")
-            : analyzeGame(game.model, LEVELS[game.levelId]),
-      });
+    const token = ++runToken.current;
+    const show = (result: StructureEvaluation, model: typeof game.model) => {
+      setAnalysis({ model, result });
       setDrawer("analysis");
       setMessage("Experimental analysis · results for the current model");
-    } catch (error) {
+    };
+    const fail = (error: unknown) => {
       setAnalysis(null);
       setMessage(error instanceof Error ? error.message : "Analysis failed");
       setDrawer("analysis");
+    };
+    setCombo(0);
+    if (game.mode === "multiplayer" && game.turn) {
+      try {
+        show(analyzeTurn(game.turn, scoredPreview ? "card-gravity" : "with-self-weight"), game.model);
+      } catch (error) {
+        fail(error);
+      }
+      return;
     }
+    // Editor and levels: the structure evaluator on the Rust solver's worker.
+    const model = game.model;
+    setMessage("Analysing…");
+    analyzeGame(model, LEVELS[game.levelId]).then(
+      (result) => { if (token === runToken.current) show(result, model); },
+      (error: unknown) => { if (token === runToken.current) fail(error); },
+    );
   }
   function example() {
     if (game.mode === "creative") {

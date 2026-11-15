@@ -99,6 +99,14 @@ impl Skyline {
         self.a[k] = 1.0;
     }
 
+    /// `self + t (other - self)`, for two matrices with the same profile
+    /// (both built by the same system).
+    pub fn blend(&self, other: &Skyline, t: f64) -> Skyline {
+        debug_assert!(self.n == other.n && self.ptr == other.ptr);
+        let a = self.a.iter().zip(&other.a).map(|(x, y)| x + t * (y - x)).collect();
+        Skyline { n: self.n, first: self.first.clone(), ptr: self.ptr.clone(), a }
+    }
+
     /// Product with a vector, using the unfactored matrix.
     pub fn mul(&self, x: &[f64]) -> Vec<f64> {
         let mut y = vec![0.0; self.n];

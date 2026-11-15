@@ -12,8 +12,11 @@ validated_against:
   - apps/web/package.json
   - packages/solver-contract/package.json
   - apps/web/src/game/store.test.ts
-  - apps/web/src/solver/voxel.test.ts
-  - apps/web/src/solver/loadPath.test.ts
+  - apps/web/src/solver/voxel/analyze.test.ts
+  - apps/web/src/evaluator/engine/rustDesign.test.ts
+  - apps/web/test/setup.ts
+  - vitest.config.ts
+  - apps/web/src/evaluator/loadPath.test.ts
   - apps/web/src/solver/opensees.test.ts
   - apps/web/src/game/structuralModel.test.ts
   - apps/web/src/game/analysisModel.test.ts
@@ -47,6 +50,16 @@ Vitest covers editing rules, draw conservation, turn replay, attachment laws, vi
 Vitest also covers the OpenSees adapter and its health check against a stubbed `fetch`, solver selection, the stored solver setting, and the translation from the game model to the shared contract. Further tests run only when `VITE_OPENSEES_URL` points at a running service: two send a cantilever and the reference examples through it, and six in `crossCheck.test.ts` compare its answers with the Rust solver's, at both fidelities, on hand-built frames, the reference examples and the twenty library structures.
 
 `analysisModel.test.ts` checks SI units, translation to the detailed contract and reference games against the actual WebAssembly module. Vitest loads the checked-in `apps/web/src/solver/wasm/dof_solver.wasm`. Run `npm run build:solver` after editing Rust. The root production build always rebuilds the binary from source.
+
+The structure evaluator runs on that module in tests too. `apps/web/test/setup.ts`, registered in `vitest.config.ts`, serves `file:` URLs through `fetch`, so the app's default `wasmSolver` loads the checked-in binary under Node (inline, without a worker). `evaluator/engine/rustDesign.test.ts` covers:
+
+- load parity with the voxel kernel's loads;
+- equilibrium in every combination;
+- α_cr against hand Euler loads;
+- classification of buckling, mechanisms, stalls and floating parts;
+- design demand taken from the Rust envelope.
+
+After changing the evaluator or the solver binary, refresh the structure-library baseline deliberately (see [structure library](structure-library.md#regenerate-and-verify)). After rebuilding the binary, also run `node scripts/physics/check-saved-solver.mjs <revision with the previous binary>` to confirm that the release's saved matches reproduce.
 
 Grow Dusk view modes have Vitest coverage in `viewModes.test.ts` (reducer, exclusivity, drawer mapping, on-demand response, scale) and `viewLegends.test.ts` (content, colours, unavailable states). `contourRamp.test.ts`, `viewFormat.test.ts`, `displacementShadow.test.ts` (against the analytical cantilever) and `components/viewModes/viewModes.test.tsx` (static panel and legend markup) cover the rest. On 2026-11-15 the panel was also checked in headless Chromium with SwiftShader through the Vite dev server: a six-turn seed 0 match at 1366 × 900, plus 683 × 384 and 412 × 915 touch layouts. The checks covered each mode, the label switch, Escape handling, drawer synchronisation and no horizontal overflow. After a production build, `release-presentation.mjs` passed all nine scenarios, `release-resources.mjs` passed, and `release-browser.mjs` passed seed 0 and its all-pass match, with `DOF_SOFTWARE_GL=1` on Linux Chromium. That build compiled the solver with Rust 1.97.0, and the rebuilt WASM was not committed. The presentation script first found a legend accessible name colliding with the drawer's **Shear diagram** label; the legend cards no longer carry one.
 
@@ -189,3 +202,31 @@ Checked on `main` at `39508f0` (#14) in a Linux container: 4-core Intel Xeon at 
 | `SOLVER_TIMING_REPS=1 npm run compare:solvers` | Runs the voxel and OpenSees linear/nonlinear paths only; it does not include the Rust solver. OpenSees nonlinear calls the slender column and the cantilever unstable where the voxel and linear paths call them stable. |
 
 The cross-check results, the prestressed-cable convention difference and the two nonlinear verdicts that Rust leaves `unresolved` are in [Cross-check with OpenSees](rust-solver.md#cross-check-with-opensees--2026-11-15). Not checked in this pass: the browser, the production build and the 10,000-state generated OpenSees run.
+
+## Structure evaluator on the Rust solver — 2026-11-15
+
+These checks are for the branch that moved the game logic into `apps/web/src/evaluator/`, ran the editor, levels, auto-design and structure library on the Rust solver, and added the stability reserve search to the crate. They ran in a Linux cloud container with Node 22.23.4 and rustc 1.97.0.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | Pass. |
+| `npm test` | Pass: 80 test files, 579 tests; 2 files and 9 tests are skipped without an OpenSees service. The baseline before the change was 78 files and 564 tests. |
+| `npm run test:solver` | Pass: 93 tests, 1 ignored timing harness. Includes 11 in `tests/reserve.rs`. |
+| `npm run build` | Pass. The production solver's SHA-256 equals the checked-in binary (`c1eba5e6…`). The existing chunk-size warning remains. |
+| `node scripts/physics/check-saved-solver.mjs 39508f0` | Pass: 20 seeds, 20 archived browser matches compared, 660 confirmed records replayed. |
+| Workspace in a browser | Checked once with Playwright and Chromium against the Vite dev server. In the Grow Dusk environment: Load example, then Run simulation. The results panel named "Structure evaluator · Rust solver", listed the four load cases and passed with two stars. The scene showed gravity and wind loads and reactions. There were no console errors. The first run took about 2 s, including module download; a second run took 0.65 s. |
+
+Not checked: the OpenSees-dependent tests and `npm run test:opensees`, because no OpenSees service was running; auto-design in a browser, which is covered by `evaluator/sizing.test.ts`; and Windows.
+
+### Shared table playtest card sets on Rust — 2026-11-15
+
+Same container and toolchain as above, after moving new playtest matches to the Rust turn solver and removing the member buckling check.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | Pass. |
+| `npm test` | Pass: 81 test files, 585 tests; 2 files and 9 tests are skipped without an OpenSees service. Includes `game/turnEngine.test.ts`. |
+| Structure-library baseline | Regenerated deliberately after removing the χ check; only the roof grid's maximum utilisation changed (0.6721 to 0.6717). |
+| Shared table in a browser | Checked once with Playwright and Chromium against the Vite dev server: setup with "Frame members and tension-only cables", Start, reveal, End turn, reload. The save header recorded `"engine":"rust-1"`, the match restored to the next handoff, and there were no console errors. |
+
+Not checked: the OpenSees-dependent tests, and loading a real pre-migration save from a player's browser. Legacy replay is covered by `turnEngine.test.ts` with matches created on the kernel.

@@ -3,6 +3,7 @@ import { SCORED_CATALOGUE } from "./cardCatalogue";
 import { awardFinalScore, finalReceipt } from "./finalScore";
 import { analyzeTurn } from "./turnAnalysis";
 import { createTurnGame } from "./turns";
+import { ITEMS } from "../evaluator/sections";
 
 /** Two identical, perpendicular fixed cantilevers share vertical displacement
  * at the main beam's 75% port. The transverse cantilever carries shear through
@@ -34,12 +35,18 @@ it("scores signed foundation uplift from calculated quarter-connected members", 
   const score = awardFinalScore(turn, receipt);
   expect(score.partial).toBe(false);
   expect(score.totalGravityKN).toBe(load);
-  // P*a²(3L-a)/(6EI) = R*[a³/(3EI) + b³/(3EI)] in metres.
+  // Compatibility at the port, Timoshenko beams (the Rust solver includes the
+  // card's shear area; both members bend about local y):
+  // P[a²(3L-a)/(6EI) + a/(GA)] = R[(a³+b³)/(3EI) + (a+b)/(GA)], in metres.
   const length = 8, station = 6, branch = 2;
-  const secondaryShare = station**2 * (3*length - station) / (2 * (station**3 + branch**3));
+  const EI = ITEMS.heb.E * ITEMS.heb.Iy, GA = ITEMS.heb.G * ITEMS.heb.Avz;
+  const secondaryShare = (station**2 * (3*length - station) / (6*EI) + station/GA) /
+    ((station**3 + branch**3) / (3*EI) + (station + branch)/GA);
+  // Geometric nonlinearity at these millimetre deflections is far below 1e-4.
+  const near = (actual: number | null | undefined, expected: number) => expect(Math.abs(actual! / expected - 1)).toBeLessThan(1e-4);
   const reactions = receipt.components.flatMap(component => component.foundations);
-  expect(reactions.find(r => r.jointId === first)?.upwardKN).toBeCloseTo(load * (1-secondaryShare), 8);
-  expect(reactions.find(r => r.jointId === second)?.upwardKN).toBeCloseTo(load * secondaryShare, 8);
-  expect(score.awards[0].awardedShare).toBeCloseTo(100 * (1-secondaryShare), 7);
-  expect(score.awards[1].awardedShare).toBeCloseTo(100 * secondaryShare, 7);
+  near(reactions.find(r => r.jointId === first)?.upwardKN, load * (1-secondaryShare));
+  near(reactions.find(r => r.jointId === second)?.upwardKN, load * secondaryShare);
+  near(score.awards[0].awardedShare, 100 * (1-secondaryShare));
+  near(score.awards[1].awardedShare, 100 * secondaryShare);
 });

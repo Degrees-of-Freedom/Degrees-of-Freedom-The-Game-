@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { SECTION_GEOMETRY } from '../solver/voxelSections';
+import { SECTION_GEOMETRY } from '../evaluator/sections';
 
 /** Straight runs between the supplied physical clamp stations. The strand lay
  * describes the surface only. It never adds sag, bending strength or rest length.

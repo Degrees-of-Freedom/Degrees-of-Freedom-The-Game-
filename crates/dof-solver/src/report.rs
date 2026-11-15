@@ -449,7 +449,7 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>, rem
         let internal = outcome.mechanisms.saturating_sub(outcome.rigid_body_modes);
         let determinacy = sys.force_unknowns as f64 - sys.neq as f64 + (outcome.mechanisms + outcome.spin_modes) as f64;
         pass.reasons.extend(reasons.iter());
-        pass.components.push(object([
+        let mut component = object([
             ("id", id.as_str().into()),
             ("status", status_name(outcome.status).into()),
             ("resultsValid", solution.is_some().into()),
@@ -501,7 +501,14 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>, rem
             ("reactionForce", if solution.is_some() { reaction.into() } else { Json::Null }),
             ("unstableNodeIds", strings(unstable_nodes)),
             ("modes", Json::Arr(modes)),
-        ]));
+        ]);
+        // Present only when requested, so other responses are unchanged.
+        if options.reserve_search > 0.0 {
+            if let Json::Obj(fields) = &mut component {
+                fields.push(("reserve".to_string(), reserve_json(outcome.reserve)));
+            }
+        }
+        pass.components.push(component);
     }
     pass
 }
@@ -633,4 +640,21 @@ pub fn analyze(input: &Model, options: &Options) -> Json {
         ("foundations", to_object(pass.foundations)),
         ("failureEvents", Json::Arr(events)),
     ])
+}
+
+/// The stability reserve, or null when the search did not finish.
+fn reserve_json(reserve: Option<crate::solve::Reserve>) -> Json {
+    use crate::solve::ReserveCause;
+    match reserve {
+        None => Json::Null,
+        Some(r) => object([
+            ("lower", r.lower.into()),
+            ("upper", r.upper.into()),
+            ("cause", match r.cause {
+                Some(ReserveCause::Instability) => "instability".into(),
+                Some(ReserveCause::NoEquilibrium) => "noEquilibrium".into(),
+                None => Json::Null,
+            }),
+        ]),
+    }
 }

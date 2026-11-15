@@ -10,7 +10,7 @@ import { conflictingJointAxes, connectionFrame, CONNECTION_PROFILES, type Connec
 import { findMaterialClash } from "./materialClashes";
 import { analysisLoadJoint, findPort, loadTargets, systemTarget, targetCoordinate, turnJoints } from "./turnPorts";
 import { analyzeTurn } from "./turnAnalysis";
-import { resolveMemberLaw, S } from "../solver/voxelSections";
+import { resolveMemberLaw, S } from "../evaluator/sections";
 import { correctTurnIssues, LEGACY_REPAIR_POLICY, REPAIR_POLICY, type CorrectionReceipt, type RepairPolicy, type SystemProvenance } from "./turnRepair";
 import { assessTurnOutcome, matchesIssueEvidence, type IssueAssessment } from "./turnIssues";
 import { decidePenalty, type PenaltyDecision } from "./turnPenalty";
@@ -82,9 +82,19 @@ export type TurnReport = {
   correction?: CorrectionReceipt;
 };
 
+/** Analysis engine of a playtest match. Recorded so that a saved match
+ * replays on the engine that assessed it: new matches use the Rust turn
+ * solver; a match saved without the field was assessed by the legacy voxel
+ * kernel and replays on it. The release catalogue always uses Rust and
+ * never records the field. */
+export const RUST_TURN_ENGINE = "rust-1" as const;
+export type TurnEngine = typeof RUST_TURN_ENGINE;
+
 export interface TurnState {
   version: typeof KIT_PLAYTEST.version;
   catalogue: CatalogueId;
+  /** Absent: legacy voxel kernel (saves from before the Rust migration). */
+  engine?: TurnEngine;
   seed: number;
   turn: number;
   playerIndex: number;
@@ -163,7 +173,7 @@ function draw(state: TurnState): TurnState {
   };
 }
 
-export function createTurnGame(seed = 1, catalogue: CatalogueId = LEGACY_CATALOGUE): TurnState {
+export function createTurnGame(seed = 1, catalogue: CatalogueId = LEGACY_CATALOGUE, engine: TurnEngine | null = RUST_TURN_ENGINE): TurnState {
   const players = [
     { id: "player-1", score: 0, hand: [] },
     { id: "player-2", score: 0, hand: [] },
@@ -197,6 +207,7 @@ export function createTurnGame(seed = 1, catalogue: CatalogueId = LEGACY_CATALOG
   return draw({
     version: KIT_PLAYTEST.version,
     catalogue,
+    ...(catalogue !== RELEASE_CATALOGUE && engine && { engine }),
     seed,
     turn: 1,
     playerIndex: 0,
@@ -659,7 +670,10 @@ export function replayTurnState(raw: unknown): Transition {
   if (catalogue !== LEGACY_CATALOGUE && !isScoredCatalogue(catalogue)) {
     return fail("Saved match requires an unsupported physical catalogue.");
   }
-  let state = createTurnGame(raw.seed, catalogue);
+  if (raw.engine !== undefined && raw.engine !== RUST_TURN_ENGINE)
+    return fail("Saved match requires an unsupported analysis engine.");
+  // A save without an engine was assessed by the legacy voxel kernel.
+  let state = createTurnGame(raw.seed, catalogue, raw.engine === RUST_TURN_ENGINE ? RUST_TURN_ENGINE : null);
   for (const event of raw.events) {
     const result = replayEvent(state, event);
     if (!result) return fail("Unrecognized saved turn action.");

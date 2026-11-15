@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from './levels';
-import { toVoxelInput } from './analysis';
+import { toEvaluatorInput } from './analysis';
 import { createStateService } from './persistence';
 import { createVoxelAnalysisSnapshot, recomposeVoxelAnalysis } from './structuralState';
-import { analyzeVoxel } from '../solver/voxel';
+import { analyzeVoxel } from '../solver/voxel/analyze';
 import type { GameModel } from './model';
 
 const model: GameModel = { members: [{ id: 1, a: '0,0,0', b: '0,0,1', type: 'shs' }], attrs: { '0,0,0': { found: true }, '0,0,1': { load: 50 } }, nextId: 2 };
@@ -34,7 +34,7 @@ describe('structural state', () => {
     }
   });
   it('round trips solver input and rejects changed profiles or invalid data', () => {
-    const input = toVoxelInput(model, LEVELS.sandbox);
+    const input = toEvaluatorInput(model, LEVELS.sandbox);
     const snapshot = createVoxelAnalysisSnapshot(input.model, input.level);
     const decoded = JSON.parse(JSON.stringify(snapshot));
     const restored = recomposeVoxelAnalysis(decoded);

@@ -23,9 +23,9 @@ const catalogText = readFileSync(new URL('catalog.json', directory), 'utf8');
 // Hash semantic JSON so Git's Windows newline conversion cannot invalidate it.
 const catalogHash = createHash('sha256').update(JSON.stringify(JSON.parse(catalogText))).digest('hex');
 const records = parseStructureLibrary(JSON.parse(catalogText));
-const baselineFile = new URL('voxel-baseline.json', directory);
+const baselineFile = new URL('evaluator-baseline.json', directory);
 const update = process.env.UPDATE_STRUCTURE_BASELINE === '1';
-type Measurement = { id: string; scope: string; mechanism: boolean; floating: number; error: string | null; combinations: number; failedCombinations: number; maxDisplacementMetres: number | null; maxUtilization: number | null };
+type Measurement = { id: string; scope: string; mechanism: boolean; unresolved: boolean; floating: number; error: string | null; combinations: number; failedCombinations: number; maxDisplacementMetres: number | null; maxUtilization: number | null; bucklingFactor: number | null };
 const measurements: Measurement[] = [];
 const reference: Measurement[] = update ? [] : JSON.parse(readFileSync(baselineFile, 'utf8')).measurements;
 
@@ -78,17 +78,20 @@ describe('structure library', () => {
     expect(useGameStore.getState().turn).toBe(turn);
     useGameStore.getState().setMode('challenge');
   });
-  for (const record of records) it(`analyzes ${record.id} against the observed voxel baseline`, () => {
-    const result = analyzeGame(record.save.model, LEVELS.library);
+  for (const record of records) it(`evaluates ${record.id} against the observed evaluator baseline`, async () => {
+    const result = await analyzeGame(record.save.model, LEVELS.library);
     const maxD = result.combos.flatMap(c => c.maxD === undefined ? [] : [c.maxD]);
     for (const n of maxD) expect(Number.isFinite(n)).toBe(true);
+    const usable = !result.mechanism && !result.error && !result.unresolved;
     const measurement: Measurement = {
-      id: record.id, scope: result.error || result.mechanism ? 'unavailable' : result.floating.length ? 'supported-component-only' : 'whole-model',
-      mechanism: result.mechanism, floating: result.floating.length,
+      id: record.id, scope: !usable ? 'unavailable' : result.floating.length ? 'supported-component-only' : 'whole-model',
+      mechanism: result.mechanism, unresolved: !!result.unresolved, floating: result.floating.length,
       error: result.error ?? null, combinations: result.combos.length,
       failedCombinations: result.combos.filter(c => c.fail).length,
-      maxDisplacementMetres: !result.mechanism && !result.error && maxD.length ? Math.max(...maxD) : null,
-      maxUtilization: result.mechanism || result.error ? null : result.maxU ?? null,
+      maxDisplacementMetres: usable && maxD.length ? Math.max(...maxD) : null,
+      maxUtilization: usable ? result.maxU ?? null : null,
+      // Global buckling factor, or the factor at which a combination buckles.
+      bucklingFactor: result.alphaMin ?? result.bucklingFactor ?? null,
     };
     measurements.push(measurement);
     if (record.expectation.stability === 'stable') {
@@ -102,24 +105,31 @@ describe('structure library', () => {
     if (!update) {
       const expected = reference.find(r => r.id === record.id)!;
       expect(expected).toBeDefined();
-      for (const key of ['maxDisplacementMetres', 'maxUtilization'] as const) {
+      for (const key of ['maxDisplacementMetres', 'maxUtilization', 'bucklingFactor'] as const) {
         const actual = measurement[key], target = expected[key];
         if (actual === null || target === null) expect(actual).toBe(target);
+        else if (key === 'bucklingFactor' && actual >= 128 && target >= 128) continue;
         else expect(Math.abs(actual - target)).toBeLessThanOrEqual(1e-9 + Math.abs(target) * 1e-6);
       }
-      expect({ ...measurement, maxDisplacementMetres: null, maxUtilization: null }).toEqual({ ...expected, maxDisplacementMetres: null, maxUtilization: null });
+      const exact = (m: Measurement) => ({ ...m, maxDisplacementMetres: null, maxUtilization: null, bucklingFactor: null });
+      expect(exact(measurement)).toEqual(exact(expected));
     }
   }, 30000);
   it('records baseline provenance only when explicitly requested', () => {
     if (!update) return;
-    const solver = new URL('../solver/', import.meta.url);
+    // The evaluator's own sources plus the exact solver binary it ran.
+    const evaluator = new URL('../evaluator/', import.meta.url);
     const hash = createHash('sha256');
-    for (const name of readdirSync(solver).filter(n => n.endsWith('.ts') && !n.endsWith('.test.ts')).sort()) hash.update(name).update(readFileSync(new URL(name, solver), 'utf8').replace(/\r\n/g, '\n'));
+    const sources = (dir: URL, prefix = ''): string[] => readdirSync(dir, { withFileTypes: true }).flatMap(entry =>
+      entry.isDirectory() ? sources(new URL(entry.name + '/', dir), prefix + entry.name + '/')
+        : entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts') ? [prefix + entry.name] : []);
+    for (const name of sources(evaluator).sort()) hash.update(name).update(readFileSync(new URL(name, evaluator), 'utf8').replace(/\r\n/g, '\n'));
+    const solverSha256 = createHash('sha256').update(readFileSync(new URL('../solver/wasm/dof_solver.wasm', import.meta.url))).digest('hex');
     writeFileSync(baselineFile, JSON.stringify({
-      format: 'dof-observed-voxel-baseline', version: 1,
-      disclaimer: 'Observed regression baseline, not an independent numerical oracle or OpenSees result. Timing deliberately excluded.',
+      format: 'dof-observed-evaluator-baseline', version: 1,
+      disclaimer: 'Observed regression baseline of the structure evaluator on the Rust solver, not an independent numerical oracle or OpenSees result. Timing deliberately excluded.',
       sourceRevision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
-      solverSourceSha256: hash.digest('hex'), catalogSha256: catalogHash,
+      evaluatorSourceSha256: hash.digest('hex'), solverSha256, catalogSha256: catalogHash,
       relativeTolerance: 1e-6, absoluteTolerance: 1e-9, measurements,
     }, null, 2) + '\n');
   });
