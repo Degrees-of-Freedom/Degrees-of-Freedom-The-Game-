@@ -1,3 +1,4 @@
+import { Spinner } from "../Spinner";
 import { useState, type CSSProperties } from "react";
 import type { LegendSwatch, ViewLegend } from "../../viewer/viewLegends";
 import { ViewModeIcon } from "./ViewModeIcon";
@@ -47,7 +48,7 @@ export function ViewLegends({ legends }: { legends: readonly ViewLegend[] }) {
     {!collapsed && <div className="view-legend-list" aria-live="polite">
       {legends.map(legend => <article key={legend.id} className="view-legend" data-mode={legend.id}>
         <h3><ViewModeIcon mode={legend.id} />{legend.title}</h3>
-        {legend.status ? <p className="view-legend-status" role="status">{legend.status}</p> : <>
+        {legend.pending ? <Spinner label={legend.status ?? "Checking structure"} /> : legend.status ? <p className="view-legend-status" role="status">{legend.status}</p> : <>
           {legend.ramp && <div className="view-ramp">
             <div className="view-ramp-bar" style={{ background: legend.ramp.gradient }} role="img"
               aria-label={`Colour scale from ${legend.ramp.min} (blue) to ${legend.ramp.max} (red)`} />

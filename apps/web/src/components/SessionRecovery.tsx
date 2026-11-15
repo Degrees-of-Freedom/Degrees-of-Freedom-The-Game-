@@ -1,3 +1,4 @@
+import { Spinner } from "./Spinner";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useGameStore } from "../game/store";
 import { downloadMatch } from "./MatchFiles";
@@ -35,8 +36,8 @@ export function SessionRecovery() {
   }
   return <main className="dof-menu dm-pause dm-handoff" aria-labelledby="save-heading">
     <section className="dm-pause-panel panel" aria-busy={busy}>
-      <h1 id="save-heading" tabIndex={-1} ref={heading}>{invalid ? "Recover saved session" : failed ? "Save interrupted" : release ? "Checking and saving the turn" : "Saving turn"}</h1>
-      <p role="status">{invalid || failed ? game.persistenceError : release ? "Resolving the match before handoff…" : "Waiting for local storage to confirm this revision."}</p>
+      <h1 id="save-heading" tabIndex={-1} ref={heading}>{invalid ? "Recover saved session" : failed ? "Save interrupted" : "Saving turn"}</h1>
+      {invalid || failed ? <p role="status">{game.persistenceError}</p> : <Spinner label={release ? "Checking and saving the turn" : "Saving turn"} />}
       {!invalid && <p>{game.savedRevision === null ? "No confirmed save yet." : `Last confirmed revision ${game.savedRevision}`}</p>}
       {failed && <>
         <button className="btn mbtn primary" onClick={game.retrySessionSave}>Retry save</button>

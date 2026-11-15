@@ -45,6 +45,10 @@ Grow Dusk Creative exposes **Foundation** on the building toolbar (keyboard 0). 
 - `Scene.tsx` and its viewer modules share one renderer, with camera, guides, geometry, picking, and palette selected by the environment. `components/environment` and the scoped `environment-*.css` files provide the chrome, trays, and controls. Build options exposes precise coordinate entry.
 - Structural analysis (the Rust solver through the structure evaluator; the legacy voxel kernel only for replaying older saved playtest matches) remains separate from the viewer. Solver input in the workspace drawer presents a versioned editor model or the Shared table state. It differs from the branch prototype’s draft split-element JSON and from the preliminary shared solver contract.
 
+Transient structure and save checks show a compact spinner with an accessible status label; errors remain visible. The spinner respects the system reduced-motion preference.
+
+In Grow Dusk Shared table, after choosing an element start, the same reachable-point bloom and overlap cycling used by the editor show destinations accepted by the current card and turn placement rules. Board boundaries, card reach and clashes can restrict the fan.
+
 ## Challenge and runtime audit (2026-11-15)
 
 The challenge selector includes Tower I and II, Bridge I and II, Pick-up I and II, and a random pick-up layout. Only Tower I, Bridge I and Pick-up I currently have reference models in `game/examples.ts`. `game/examples.test.ts` checks that those three satisfy the objectives through `analyzeGame`. The remaining challenges do not yet have verified solutions. A random-layout example must retain the current saved targets instead of generating a different layout.

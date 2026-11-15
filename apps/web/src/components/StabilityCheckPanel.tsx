@@ -1,3 +1,4 @@
+import { Spinner } from "./Spinner";
 import type { AnalysisResult, ComponentResult, DetailedAnalysisResult } from '@dof/solver-contract';
 import { describeComponentState, describeReasonCode } from '../solver/reasonCodes';
 import { summarizeAnalysis, type Verdict } from '../game/structuralSummary';
@@ -194,7 +195,7 @@ export function StabilityCheckPanel({
     return (
       <div className="analysis stability-check">
         <ResultHeader solverName={solverName} />
-        <p role="status">Checking the structure with {solverName}…</p>
+        <Spinner label={`Checking the structure with ${solverName}`} />
       </div>
     );
   if (check.phase === 'detailed')

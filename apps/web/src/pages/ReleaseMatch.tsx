@@ -1,3 +1,4 @@
+import { Spinner } from "../components/Spinner";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { enterRelease } from "../game/releaseSession";
@@ -35,7 +36,7 @@ export default function ReleaseMatch() {
   return <main className="dof-menu dm-pause dm-handoff">
     <section className="dm-pause-panel panel">
       <h1>{error ? "Couldn’t open the match" : "Opening Grow Dusk"}</h1>
-      <p role="status">{error || "Checking the local save…"}</p>
+      {error ? <p role="status">{error}</p> : <Spinner label="Checking the local save" />}
       {error && <><button className="btn mbtn primary" onClick={() => location.reload()}>Retry</button>
         <button className="btn mbtn" onClick={() => void exportHead()}>Download original private save</button>
         <Link className="btn mbtn" to="/">Return to title</Link></>}

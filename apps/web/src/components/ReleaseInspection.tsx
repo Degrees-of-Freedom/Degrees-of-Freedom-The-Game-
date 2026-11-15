@@ -1,3 +1,4 @@
+import { Spinner } from "./Spinner";
 import type { useGameStore } from "../game/store";
 import { activeTurnHand, type TurnState } from "../game/turns";
 import { parseNodeKey } from "../game/model";
@@ -73,7 +74,7 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, resp
     <section><h3>Structural response</h3>
       {draft ? <p>Finish or cancel the draft to inspect committed response.</p>
         : !responseOpen ? <button onClick={onResponse}>Inspect committed response</button>
-        : !response ? <p role="status">{reading?.error ?? "Checking the committed structure…"}</p>
+        : !response ? reading?.error ? <p role="status">{reading.error}</p> : <Spinner label="Checking the committed structure" />
         : <>
           <p>Browser solver · committed board after {last ? `turn ${last.turn}` : "setup"} · card gravity {units(gravity)} kN</p>
           <label>Board overlay<select value={layer} onChange={event => setLayer(event.target.value as Layer)}>

@@ -31,6 +31,7 @@ import { sceneLevel } from "./sceneLevel";
 import type { SceneHover, SceneView } from "./sceneView";
 import { createSky, isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
 import { buildTurnGuides } from "./turnGuides";
+import { targetCoordinate } from "../game/turnPorts";
 import { createGrowthBloom, type ScenePointer } from "./growthBloom";
 import { createDofGizmo, DOF_AXIS_COLORS } from "./dofGizmo";
 import { visualLoadDirection } from "./scenePieces";
@@ -658,7 +659,7 @@ export function Scene({
       lastFrame = time;
       const growth = isGrowthStyle(state.style);
       // Shared table keeps its own card-driven picking and ghost.
-      const solo = growth && state.mode !== "multiplayer";
+      const solo = growth && (state.mode !== "multiplayer" || !!state.chainStart);
       const width = renderer.domElement.clientWidth,
         height = renderer.domElement.clientHeight;
       const toScreen = (position: THREE.Vector3) => {
@@ -681,7 +682,7 @@ export function Scene({
       // Rings replace the plain hover sphere in the growth styles.
       ghost.material.visible = !solo;
       const chainPoint =
-        solo && state.chainStart ? parseNodeKey(state.chainStart) : null;
+        solo && state.chainStart ? parseNodeKey(targetCoordinate(state.model.members, state.chainStart)) : null;
       const hovered = solo && pointer.inside ? hover : null;
       const target = chainPoint && hovered?.role ? hovered : null;
       bloom.update(
@@ -701,7 +702,7 @@ export function Scene({
           ? new THREE.Vector3(...hovered.p).multiplyScalar(CELL_SIZE)
           : null,
       );
-      place("rarmed", solo && state.chainStart ? point(state.chainStart) : null);
+      place("rarmed", chainPoint ? new THREE.Vector3(...chainPoint).multiplyScalar(CELL_SIZE) : null);
       const selectedKey =
         solo && state.selected?.type === "node" ? state.selected.key : null;
       place("rsel", selectedKey ? point(selectedKey) : null);

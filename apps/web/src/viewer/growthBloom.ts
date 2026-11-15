@@ -7,6 +7,7 @@ import {
 } from "../game/model";
 import type { useGameStore } from "../game/store";
 import { GROWTH_ROLE_INDEX, growthTargets } from "./growthTargets";
+import { targetCoordinate } from "../game/turnPorts";
 import type { ScenePalette } from "./sceneStyle";
 
 type GameState = ReturnType<typeof useGameStore.getState>;
@@ -213,7 +214,7 @@ export function createGrowthBloom(scene: THREE.Scene) {
     startedAt = now;
     const rolePaints: readonly string[] = palette.roles;
     roleColors = [...rolePaints].map((paint) => new THREE.Color(paint));
-    const start = parseNodeKey(state.chainStart);
+    const start = parseNodeKey(targetCoordinate(state.model.members, state.chainStart));
     origin.set(...start).multiplyScalar(CELL_SIZE);
     const existing = new Set(allNodeKeys(state.model));
     const longest = new Map<string, Spoke>();

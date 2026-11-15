@@ -74,6 +74,19 @@ describe("scene interaction candidates", () => {
     expect(cable).not.toContain("13,4,0");
   });
 
+  it("fans out valid turn-card destinations in every available direction", () => {
+    const turn = createTurnGame();
+    turn.players[turn.playerIndex].hand = [{ kind: "element", definitionId: "element/shs/axis-3",
+      definitionVersion: "playtest-1", id: "fan", label: "Test", type: "shs", maxSteps: 3 }];
+    const state = { ...blankState(), style: "grow-dusk" as const, mode: "multiplayer" as const,
+      turn, model: projectTurnModel(turn), selectedCardId: "fan", chainStart: "3,3,3" };
+    const targets = growthTargets(state);
+    for (const key of ["2,3,3", "4,3,3", "3,2,3", "3,4,3", "3,3,2", "3,3,4"]) {
+      expect(targets.map(target => target.key)).toContain(key);
+    }
+    for (const target of targets) expect(stageElement(turn, "fan", state.chainStart, target.key).ok).toBe(true);
+  });
+
   it("snaps a bay to the working plane and returns the shared validation issue", () => {
     const preview = new THREE.LineSegments(
       new THREE.BufferGeometry(),

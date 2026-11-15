@@ -27,6 +27,7 @@ export interface ViewLegend {
   readonly notes: readonly string[];
   /** Set when the mode cannot draw yet; replaces the keys with an explanation. */
   readonly status?: string;
+  readonly pending?: boolean;
 }
 
 /** Why committed response data is or is not available to the board. */
@@ -151,6 +152,6 @@ export function buildLegends(input: LegendInput): ViewLegend[] {
   const status = responseStatus(input.response);
   return activeModes(input.modes, input.jointsShown).map(id => {
     const needs = VIEW_MODES.find(mode => mode.id === id)?.needsResponse;
-    return needs && status ? { id, title: title(id), swatches: [], notes: [], status } : builders[id](input);
+    return needs && status ? { id, title: title(id), swatches: [], notes: [], status, pending: input.response.state === "pending" } : builders[id](input);
   });
 }

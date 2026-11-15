@@ -283,7 +283,7 @@ export function createPicker(
         )
           intersection = terrainHit.point;
       }
-      const isGrowing = !!start && isMember && !card && isGrowthStyle(s.style);
+      const isGrowing = !!start && isMember && (!card || card.kind === "element") && isGrowthStyle(s.style);
       if (!isGrowing) stack.reset();
       const reachable = isGrowing ? closestGrowthTarget() : null;
       hoverRole = reachable?.role ?? null;
