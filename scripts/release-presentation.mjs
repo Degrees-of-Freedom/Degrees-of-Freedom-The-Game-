@@ -162,6 +162,17 @@ try {
       await activate(button("End turn"));
       await ready.waitFor();
       assert.equal(await page.locator("[data-card-id], .companion-board").count(), 0);
+      if (scenario === "keyboard" || scenario === "model-failure") {
+        // The deliberately unattached HEB is a committed instability. Its
+        // public foreman cue may first appear after the incoming seat is ready.
+        await activate(ready);
+        const report = page.getByText("Conkeldurr has a foreman report for turn 1.", { exact: true });
+        await report.waitFor();
+        assert.equal(await page.locator(".companion-board").getAttribute("data-foreman"), "reaction");
+        if (scenario === "model-failure") await activate(button("Skip transformation"));
+        await button("Talk to Timburr").waitFor({ timeout: 7000 });
+        assert.equal(await report.count(), 0);
+      }
       assert.deepEqual(errors, []);
       evidence.cases.push({ scenario, viewport, cssWidth: width.viewport,
         input: scenario === "keyboard" ? "keyboard only" : scenario === "tablet-layout" ? "emulated touch" : "mouse", result: "pass" });
