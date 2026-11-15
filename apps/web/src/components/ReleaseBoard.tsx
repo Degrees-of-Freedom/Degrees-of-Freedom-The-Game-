@@ -6,10 +6,11 @@ import { Scene } from "../viewer/Scene";
 import { SceneBoundary } from "./environment/SceneBoundary";
 import { ReleaseTargets } from "./ReleaseTargets";
 import { ReleaseInspection } from "./ReleaseInspection";
-import { useReleaseInspection } from "../viewer/useReleaseInspection";
-import { deformationField } from "../viewer/deformationField";
-import { boardActions, boardDiagram, type SectionAction } from "../viewer/boardDiagrams";
+import { boardActions } from "../viewer/boardDiagrams";
+import { overlayLayer } from "../viewer/viewModes";
+import { useBoardView, ViewLegends, ViewModesPanel } from "./viewModes";
 import { FinalScorePanel } from "./FinalScorePanel";
+import { ESCAPE_OWNER } from "./PauseMenu";
 import { Companion, type CompanionProps } from "../companion/Companion";
 import type { CompanionCue, CompanionCueEvent } from "../companion/motion";
 import { sightTurn, turnTransitionCue, type TurnSighting } from "../companion/turnCues";
@@ -64,13 +65,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   cameraMemory: CameraMemory; cue(event: "select" | "place" | "attach" | "result"): void;
 }) {
   const [inspecting, setInspecting] = useState(false);
-  const [responseOpen, setResponseOpen] = useState(false);
-  const [layer, setLayer] = useState<"reference" | "shape" | "path" | "combined">("shape");
-  const [shear, setShear] = useState<SectionAction | 0>(0);
-  const [moment, setMoment] = useState<SectionAction | 0>(0);
-  const [amplification, setAmplification] = useState(0);
   const [trueScale, setTrueScale] = useState(false);
-  const [showInstability, setShowInstability] = useState(false);
   const [focusJoint, setFocusJoint] = useState<string>();
   const [skip, setSkip] = useState(false);
   // `action` re-keys the status line; `companionCue` drives Timburr's scenario motion.
@@ -106,6 +101,8 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   useEffect(() => {
     const cancel = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
+      // An open view panel closes first; its own listener handles this press.
+      if (document.querySelector(`[${ESCAPE_OWNER}]`)) return;
       if (inspecting) { event.preventDefault(); setInspecting(false); game.setSelected(null); inspectButton.current?.focus(); }
       else if (game.chainStart) { event.preventDefault(); game.setChainStart(null); }
       else if (game.selectedCardId) { event.preventDefault(); game.selectCard(null); }
@@ -115,14 +112,13 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   }, [inspecting, game]);
   const joints = useMemo(() => sharedJointPermissions(turn.board), [turn.board]);
   const joint = picked?.type === "node" ? jointAtSceneSelection(joints, picked.key, turn) : joints.find(j => j.id === focusJoint);
+  const view = useBoardView(turn, !!draftSize, joints.length);
+  const { modes, result, field, diagrams, scale, reading } = view;
   const jointLayer = useMemo(() => settings.jointDisplay === "off" ? undefined :
-    { joints: settings.jointDisplay === "all" ? joints : joint ? [joint] : [], selected: joint?.id }, [settings.jointDisplay, joint, joints]);
-  const reading = useReleaseInspection(turn, responseOpen && !draftSize);
-  const result = draftSize ? null : reading?.response?.result ?? null;
-  const deformed = layer === "shape" || layer === "combined";
-  const field = useMemo(() => result && deformed ? deformationField(result, 0) : undefined, [result, deformed]);
-  const diagrams = useMemo(() => result ? [shear, moment].flatMap(action => action ? [boardDiagram(result, action)] : []) : [], [result, shear, moment]);
-  const scale = amplification || (field?.peakM ? Math.max(1, Math.min(500, Math.round(1.2 / field.peakM))) : 1);
+    { joints: settings.jointDisplay === "all" ? joints : joint ? [joint] : [], selected: joint?.id, labels: modes.labels },
+  [settings.jointDisplay, joint, joints, modes.labels]);
+  const press = view.press;
+  const toggleLoadPath = useCallback(() => press("loadPath"), [press]);
   const report = turn.reports.at(-1);
   const status = message || (report ? `Turn ${report.turn} · ${report.status}${report.penalty ? " · −1 point" : ""}`
     : "Select a card to build, or pass.");
@@ -147,9 +143,14 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
       </div>
       <p className="release-phone-note">For a larger building surface, open this match on a desktop or landscape tablet. Private export is in Menu.</p>
     </header>
-    <section className="release-stage" aria-label="Structure board">
-      <SceneBoundary release><Scene cameraMemory={cameraMemory} trueScale={trueScale} showInstability={showInstability} still={skip || settings.reducedMotion} jointLayer={jointLayer} combo={0} deformed={deformed}
-        diagrams={diagrams} reference field={field} scale={scale} loads utilization={false} loadPath={layer === "path" || layer === "combined"} result={result} onMessage={boardMessage} /></SceneBoundary>
+    <section className="release-stage" aria-label="Structure board" data-drawer={inspecting}>
+      <SceneBoundary release><Scene cameraMemory={cameraMemory} trueScale={trueScale} showInstability={modes.instability} still={skip || settings.reducedMotion}
+        jointLayer={jointLayer} combo={0} deformed={modes.deflection === "shape"} shadow={modes.deflection === "shadow"} labels={modes.labels}
+        diagrams={diagrams} reference field={field} scale={scale} loads={modes.reactions} utilization={false} loadPath={modes.loadPath}
+        onToggleLoadPath={toggleLoadPath} result={result} onMessage={boardMessage} /></SceneBoundary>
+      <ViewModesPanel modes={modes} jointsShown={view.jointsShown} open={view.panelOpen} scale={scale}
+        onOpenChange={view.setPanelOpen} onPress={press} dispatch={view.dispatch} />
+      <ViewLegends legends={view.legends} />
       {!turn.finished && <p className="release-status" key={action} role="status">{status}</p>}
       {turn.finished && turn.finalScore && !inspecting && <div className="release-final"><FinalScorePanel score={turn.finalScore} /></div>}
       {!inspecting && <Companion area="board" {...companion} release cue={companionCue} final={turn.finished} skip={skip} />}
@@ -161,13 +162,22 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
           <option value="readable">Readable sections</option><option value="true">True scale</option>
         </select></label>
         <ReleaseInspection game={game} turn={turn} joints={joints} joint={joint} selectJoint={id => { game.setSelected(null); setFocusJoint(id); }}
-          responseOpen={responseOpen} onResponse={() => setResponseOpen(true)} draft={!!draftSize} reading={reading}
-          layer={layer} peakM={field?.peakM} setLayer={setLayer} scale={scale} amplification={amplification} setAmplification={setAmplification} />
+          responseOpen={view.responseOpen} onResponse={view.openResponse} draft={!!draftSize} reading={reading}
+          layer={overlayLayer(view.state)} peakM={field?.peakM} setLayer={layer => view.dispatch({ type: "overlay", layer })} scale={scale}
+          amplification={view.state.amplification} setAmplification={value => view.dispatch({ type: "amplification", value })} />
         {result && <details><summary>Board force diagrams</summary>
-          <label>Shear diagram<select value={shear} onChange={e => setShear(Number(e.target.value) as 0 | 1 | 2)}>
+          <label>Shear diagram<select value={modes.shear ? modes.shearAxis : 0} onChange={e => {
+            const axis = Number(e.target.value);
+            if (axis === 1 || axis === 2) view.dispatch({ type: "shearAxis", axis });
+            else if (modes.shear) press("shear");
+          }}>
             <option value={0}>Off</option><option value={1}>Shear Vy</option><option value={2}>Shear Vz</option>
           </select></label>
-          <label>Bending diagram<select value={moment} onChange={e => setMoment(Number(e.target.value) as 0 | 4 | 5)}>
+          <label>Bending diagram<select value={modes.moment ? modes.momentAxis : 0} onChange={e => {
+            const axis = Number(e.target.value);
+            if (axis === 4 || axis === 5) view.dispatch({ type: "momentAxis", axis });
+            else if (modes.moment) press("moment");
+          }}>
             <option value={0}>Off</option><option value={4}>Moment My</option><option value={5}>Moment Mz</option>
           </select></label>
           {diagrams.map(d => <p key={d.action}>{boardActions[d.action]} · {d.series.length
@@ -175,9 +185,9 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
             : "No verified frame sections"}</p>)}
           {!!diagrams.length && <p>Each peak spans 1.5 m on the board. Positive readings extend toward local +Y for Vy/Mz and +Z for Vz/My. Inspect a member for signed readings.</p>}
         </details>}
-        {result && <label className="release-check"><input type="checkbox" checked={showInstability} onChange={e => setShowInstability(e.target.checked)} />
+        {result && <label className="release-check"><input type="checkbox" checked={modes.instability} onChange={() => press("instability")} />
           Mark witnessed instability</label>}
-        {showInstability && result && <p>{result.combos[0]?.components?.some(c => c.instabilityWitness)
+        {modes.instability && result && <p>{result.combos[0]?.components?.some(c => c.instabilityWitness)
           ? "Dashed rose segments mark the witnessed region." : "No instability witness is available on this board."}</p>}
       </aside>}
       {!skip && <button className="release-skip" onClick={() => setSkip(true)}>Skip effects</button>}

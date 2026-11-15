@@ -1,6 +1,6 @@
 ---
 title: "3D Viewer"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
   - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
@@ -12,6 +12,9 @@ validated_against:
   - apps/web/src/viewer/growthBloom.ts
   - apps/web/src/viewer/dofGizmo.ts
   - apps/web/src/pages/Workspace.tsx
+  - apps/web/src/viewer/viewModes.ts
+  - apps/web/src/viewer/viewPalette.ts
+  - apps/web/src/viewer/displacementShadow.ts
 owner: unknown
 status: partial
 ---
@@ -23,6 +26,8 @@ The [structure library](structure-library.md) adds 20 selectable specimens with 
 The React workspace uses Three.js for a Z-up voxel scene with terrain, orbit and zoom, build planes, member and node picking, and placement. The viewer consumes the Zustand game model; edit validity is checked by game rules. It can show approximate experimental analysis results using deformed positions, member colours, load and reaction arrows, and a force-weighted load-path view. Load paths are illustrative routes derived from the results, not a separate physical analysis. These visualizations inherit the solver's limitations and are not engineering design evidence. The OpenSees stability check appears only as numbers in the analysis panel; the viewer does not yet draw its mechanism shapes or moving nodes.
 
 The scene manages the renderer and lifecycle. Separate modules handle picking, input, mesh construction, result overlays, and particle animation.
+
+The Grow Dusk match adds [view modes and legends](grow-dusk-runtime.md#view-modes-and-legends). Pure modules own the mode state (`viewModes.ts`), legend content (`viewLegends.ts`), display number formatting (`viewFormat.ts`) and the overlay palette and displacement contour (`viewPalette.ts`, `contourRamp.ts`). `displacementShadow.ts` builds the deflected ghost. `SceneView.shadow` and `SceneView.labels` switch it and every scene text label; other workspaces leave both unset and keep their labels.
 
 The full-screen workspace follows the layouts and palettes of Grow, Grow Dusk, Levels, Blocks and Kit from the environment prototype branch. The [unified runtime](unified-runtime.md#environment-mapping) records the mapping and remaining interaction differences. The shared scene renders computed deformation, utilization, load arrows and reaction labels when the current simulation provides those results. Grow Dusk labels applied loads in kN and positions weights above or below joints according to neighboring members. Shared table shows explicit end connections and reads solver positions for loose endpoints. Graph reachability remains available independently of numerical results.
 
@@ -38,7 +43,7 @@ See [animation and sound criteria](animation-criteria.md) for the owner-confirme
 
 ## Joint DOF visualization requirements
 
-Grow Dusk's **Build options → Joint permissions** controls Selected joint / All joints / Off and remembers the mode across reload. It draws an individual compass for each displayed intentional joint, with straight translation marks, rotational arcs, locked stops, free arrowheads and elastic zigzags. A separate striped base identifies ground restraints. The native selector exposes all joint identities, local-frame coordinates and six-axis tables, including world-axis coupling and different attached-end spring stiffnesses. The meanings, physical scope and verification are recorded in [Joint DOF criteria §10](joint-dof-criteria.md#10-open-decisions-and-current-gaps).
+Grow Dusk's **Build options → Joint permissions** controls Selected joint / All joints / Off and remembers the mode across reload. The release board's Joint freedoms view mode sets the same preference. The render loop lays out the glyphs every frame. This call had been lost in a later merge, so All joints drew nothing on the release board until it was restored on 2026-11-15. It draws an individual compass for each displayed intentional joint, with straight translation marks, rotational arcs, locked stops, free arrowheads and elastic zigzags. A separate striped base identifies ground restraints. The native selector exposes all joint identities, local-frame coordinates and six-axis tables, including world-axis coupling and different attached-end spring stiffnesses. The meanings, physical scope and verification are recorded in [Joint DOF criteria §10](joint-dof-criteria.md#10-open-decisions-and-current-gaps).
 
 ## Structural element geometry requirements
 

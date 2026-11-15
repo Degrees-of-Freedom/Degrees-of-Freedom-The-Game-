@@ -29,6 +29,10 @@ export interface SceneView {
   utilization: boolean;
   loads: boolean;
   loadPath: boolean;
+  /** Draw a translucent deflected ghost from `field` while members stay at their reference position. */
+  shadow?: boolean;
+  /** In-scene text labels (load, reaction, force, peak and axis values). Undefined means shown. */
+  labels?: boolean;
   onToggleLoadPath?: () => void;
   onMessage?: (message: string) => void;
 }

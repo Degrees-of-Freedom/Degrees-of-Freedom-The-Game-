@@ -53,6 +53,7 @@ try {
     return canvas.toDataURL("image/png").split(",")[1];
   });
   await writeFile(fileURLToPath(new URL("motion-sheet.png", import.meta.url)), Buffer.from(sheet, "base64"));
+  await sheetPage.close();
 
   const page = await browser.newPage({ viewport: { width: 1366, height: 900 }, reducedMotion: "no-preference" });
   const errors = [];

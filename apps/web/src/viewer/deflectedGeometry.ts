@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { assemblySectionGeometry } from "./assemblyGeometry";
 import { SHAPE_INTERVALS, spanDisplacement, spanPoint, type DeflectedSpan, type DeformationField } from "./deformationField";
+import { displacementColor } from "./contourRamp";
+import { REFERENCE_COLOR } from "./viewPalette";
 import { READABLE_SECTION_SCALE, roundHollowGeometry, wideFlangeGeometry } from "./sectionGeometry";
 
 /** Sweep the existing section along sampled analytical centrelines. The
@@ -20,7 +22,6 @@ export function deflectedFrameGeometry(spans: DeflectedSpan[], scale: number, ra
     const ex = new THREE.Vector3().fromArray(e.R[0]), ey = new THREE.Vector3().fromArray(e.R[1]);
     const ez = new THREE.Vector3().fromArray(e.R[2]);
     const colors = contourPeak === undefined ? null : new Float32Array(position.count * 3);
-    const low = new THREE.Color("#77c9ed"), high = new THREE.Color("#ef5548");
     const stations = Array.from({length: SHAPE_INTERVALS+1}, (_, i) => {
       const t = i / SHAPE_INTERVALS, center = spanPoint(span, t, scale);
       const tangent = spanPoint(span, Math.min(1,t+1e-5), scale)
@@ -30,7 +31,7 @@ export function deflectedFrameGeometry(spans: DeflectedSpan[], scale: number, ra
         .multiply(new THREE.Quaternion().setFromAxisAngle(ex, roll));
       const fraction = contourPeak ? Math.min(1, spanDisplacement(span, t).length() / contourPeak) : 0;
       return { center, y: ey.clone().applyQuaternion(orientation), z: ez.clone().applyQuaternion(orientation),
-        color: low.clone().lerp(high, fraction) };
+        color: displacementColor(fraction) };
     });
     for (let i = 0; i < position.count; i++) {
       const t = Math.max(0, Math.min(1, position.getZ(i)+0.5));
@@ -53,7 +54,7 @@ export function undeformedReference(field: DeformationField) {
   const endpoints: THREE.Vector3[] = [];
   for (const spans of field.spans.values()) for (const span of spans) endpoints.push(span.a, span.b);
   const line = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(endpoints),
-    new THREE.LineDashedMaterial({ color: 0xffefd4, transparent: true, opacity: 0.72, dashSize: 0.22,
+    new THREE.LineDashedMaterial({ color: REFERENCE_COLOR, transparent: true, opacity: 0.72, dashSize: 0.22,
       gapSize: 0.12, depthWrite: false }));
   line.name = "Undeformed reference";
   line.computeLineDistances();

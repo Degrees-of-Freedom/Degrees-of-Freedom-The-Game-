@@ -1,9 +1,10 @@
 import * as THREE from "three";
 import type { JointPermission, JointState } from "./jointPermissions";
 import { disposeGroup } from "./sceneGeometry";
+import { JOINT_AXIS_COLORS } from "./viewPalette";
 
 const axes = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
-const paints = [0xffa48f, 0xa1e797, 0x9ccfff];
+const paints = JOINT_AXIS_COLORS;
 const ivory = 0xffffdb;
 function axisLetter(letter: string) {
   const canvas = document.createElement("canvas");
@@ -24,21 +25,23 @@ type Camera = THREE.PerspectiveCamera | THREE.OrthographicCamera;
 export interface JointLayer {
   joints: JointPermission[];
   selected?: string;
+  /** Axis letters beside the selected glyph. Defaults to shown; the board's label switch hides them. */
+  labels?: boolean;
 }
 
 /** Unit-sized compass. Each curved stroke lies in the plane perpendicular
  * to the rotation axis. Shape and text carry state independently of colour. */
-function compass(joint: JointPermission, selected: boolean) {
+function compass(joint: JointPermission, selected: boolean, labels = true) {
   const marker = new THREE.Group();
   const directions = joint.frame ? joint.frame.map(a => new THREE.Vector3(...a)) : axes;
   const xyz: number[] = [], rgb: number[] = [];
   const color = new THREE.Color();
-  function stroke(a: THREE.Vector3, b: THREE.Vector3, paint: number) {
+  function stroke(a: THREE.Vector3, b: THREE.Vector3, paint: THREE.ColorRepresentation) {
     xyz.push(...a.toArray(), ...b.toArray());
-    color.setHex(paint);
+    color.set(paint);
     rgb.push(color.r, color.g, color.b, color.r, color.g, color.b);
   }
-  function endMark(at: THREE.Vector3, direction: THREE.Vector3, cross: THREE.Vector3, state: JointState, paint: number) {
+  function endMark(at: THREE.Vector3, direction: THREE.Vector3, cross: THREE.Vector3, state: JointState, paint: THREE.ColorRepresentation) {
     const bar = cross.clone().multiplyScalar(.12);
     const base = at.clone().addScaledVector(direction, state === "free" ? -.18 : 0);
     stroke(base.clone().add(bar), at, paint);
@@ -47,7 +50,7 @@ function compass(joint: JointPermission, selected: boolean) {
   for (const [i, axis] of directions.entries()) {
     const u = directions[(i + 1) % 3], v = directions[(i + 2) % 3];
     const paint = paints[i], translate = joint.components[i], rotate = joint.components[i + 3];
-    if (selected) {
+    if (selected && labels) {
       const letter = axisLetter(["X", "Y", "Z"][i] + (joint.global?.includes("coupled") ? "′" : ""));
       marker.add(letter);
       letter.position.copy(axis).multiplyScalar(1.14);
@@ -118,7 +121,7 @@ export function createJointGlyphs(scene: THREE.Scene) {
       dirty = true;
       for (const joint of layer?.joints ?? []) {
         const selected = joint.id === layer?.selected;
-        const { marker, backing } = compass(joint, selected);
+        const { marker, backing } = compass(joint, selected, layer?.labels ?? true);
         const line = new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute([0,0,0,0,0,0], 3));
         const leader = new THREE.LineSegments(line, new THREE.LineBasicMaterial({ color: ivory, transparent: true, opacity: .75, toneMapped: false }));
         leader.frustumCulled = false;

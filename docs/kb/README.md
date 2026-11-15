@@ -37,6 +37,8 @@ The secondary workspaces retain their playable presets, editor and earlier envir
 
 ## Pages
 
+The app's `/wiki` companion offers six introductory lessons, a searchable glossary and exercises linking to the existing workspace. Its frame graphic is illustrative, not solver output. The wiki is an introductory foundation rather than an exhaustive engineering reference; see [Rust solver](rust-solver.md), [structural solver](structural-solver.md), and [unified runtime](unified-runtime.md) for implementation and limitations.
+
 | Page | Use this when |
 | --- | --- |
 | [criteria-ledger.md](criteria-ledger.md) | Checking the audited game criteria, implementation assignments, accepted playtest decisions and release evidence. |
@@ -63,6 +65,7 @@ The secondary workspaces retain their playable presets, editor and earlier envir
 | [multiplayer-criteria.md](multiplayer-criteria.md) | Specifying first-release local hot-seat, private handoff, information visibility and future authority boundaries. |
 | [saved-match-criteria.md](saved-match-criteria.md) | Saving/recovering complete matches, atomic commits, replay, migration and private exports. |
 | [release-acceptance-criteria.md](release-acceptance-criteria.md) | Validating a complete playable match with evidence, numerical/performance gates and supported scope. |
+| [ai-turn-lab.md](ai-turn-lab.md) | Running and understanding the experimental trainable turn agents. |
 | [game-dynamics.md](game-dynamics.md) | Working on game state, turns, rules, or modes. |
 | [avatar-criteria.md](avatar-criteria.md) | Defining Timburr’s personality, compact presence, reactions, Conkeldurr transformation, model sources and deferred implementation handoff. |
 | [animation-criteria.md](animation-criteria.md) | Defining all-action animation and sound requirements, optional structural glow/pulse, accessibility, timing and acceptance scenarios. |
@@ -118,3 +121,4 @@ They freeze `grow-dusk-release-1`: two players/eight rounds, finite authored dec
 ## Complete-release implementation prompt
 
 [Complete Grow Dusk release implementation prompt](../implementation-prompts/complete-grow-dusk-release.md) provides the implementation handoff for the frozen release decisions: criteria precedence, coordinated agents, integrated milestones, minimal UI, numerical verification, full-game tests and final review. It is an execution prompt, not evidence of completed implementation.
+
