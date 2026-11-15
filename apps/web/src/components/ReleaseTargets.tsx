@@ -33,11 +33,16 @@ function ElementCoordinates({ turn, stage }: { turn: TurnState; stage(a: string,
 }
 
 /** Selects the same physical identities as scene picking, including coincident loose ends. */
-export function ReleaseTargets({ game, card, notify }: { game: Game; card: TurnCard; notify(message: string): void }) {
+export function ReleaseTargets({ game, card, notify, onRejected }: {
+  game: Game; card: TurnCard; notify(message: string): void;
+  /** Called when the store rejects a placement (it returned an explanation). */
+  onRejected?(): void;
+}) {
   const [choice, setChoice] = useState("");
+  const report = (error: string | null, staged: string) => { notify(error ?? staged); if (error) onRejected?.(); };
   const turn = game.turn!;
   if (card.kind === "element") return <ElementCoordinates turn={turn}
-    stage={(a, b) => notify(game.playElement(card.id, a, b) ?? "Element staged.")} />;
+    stage={(a, b) => report(game.playElement(card.id, a, b), "Element staged.")} />;
   if (card.kind === "load") {
     const targets = loadTargets(turn);
     if (!targets.length) return <span>Place a member above ground to give this load a target.</span>;
@@ -46,7 +51,7 @@ export function ReleaseTargets({ game, card, notify }: { game: Game; card: TurnC
       <label>Load target<select value={id} onChange={event => setChoice(event.target.value)}>
         {targets.map(target => <option key={target.id} value={target.id}>{target.label}</option>)}
       </select></label>
-      <button onClick={() => notify(game.playLoad(card.id, id) ?? "Load staged.")}>Place load</button>
+      <button onClick={() => report(game.playLoad(card.id, id), "Load staged.")}>Place load</button>
     </div>;
   }
   const profiles = connectionChoices(card);
@@ -63,7 +68,7 @@ export function ReleaseTargets({ game, card, notify }: { game: Game; card: TurnC
       <label>Connection target<select value={key(target)} onChange={event => setChoice(event.target.value)}>
         {targets.map(item => <option key={key(item)} value={key(item)}>Member {item.memberId} · end {item.end.toUpperCase()} · {item.key}</option>)}
       </select></label>
-      <button onClick={() => notify(game.playConnection(card.id, target.memberId, target.end, target.key, profile) ?? "Connection staged.")}>Attach end</button>
+      <button onClick={() => report(game.playConnection(card.id, target.memberId, target.end, target.key, profile), "Connection staged.")}>Attach end</button>
     </> : profile && <span>No compatible loose end. Place a member or choose another card.</span>}
   </div>;
 }

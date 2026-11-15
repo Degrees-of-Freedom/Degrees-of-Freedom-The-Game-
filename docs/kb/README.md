@@ -93,7 +93,7 @@ The [completion decision register](game-completion-criteria.md#2-owner-confirmed
 
 ## Avatar and preserved prototype
 
-[Timburr avatar criteria](avatar-criteria.md) describe the compact companion and reactions. The active Grow Dusk playtest uses the two original attributed models preserved in the [prototype handoff](../../prototypes/timburr-companion/README.md), including a deliberately activated Conkeldurr preview and static portrait fallback. The models have no embedded animation clips. See [presentation acceptance](criteria-ledger.md#viewer-controls-and-presentation) for verified controls and remaining reactions.
+[Timburr avatar criteria](avatar-criteria.md) describe the compact companion and reactions. The active Grow Dusk playtest uses the two original attributed models preserved in the [prototype handoff](../../prototypes/timburr-companion/README.md), including a deliberately activated Conkeldurr preview and static portrait fallback. The models have no embedded animation clips; Timburr instead plays short procedural whole-figure clips chosen by public scenario, documented under [scenario motion](avatar-criteria.md#scenario-motion-implemented-2026-11-15). See [presentation acceptance](criteria-ledger.md#viewer-controls-and-presentation) for verified controls and remaining reactions.
 
 ## Joint freedoms and graphical representation
 

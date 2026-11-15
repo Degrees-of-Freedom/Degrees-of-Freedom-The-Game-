@@ -12,6 +12,8 @@ import { useBoardView, ViewLegends, ViewModesPanel } from "./viewModes";
 import { FinalScorePanel } from "./FinalScorePanel";
 import { ESCAPE_OWNER } from "./PauseMenu";
 import { Companion, type CompanionProps } from "../companion/Companion";
+import type { CompanionCue, CompanionCueEvent } from "../companion/motion";
+import { sightTurn, turnTransitionCue, type TurnSighting } from "../companion/turnCues";
 import { jointAtSceneSelection, sharedJointPermissions } from "../viewer/jointPermissions";
 import type { CameraMemory } from "../viewer/sceneView";
 import "./releaseBoard.css";
@@ -21,9 +23,12 @@ const order = { element: 0, connection: 1, load: 2 };
 const symbols = { element: "Ι", connection: "⊕", load: "↓" };
 const kinds = { element: "Element", connection: "Connection", load: "Gravity" };
 const seat = (id: string) => id.replace("player-", "Player ");
+/** Last public turn the board showed in this page session (cosmetic only). */
+let lastSighting: TurnSighting | null = null;
 
-function Hand({ game, turn, choose, notify, onEnd }: {
+function Hand({ game, turn, choose, notify, onEnd, react }: {
   game: Game; turn: TurnState; choose(card: TurnCard): void; notify(message: string): void; onEnd(): void;
+  react(cue: CompanionCue): void;
 }) {
   const hand = activeTurnHand(turn).sort((a, b) => order[a.kind] - order[b.kind]);
   const selected = hand.find(c => c.id === game.selectedCardId);
@@ -35,8 +40,8 @@ function Hand({ game, turn, choose, notify, onEnd }: {
       <span className="release-prompt">{selected.kind === "element"
         ? game.chainStart ? "Choose the end point." : "Choose the start point."
         : selected.kind === "connection" ? "Attach a loose end." : "Choose a load target."}</span>
-      <ReleaseTargets key={selected.id} card={selected} game={game} notify={notify} />
-      <button className="release-back" aria-label="Cancel targeting" onClick={() => game.selectCard(null)}>×</button>
+      <ReleaseTargets key={selected.id} card={selected} game={game} notify={notify} onRejected={() => react({ kind: "invalid" })} />
+      <button className="release-back" aria-label="Cancel targeting" onClick={() => { game.selectCard(null); react({ kind: "cancel" }); }}>×</button>
     </div>}
     <div className="release-handline">
       <div className="release-cards" aria-label="Cards">
@@ -47,7 +52,7 @@ function Hand({ game, turn, choose, notify, onEnd }: {
         </button>)}
       </div>
       <div className="release-turn-actions">
-        {staged && <button onClick={() => notify(game.cancelDraft() ?? "Draft cancelled.")}>Cancel draft</button>}
+        {staged && <button onClick={() => { notify(game.cancelDraft() ?? "Draft cancelled."); react({ kind: "cancel" }); }}>Cancel draft</button>}
         <button className="release-end" onClick={onEnd} onKeyDown={e => { if (e.repeat) e.preventDefault(); }}>{staged ? "End turn" : "Pass"}</button>
       </div>
     </div>
@@ -63,21 +68,34 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   const [trueScale, setTrueScale] = useState(false);
   const [focusJoint, setFocusJoint] = useState<string>();
   const [skip, setSkip] = useState(false);
+  // `action` re-keys the status line; `companionCue` drives Timburr's scenario motion.
   const [action, setAction] = useState(0);
+  const [companionCue, setCompanionCue] = useState<CompanionCueEvent>();
+  const react = useCallback((next: CompanionCue) => setCompanionCue(previous => ({ ...next, id: (previous?.id ?? 0) + 1 })), []);
   const settings = useSettings();
   const heading = useRef<HTMLHeadingElement>(null);
   const inspectButton = useRef<HTMLButtonElement>(null);
   const picked = game.selected;
   const draftSize = turn.draft.members.length + turn.draft.connections.length + turn.draft.loads.length;
-  const prior = useRef({ draftSize, connections: turn.draft.connections.length });
+  const counts = { members: turn.draft.members.length, connections: turn.draft.connections.length, loads: turn.draft.loads.length };
+  const prior = useRef({ draftSize, ...counts });
   useEffect(() => {
     if (draftSize > prior.current.draftSize) {
-      cue(turn.draft.connections.length > prior.current.connections ? "attach" : "place");
+      const attached = counts.connections > prior.current.connections;
+      cue(attached ? "attach" : "place");
+      react({ kind: attached ? "attach" : counts.loads > prior.current.loads ? "stage-load" : "stage-member" });
       setAction(n => n + 1);
       notify("Placement staged.");
     }
-    prior.current = { draftSize, connections: turn.draft.connections.length };
-  }, [draftSize, turn.draft.connections.length, cue, notify]);
+    prior.current = { draftSize, ...counts };
+  }, [draftSize, counts.members, counts.connections, counts.loads, cue, notify, react]);
+  // Public turn transitions. The board unmounts behind the private handoff
+  // cover, so the last sighting lives at module scope for this page session.
+  useEffect(() => {
+    const next = turnTransitionCue(lastSighting, turn);
+    lastSighting = sightTurn(turn);
+    if (next) react(next);
+  }, [turn, turn.turn, turn.reports, turn.finished, react]);
   useEffect(() => { if (picked) setInspecting(true); }, [picked]);
   useEffect(() => { if (inspecting) heading.current?.focus({ preventScroll: true }); }, [inspecting]);
   useEffect(() => {
@@ -104,9 +122,12 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   const report = turn.reports.at(-1);
   const status = message || (report ? `Turn ${report.turn} · ${report.status}${report.penalty ? " · −1 point" : ""}`
     : "Select a card to build, or pass.");
+  // Board picking reports a rejected target as a non-empty message while a card is armed.
+  const boardMessage = (text: string) => { notify(text); if (text && game.selectedCardId) react({ kind: "invalid" }); };
   const choose = (card: TurnCard) => {
     setInspecting(false); game.setSelected(null); game.selectCard(game.selectedCardId === card.id ? null : card.id);
     cue("select"); setAction(n => n + 1); notify("");
+    react(game.selectedCardId === card.id ? { kind: "cancel" } : { kind: "select", family: card.kind });
   };
   return <main className="release-board" data-style="grow-dusk" data-still={settings.reducedMotion || skip}
     data-glow={settings.glow} aria-label="Grow Dusk">
@@ -126,13 +147,13 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
       <SceneBoundary release><Scene cameraMemory={cameraMemory} trueScale={trueScale} showInstability={modes.instability} still={skip || settings.reducedMotion}
         jointLayer={jointLayer} combo={0} deformed={modes.deflection === "shape"} shadow={modes.deflection === "shadow"} labels={modes.labels}
         diagrams={diagrams} reference field={field} scale={scale} loads={modes.reactions} utilization={false} loadPath={modes.loadPath}
-        onToggleLoadPath={toggleLoadPath} result={result} onMessage={notify} /></SceneBoundary>
+        onToggleLoadPath={toggleLoadPath} result={result} onMessage={boardMessage} /></SceneBoundary>
       <ViewModesPanel modes={modes} jointsShown={view.jointsShown} open={view.panelOpen} scale={scale}
         onOpenChange={view.setPanelOpen} onPress={press} dispatch={view.dispatch} />
       <ViewLegends legends={view.legends} />
       {!turn.finished && <p className="release-status" key={action} role="status">{status}</p>}
       {turn.finished && turn.finalScore && !inspecting && <div className="release-final"><FinalScorePanel score={turn.finalScore} /></div>}
-      {!inspecting && <Companion area="board" {...companion} release action={action} final={turn.finished} skip={skip} />}
+      {!inspecting && <Companion area="board" {...companion} release cue={companionCue} final={turn.finished} skip={skip} />}
       {inspecting && <aside className="release-drawer" aria-label="Inspect structure">
         <header><h2 ref={heading} tabIndex={-1}>Inspect structure</h2><button aria-label="Close inspection" onClick={() => {
           setInspecting(false); game.setSelected(null); inspectButton.current?.focus();
@@ -171,7 +192,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
       </aside>}
       {!skip && <button className="release-skip" onClick={() => setSkip(true)}>Skip effects</button>}
     </section>
-    {!turn.finished && <Hand game={game} turn={turn} choose={choose} notify={notify} onEnd={onEnd} />}
+    {!turn.finished && <Hand game={game} turn={turn} choose={choose} notify={notify} onEnd={onEnd} react={react} />}
     {menu}
   </main>;
 }
