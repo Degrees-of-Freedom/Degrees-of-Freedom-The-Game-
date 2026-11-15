@@ -1,3 +1,5 @@
+import type { AssemblyId } from "./assembly";
+
 export type MemberType = "shs" | "glulam" | "ipe" | "heb" | "cable";
 export type NodeItem = "joint" | "found" | "load";
 export type Tool =
@@ -27,7 +29,7 @@ export interface Member {
   b: string;
   type: MemberType;
   /** Printed built-up member. Its section type applies to its actual chords and webs. */
-  assembly?: "planar-welded-1";
+  assembly?: AssemblyId;
 }
 export interface NodeAttributes {
   found?: boolean;

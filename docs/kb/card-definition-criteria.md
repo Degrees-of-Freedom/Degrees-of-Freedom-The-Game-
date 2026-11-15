@@ -22,7 +22,7 @@ Separate a versioned card definition from its unique dealt instance, the physica
 
 ## 2. Minimum definition contract
 
-In the current playtest, every printing has a definition ID and version, and every dealt card has a separate instance ID. New Shared tables use the four implemented frame families with card-gravity verification. Presetless version-one saves replay their historical five-family deck, including experimental cables. The frame sections retain the existing voxel properties and expose SI physical definitions and nominal geometry. The provisional CHS, helical spring, planar and trichord definitions in `game/cardCatalogue.ts` await family-specific verification. See the [criteria ledger](criteria-ledger.md).
+In the current playtest, every printing has a definition ID and version, and every dealt card has a separate instance ID. New Shared tables default to four implemented frame families with card-gravity verification. The optional planar and triangular truss catalogues add the verified printings described below. Presetless version-one saves replay their historical five-family deck, including experimental cables. The frame sections retain the existing voxel properties and expose SI physical definitions and nominal geometry. Candidate definitions in `game/cardCatalogue.ts` retain their separate authoring IDs. See the [criteria ledger](criteria-ledger.md).
 
 | Record | Required authored data |
 | --- | --- |
@@ -79,6 +79,14 @@ The printing has two SHS 100×6 chords separated by 0.5 m, five welded transvers
 The small-displacement verification checks use the full placed chord length for the conservative out-of-plane compression screen. Failed physical or numerical checks leave the component's response unverified. The [independent OpenSeesPy reference](../evidence/planar/reference.py) uses a 4 m cantilever with a 1 kN point force at each port, separately in and out of plane. The browser response, signed foundation force/moment, total physical weight, clash opening, end connections and replay are exercised by [the regression cases](../../apps/web/src/game/planar.test.ts). [Normal setup and real pointer walkthrough](../evidence/planar/check.mjs).
 
 The optional `shared-table-planar-1` deck retains the frame preset as a separate choice. Its `planar-welded-1` card uses the scored SHS material, a 0.5 m truss depth, four panels and welded posts for out-of-plane resistance. The earlier pin-post candidate did not supply that restraint. The two chords, five posts, four diagonals and two terminal pieces form one placed parent with a stable identity, including under replay. See [card and placement evidence](criteria-ledger.md#cards-placement-match-and-recovery).
+
+### Four-panel triangular playtest printing
+
+The optional `shared-table-trusses-1` catalogue adds `trichord-ring-1` alongside the planar printing. Its three SHS 100×6 chords follow the edges of a 0.5 m equilateral triangular prism. Five welded triangular rings span the section, with a pin-ended diagonal on each face of each panel. Two short terminal stubs on the first chord provide the external tip connectors. Only its first chord exposes the 25%, 50% and 75% ring joints for other cards. A player spends one element and a separate connector for each attached end. The same 41 physical pieces define rendering, solid interference, stiffness, self-weight and member capacity. Each piece and attachment retains its parent identity on replay.
+
+The linear verification uses the planar printing's section, factory-weld and diagonal-pin capacities, full-span chord slenderness screen and small-motion limits. The independent 4 m cantilever reference exercises lateral and vertical loads at all three joints and a pure 500 Nm torque at midspan. The regression checks compare signed reactions, point motion and twist, including a rotated, reordered assembly. [OpenSeesPy reference](../evidence/trichord/reference.py) · [regression cases](../../apps/web/src/game/trichord.test.ts).
+
+The Grow Dusk walkthrough deals the triangular printing in normal Shared table setup, selects each physical quarter joint in 3D, attaches a branch at midspan and reloads the committed 5 kN load. Matched seed/camera captures show the earlier planar deck and the new triangular deck. [Before](../evidence/trichord/before-board.png) · [after](../evidence/trichord/after-board.png) · [repeatable walkthrough](../evidence/planar/check.mjs).
 
 ## 6. System repair definitions are not player cards
 

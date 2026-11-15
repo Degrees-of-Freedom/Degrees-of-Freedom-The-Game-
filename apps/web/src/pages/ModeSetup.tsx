@@ -9,7 +9,7 @@ import type { LevelId } from "../game/model";
 import { savedLevel } from "../game/persistence";
 import { useGameStore } from "../game/store";
 import { KIT_PLAYTEST } from "../game/turns";
-import { PLANAR_CATALOGUE, SCORED_CATALOGUE } from "../game/cardCatalogue";
+import { isScoredCatalogue, PLANAR_CATALOGUE, SCORED_CATALOGUE, TRUSS_CATALOGUE, type ScoredCatalogue } from "../game/cardCatalogue";
 import { PLAYTEST_SETTINGS, TURN_RULES, TURN_RULES_NOTES } from "../menu/turnRules";
 import { hasSavedProgress } from "../menu/saved";
 import { runStart, type StartChoice } from "../menu/startPlan";
@@ -91,7 +91,7 @@ function Setup({ id }: { id: GameMode }) {
     return CHALLENGE_LEVELS.some(([key]) => key === start) ? start : "tower1";
   });
   const [pick, setPick] = useState<string | null>(null);
-  const [catalogue, setCatalogue] = useState<typeof PLANAR_CATALOGUE | typeof SCORED_CATALOGUE>(SCORED_CATALOGUE);
+  const [catalogue, setCatalogue] = useState<ScoredCatalogue>(SCORED_CATALOGUE);
   const [error, setError] = useState<string | null>(null);
   const saved = useMemo(() => hasSavedProgress(id, levelId), [id, levelId]);
   const turn = initial.turn;
@@ -279,9 +279,10 @@ function Setup({ id }: { id: GameMode }) {
               <dd>{KIT_PLAYTEST.rounds}</dd>
             </dl>
             {(!turn || begin === "new") && <label>Physical catalogue
-              <select value={catalogue} onChange={e => setCatalogue(e.target.value === PLANAR_CATALOGUE ? PLANAR_CATALOGUE : SCORED_CATALOGUE)}>
+              <select value={catalogue} onChange={e => { if (isScoredCatalogue(e.target.value)) setCatalogue(e.target.value); }}>
                 <option value={SCORED_CATALOGUE}>Frame members</option>
                 <option value={PLANAR_CATALOGUE}>Frame members and planar trusses</option>
+                <option value={TRUSS_CATALOGUE}>Frame members, planar and trichord trusses</option>
               </select>
             </label>}
             <p className="quiet">

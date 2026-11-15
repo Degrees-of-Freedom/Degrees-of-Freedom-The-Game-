@@ -1,4 +1,5 @@
 import { useGameStore } from "../../game/store";
+import { TRICHORD } from "../../game/assembly";
 import {
   parseNodeKey,
   type MemberType,
@@ -542,7 +543,7 @@ export function EnvironmentInspector({ onMessage }: Pick<Props, "onMessage">) {
               Member <span>{member.id}</span>
             </div>
             <div className="dc-sub">
-              {member.assembly ? "Four-panel planar truss" : ITEMS[member.type].label} · [{member.a}] → [{member.b}]
+              {member.assembly === TRICHORD.id ? "Four-panel trichord truss" : member.assembly ? "Four-panel planar truss" : ITEMS[member.type].label} · [{member.a}] → [{member.b}]
             </div>
           </div>
           <button

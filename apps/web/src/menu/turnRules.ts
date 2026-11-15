@@ -24,7 +24,7 @@ export const PLAYTEST_SETTINGS = [
   "Each player starts with one foundation and a connected column.",
   "Unplayed cards stay in hand.",
   "Connection cards are fixed or ball.",
-  "The frame deck deals SHS, glulam, IPE and HEB members. The planar-truss catalogue also deals four-panel assemblies. Each assembly uses one element play and requires a connector at each attached end.",
+  "The frame deck deals SHS, glulam, IPE and HEB members. Additional catalogues deal four-panel planar or triangular trusses. Each assembly uses one element play and requires a connector at each attached end.",
 ];
 
 /** Scored-play feedback shown beside the rules and settings. */

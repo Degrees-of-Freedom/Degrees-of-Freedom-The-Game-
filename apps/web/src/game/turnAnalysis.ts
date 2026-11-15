@@ -54,7 +54,7 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
         endA: part.a.station === 0 ? start.profile : part.pinned ? 'ball' : 'fixed',
         endB: part.b.station === 1 ? finish.profile : part.pinned ? 'ball' : 'fixed',
         parentSpan: {memberId: id, fromQuarter: part.a.station*4, toQuarter: part.b.station*4, assemblyPart: part.name,
-          ...((part.name.startsWith('lower-') || part.name.startsWith('upper-')) && {unbracedLengthM: chordLength})},
+          ...(part.chord && {unbracedLengthM: chordLength})},
       }));
     }
     const ports = originalPorts(member).filter(port => port.available && attrs[port.id]);

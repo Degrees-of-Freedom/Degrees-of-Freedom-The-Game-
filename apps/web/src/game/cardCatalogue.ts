@@ -1,7 +1,7 @@
 import { CONNECTION_PROFILES } from './jointFreedom';
 import type { MemberType } from './model';
 import { ITEMS, S, SECTION_GEOMETRY } from '../solver/voxelSections';
-import { PLANAR } from './assembly';
+import { PLANAR, TRICHORD, type AssemblyId } from './assembly';
 
 /** Changing printed rules or mechanics requires a new version and replay path.
  * An instance ID names one physical card. Its definition ID is shared by all
@@ -10,15 +10,18 @@ export const CARD_DEFINITION_VERSION = 'playtest-1' as const;
 export const LEGACY_CATALOGUE = 'shared-table-legacy-1' as const;
 export const SCORED_CATALOGUE = 'shared-table-frame-1' as const;
 export const PLANAR_CATALOGUE = 'shared-table-planar-1' as const;
-export type CatalogueId = typeof LEGACY_CATALOGUE | typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE;
-export function isScoredCatalogue(catalogue: unknown): catalogue is typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE {
-  return catalogue === SCORED_CATALOGUE || catalogue === PLANAR_CATALOGUE;
+export const TRUSS_CATALOGUE = 'shared-table-trusses-1' as const;
+export type ScoredCatalogue = typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE | typeof TRUSS_CATALOGUE;
+export type CatalogueId = typeof LEGACY_CATALOGUE | ScoredCatalogue;
+export function isScoredCatalogue(catalogue: unknown): catalogue is ScoredCatalogue {
+  return catalogue === SCORED_CATALOGUE || catalogue === PLANAR_CATALOGUE || catalogue === TRUSS_CATALOGUE;
 }
 
 const legacyTypes = ['shs', 'glulam', 'ipe', 'heb', 'cable'] as const;
 const scoredTypes = ['shs', 'glulam', 'ipe', 'heb'] as const;
 
-export function memberDeckTypes(catalogue: CatalogueId): readonly (MemberType | typeof PLANAR.id)[] {
+export function memberDeckTypes(catalogue: CatalogueId): readonly (MemberType | AssemblyId)[] {
+  if (catalogue === TRUSS_CATALOGUE) return [...scoredTypes, PLANAR.id, TRICHORD.id];
   if (catalogue === PLANAR_CATALOGUE) return [...scoredTypes, PLANAR.id];
   return catalogue === SCORED_CATALOGUE ? scoredTypes : legacyTypes;
 }
@@ -30,7 +33,7 @@ interface Printing {
 }
 
 export type CardDefinition =
-  | Printing & { kind: 'element'; type: MemberType; assembly?: typeof PLANAR.id; maxSteps: number }
+  | Printing & { kind: 'element'; type: MemberType; assembly?: AssemblyId; maxSteps: number }
   | Printing & { kind: 'load'; magnitude: number }
   | Printing & { kind: 'connection'; profile: keyof typeof CONNECTION_PROFILES };
 
@@ -44,10 +47,12 @@ for (const type of legacyTypes) {
   }
 }
 export const GRAVITY_CARDS_KN = [5, 10, 20, 50] as const;
-for (const maxSteps of [1, 2, 3, 4]) printings.push({
-  definitionId: 'element/' + PLANAR.id + '/axis-' + maxSteps, definitionVersion: CARD_DEFINITION_VERSION,
-  kind: 'element', type: 'shs', assembly: PLANAR.id, maxSteps, label: 'Planar truss · ≤' + maxSteps + ' cells/axis',
-});
+for (const [assembly, name] of [[PLANAR.id, 'Planar truss'], [TRICHORD.id, 'Trichord truss']] as const) {
+  for (const maxSteps of [1, 2, 3, 4]) printings.push({
+    definitionId: 'element/' + assembly + '/axis-' + maxSteps, definitionVersion: CARD_DEFINITION_VERSION,
+    kind: 'element', type: 'shs', assembly, maxSteps, label: name + ' · ≤' + maxSteps + ' cells/axis',
+  });
+}
 for (const magnitude of GRAVITY_CARDS_KN) {
   printings.push({
     definitionId: `gravity/${magnitude}kN`, definitionVersion: CARD_DEFINITION_VERSION,
@@ -74,10 +79,10 @@ export function resolveCardDefinition(definitionId: string, version: string): Re
 export function printedCards(index: number, catalogue: CatalogueId) {
   const types = memberDeckTypes(catalogue);
   const type = types[index % types.length];
-  // Shift the reach once per four-card block in the scored deck so each of
-  // its four families is dealt at all four printed reaches. Legacy shuffling
-  // retains the original five-family pattern and all its instance identities.
-  const reachIndex = catalogue === SCORED_CATALOGUE ? index + Math.floor(index / types.length) : index;
+  // Even-sized catalogues shift the reach after each pass through the families
+  // so each family can draw all four reaches. Five-family deals already cycle.
+  const rotateReach = catalogue === SCORED_CATALOGUE || catalogue === TRUSS_CATALOGUE;
+  const reachIndex = rotateReach ? index + Math.floor(index / types.length) : index;
   const maxSteps = 1 + reachIndex % 4;
   const load = GRAVITY_CARDS_KN[index % GRAVITY_CARDS_KN.length];
   const profile = index % 2 === 0 ? 'fixed' : 'ball';
@@ -101,6 +106,7 @@ export function describePrinting(card: CardDefinition): string {
   }
   const section = ITEMS[card.type];
   const reach = `Up to ${card.maxSteps * S} m on each grid axis, including diagonals.`;
+  if (card.assembly === TRICHORD.id) return 'Four-panel trichord truss · three SHS 100×6 chords on a 500 mm equilateral triangle. Welded rings and pin-ended diagonals brace all three faces. External tips and 25%, 50% and 75% branch joints lie on the first chord. ' + reach;
   if (card.assembly === PLANAR.id) return 'Four-panel planar truss · 500 mm deep · two continuous SHS 100×6 chords, welded posts and pin-ended alternating diagonals. External connectors fit the lower chord tips. Branch ports lie on its 25%, 50% and 75% joints. ' + reach;
   if (section.kind === 'cable') {
     return `${section.label} · E ${section.E / 1e6} GPa · area ${section.A * 1e6} mm². Reference tension ${section.P0} kN. Experimental two-end cable. ${reach}`;
@@ -143,6 +149,6 @@ export const physicalCatalogue = {
   version: CARD_DEFINITION_VERSION,
   source: 'Existing voxel playtest properties, with provisional nominal section details; SI geometry, right-handed global Z up.',
   geometry: SECTION_GEOMETRY,
-  assemblies: { [PLANAR.id]: PLANAR },
+  assemblies: { [PLANAR.id]: PLANAR, [TRICHORD.id]: TRICHORD },
   candidates: CANDIDATE_FAMILIES,
 } as const;
