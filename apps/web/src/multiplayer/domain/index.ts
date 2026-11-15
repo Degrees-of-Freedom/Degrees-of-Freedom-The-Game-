@@ -2,6 +2,8 @@ import { z } from "zod";
 import { configuration, id, play, port, sourceOf, sources, type Configuration, type Play, type Source } from "./catalogue";
 import { applyPlay, position, requireRule, setup, type OriginalModel, type Origin } from "./geometry";
 export * from "./catalogue";
+export { inspectPort } from "./ports";
+export { loadTargets } from "./loadTargets";
 export { position, type OriginalModel, type Origin } from "./geometry";
 
 const correction = z.strictObject({
@@ -124,7 +126,8 @@ function transition(s:MatchState,c:Configuration,cmd:Command):DomainEvent {
         position(s.original,record.at);
         const responsible=s.history[record.turn-1];
         const span=s.original.spans.find(s=>s.id===record.at.memberId)!;
-        requireRule(span.setup || s.original.plays.some(p=>p.play.cardId===span.id && p.turn<=record.turn),
+        requireRule(!span.setup, "Setup restraints are locked");
+        requireRule(s.original.plays.some(p=>p.play.cardId===span.id && p.turn<=record.turn),
           "Correction target did not exist on originating turn");
         s.corrections.push({...record,actor:responsible.actor,modelRevision:responsible.modelRevision,
           checkpointId:a.checkpointId,requestId:a.requestId,rules:a.rules,solver:a.solver});

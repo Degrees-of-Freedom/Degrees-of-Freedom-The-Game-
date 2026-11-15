@@ -10,8 +10,12 @@ export function DraftControls({ view, selectedCardId, dispatch, onClose }: {
   const [error,setError]=useState("");
   const [choice,setChoice]=useState("");
   const load=view.hand.find(c=>c.id===selectedCardId && c.kind==="load");
-  const targets=load ? loadTargets(view.original,view.drafts) : [];
-  const selected=targets.find(t=>JSON.stringify(t.at)===choice) ?? targets[0];
+  const targets=load && view.phase==="play" ? loadTargets(view.original,view.drafts) : [];
+  const staged=view.drafts.find(p=>p.kind==="load" && p.cardId===load?.id);
+  const current=choice || (staged?.kind==="load" ? JSON.stringify(staged.at) : "");
+  const selected=targets.find(t=>JSON.stringify(t.at)===current)
+    ?? targets.find(t=>t.at.memberId==="column/"+view.actor && t.at.quarter===4)
+    ?? targets[0];
   return <section aria-label="Draft controls">
     <button type="button" onClick={onClose}>Close draft</button>
     {load && selected && <>

@@ -1,17 +1,9 @@
 import { describe,it,expect } from "vitest";
-import {createMultiplayerDomain,restoreMultiplayerDomain, type Configuration,type MultiplayerDomain,type Action,
+import {createMultiplayerDomain,restoreMultiplayerDomain, inspectPort, springStiffnessNPerM, type MultiplayerDomain,type Action,
   type Source, members, metresPerUnit,position} from "./index";
 import {loadTargets} from "./loadTargets";
 
-function fixture():Configuration {
-  return {matchId:"test",height:12,rounds:3,k0NPerM:null,
-    players:[{id:"A",x:0,y:0},{id:"B",x:15,y:15}],
-    cards:Array.from({length:32},(_,i)=>[
-      {kind:"connection" as const,id:"c"+i,count:([1,2,3] as const)[i%3]},
-      ...(i===0 ? [{kind:"member" as const,id:"m",variant:"standard" as const,maxLength:5 as const}] : []),
-      {kind:"load" as const,id:"l"+i,downwardN:1},
-    ]).flat()};
-}
+import {multiplayerFixture as fixture} from "./fixtures";
 function envelope(d:MultiplayerDomain,action:Action) {
   const {matchId,actor,turn,modelRevision,sequence}=d.getSnapshot();
   return {version:1 as const,matchId,actor,turn,modelRevision,sequence:sequence+1,action};
@@ -64,7 +56,9 @@ describe("private multiplayer authority",()=>{
     send(d,{type:"commit"}); expect(d.getSnapshot().history[0].plays).toEqual([]);
   });
   it("retains hands over passes and closes, replays partial draws, consumes each staged card once",()=>{
-    let d=createMultiplayerDomain(fixture());draw(d,elements);send(d,{type:"commit"});
+    let d=createMultiplayerDomain(fixture());draw(d,elements);
+    send(d,{type:"stage",play:{kind:"member",cardId:"m",a:at,b:[1,1,1]}});
+    send(d,{type:"commit"});
     draw(d,elements);send(d,{type:"commit"});draw(d,elements.slice(0,2));
     d=restoreMultiplayerDomain(d.serialize());for(const source of elements.slice(2)) send(d,{type:"draw",source});
     const held=d.getPlayerView("A").hand.filter(c=>c.kind==="load");
@@ -75,12 +69,13 @@ describe("private multiplayer authority",()=>{
     send(d,{type:"cancel",cardId:held[0].id});
     const cmd=envelope(d,{type:"commit"});d.dispatch(cmd);expect(()=>d.dispatch(cmd)).toThrow();
     const s=d.getSnapshot();expect(s.phase).toBe("checkpoint");expect(s.pendingTurns).toEqual([1,2,3]);
-    expect(s.original.plays.length).toBe(6);expect(s.hands[0].cards).toHaveLength(2);
+    expect(s.original.plays.length).toBe(7);expect(s.hands[0].cards).toHaveLength(1);
     expect(restoreMultiplayerDomain(d.serialize()).getSnapshot()).toEqual(s);
     send(d,{type:"checkpoint",checkpointId:s.checkpointId!,requestId:"r",solver:"test",rules:"mr-v1",
-      corrections:[{id:"fix",at,turn:1,evidenceId:"e",reason:"fixture",frame:"global",rotationMask:1,
+      corrections:[{id:"fix",at:{memberId:"m",quarter:4},turn:1,evidenceId:"e",reason:"fixture",frame:"global",rotationMask:1,
         translationMask:0,reactionN:null,reactionNm:null,validity:"verified"}]});
     expect(d.getSnapshot().original).toEqual(s.original);expect(d.getSnapshot().corrections[0].actor).toBe("A");
+    expect(inspectPort(d.getSnapshot(),{memberId:"m",quarter:4})).toMatchObject({originalRotationMask:null,safetyRotationMask:1});
   });
   it("bounds drafts by Euclidean span and preserves original quarters, immutable setup and mask cardinality",()=>{
     const d=createMultiplayerDomain(fixture());draw(d,["elementsLoads","connections","connections","connections"]);
@@ -97,6 +92,8 @@ describe("private multiplayer authority",()=>{
     send(d,{type:"commit"});expect(position(d.getSnapshot().original,{memberId:"m",quarter:1})).toEqual([.25,.5,1]);
     expect(d.getSnapshot().original.foundations).toHaveLength(2);
     expect(metresPerUnit).toBe(2);expect(Object.keys(members)).toHaveLength(4);
+    expect(springStiffnessNPerM("springHalf",null)).toBeNull();
+    expect(springStiffnessNPerM("springHalf",8)).toBe(2*springStiffnessNPerM("springQuarter",8)!);
   });
   it("rejects legacy, invalid definitions and illegal replay; preserves original bytes",()=>{
     const d=createMultiplayerDomain(fixture());draw(d,elements);
