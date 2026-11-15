@@ -41,8 +41,8 @@ export function correctJointReleases(frozen: TurnState, assessment: IssueAssessm
       const jointId = connection.jointId;
       const attached = current.board.connections.filter(end => end.jointId === jointId);
       if (jointCorrectionMask(current.board, jointId) === 7 ||
-          attached.some(end => connectionDefinition(end.profile).laws.slice(0, 3).some(law => law.kind !== 'locked')) ||
-          !attached.some(end => connectionDefinition(end.profile).laws.slice(3).some(law => law.kind !== 'locked'))) continue;
+          attached.some(end => connectionDefinition(end.profile, end.axes).laws.slice(0, 3).some(law => law.kind !== 'locked')) ||
+          !attached.some(end => connectionDefinition(end.profile, end.axes).laws.slice(3).some(law => law.kind !== 'locked'))) continue;
       const correction = {jointId, lockedRotations: 7, system: {policy: NODE_REPAIR_POLICY,
         definitionVersion: CARD_DEFINITION_VERSION, turn: turnNumber, issueId: issue.id,
         objectId: `system-joint:${turnNumber}:${jointId}`}} as const;

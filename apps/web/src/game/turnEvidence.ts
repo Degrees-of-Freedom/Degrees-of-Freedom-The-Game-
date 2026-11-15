@@ -8,7 +8,9 @@ import { localAxes } from '../solver/frameMath';
 import { ITEMS, S } from '../solver/voxelSections';
 import type { VoxelAnalysis } from '../solver/voxelResults';
 import { parseNodeKey } from './model';
-import { CONNECTION_PROFILES, turnJoints, type TurnReport, type TurnState } from './turns';
+import { turnJoints, type TurnReport, type TurnState } from './turns';
+import { connectionDefinition, conflictingJointAxes, memberConnectionFrame } from './jointFreedom';
+import { effectiveJointConnections } from './jointCorrections';
 
 const gravity = 9.81;
 const toSI = 1000;
@@ -67,19 +69,24 @@ export function buildTurnRequest(turn: TurnState, matchId: string): StructuralAn
     return { ...common, family: 'cable', reference: { kind: 'initialStrain', value: P0 / (E * A) } };
   });
   const byMember = new Map(members.map((member) => [member.id, member]));
-  const connections = [...turn.board.connections, ...turn.draft.connections].map((connection) => {
+  const originalConnections = [...turn.board.connections, ...turn.draft.connections];
+  const connections = effectiveJointConnections({...turn.board, connections: originalConnections}).map((connection, index) => {
     const member = byMember.get(String(connection.memberId));
     if (!member) throw new Error('Connection refers to a missing member.');
     const endpoint = connection.end === 'a' ? member.start : member.end;
+    const law = connectionDefinition(connection.profile, connection.axes);
+    const memberFrame = memberConnectionFrame({a: member.start.position.join(','), b: member.end.position.join(',')});
+    if (!connection.axes && conflictingJointAxes(law.laws, law.laws, law.axes, memberFrame).length)
+      throw new Error('The older snapshot adapter cannot encode this global connection frame along the member. Use the saved-frame browser solver.');
     return {
       id: `connection:${endpoint.id}`,
       endpointId: endpoint.id,
       jointId: connection.jointId,
-      referenceY: member.referenceY,
-      laws: CONNECTION_PROFILES[connection.profile].map((kind) => ({ kind })),
+      referenceY: connection.axes ? [...connection.axes[1]] : member.referenceY,
+      laws: law.laws,
       capacities: [],
       state: 'active',
-      ...cardProvenance(connection.cardId, `connection:${connection.profile}`, turn.version),
+      ...cardProvenance(connection.cardId, `connection:${originalConnections[index].profile}`, turn.version),
     };
   });
   const joints = turnJoints(turn);

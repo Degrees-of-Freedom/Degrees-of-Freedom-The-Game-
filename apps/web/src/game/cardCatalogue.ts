@@ -204,7 +204,7 @@ export function describePrinting(card: CardDefinition): string {
     return `One persistent ${card.magnitude} kN force in global −Z at the selected joint.`;
   }
   if (card.kind === 'connection') {
-    if (card.rotationsToLock) return `Locks all translations and ${card.rotationsToLock} of the three global rotational axes. All incoming freedoms must match the shared joint.`;
+    if (card.rotationsToLock) return `Locks all translations and ${card.rotationsToLock} of the three ${card.definitionVersion === PLAY_REVISION ? 'member-local' : 'global'} rotational axes. All incoming physical freedoms must match the shared joint.`;
     if (card.profile === 'hinge-diagonal') return 'Allows rotation about the horizontal 45° axis pointing equally along global +X and +Y. All other motions are locked.';
     if (card.profile === 'guided-x') return 'Slides along global X with zero transferred X force. Locks the other five motions.';
     if (card.profile === 'seat-20' || card.profile === 'seat-80') return `Global vertical stiffness is ${card.profile === 'seat-20' ? 20 : 80} MN/m in tension and compression. The other five motions are locked.`;

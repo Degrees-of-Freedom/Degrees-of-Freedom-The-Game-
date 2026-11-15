@@ -12,7 +12,8 @@ interface PublicTurnModel {
     joints: Pick<Board["joints"][number], "id" | "point" | "foundationOwner" | "system">[];
     members: Pick<Board["members"][number], "id" | "a" | "b" | "type" | "assembly" | "restLengthM" | "springStiffnessNPerM" | "owner" | "system">[];
     loads: Pick<Board["loads"][number], "jointId" | "magnitude" | "owner">[];
-    connections: Pick<Board["connections"][number], "memberId" | "end" | "jointId" | "profile" | "owner" | "system">[];
+    connections: Pick<Board["connections"][number], "memberId" | "end" | "jointId" | "profile" | "owner" | "system" | "axes" | "frameVersion">[];
+    jointCorrections?: Board['jointCorrections'];
   };
   reports: ReturnType<typeof publicTurnReport>[];
 }
@@ -49,9 +50,13 @@ export function publicTurnModel(state: TurnState): PublicTurnModel {
       joints: joints.map(({ id, point, foundationOwner, system }) => ({ id, ...(point && { point }), foundationOwner, ...systemIdentity(system) })),
       members: members.map(({ id, a, b, type, assembly, restLengthM, springStiffnessNPerM, owner, system }) => ({ id, a, b, type, owner, ...(assembly && { assembly }), ...(restLengthM !== undefined && {restLengthM}), ...(springStiffnessNPerM !== undefined && {springStiffnessNPerM}), ...systemIdentity(system) })),
       loads: loads.map(({ jointId, magnitude, owner }) => ({ jointId, magnitude, owner })),
-      connections: connections.map(({ memberId, end, jointId, profile, owner, system }) => ({
-        memberId, end, jointId, profile, owner, ...systemIdentity(system),
+      connections: connections.map(({ memberId, end, jointId, profile, owner, system, axes, frameVersion }) => ({
+        memberId, end, jointId, profile, owner, ...systemIdentity(system), ...(axes && {axes: structuredClone(axes), frameVersion}),
       })),
+      ...(state.board.jointCorrections && {jointCorrections: state.board.jointCorrections.map(({jointId, lockedRotations, system}) => {
+        const {objectId, turn, issueId, policy, definitionVersion} = system;
+        return {jointId, lockedRotations, system: {objectId, turn, issueId, policy, definitionVersion}};
+      })}),
     },
     reports: state.reports.map(publicTurnReport),
   };

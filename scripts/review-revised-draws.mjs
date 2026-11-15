@@ -170,7 +170,11 @@ async function structuralReview(browser, base, output) {
   const context = await browser.newContext({viewport: {width: 1366, height: 900}, reducedMotion: 'reduce'});
   const page = await context.newPage();
   const errors = [];
+  const wasmResponses = [];
   page.on('pageerror', error => errors.push(error.message));
+  page.on('response', response => {
+    if (/\/dof_solver[^/]*\.wasm(?:\?|$)/.test(response.url())) wasmResponses.push({url: response.url(), status: response.status()});
+  });
   page.setDefaultTimeout(20000);
   const button = name => page.getByRole('button', {name, exact: true});
   const ready = button('Ready · Reveal my hand');
@@ -211,12 +215,15 @@ async function structuralReview(browser, base, output) {
     await button('End turn').click(); await ready.click();
     await expect.poll(async () => (await head()).turn.turn).toBe(2);
     assert.equal((await head()).turn.reports[0].status, 'pending');
+    assert.deepEqual(wasmResponses, [], 'pending first turn must not request numerical WASM');
     await draw(['connections', 'connections', 'connections', 'connections']);
     await button('Pass').click(); await ready.click();
     await draw(['loads', 'loads', 'loads', 'loads']);
+    assert.deepEqual(wasmResponses, [], 'draws and both pending End transitions must not request numerical WASM');
     await button('Pass').click(); await ready.click();
     await expect.poll(async () => (await head()).turn.turn).toBe(4);
     await expect(page.getByRole('complementary', {name: 'Analysis legend'})).toBeVisible();
+    assert.ok(wasmResponses.some(response => response.status === 200), 'the due third-turn checkpoint must load the real numerical WASM');
     await expect(button('Load paths')).toHaveAttribute('aria-pressed', 'true');
     await expect(button('Deformation')).toHaveAttribute('aria-pressed', 'true');
     const record = await head();
@@ -239,11 +246,12 @@ async function structuralReview(browser, base, output) {
     await page.screenshot({path: resolve(output, 'signed-support-reactions.png')});
     assert.deepEqual((await head()).turn, record.turn);
     assert.deepEqual(errors, []);
-    return {checks: ['real member/connector/gravity plays become a checkpoint after three player turns',
+    return {checks: ['numerical WASM is first requested at the due third-turn checkpoint',
+      'real member/connector/gravity plays become a checkpoint after three player turns',
       'normal board exposes calculated deflection and load paths automatically',
       'shear and bending overlays combine with calculated response',
       'reaction labels support Off and Large',
       'committed member is read-only and foundation six-component tables are inspectable',
-      'overlay and reaction settings preserve authoritative match state'], reactions, errors};
+      'overlay and reaction settings preserve authoritative match state'], reactions, wasmResponses, errors};
   } finally { await context.close(); }
 }

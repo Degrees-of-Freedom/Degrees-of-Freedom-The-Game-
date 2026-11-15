@@ -6,7 +6,7 @@ import {
   type Member,
 } from "./model";
 import { LEGACY_CATALOGUE, RELEASE_CATALOGUE, PLAY_REVISION, RELEASE_MANIFEST, connectionChoices, createReleaseDecks, isScoredCatalogue, printedCards, type CardDefinition, type CatalogueId } from "./cardCatalogue";
-import { conflictingJointAxes, connectionFrame, CONNECTION_PROFILES, type ConnectionProfile } from "./jointFreedom";
+import { conflictingJointAxes, connectionFrameFor, memberConnectionFrame, CONNECTION_PROFILES, type ConnectionProfile, type Frame } from "./jointFreedom";
 import { findMaterialClash } from "./materialClashes";
 import { analysisLoadJoint, findPort, originalPorts, loadTargets, systemTarget, targetCoordinate, turnJoints } from "./turnPorts";
 import { analyzeTurn } from "./turnAnalysis";
@@ -54,6 +54,8 @@ type Connection = {
   jointId: string;
   profile: ConnectionProfile;
   owner: string;
+  axes?: Frame;
+  frameVersion?: 'member-local-1';
 };
 type Placements = {
   members: TurnMember[];
@@ -74,6 +76,8 @@ type Event =
       end: "a" | "b";
       jointId?: string;
       profile?: ConnectionProfile;
+      axes?: Frame;
+      frameVersion?: 'member-local-1';
     }
   | { kind: "end"; turn: number; status?: TurnReport["status"]; analysis?: StructuralAnalysisResult; final?: FinalScore; issues?: IssueAssessment; penaltyDecision?: PenaltyDecision; repairPolicy?: RepairPolicy; correction?: CorrectionReceipt; checkpoint?:TurnCheckpointReceipt; reason?: string };
 
@@ -440,8 +444,8 @@ function jointProfileConflict(connections: readonly Connection[]): string | null
     const axes = conflictingJointAxes(
       CONNECTION_PROFILES[first.profile],
       CONNECTION_PROFILES[candidate.profile],
-      connectionFrame(first.profile),
-      connectionFrame(candidate.profile),
+      connectionFrameFor(first),
+      connectionFrameFor(candidate),
     );
     if (axes.length) return (
       `Incompatible joint profiles at ${candidate.jointId}. Member ${first.memberId} end ${first.end.toUpperCase()} uses ${first.profile}. ` +
@@ -459,6 +463,16 @@ export function stageConnection(
   end: "a" | "b",
   jointId?: string,
   profile?: ConnectionProfile,
+): Transition {
+  return placeConnection(state, cardId, memberId, end, jointId, profile, false);
+}
+
+/** Replay alone retains an original no-frame/global event. New live revised
+ * attachments always record the physical member frame. */
+function placeConnection(
+  state: TurnState, cardId: string, memberId: number, end: 'a' | 'b', jointId: string | undefined,
+  profile: ConnectionProfile | undefined, replay: boolean,
+  saved?: {axes?: Frame; frameVersion?: 'member-local-1'},
 ): Transition {
   const card = activeTurnHand(state).find(({ id }) => id === cardId);
   if (card?.kind !== "connection")
@@ -486,7 +500,14 @@ export function stageConnection(
   const choices = connectionChoices(card);
   const chosen = profile ?? (choices.length === 1 ? choices[0] : undefined);
   if (!chosen || !choices.includes(chosen))
-    return fail("Choose the global rotation axes permitted by this connector.");
+    return fail(state.rulesRevision === PLAY_REVISION ? 'Choose the member-local rotation axes permitted by this connector.' :
+      "Choose the global rotation axes permitted by this connector.");
+  const derivedFrame = state.rulesRevision === PLAY_REVISION ? memberConnectionFrame(member) : undefined;
+  if (saved?.axes && (saved.frameVersion !== 'member-local-1' || !derivedFrame ||
+      saved.axes.some((axis, i) => axis.some((value, j) => Math.abs(value - derivedFrame[i][j]) > 1e-12))))
+    return fail('Saved connection axes do not match the original member section frame.');
+  const axes = replay ? saved?.axes : derivedFrame;
+  const frameVersion = axes ? 'member-local-1' as const : undefined;
   const connection: Connection = {
     cardId,
     memberId,
@@ -494,6 +515,7 @@ export function stageConnection(
     jointId: target,
     profile: chosen,
     owner: activePlayer(state).id,
+    ...(axes && {axes, frameVersion}),
   };
   const conflict = jointProfileConflict([...connections, connection]);
   if (conflict) return fail(conflict);
@@ -504,7 +526,7 @@ export function stageConnection(
   return stage(
     state,
     draft,
-    { kind: "connection", cardId, memberId, end, jointId, ...(profile && {profile}) },
+    { kind: "connection", cardId, memberId, end, jointId, ...(profile && {profile}), ...(axes && {axes, frameVersion}) },
   );
 }
 
@@ -512,6 +534,10 @@ export function cancelTurnDraft(state: TurnState): Transition {
   if (state.finished) return fail("The playtest match is complete.");
   const count = draftIds(state).size;
   if (!count) return { ok: true, state };
+  if (state.rulesRevision === PLAY_REVISION) {
+    const start = state.events.map(event => event.kind).lastIndexOf('end') + 1;
+    return rebuildProvisional(state, state.events.filter((event, index) => index < start || !isPlacementEvent(event)));
+  }
   return {
     ok: true,
     state: {
@@ -523,12 +549,45 @@ export function cancelTurnDraft(state: TurnState): Transition {
   };
 }
 
+type PlacementEvent = Extract<Event, {kind: 'element' | 'connection' | 'load'}>;
+function isPlacementEvent(event: Event): event is PlacementEvent {
+  return event.kind === 'element' || event.kind === 'connection' || event.kind === 'load';
+}
+
+/** Rebuild only the provisional actions. Draw/interval state is already
+ * durable and remains in its original event order. No physics is run here. */
+function rebuildProvisional(state: TurnState, events: Event[], refreshFrames = false): Transition {
+  const start = state.events.map(event => event.kind).lastIndexOf('end') + 1;
+  const current = events.slice(start);
+  let rebuilt = {...state, draft: emptyDraft(), nextId: state.nextId - state.draft.members.length,
+    events: [...events.slice(0, start), ...current.filter(event => !isPlacementEvent(event))]};
+  const replacements = new Map<Event, Event>();
+  for (const event of current.filter(isPlacementEvent)) {
+    let action = event;
+    if (refreshFrames && event.kind === 'connection' && event.frameVersion === 'member-local-1') {
+      const member = [...rebuilt.board.members, ...rebuilt.draft.members].find(member => member.id === event.memberId);
+      if (!member) return fail('The edited draft connection has no member.');
+      action = {...event, axes: memberConnectionFrame(member)};
+    }
+    const result = replayEvent(rebuilt, action);
+    if (!result?.ok) return fail(result?.reason ?? 'The provisional actions could not be restored.');
+    rebuilt = result.state;
+    replacements.set(event, rebuilt.events.at(-1)!);
+  }
+  return {ok: true, state: {...rebuilt, events: events.map(event => replacements.get(event) ?? event)}};
+}
+
 /** Undo the latest provisional action only. Committed history and the turn's
  * recorded draw stay unchanged, and replay reconstructs every earlier stage. */
 export function undoLastPlacement(state: TurnState): Transition {
   if (state.finished) return fail('The match is complete.');
   const count = draftIds(state).size;
   if (!count) return fail('There is no provisional placement to undo.');
+  if (state.rulesRevision === PLAY_REVISION) {
+    const start = state.events.map(event => event.kind).lastIndexOf('end') + 1;
+    const last = state.events.map((event, index) => index >= start && isPlacementEvent(event)).lastIndexOf(true);
+    return rebuildProvisional(state, state.events.filter((_, index) => index !== last));
+  }
   const boundary = state.events.length - count;
   let rebuilt = {...state, draft: emptyDraft(), nextId: state.nextId - state.draft.members.length,
     events: state.events.slice(0, boundary)};
@@ -545,6 +604,8 @@ export function undoLastPlacement(state: TurnState): Transition {
 export function editDraftMember(state: TurnState, memberId: number, a: string, b: string): Transition {
   const member = state.draft.members.find(candidate => candidate.id === memberId);
   if (!member || !member.cardId) return fail('Only a provisional member may be edited.');
+  if (state.rulesRevision === PLAY_REVISION) return rebuildProvisional(state, state.events.map(event =>
+    event.kind === 'element' && event.cardId === member.cardId ? {...event, a, b} : event), true);
   const count = draftIds(state).size;
   const boundary = state.events.length - count;
   let rebuilt = {...state, draft: emptyDraft(), nextId: state.nextId - state.draft.members.length,
@@ -909,13 +970,18 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
     (event.jointId === undefined || typeof event.jointId === "string") &&
     (event.profile === undefined || (typeof event.profile === "string" && Object.hasOwn(CONNECTION_PROFILES,event.profile)))
   ) {
-    return stageConnection(
+    if (event.axes !== undefined && (!Array.isArray(event.axes) || event.axes.length !== 3 ||
+        event.axes.some(axis => !Array.isArray(axis) || axis.length !== 3 || axis.some(value => typeof value !== 'number' || !Number.isFinite(value))) ||
+        event.frameVersion !== 'member-local-1')) return null;
+    if (event.frameVersion !== undefined && (event.frameVersion !== 'member-local-1' || event.axes === undefined)) return null;
+    return placeConnection(
       state,
       event.cardId,
       event.memberId,
       event.end,
       event.jointId,
-      event.profile as ConnectionProfile | undefined,
+      event.profile as ConnectionProfile | undefined, true,
+      {axes: event.axes as Frame | undefined, frameVersion: event.frameVersion as 'member-local-1' | undefined},
     );
   }
   return null;

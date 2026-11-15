@@ -21,7 +21,7 @@ export function effectiveJointConnections(board: Board) {
   return board.connections.map(connection => {
     const mask = jointCorrectionMask(board, connection.jointId);
     if (!mask) return connection;
-    const law = connectionDefinition(connection.profile);
+    const law = connectionDefinition(connection.profile, connection.axes);
     const rotationKinds = law.laws.slice(3).map((component, axis) => mask & (1 << axis) ? 'locked' : component.kind);
     const rotationalMask = rotationKinds.reduce((bits, kind, axis) => kind === 'locked' ? bits | (1 << axis) : bits, 0);
     // Correction candidates currently fit all three rotations. A fixed

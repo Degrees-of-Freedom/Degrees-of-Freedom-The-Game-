@@ -50,7 +50,7 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
       if (!axial && profile !== 'ball') inactiveRotations.delete(key);
       if (axial && !connection) inactiveRotations.add(key);
       const simple = profile === 'ball' ? 'ball' as const : 'fixed' as const;
-      const law = profile === 'fixed' || profile === 'ball' ? undefined : connectionDefinition(profile);
+      const law = profile === 'fixed' || profile === 'ball' ? undefined : connectionDefinition(profile, connection?.axes);
       return { key, profile: simple, law };
     }
     const start = end('a', a), finish = end('b', b);
@@ -107,14 +107,17 @@ export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card
   const release = turn.catalogue === 'grow-dusk-release-1';
   const response = release ? releaseSolver.analyze(input, turn.catalogue)
     : analyzeVoxel(input, { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });
+  const originalConnections = [...turn.board.connections, ...turn.draft.connections];
+  const effectiveConnections = effectiveJointConnections({...turn.board, connections: originalConnections});
   const capacity = release || loading === 'card-gravity'
-    ? assessCardCapacity(input, response, [...turn.board.connections, ...turn.draft.connections])
+    ? assessCardCapacity(input, response, originalConnections.map((connection, i) =>
+      effectiveConnections[i].profile === connection.profile ? connection :
+        {...connection, transferProfile: effectiveConnections[i].profile}))
     : undefined;
   if (capacity && turn.board.jointCorrections?.length) {
     // Original fittings retain their printed force limits. The added moment
     // sleeve must independently satisfy the existing rated fixed-fitting law.
-    const effective = assessCardCapacity(input, response, effectiveJointConnections({...turn.board,
-      connections: [...turn.board.connections, ...turn.draft.connections]}));
+    const effective = assessCardCapacity(input, response, effectiveConnections);
     for (const [id, check] of Object.entries(effective.connections)) {
       const original = capacity.connections[id];
       if (check.status === 'unavailable' || original?.status !== 'verified' ||
