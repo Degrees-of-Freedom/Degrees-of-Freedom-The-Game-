@@ -1,5 +1,5 @@
 import { ITEMS } from "../game/inventory";
-import { nodeKey, type GridPoint, type MemberType } from "../game/model";
+import { nodeKey, parseNodeKey, type GridPoint, type MemberType } from "../game/model";
 import { distance, REACH_RANGE, supportedNodeKeys } from "./graph";
 import type { GoalAction, Observation } from "./types";
 
@@ -20,6 +20,7 @@ export const ACTION_FEATURE_NAMES = [
   "foundationFirst",
   "foundationBelowWeight",
   "foundationNearness",
+  "foundationRedundant",
   // member
   "sectionShs",
   "sectionGlulam",
@@ -105,6 +106,13 @@ export function actionFeatures(
       const horizontal = ctx.open.length
         ? Math.min(...ctx.open.map((t) => Math.hypot(t[0] - action.at[0], t[1] - action.at[1])))
         : REACH_RANGE;
+      // An existing foundation within 2 cells horizontally already serves this spot.
+      out[INDEX.foundationRedundant] = [...ctx.foundationKeys].some((key) => {
+        const f = parseNodeKey(key);
+        return Math.hypot(f[0] - action.at[0], f[1] - action.at[1]) <= 2;
+      })
+        ? 1
+        : 0;
       out[INDEX.foundationBelowWeight] = horizontal === 0 ? 1 : 0;
       out[INDEX.foundationNearness] = 1 - Math.min(horizontal, REACH_RANGE) / REACH_RANGE;
       break;

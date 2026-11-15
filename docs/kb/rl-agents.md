@@ -67,7 +67,7 @@ Per step: `shaping + terminal − stepPenalty − invalidPenalty` (`reward.ts`, 
 
 ## The learner
 
-A linear softmax policy over a variable action set: `π(a|s) ∝ exp(w·φ(s,a) + prior(a))`, 23 action features (`ACTION_FEATURE_NAMES`). Features describe an action relative to the current structure (a foundation directly under an unconnected weight, a member connecting a supported end to a weight, a joint while the structure is a mechanism, section type, cost, direction). They do not depend on the scenario or on the number of weights, which is why a policy can be saved, validated (`StoredPolicySchema` rejects a different feature set) and applied elsewhere.
+A linear softmax policy over a variable action set: `π(a|s) ∝ exp(w·φ(s,a) + prior(a))`, 24 action features (`ACTION_FEATURE_NAMES`). Features describe an action relative to the current structure (a foundation directly under an unconnected weight, a member connecting a supported end to a weight, a joint while the structure is a mechanism, section type, cost, direction). They do not depend on the scenario or on the number of weights, which is why a policy can be saved, validated (`StoredPolicySchema` rejects a different feature set) and applied elsewhere.
 
 Training (`trainer.ts`) is REINFORCE: batches of whole episodes, discounted returns, a ridge-regression value baseline refit each batch, a small entropy bonus, plain gradient steps with a norm clip. Training seeds start at 1,000,000 and evaluation seeds at 10,000, so they never overlap.
 
