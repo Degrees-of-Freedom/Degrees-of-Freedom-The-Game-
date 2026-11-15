@@ -17,7 +17,7 @@ const ARROW = (
   </svg>
 );
 
-/** Title screen. Continue opens the persisted workspace without changing any state. */
+/** Play opens the local Shared table match, including its private resume cover. */
 export function Home() {
   const nav = useRef<HTMLElement>(null);
   const onKeyDown = (event: KeyboardEvent) => {
@@ -48,7 +48,7 @@ export function Home() {
               strokeLinejoin="round"
             />
           </svg>
-          The structural game
+          Shared table · 2 players
         </div>
         <h1 className="title">
           Degrees of
