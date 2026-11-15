@@ -1,4 +1,4 @@
-// node check.mjs <workspace> <Playwright module> <Chrome executable> <before|after>
+// node check.mjs <workspace> <Playwright module> <Chrome executable> <before|after> [auto|swiftshader] [output.png]
 // Walk the actual Creative setup, select the foundation tool, and click a
 // visible soil point. The fixture observes the model only to verify results.
 import assert from "node:assert/strict";
@@ -7,14 +7,14 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { createServer } from "vite";
 
-const [workspace, playwright, executablePath, phase] = process.argv.slice(2);
+const [workspace, playwright, executablePath, phase, graphics = "swiftshader", output] = process.argv.slice(2);
 assert.ok(["before", "after"].includes(phase));
 const root = resolve(workspace, "apps/web");
 const server = await createServer({ root, configFile: resolve(root, "vite.config.ts"),
   server: { host: "127.0.0.1", port: 0, hmr: false, watch: null } });
 const { chromium } = createRequire(import.meta.url)(playwright);
 const browser = await chromium.launch({ executablePath, headless: true,
-  args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
+  args: graphics === "auto" ? [] : ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 try {
   await server.listen();
   const page = await browser.newPage({ viewport: { width: 1366, height: 900 }, deviceScaleFactor: 1 });
@@ -51,7 +51,7 @@ try {
   const observed = await state();
   assert.equal(observed.selected?.key, key);
   assert.equal(Boolean(observed.attrs[key]?.found), phase === "after");
-  await page.screenshot({ path: fileURLToPath(new URL(phase + ".png", import.meta.url)) });
+  await page.screenshot({ path: output ?? fileURLToPath(new URL(phase + ".png", import.meta.url)) });
   if (phase === "after") {
     await page.getByText("6 of 6 locked", { exact: true }).waitFor();
     await page.mouse.click(x, y);
