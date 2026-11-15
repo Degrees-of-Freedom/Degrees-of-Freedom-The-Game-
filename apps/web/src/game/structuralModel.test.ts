@@ -67,8 +67,10 @@ describe('game model to solver contract', () => {
   });
 
   it('says what it does not carry', () => {
-    expect(notes).toHaveLength(1);
+    expect(notes).toHaveLength(2);
     expect(notes[0]).toContain('self-weight');
+    expect(notes[1]).toContain('25 kN pretension');
+    expect(toStructuralModel({ ...frame, members: frame.members.slice(0, 2) }).notes).toHaveLength(1);
     expect(model.analysis).toEqual({ fidelity: 'nonlinear' });
     expect(toStructuralModel(frame, { fidelity: 'linear' }).model.analysis).toEqual({ fidelity: 'linear' });
   });

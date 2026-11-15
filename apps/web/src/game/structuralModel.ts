@@ -183,5 +183,12 @@ export function toStructuralModel(
   const notes: string[] = [
     'Wind, the tower and bridge loads the game generates, and load combinations are not sent, and self-weight is not applied, so this checks the structure under the point loads you placed.',
   ];
+  // The turn criteria say a cable card must define its own pretension. The
+  // voxel catalog has one value for every cable, so that is what is sent, and
+  // the reader is told.
+  if (game.members.some((member) => member.type === 'cable'))
+    notes.push(
+      `Every cable is sent with the same ${ITEMS.cable.P0} kN pretension, taken from the prototype catalog, not from a per-cable value.`,
+    );
   return { model, notes };
 }
