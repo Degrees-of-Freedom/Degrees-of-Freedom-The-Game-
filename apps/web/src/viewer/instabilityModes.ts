@@ -15,12 +15,17 @@ export function instabilityModes(result: VoxelAnalysis) {
  * The caller owns disposal with the scene and calls animateInstability(time). */
 export function drawInstabilityMode(group: THREE.Group, result: VoxelAnalysis, index: number, playing = false) {
   const mode = instabilityModes(result)[index], ctx = result.ctx;
-  if (!mode || !ctx) return;
+  if (!mode || (!ctx && !result.diagnosticGeometry)) return;
   const ids = new Set(mode.memberIds);
-  const pairs = ctx.els.filter(e => ids.has(e.m.id)).flatMap(e => [e.m.a, e.m.b]);
+  // Equilibrium assembly deliberately drops floating elements. Mode geometry
+  // follows the complete original SI model, with explicit identities/edges.
+  const topology = result.diagnosticGeometry?.segments ?? ctx!.els.map(element => ({memberId:element.m.id,a:element.m.a,b:element.m.b}));
+  const pairs = topology.filter(segment => ids.has(segment.memberId)).flatMap(segment => [segment.a,segment.b]);
   const coordinates = (id: string) => {
-    const n = ctx.idx.get(id);
-    return n === undefined ? undefined : ctx.pos[n];
+    const physical = result.diagnosticGeometry?.positions[id];
+    if (physical) return physical;
+    const n = ctx?.idx.get(id);
+    return n === undefined ? undefined : ctx?.pos[n];
   };
   const valid = (values: readonly number[] | undefined) =>
     !!values && values.length === 6 && values.every(Number.isFinite);

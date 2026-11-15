@@ -40,3 +40,36 @@ it("uses the specified continuous six-colour contour, clamping only display frac
   expect(deflectionColor(-1).getHexString()).toBe(stops[0]);
   expect(deflectionColor(2).getHexString()).toBe(stops.at(-1));
 });
+
+it("draws an actual floating component mode even when equilibrium assembly omits its elements", () => {
+  const model: VoxelModel = {nextId:3,positions:{base:[0,0,0],tip:[0,0,1],looseA:[2,6,4],looseB:[2,7,4]},
+    attrs:{base:{found:true}},members:[
+      {id:1,type:"heb",a:"base",b:"tip",endA:"fixed",endB:"fixed"},
+      {id:2,type:"heb",a:"looseA",b:"looseB",endA:"fixed",endB:"fixed"}]};
+  const result = solver.analyze(model,"floating-mode-fixture");
+  // Equilibrium assembly excludes the unsupported member. Its diagnostic
+  // topology must still follow the model actually analysed by the kernel.
+  expect(result.ctx!.els.map(element => element.m.id)).not.toContain(2);
+  expect(result.diagnosticGeometry!.positions.looseA).toEqual([4,12,8]);
+  expect(result.diagnosticGeometry!.segments.find(segment => segment.memberId === 2)).toEqual({memberId:2,a:"looseA",b:"looseB"});
+  const modes = instabilityModes(result);
+  const index = modes.findIndex(mode => mode.memberIds.includes(2) && mode.kind === "mechanism" &&
+    Object.values(mode.displacements).some(values => Math.hypot(...values.slice(0,3)) > .5));
+  expect(index).toBeGreaterThanOrEqual(0);
+  const group = new THREE.Group();
+  drawInstabilityMode(group,result,index,true);
+  const ghost = group.getObjectByName("Solver normalized mode ghost") as THREE.LineSegments;
+  const positions = ghost.geometry.getAttribute("position");
+  expect(positions.count).toBe(2);
+  const positive = Array.from(positions.array);
+  expect(positive.every(Number.isFinite)).toBe(true);
+  group.userData.animateInstability(Math.PI*900);
+  const negative = Array.from(positions.array);
+  const delta = negative.map((value,i) => Math.abs(value-positive[i]));
+  expect(Math.max(...delta)).toBeCloseTo(1.6,5);
+  expect(ghost.material).toMatchObject({depthTest:false,depthWrite:false});
+  const withoutAssembly = new THREE.Group();
+  drawInstabilityMode(withoutAssembly,{...result,ctx:undefined},index);
+  const independent = withoutAssembly.getObjectByName("Solver normalized mode ghost") as THREE.LineSegments;
+  expect(Array.from(independent.geometry.getAttribute("position").array)).toEqual(positive);
+});

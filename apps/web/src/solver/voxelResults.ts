@@ -112,6 +112,12 @@ export function displacementAt(combo: Combo | undefined, active: number): Float6
 }
 /** Prototype analysis in kN and metres. Results are approximate and not engineering design. */
 export interface VoxelAnalysis {
+  /** Complete SI topology sent to the kernel, including unsupported/floating
+   * pieces omitted from the separate equilibrium-assembly context. */
+  diagnosticGeometry?: {
+    positions: Record<string, readonly [number, number, number]>;
+    segments: {memberId: number; a: string; b: string}[];
+  };
   reference?: {modelVersion: string; solverVersion: string; fidelity: 'nonlinear'};
   /** Total physical card gravity, including unavailable components, kN. */
   appliedGravityKN?: number;

@@ -108,6 +108,8 @@ function project(input: VoxelModel, ctx: Context, result: DetailedAnalysisResult
   const combo: Combo = { combo: {name: 'Card gravity', short: 'Gravity', type: 'SLS', dir: [0, 0, -1]},
     components, F: new Float64Array(6*ctx.NA), vis: [], partialDisplacements: new Map(), ef: new Map(), reac: {} };
   const analysis: VoxelAnalysis = { ctx, combos: [combo], members: {}, nodes: {}, found: {}, objectives: [],
+    diagnosticGeometry:{positions:Object.fromEntries(model.nodes.map(node => [node.id,node.position])),
+      segments:model.members.map(member => ({memberId:Number(member.id),a:member.startNodeId,b:member.endNodeId}))},
     ...(result.analysis.modelVersion && {reference:{modelVersion:result.analysis.modelVersion,
       solverVersion:result.analysis.solverVersion, fidelity:'nonlinear' as const}}),
     appliedGravityKN:Object.values(input.attrs).reduce((sum, a) => sum + (a.load ?? 0), 0),
