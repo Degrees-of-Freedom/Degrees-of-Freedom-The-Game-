@@ -2,12 +2,14 @@
  * Train a goal-mode agent and write the policy and learning curve to disk.
  *
  *   npm run train:goal -- --scenario single --episodes 1000 --seed 1
+ *   npm run train:goal -- --scenario pickup1 --demos 20     (imitate scripted solutions)
  *   npm run train:goal -- --scenario pickup1 --init rl-runs/single-seed1/policy.json
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { evaluate, PolicyAgent, RandomAgent } from "../agents";
+import { recordDemonstrations } from "../demonstrations";
 import { GoalEnv } from "../goalEnv";
 import { LinearSoftmaxPolicy } from "../policy";
 import { createRandom } from "../rng";
@@ -25,6 +27,8 @@ const { values } = parseArgs({
     "check-every": { type: "string", default: "5" },
     out: { type: "string", default: "rl-runs" },
     init: { type: "string" },
+    demos: { type: "string", default: "0" },
+    "demo-weight": { type: "string", default: "1" },
   },
 });
 
@@ -57,6 +61,10 @@ let best: { policy: LinearSoftmaxPolicy; score: [number, number]; episodes: numb
 console.log(`Scenario ${scenarioId}: ${GOAL_SCENARIOS[scenarioId].description}`);
 if (values.init) console.log(`Warm start from ${values.init}`);
 const started = Date.now();
+const demoCount = number("demos", values.demos!);
+const demonstrations = demoCount > 0 ? recordDemonstrations(env, demoCount, seed) : null;
+if (demonstrations)
+  console.log(`Demonstrations: ${demonstrations.solved}/${demonstrations.attempted} scripted solutions solved the level (${demonstrations.steps.length} decisions kept)`);
 let batches = 0;
 const { policy } = train(
   env,
@@ -65,6 +73,8 @@ const { policy } = train(
     batchSize: number("batch", values.batch!),
     learningRate: number("lr", values.lr!),
     seed,
+    demonstrations: demonstrations?.steps ?? [],
+    demonstrationWeight: number("demo-weight", values["demo-weight"]!),
   },
   values.init ? LinearSoftmaxPolicy.fromJSON(JSON.parse(readFileSync(values.init, "utf8"))) : undefined,
   (m, current) => {

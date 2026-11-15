@@ -41,6 +41,7 @@ export const ACTION_FEATURE_NAMES = [
   "jointOnSupportedWhileMechanism",
   // joint
   "jointAtFoundation",
+  "jointAtLoadedBase",
   "jointAtWeight",
   "jointAtOther",
   "jointWhileMechanism",
@@ -60,6 +61,8 @@ export interface StateContext {
   open: GridPoint[];
   weightKeys: Set<string>;
   foundationKeys: Set<string>;
+  /** Nodes that at least one member ends at. */
+  memberEnds: Set<string>;
   mechanism: boolean;
   /** Every weight already has a path to a foundation. */
   allConnected: boolean;
@@ -80,6 +83,7 @@ export function stateContext(obs: Observation): StateContext {
     open: obs.targets.filter((t) => !supported.has(t.key)).map((t) => t.at),
     weightKeys,
     foundationKeys,
+    memberEnds: new Set(obs.model.members.flatMap((m) => [m.a, m.b])),
     mechanism: obs.analysis.mechanism,
     allConnected: obs.targets.length > 0 && obs.targets.every((t) => supported.has(t.key)),
     maxCost: Math.max(...SECTION_TYPES.map((t) => ITEMS[t].cost)),
@@ -144,7 +148,11 @@ export function actionFeatures(
     }
     case "joint": {
       const key = nodeKey(...action.at);
-      if (ctx.foundationKeys.has(key)) out[INDEX.jointAtFoundation] = 1;
+      if (ctx.foundationKeys.has(key)) {
+        out[INDEX.jointAtFoundation] = 1;
+        // The joint that lets a column take moment from its fixed foundation.
+        out[INDEX.jointAtLoadedBase] = ctx.memberEnds.has(key) ? 1 : 0;
+      }
       else if (ctx.weightKeys.has(key)) out[INDEX.jointAtWeight] = 1;
       else out[INDEX.jointAtOther] = 1;
       out[INDEX.jointWhileMechanism] = ctx.mechanism ? 1 : 0;

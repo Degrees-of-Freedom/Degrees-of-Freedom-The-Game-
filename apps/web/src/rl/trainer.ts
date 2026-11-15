@@ -8,6 +8,7 @@ import {
   stateFeatures,
 } from "./features";
 import { RidgeBaseline } from "./baseline";
+import type { DemonstrationStep } from "./demonstrations";
 import { LinearSoftmaxPolicy } from "./policy";
 import { createRandom, sampleIndex } from "./rng";
 
@@ -25,6 +26,16 @@ export interface TrainConfig {
   /** Return discount γ in (0, 1]. */
   discount: number;
   seed: number;
+  /**
+   * Scripted decisions to imitate alongside reinforcement. Success is almost
+   * never sampled on levels with several weights, so without them the joints
+   * that complete a structure get no positive signal.
+   */
+  demonstrations: readonly DemonstrationStep[];
+  /** Weight of the imitation term relative to the policy gradient. */
+  demonstrationWeight: number;
+  /** Demonstration steps sampled into each update. */
+  demonstrationBatch: number;
 }
 
 export const DEFAULT_TRAIN_CONFIG: TrainConfig = {
@@ -35,6 +46,9 @@ export const DEFAULT_TRAIN_CONFIG: TrainConfig = {
   entropyCoefficient: 0.01,
   discount: 0.99,
   seed: 1,
+  demonstrations: [],
+  demonstrationWeight: 1,
+  demonstrationBatch: 32,
 };
 
 /** Training seeds start here so they never overlap evaluation seeds (10_000+). */
@@ -133,6 +147,18 @@ export function train(
         gradient[k] +=
           (advantage * t.score[k] + config.entropyCoefficient * t.entropyGradient[k]) /
           batch.length;
+    // Imitation term (as in DAPG): the mean score of sampled demonstration
+    // decisions, so the demonstrated actions stay likely while the policy gradient
+    // refines the rest.
+    if (config.demonstrations.length && config.demonstrationWeight > 0) {
+      const count = Math.min(config.demonstrationBatch, config.demonstrations.length);
+      for (let n = 0; n < count; n++) {
+        const step = config.demonstrations[Math.floor(random() * config.demonstrations.length)];
+        const score = scoreOf(policy, step.rows, step.prior, step.chosen);
+        for (let k = 0; k < gradient.length; k++)
+          gradient[k] += (config.demonstrationWeight * score[k]) / count;
+      }
+    }
     const norm = Math.hypot(...gradient);
     const clip = norm > config.maxUpdateNorm ? config.maxUpdateNorm / norm : 1;
     for (let k = 0; k < gradient.length; k++)
@@ -194,4 +220,19 @@ function rollout(
       return { transitions, solved };
     }
   }
+}
+
+/** ∇ log π(chosen | state): the chosen action's features minus the expected features. */
+function scoreOf(
+  policy: LinearSoftmaxPolicy,
+  rows: readonly Float64Array[],
+  prior: Float64Array,
+  chosen: number,
+): Float64Array {
+  const probs = policy.probabilities(rows, prior);
+  const expected = new Float64Array(ACTION_FEATURE_COUNT);
+  probs.forEach((p, i) => {
+    for (let k = 0; k < expected.length; k++) expected[k] += p * rows[i][k];
+  });
+  return Float64Array.from(rows[chosen], (v, k) => v - expected[k]);
 }
