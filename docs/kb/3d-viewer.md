@@ -21,7 +21,7 @@ status: partial
 
 # 3D Viewer
 
-The [structure library](structure-library.md) adds 20 selectable specimens with PNG previews and previous/next loading. Loading fits the camera to the specimen's bounds; these previews show undeformed geometry, while the interactive scene uses the usual analysis controls.
+The [structure library](structure-library.md) adds 30 selectable specimens with PNG previews and previous/next loading. Loading fits the camera to the specimen's bounds; these previews show undeformed geometry, while the interactive scene uses the usual analysis controls.
 
 The React workspace uses Three.js for a Z-up voxel scene with terrain, orbit and zoom, build planes, member and node picking, and placement. The viewer consumes the Zustand game model; edit validity is checked by game rules. It can show approximate experimental analysis results using deformed positions, member colours, load and reaction arrows, and a force-weighted load-path view. Load paths are illustrative routes derived from the results, not a separate physical analysis. These visualizations inherit the solver's limitations and are not engineering design evidence. The OpenSees stability check appears only as numbers in the analysis panel; the viewer does not yet draw its mechanism shapes or moving nodes.
 
@@ -52,3 +52,8 @@ Grow Dusk's **Build options → Joint permissions** controls Selected joint / Al
 ## Controls, physical clashes and repair feedback
 
 [Controls/camera criteria](controls-camera-criteria.md) define input parity, target disambiguation, reference-grid/quarter selection, safe navigation and accessible inspection. [Placement](placement-criteria.md) distinguishes physical reference clash geometry from enlarged meshes and intentional port contacts. [Failure/repair](failure-repair-criteria.md) requires clear resolved/improved/persistent/unknown markers while retained structures continue in play. The viewer must not infer these rules or claim physical validity from mesh contact.
+
+
+## Creative view modes
+
+Creative exposes the Shared table view-mode panel (eye button or V): load path, deflected shape or displacement shadow, joint freedoms, loads and reactions, shear and bending diagrams, and witnessed instability. Run simulation to produce results; changing the model invalidates them. The Results drawer selects the load case used for the overlays. Visualizations are experimental and show only available solver response.

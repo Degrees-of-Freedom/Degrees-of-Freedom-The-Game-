@@ -12,8 +12,8 @@ const kN = (n: number) => formatValue(n) + " kN";
 /** Each verified gravity transfer has its own direction and scale. Preserve
  * the underlying section geometry and exact solver segment endpoints. */
 export function buildReleaseFlow(group: THREE.Group, result: StructureEvaluation, point: (key: string) => THREE.Vector3,
-  addMotion: (segment: LoadPathMember, relative: number) => void, labels = false) {
-  const path = computeLoadPath(result, 0);
+  addMotion: (segment: LoadPathMember, relative: number) => void, labels = false, combo = 0) {
+  const path = computeLoadPath(result, combo);
   if (!path) return;
   const labelled = new Set(labels ? [...path.members.values()]
     .filter(segment => segment.direction && !isNegligible(segment.force) && segment.force >= 0.05 * path.maxForce)
@@ -46,8 +46,8 @@ export function buildReleaseFlow(group: THREE.Group, result: StructureEvaluation
 
 /** A dashed marker identifies the witnessed region. No displacement or mode
  * direction is inferred from a failed solve or from free joint permissions. */
-export function markInstability(group: THREE.Group, result: StructureEvaluation, point: (key: string) => THREE.Vector3, labels = false) {
-  const ids = new Set(result.combos[0]?.components?.flatMap(scope => scope.instabilityWitness?.memberIds ?? []));
+export function markInstability(group: THREE.Group, result: StructureEvaluation, point: (key: string) => THREE.Vector3, labels = false, combo = 0) {
+  const ids = new Set(result.combos[combo]?.components?.flatMap(scope => scope.instabilityWitness?.memberIds ?? []));
   const points = (result.ctx?.els ?? []).filter(e => ids.has(e.m.id)).flatMap(e => [point(e.m.a), point(e.m.b)]);
   if (!points.length) return;
   const line = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(points),

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useReducer } from "react";
 import { flushSync } from "react-dom";
 import { Scene } from "../viewer/Scene";
 import { controlOwnsKey } from "../viewer/keyboardTarget";
@@ -40,13 +40,19 @@ import {
 import { EngineeringOptions } from "../components/environment/EngineeringOptions";
 import { SceneBoundary } from "../components/environment/SceneBoundary";
 import { PauseMenu } from "../components/PauseMenu";
-import { getSettings, useSettings } from "../menu/settings";
+import { getSettings, useSettings, updateSettings } from "../menu/settings";
 import { solverForSettings } from "../solver";
 import { JointPermissions } from "../components/JointPermissions";
 import { editorJointPermissions, jointAtSceneSelection, sharedJointPermissions } from "../viewer/jointPermissions";
 import { StructureLibrary } from "../components/StructureLibrary";
 import { StoredAnalysisPanel } from "../components/StoredAnalysisPanel";
 import { GrowthHelp, growthHint } from "../components/environment/GrowthHelp";
+
+import { ViewModesPanel, ViewLegends } from "../components/viewModes";
+import { SHARED_TABLE_VIEW, sharedTableViewReducer, sharedTableLegends } from "../components/viewModes/useSharedTableView";
+import { diagramActions, displacementScale, type ViewModeId, type ViewModeAction } from "../viewer/viewModes";
+import { boardDiagram } from "../viewer/boardDiagrams";
+import { computeLoadPath } from "../evaluator/loadPath";
 
 type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 
@@ -65,17 +71,17 @@ export function Workspace() {
   const { jointDisplay } = useSettings();
   const board = game.mode === "multiplayer" ? game.turn?.board : undefined;
   const editorModel = game.mode !== "multiplayer" ? game.model : undefined;
-  const joints = useMemo(() => game.style !== "grow-dusk" ? [] : board ? sharedJointPermissions(board)
-    : editorModel ? editorJointPermissions(editorModel) : [], [game.style, board, editorModel]);
+  const joints = useMemo(() => (game.style !== "grow-dusk" && game.mode !== "creative") ? [] : board ? sharedJointPermissions(board)
+    : editorModel ? editorJointPermissions(editorModel) : [], [game.style, game.mode, board, editorModel]);
   const [permissionPick, setPermissionPick] = useState<{ id: string; selection: typeof game.selected; board: typeof board } | null>(null);
   const selectedJoint = useMemo(() => {
     if (permissionPick && permissionPick.selection === game.selected && permissionPick.board === board)
       return joints.find(joint => joint.id === permissionPick.id);
     if (game.selected?.type === "node") return jointAtSceneSelection(joints, game.selected.key, board ? game.turn : null);
   }, [joints, permissionPick, game.selected, board, game.turn]);
-  const jointLayer = useMemo(() => game.style === "grow-dusk" && jointDisplay !== "off"
+  const jointLayer = useMemo(() => (game.style === "grow-dusk" || game.mode === "creative") && jointDisplay !== "off"
     ? { joints: jointDisplay === "all" ? joints : selectedJoint ? [selectedJoint] : [], selected: selectedJoint?.id }
-    : undefined, [game.style, jointDisplay, joints, selectedJoint]);
+    : undefined, [game.style, game.mode, jointDisplay, joints, selectedJoint]);
   // Multiplayer uses independent member-end connections, not the node model.
   const contractCompatible = game.mode !== "multiplayer";
   const [analysis, setAnalysis] = useState<{
@@ -121,6 +127,18 @@ export function Workspace() {
   const saveCovered = game.sessionSave === "invalid" || game.sessionSave === "failed" ||
     game.sessionSave === "committing" || (game.sessionSave === "writing" && needsHandoff);
   const covered = game.sessionConflict || saveCovered || needsHandoff;
+  const [creativeView, dispatchCreative] = useReducer(sharedTableViewReducer, SHARED_TABLE_VIEW);
+  const [creativePanel, setCreativePanel] = useState(false);
+  const creative = game.mode === "creative";
+  const creativeDispatch = (action: ViewModeAction) => {
+    if (action.type === "clear") updateSettings({ jointDisplay: "off" });
+    if (action.type === "reset") updateSettings({ jointDisplay: "all" });
+    dispatchCreative(action);
+  };
+  const creativePress = (mode: ViewModeId) => {
+    if (mode === "joints") updateSettings({ jointDisplay: jointDisplay === "all" ? "selected" : "all" });
+    else dispatchCreative({ type: "toggle", mode });
+  };
   const [combo, setCombo] = useState(0);
   const [deformed, setDeformed] = useState(false);
   const [scale, setScale] = useState(0); // zero selects automatic display amplification
@@ -133,9 +151,16 @@ export function Workspace() {
   const sound = useEditorSound(game.model, covered || paused, release);
   const settings = useSettings();
   const result = analysis?.model === game.model ? analysis.result : null;
-  const field = useMemo(() => deformed && result ? deformationField(result, combo) : undefined, [result, combo, deformed]);
+  const field = useMemo(() => result && (creative ? creativeView.deflection !== "off" : deformed) ? deformationField(result, combo) : undefined, [result, combo, deformed, creative, creativeView.deflection]);
   const autoScale = field?.peakM ? Math.max(1, Math.min(500, Math.round(1.2/field.peakM))) : 1;
-  const actualScale = scale || autoScale;
+  const actualScale = creative ? displacementScale(creativeView.amplification, field?.peakM) : scale || autoScale;
+  const creativeDiagrams = useMemo(() => result ? diagramActions(creativeView).map(action => boardDiagram(result, action, combo)) : [], [result, creativeView, combo]);
+  const creativeFlow = useMemo(() => result && creativeView.loadPath ? computeLoadPath(result, combo) : null, [result, creativeView.loadPath, combo]);
+  const creativeLegends = sharedTableLegends({ modes: creativeView, jointsShown: jointDisplay === "all",
+    response: result?.error ? { state: "error", message: result.error } : result ? { state: "ready" } : { state: "error", message: "Run simulation to see results for the current structure." },
+    scale: actualScale, jointCount: joints.length, peakM: field?.peakM,
+    maxForceKN: creativeFlow?.maxForce, diagrams: creativeDiagrams,
+    instabilityWitnessed: !!result?.combos[combo]?.components?.some(scope => scope.instabilityWitness) });
   const scoredPreview = game.mode === "multiplayer" && game.turn && isScoredCatalogue(game.turn.catalogue);
   const style = game.style === "engineering" ? "levels" : game.style;
   const isKit = style === "kit";
@@ -255,6 +280,7 @@ export function Workspace() {
         event.altKey
       )
         return;
+      if (creative && event.key.toLowerCase() === "v" && !event.repeat) { event.preventDefault(); setCreativePanel(value => !value); }
       if (event.key.toLowerCase() === "h" || event.key === "?")
         setHelp((value) => !value);
       if (event.key.toLowerCase() === "r") run();
@@ -503,7 +529,7 @@ export function Workspace() {
     </>
   );
   const showLegend =
-    !!result &&
+    !creative && !!result &&
     !result.error &&
     utilization &&
     !loadPath &&
@@ -539,21 +565,31 @@ export function Workspace() {
         <SceneBoundary>
           <Scene
             jointLayer={jointLayer}
+            sharedFlow={creative}
+            shadow={creative && creativeView.deflection === "shadow"}
+            labels={creative ? creativeView.labels : undefined}
+            diagrams={creative ? creativeDiagrams : undefined}
+            showInstability={creative && creativeView.instability}
             result={result}
             combo={combo}
-            deformed={deformed}
+            deformed={creative ? creativeView.deflection === "shape" : deformed}
             scale={actualScale}
             field={field}
-            reference={reference}
-            utilization={utilization && result?.designChecksAvailable !== false}
-            loads={loads}
-            loadPath={loadPath}
-            onToggleLoadPath={() => setLoadPath(!loadPath)}
+            reference={creative ? true : reference}
+            utilization={!creative && utilization && result?.designChecksAvailable !== false}
+            loads={creative ? creativeView.reactions : loads}
+            loadPath={creative ? creativeView.loadPath : loadPath}
+            onToggleLoadPath={() => creative ? creativePress("loadPath") : setLoadPath(!loadPath)}
             onMessage={setMessage}
           />
         </SceneBoundary>
       </div>
       <div id="ui">
+        {creative && <div className="creative-view release-board release-stage">
+          <ViewModesPanel modes={creativeView} jointsShown={jointDisplay === "all"} open={creativePanel} scale={actualScale}
+            onOpenChange={setCreativePanel} onPress={creativePress} dispatch={creativeDispatch} />
+          {creativePanel && <ViewLegends legends={creativeLegends} />}
+        </div>}
         {isKit ? (
           <>
             <div id="top-left">{historyActions}</div>
@@ -810,6 +846,7 @@ export function Workspace() {
                   )}
                   {!contractCompatible && <p className="result-source">Selected structural solver: <strong>{stability.solverName}</strong><br />Shared-table analysis currently uses the approximate voxel solver. The selected structural solver is used for single-player checks.</p>}
                   <AnalysisPanel
+                    sharedViewControls={creative}
                     result={result}
                     message={message}
                     combo={combo}

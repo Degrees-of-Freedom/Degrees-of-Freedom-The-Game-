@@ -16,6 +16,8 @@ import type { DeformationField } from "./deformationField";
 export interface SceneView {
   /** Render only committed multiplayer geometry behind the privacy handoff. */
   publicOnly?: boolean;
+  /** Use the shared-table load-transfer arrows in editor views. */
+  sharedFlow?: boolean;
   /** Kept in the workspace only, so privacy handoff can unmount every private scene resource. */
   cameraMemory?: CameraMemory;
   still?: boolean;

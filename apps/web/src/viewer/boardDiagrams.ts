@@ -11,8 +11,8 @@ export const boardActions = { 1: "Shear Vy", 2: "Shear Vz", 4: "Moment My", 5: "
 
 /** One common magnitude scale per action. Separate polylines retain the two
  * distinct cuts on either side of a joint load or an assembly connection. */
-export function boardDiagram(result: StructureEvaluation, action: SectionAction) {
-  const combo = result.combos[0];
+export function boardDiagram(result: StructureEvaluation, action: SectionAction, comboIndex = 0) {
+  const combo = result.combos[comboIndex];
   const verified = new Set(combo?.components?.filter(scope =>
     scope.status === "computed" && verifiedResponse(scope.verification)).flatMap(scope => scope.memberIds));
   const series = (result.ctx?.els ?? []).flatMap(element => {

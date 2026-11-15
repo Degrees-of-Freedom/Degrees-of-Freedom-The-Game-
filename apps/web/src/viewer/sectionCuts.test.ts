@@ -15,6 +15,8 @@ it("plots actual cantilever section cuts, in kN and kN·m, for a 5 kN tip load a
   const [span] = sectionCuts(result, 1);
   expect(boardDiagram(result, 4).peak).toBeCloseTo(20, 3);
   expect(boardDiagram(result, 2).peak).toBeCloseTo(5, 3);
+  // A missing selected load case must not fall back to the first case.
+  expect(boardDiagram(result, 2, result.combos.length).series).toHaveLength(0);
   expect(span.cuts.map(c => c.at)).toEqual([0, .5, .5, 1]);
   for (const cut of span.cuts) {
     expect(cut.forces[2]).toBeCloseTo(-5, 3);

@@ -89,3 +89,8 @@
   .release-stage .view-legends { width: min(14rem, calc(100% - 1.5rem)); bottom: 3.5rem; }
   .view-swatches { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* The editor shares the board controls without covering scene interaction. */
+.environment #ui > .creative-view { position: absolute; inset: 0; pointer-events: none; background: transparent; --ink: #f4ead6; --muted: #b9c2c6; --gold: #f1c77f; --edge: #586572; }
+.environment .creative-view .view-modes, .environment .creative-view .view-legends { pointer-events: auto; top: 5rem; right: .75rem; }
+.environment .creative-view .view-legends { top: auto; bottom: 4rem; }
