@@ -227,6 +227,33 @@ export interface MemberResult {
   utilization: number | null;
   governingLimitState?: string | null;
   connections?: { start: ConnectionResult; end: ConnectionResult } | null;
+  /**
+   * Deflection along a beam member. `null` for a brace or cable (one straight
+   * element), for an unverified result, and absent for a failed member.
+   */
+  deflection?: MemberDeflection | null;
+}
+
+/** Displacements along a beam member, between and at its ends. */
+export interface MemberDeflection {
+  /**
+   * One station per element boundary: `subdivisions + 1` points, `at` the
+   * fraction of the member length from the start node. Nothing is
+   * interpolated between stations; more subdivisions give more of them.
+   * Displacements are global, like node displacements. A fully released end
+   * reports the member end's own motion, not the node's.
+   */
+  stations: { at: number; displacement: Vector6 }[];
+  /**
+   * Largest distance of a deformed station from the straight line through the
+   * deformed end stations, m: the sag or bow to compare with a limit such as
+   * `length / 250`. The member's rigid-body motion is excluded.
+   */
+  maxFromChord: number;
+  /** `at` of the station where `maxFromChord` occurs. */
+  atMax: number;
+  /** Undeformed member length, m. */
+  length: number;
 }
 
 export interface FoundationResult {
@@ -278,4 +305,41 @@ export interface DetailedSolver {
   readonly id: string;
   readonly name: string;
   analyzeDetailed(model: AnalysisModel, options?: AnalysisOptions, signal?: AbortSignal): Promise<DetailedAnalysisResult>;
+}
+
+/**
+ * One load case: the same structure under different loads. Omitted fields
+ * keep the model's loads and the call's options. At most 100 per call, with
+ * unique ids.
+ */
+export interface AnalysisLoadCase {
+  id: string;
+  /** Replaces the model's nodal loads; `[]` leaves self-weight only. */
+  loads?: AnalysisLoad[];
+  /** Replaces `options.loadFactor`. */
+  loadFactor?: number;
+  /** Replaces `options.gravity`; scale it to factor self-weight. */
+  gravity?: Vector3;
+  /** `false` analyses this case without self-weight. Default `true`. */
+  selfWeight?: boolean;
+}
+
+export interface LoadCaseAnalysis {
+  /** One complete result per case, in request order. */
+  cases: { id: string; result: DetailedAnalysisResult }[];
+  /** Wall-clock time of the whole call, added by the adapter. */
+  runtimeMs?: number;
+}
+
+/**
+ * A solver that analyses several load cases in one call. Each case's result
+ * is the result a separate `analyzeDetailed` call would give.
+ */
+export interface LoadCaseSolver {
+  analyzeCases(
+    model: AnalysisModel,
+    cases: AnalysisLoadCase[],
+    options?: AnalysisOptions,
+    signal?: AbortSignal,
+  ): Promise<LoadCaseAnalysis>;
 }
