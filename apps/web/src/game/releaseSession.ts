@@ -1,11 +1,10 @@
 import { RELEASE_CATALOGUE } from "./cardCatalogue";
 import { openMatchDatabase, StaleMatch, type MatchDatabase } from "./releaseDatabase";
-import { runMatchJob } from "./matchJobs";
+import { InvalidMatch, runMatchJob } from "./matchJobs";
 import { matchRecord, type MatchRecord, type MatchPhase } from "./releaseSave";
 import { useGameStore } from "./store";
 import { createTurnGame, cancelTurnDraft, endTurn, projectTurnModel, stageConnection, stageElement, stageLoad, type TurnState } from "./turns";
 
-type SessionStore = ReturnType<typeof useGameStore.getState>;
 type Transition = ReturnType<typeof endTurn>;
 const state = useGameStore.getState;
 const update = useGameStore.setState;
@@ -46,6 +45,7 @@ class ReleaseSession {
     if (this.head !== null) {
       try { this.record = await this.validate(this.head); }
       catch (error) {
+        if (!(error instanceof InvalidMatch)) throw error;
         this.damaged = true;
         reason = message(error);
         const backup = await this.db.read("previous");

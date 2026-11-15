@@ -6,6 +6,11 @@ export type MatchJob = { kind: "restore"; bytes: string } | { kind: "end"; turn:
 self.onmessage = async ({ data }: MessageEvent<MatchJob>) => {
   try {
     await prepareReleaseSolver();
+  } catch {
+    self.postMessage({ok:false, kind:"unavailable", message:"The browser solver could not load. Retry to reopen the saved match."});
+    return;
+  }
+  try {
     if (data.kind === "restore") {
       self.postMessage({ ok: true, value: decodePrivateMatch(data.bytes) });
     } else {
@@ -14,7 +19,8 @@ self.onmessage = async ({ data }: MessageEvent<MatchJob>) => {
       self.postMessage({ ok: true, value: result.state });
     }
   } catch (error) {
-    self.postMessage({ ok: false, message: error instanceof Error ? error.message : "Assessment unavailable." });
+    self.postMessage({ ok: false, kind: data.kind === "restore" ? "invalid" : "unavailable",
+      message: error instanceof Error ? error.message : "Assessment unavailable." });
   }
 };
 

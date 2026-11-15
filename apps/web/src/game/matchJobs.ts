@@ -2,6 +2,8 @@ import type { MatchJob } from "./matchWorker";
 import type { MatchRecord } from "./releaseSave";
 import type { TurnState } from "./turns";
 
+export class InvalidMatch extends Error {}
+
 /** Each job receives an immutable snapshot. Navigation aborts the worker and prevents
  * a late result from publishing into the next match. No private data is logged. */
 export function runMatchJob(job: Extract<MatchJob, {kind:"restore"}>, signal: AbortSignal): Promise<MatchRecord>;
@@ -18,7 +20,7 @@ export function runMatchJob(job: MatchJob, signal: AbortSignal): Promise<MatchRe
     worker.onmessage = ({data}) => {
       stop();
       if (data.ok) resolve(data.value);
-      else reject(new Error(data.message));
+      else reject(data.kind === "invalid" ? new InvalidMatch(data.message) : new Error(data.message));
     };
     worker.postMessage(job);
   });
