@@ -21,7 +21,7 @@ status: partial
 
 The goal-based mode is **Load in space** (`GameMode` `"load-space"`, level `pickup1`; see [unified runtime](unified-runtime.md)): weights hang in space and the player must connect every one to a foundation with a stable structure that passes the level's checks. `apps/web/src/rl` lets software agents play that mode headlessly and learn to meet its goal. It is a training and evaluation harness only. Nothing in the web UI uses it, and the game's rules and solver are unchanged.
 
-Status: the environment, a learner, a bridge for external agents and tests are implemented. A trained agent solves the one-weight level reliably. It does not yet solve the game's three-weight level (see [Measured results](#measured-results)); the random layout is untested for learning.
+Status: the environment, a learner, a bridge for external agents and tests are implemented. A trained agent solves the one-weight level reliably. On the game's three-weight level it solves it only when seeded with scripted demonstrations (see [Measured results](#measured-results)); the random layout is untested for learning.
 
 ## Why it reuses the game instead of reimplementing it
 
@@ -105,13 +105,16 @@ All numbers are from this branch on one machine and are not a benchmark.
 - Training takes about 35 s for 400 episodes on `single`.
 - A policy trained on `single` does not transfer zero-shot to `pickup1`: it keeps building and spends 6,120 against a 3,000 budget without solving.
 
-Three-weight (`pickup1`) is **not solved**. Three rounds, each with one from-scratch and one to three warm-started runs (20 held-out episodes each), all solved 0% (random also 0%):
+Three-weight (`pickup1`) is **solved only with demonstrations**. Without them, three rounds (each one from-scratch and one to three warm-started runs, 20 held-out episodes each) all solved 0% (random also 0%):
 
 1. 640 episodes: the policy placed all four foundations early, built diagonals that stayed mechanisms and exhausted supply.
 2. After adding `foundationRedundant` (1,200 episodes, 3 warm-start seeds + 1 from scratch): the agents connect all three weights in 5 steps for about 1,340, but never add the joints, so the structure stays a mechanism.
 3. After grading the stability reward by the share of unstable nodes (same setup): still 0%. The final policy has every joint feature negative (for example `jointOnSupportedWhileMechanism` −0.3, `jointAtWeight` −1.1) and `memberWhileMechanism` +0.9, so it keeps adding members. Warm-starting from the `single` policy, which had joint weights positive, did not preserve them.
+4. With 20 scripted demonstrations imitated alongside the policy gradient (`--demos 20`), 800 episodes, four seeds (two at `--demo-weight 1`, two at 3): **all four greedy policies solve 100% of 20 held-out episodes**, first reaching it at episode 64 to 224, at cost 1,980 each. The first checks that were solved had the stability reward graded and the loaded-base joint feature (items 2 and 3 of the plan above) in place.
 
-The level itself is solvable with the same actions: a foundation, a glulam column and a base joint under each weight, 9 steps, cost 1,980 (checked in the environment). Current diagnosis, not yet tested: success is never seen while sampling, so the only joint signal is shaping, and with about ten candidate nodes only one or two joints are right at any time, so the average joint looks harmful and its weights drift negative. Next experiments, in the order I would try them: a two-weight curriculum scenario; a feature that marks a joint at a foundation node that already has a member; seeding training with the scripted solution (imitation or replay) to show the learner a success; more seeds.
+**Caveat: this is largely imitation.** The cost of 1,980 is exactly the demonstrator's solution (a glulam column and base joint under each weight), `pickup1` has fixed weights, and I did not run an ablation separating the imitation term from the policy gradient. It shows the environment, features and reward can express and hold a full solution, not that reinforcement learning discovered it. Not tested: a different weight layout (the demonstrator cannot reach `pickupR` weights above 3 cells), cheaper-than-demonstrator solutions, and imitation turned off after pretraining.
+
+The level itself is solvable with the same actions: a foundation, a glulam column and a base joint under each weight, 9 steps, cost 1,980 (checked in the environment). Diagnosis before the demonstrations (consistent with round 4, not proven): success is never seen while sampling, so the only joint signal is shaping, and with about ten candidate nodes only one or two joints are right at any time, so the average joint looks harmful and its weights drift negative. Next experiments: an ablation with the imitation weight annealed to zero; held-out layouts (needs a demonstrator or generator for taller weights); a two-weight curriculum scenario.
 
 ## Limitations and open questions
 
