@@ -8,6 +8,9 @@ validated_against:
   - apps/web/src/evaluator/engine/releaseTurn.ts
   - apps/web/src/game/analysis.ts
   - apps/web/src/game/turnAnalysis.ts
+  - apps/web/src/game/turns.ts
+  - apps/web/src/game/turnEngine.test.ts
+  - apps/web/src/main.tsx
   - apps/web/src/solver/voxel
   - apps/web/src/pages/Workspace.tsx
   - apps/web/src/components/environment/EngineeringOptions.tsx
@@ -22,7 +25,7 @@ status: partial
 
 # Retiring the Voxel Analysis
 
-**Status: mostly done; the kernel is not deleted.** On 2026-11-14 the project owner said the voxel analysis would probably be fully retired, with the [Rust solver](rust-solver.md) and the OpenSees service as the selectable backends. Since 2026-11-15 the game logic lives in a structure evaluator and the editor runs on the Rust solver. The legacy TypeScript kernel remains only for older Shared table catalogues. Whether to delete it, and with it those catalogues' live analysis, is an open owner decision (see below).
+**Status: done for all new analysis; the kernel is kept only to replay old saves.** On 2026-11-14 the project owner said the voxel analysis would probably be fully retired, with the [Rust solver](rust-solver.md) and the OpenSees service as the selectable backends. Since 2026-11-15 the game logic lives in a structure evaluator. Everything that analyses a structure now uses the Rust solver: the editor, levels, auto-design, the structure library, the release and new Shared table playtest matches. On 2026-11-15 the owner chose to move the older playtest card sets to Rust rather than retire them. The legacy TypeScript kernel remains only so that playtest matches saved before that change still replay.
 
 ## What changed
 
@@ -42,7 +45,8 @@ The old `solver/voxel*.ts` modules mixed game-level evaluation with a linear fra
 | --- | --- |
 | Editor and levels (`analyzeGame`), structure library, auto-design (`autoDesignGame`) | Rust, `evaluator/engine/rustDesign.ts`, on the worker-backed `wasmSolver` |
 | Scored release match (`grow-dusk-release-1`) | Rust, `evaluator/engine/releaseTurn.ts` (already before this change) |
-| Older Shared table catalogues (`analyzeTurn` for other catalogues), with their repair, issue and penalty helpers | Legacy voxel kernel |
+| Shared table playtest card sets (frame, hollow, planar, trusses, springs, joints, cables, legacy), new matches | Rust, the same adapter as the release, with member self-weight in ordinary previews. Recorded as `engine: "rust-1"` in the match and its save. |
+| Shared table playtest matches saved before 2026-11-15 (no `engine` field) | Legacy voxel kernel, so their saved issue, penalty and repair evidence reproduces on replay |
 
 ## How the Rust engine replaces each voxel feature
 
@@ -54,7 +58,7 @@ The old `solver/voxel*.ts` modules mixed game-level evaluation with a linear fra
 | Serviceability deflection estimate | Rust's chord sag per member (`deflection.maxFromChord`). |
 | Global buckling factor α_cr (linear screen, one element per member) | Rust's linearised stability reserve about each verified ultimate state (`reserveMethod: "linearized"`, cap 128). With two elements per member it includes a strut buckling between its ends. |
 | Mechanism detection | Rust's first-order mechanism flag, reported even when nonlinear recovery cannot also prove it. |
-| Objectives, stars, design checks, joint and foundation capacity, auto-design | Unchanged evaluator code on the Rust response. Auto-design now only upsizes after its first round, so it settles under second-order redistribution. |
+| Objectives, stars, design checks, joint and foundation capacity, auto-design | Unchanged evaluator code on the Rust response, except that the member buckling reduction χ was removed (see owner decisions). Auto-design now only upsizes after its first round, so it settles under second-order redistribution. |
 | Load-path visualisation, overlays | Unchanged; they read `StructureEvaluation`. |
 
 ### What the Rust solver gained
@@ -83,17 +87,35 @@ Several α_cr values are lower than voxel's (for example 04 rigid portal: 2.2 ag
 
 The linearised reserve is an estimate. Against the path method it agrees within about 1 % on four specimens, is lower on five (by up to 10× on the very flexible roof grid, whose path stiffens), and is higher on the guyed mast (110 against 75). Code-style α_cr is a linearised quantity, and the nonlinear ultimate solve independently catches buckling below the applied load.
 
+## Shared table playtest matches
+
+Replaying a saved playtest match re-runs each turn's assessment and rejects the save if issues, penalties or repairs differ (`endTurn` in `game/turns.ts`). Only the final award is read from the save without re-solving. Switching these card sets to Rust outright would therefore have made every existing save unloadable. Instead, each match records its engine (`TurnState.engine`, saved in the session header):
+
+- New matches use `rust-1` and analyse on the Rust turn adapter (`evaluator/engine/releaseTurn.ts`). It now accepts member self-weight for ordinary previews, the card pretension for cables printed without a rest length, and the card stiffness for older springs. Release requests are byte-identical.
+- Saves without the field replay on the kernel, with their original `voxel-linear-frame-v1` / `voxel-cable-frame-v1` evidence. An unknown engine is rejected. Relabelling a Rust save as legacy does not reproduce (tested).
+- Score receipts name the Rust solver for Rust matches. Archived turn evidence records `dof-rust`, `geometric-nonlinear-static`.
+- The store replays a saved match synchronously when it loads, so `main.tsx` instantiates the WASM before importing the app. The vitest setup does the same.
+
+What changed in results, with the evidence in the tests:
+
+- Quarter-connected frames and the foundation-uplift split now match closed forms that include shear deformation (Timoshenko) within 1e-4; voxel ignored shear.
+- Cable transfers match the independent force-method reference (`docs/evidence/cable/reference.py`) within 1e-8.
+- Two values with no independent reference were re-pinned as observed: the reloaded cable match (3.0235 kN, previously 2.9996) and the collared spring (0.0452 kN, previously 0.0438).
+- A grossly overloaded assembly that deforms excessively is now reported as overloaded (utilisation about 59), where voxel withheld its capacity as outside its linear envelope.
+- An unloaded slender column's capacity is verified at zero actions, where voxel withheld it because a linear response needs α_cr ≥ 10.
+
+A small 16-turn Rust match plays in about 27 ms and replays in about 13 ms in Node. In Chromium, a cables-set match recorded `"engine":"rust-1"` in its save and restored after a page reload.
+
+## Owner decisions, 2026-11-15
+
+- **Older playtest card sets: move to Rust** (above).
+- **Member buckling check (χ): removed.** Solver criterion A02 requires the analysis itself to include member P-δ, with enough discretisation for member buckling. The nonlinear Rust analysis does, so χ counted buckling twice. The slenderness limit stays, as a detailing rule. Only the roof grid's library utilisation changed (0.6721 to 0.6717).
+- **Level thresholds and stars: unchanged.** Stars depend on passing every objective and on cost against budget, not on α_cr. α_cr only feeds the "α_cr ≥ 1" objective and a warning below 10. Buckling below the applied load already fails the nonlinear ultimate solve, so the lower values show as warnings and change no outcome.
+- **α_cr method: linearised.** The solver criteria require verified critical buckling loads within 2 % (met on the Euler and sway-portal tests) and defer post-buckling path tracing, which is what the `path` method adds.
+
 ## Remaining work
 
-1. **Older Shared table catalogues.** They still analyse with the kernel and record `voxel-linear-frame-v1` / `voxel-cable-frame-v1` evidence; replay validates saved evidence without re-running a solver. Moving them to Rust changes their results and evidence formulation. Their helpers (`turnRepair.ts`, `turnIssues.ts`, `turns.ts` scoring for non-release catalogues) and tests (`turnAnalysis`, `turnEvidence`, `supportResponse`, `spring`, `planar`, `trichord`, `cablePorts`, `structuralState`, `runtime`) assume linear-kernel numbers.
-2. **OpenSees as an evaluator engine.** Not done. OpenSees still has one steel section and no member loads, self-weight or strength results, so it remains the structural check only.
-3. **Delete the kernel** (`solver/voxel/`) once item 1 is decided, and update the knowledge base.
-
-## Decisions needed
-
-- Retire the older Shared table catalogues, keep them on the kernel, or move them to Rust with new evidence.
-- Whether a member buckling check (χ) is still wanted now that the analysis reports buckling directly. It is kept for now and may double-count with the nonlinear analysis.
-- How levels and star thresholds should be re-tuned for the lower α_cr. The thresholds are unchanged, and the three references still pass.
-- Whether α_cr should use the slower `path` method for exact nonlinear reserves (about 2.4 s per ultimate combination on the bridge reference).
+1. **OpenSees as an evaluator engine.** Not done. OpenSees still has one steel section and no member loads, self-weight or strength results, so it remains the structural check only.
+2. **Delete the kernel** (`solver/voxel/`) only if replaying pre-migration playtest saves is no longer needed. Without it, those saves would fail to load. Its only remaining importer is `game/turnAnalysis.ts`.
 
 This page was written by an AI agent from the code and the measurements recorded above.

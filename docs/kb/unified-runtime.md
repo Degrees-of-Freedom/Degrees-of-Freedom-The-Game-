@@ -43,7 +43,7 @@ Grow Dusk Creative exposes **Foundation** on the building toolbar (keyboard 0). 
 - `store.ts` coordinates editor state, history, and persistence. `turns.ts` owns the Shared table rules. `session.ts` validates and reconstructs a turn session from versioned deterministic events. `connectivity.ts` reports foundation reachability independently of numerical analysis.
 - In non-multiplayer environments, select **Foundation** and click solid ground to place or remove a foundation, subject to the level's supply and locked supports. The presentation environments also support the **B** shortcut; Kit offers the foundation in its piece tray. Shared table player foundations remain setup-only.
 - `Scene.tsx` and its viewer modules share one renderer, with camera, guides, geometry, picking, and palette selected by the environment. `components/environment` and the scoped `environment-*.css` files provide the chrome, trays, and controls. Build options exposes precise coordinate entry.
-- The experimental voxel solver remains separate from the viewer. Solver input in the workspace drawer presents a versioned editor model or the Shared table state. It differs from the branch prototype’s draft split-element JSON and from the preliminary shared solver contract.
+- Structural analysis (the Rust solver through the structure evaluator; the legacy voxel kernel only for replaying older saved playtest matches) remains separate from the viewer. Solver input in the workspace drawer presents a versioned editor model or the Shared table state. It differs from the branch prototype’s draft split-element JSON and from the preliminary shared solver contract.
 
 ## Environment mapping
 

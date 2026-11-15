@@ -187,3 +187,16 @@ These checks are for the branch that moved the game logic into `apps/web/src/eva
 | Workspace in a browser | Checked once with Playwright and Chromium against the Vite dev server. In the Grow Dusk environment: Load example, then Run simulation. The results panel named "Structure evaluator · Rust solver", listed the four load cases and passed with two stars. The scene showed gravity and wind loads and reactions. There were no console errors. The first run took about 2 s, including module download; a second run took 0.65 s. |
 
 Not checked: the OpenSees-dependent tests and `npm run test:opensees`, because no OpenSees service was running; auto-design in a browser, which is covered by `evaluator/sizing.test.ts`; and Windows.
+
+### Shared table playtest card sets on Rust — 2026-11-15
+
+Same container and toolchain as above, after moving new playtest matches to the Rust turn solver and removing the member buckling check.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | Pass. |
+| `npm test` | Pass: 81 test files, 585 tests; 2 files and 9 tests are skipped without an OpenSees service. Includes `game/turnEngine.test.ts`. |
+| Structure-library baseline | Regenerated deliberately after removing the χ check; only the roof grid's maximum utilisation changed (0.6721 to 0.6717). |
+| Shared table in a browser | Checked once with Playwright and Chromium against the Vite dev server: setup with "Frame members and tension-only cables", Start, reveal, End turn, reload. The save header recorded `"engine":"rust-1"`, the match restored to the next handoff, and there were no console errors. |
+
+Not checked: the OpenSees-dependent tests, and loading a real pre-migration save from a player's browser. Legacy replay is covered by `turnEngine.test.ts` with matches created on the kernel.
