@@ -222,6 +222,17 @@ fn parse_load(value: &Json, path: &str) -> Parsed<Load> {
     Ok(load)
 }
 
+fn parse_member_load(value: &Json, path: &str) -> Parsed<MemberLoad> {
+    let mut f = Fields::new(value, path)?;
+    let load = MemberLoad {
+        id: f.req_text("id")?,
+        member_id: f.req_text("memberId")?,
+        force: numbers::<3>(f.req("force")?, &format!("{path}.force"))?,
+    };
+    f.done()?;
+    Ok(load)
+}
+
 fn parse_model(value: &Json) -> Parsed<Model> {
     let mut f = Fields::new(value, "model")?;
     let model = Model {
@@ -231,6 +242,7 @@ fn parse_model(value: &Json) -> Parsed<Model> {
         members: f.list("members", parse_member)?,
         foundations: f.list("foundations", parse_foundation)?,
         loads: f.list("loads", parse_load)?,
+        member_loads: f.list("memberLoads", parse_member_load)?,
     };
     f.done()?;
     Ok(model)
@@ -276,9 +288,14 @@ fn parse_case(value: &Json, path: &str) -> Parsed<LoadCase> {
         None => None,
         Some(_) => Some(f.list("loads", parse_load)?),
     };
+    let member_loads = match f.opt("memberLoads") {
+        None => None,
+        Some(_) => Some(f.list("memberLoads", parse_member_load)?),
+    };
     let case = LoadCase {
         id: f.req_text("id")?,
         loads,
+        member_loads,
         load_factor: f.num("loadFactor")?,
         gravity: f.vec3("gravity")?,
         self_weight: f.flag_or("selfWeight", true)?,

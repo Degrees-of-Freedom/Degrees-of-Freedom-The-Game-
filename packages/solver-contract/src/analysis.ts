@@ -118,6 +118,19 @@ export interface AnalysisLoad {
   moment?: Vector3;
 }
 
+/**
+ * A uniform load along the whole length of a member, N/m in global axes.
+ * Applied like self-weight: consistent nodal loads on each beam element, or
+ * half to each end of a brace or cable. It keeps its global direction as the
+ * member deforms, and is multiplied by the load factor. Ids share one space
+ * with nodal load ids.
+ */
+export interface AnalysisMemberLoad {
+  id: string;
+  memberId: string;
+  force: Vector3;
+}
+
 export interface AnalysisModel {
   /** Identifier of this model state, echoed as `analysis.modelVersion`. */
   version?: string;
@@ -126,6 +139,7 @@ export interface AnalysisModel {
   members: AnalysisMember[];
   foundations: AnalysisFoundation[];
   loads: AnalysisLoad[];
+  memberLoads?: AnalysisMemberLoad[];
 }
 
 export interface AnalysisOptions {
@@ -316,6 +330,8 @@ export interface AnalysisLoadCase {
   id: string;
   /** Replaces the model's nodal loads; `[]` leaves self-weight only. */
   loads?: AnalysisLoad[];
+  /** Replaces the model's member loads; `[]` removes them. */
+  memberLoads?: AnalysisMemberLoad[];
   /** Replaces `options.loadFactor`. */
   loadFactor?: number;
   /** Replaces `options.gravity`; scale it to factor self-weight. */

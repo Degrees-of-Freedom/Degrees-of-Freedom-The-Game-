@@ -39,6 +39,8 @@ pub struct Model {
     pub members: Vec<Member>,
     pub foundations: Vec<Foundation>,
     pub loads: Vec<Load>,
+    /// Uniform loads along members, in addition to self-weight.
+    pub member_loads: Vec<MemberLoad>,
 }
 
 #[derive(Clone, Debug)]
@@ -168,6 +170,20 @@ pub struct Load {
     pub moment: Vec3,
 }
 
+/// A uniform load along the whole length of a member, N/m in global axes.
+///
+/// It is treated exactly like self-weight: applied once as consistent nodal
+/// loads on each beam element, or half to each end of a brace or cable, and
+/// it keeps its global direction as the member deforms (it is not a
+/// follower load). It is multiplied by the load factor.
+#[derive(Clone, Debug)]
+pub struct MemberLoad {
+    pub id: String,
+    pub member_id: String,
+    /// Force per unit undeformed length, N/m.
+    pub force: Vec3,
+}
+
 /// Most load cases accepted in one request.
 pub const MAX_LOAD_CASES: usize = 100;
 
@@ -179,6 +195,8 @@ pub struct LoadCase {
     pub id: String,
     /// Replaces the model's nodal loads for this case.
     pub loads: Option<Vec<Load>>,
+    /// Replaces the model's member loads for this case.
+    pub member_loads: Option<Vec<MemberLoad>>,
     /// Replaces `options.load_factor`.
     pub load_factor: Option<f64>,
     /// Replaces `options.gravity`, so self-weight can be factored per case.
@@ -399,6 +417,18 @@ pub fn validate(model: &Model, options: &Options) -> Vec<Issue> {
         }
         if !finite(&l.force) || !finite(&l.moment) {
             issues.push(issue("nonFiniteInput", format!("Load '{}' is not finite.", l.id), &[&l.id]));
+        }
+    }
+
+    for l in &model.member_loads {
+        if !load_ids.insert(l.id.as_str()) {
+            issues.push(issue("duplicateId", format!("Duplicate load id {}.", l.id), &[&l.id]));
+        }
+        if !member_ids.contains(l.member_id.as_str()) {
+            issues.push(issue("unknownReference", format!("Member load {} refers to a member that does not exist.", l.id), &[&l.id]));
+        }
+        if !finite(&l.force) {
+            issues.push(issue("nonFiniteInput", format!("Member load {} is not finite.", l.id), &[&l.id]));
         }
     }
 

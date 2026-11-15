@@ -494,6 +494,9 @@ pub fn analyze_cases(model: &Model, options: &Options, cases: &[LoadCase]) -> Js
             if let Some(loads) = &case.loads {
                 case_model.loads = loads.clone();
             }
+            if let Some(loads) = &case.member_loads {
+                case_model.member_loads = loads.clone();
+            }
             let mut case_options = options.clone();
             if let Some(factor) = case.load_factor {
                 case_options.load_factor = factor;
@@ -524,6 +527,7 @@ pub fn analyze(input: &Model, options: &Options) -> Json {
     model.sections.sort_by(|a, b| a.id.cmp(&b.id));
     model.foundations.sort_by(|a, b| a.id.cmp(&b.id));
     model.loads.sort_by(|a, b| a.id.cmp(&b.id));
+    model.member_loads.sort_by(|a, b| a.id.cmp(&b.id));
 
     let mut failed: BTreeSet<String> = BTreeSet::new();
     let mut events: Vec<Json> = Vec::new();
