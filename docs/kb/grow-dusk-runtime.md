@@ -13,6 +13,7 @@ validated_against:
   - apps/web/src/game/cantileverPlacement.ts
   - apps/web/src/game/cantileverRelease.test.ts
   - docs/kb/cantilever-placement.md
+  - docs/evidence/cantilevers/results.json
   - scripts/release-browser.mjs
 status: partial
 ---
@@ -59,6 +60,6 @@ Run `npm run typecheck`, `npm test`, `npm run test:solver`, `npm run test:opense
 
 After a production build, install Playwright Chromium with `npx playwright install chromium` or set `DOF_BROWSER_CHANNEL` to `chrome` or `msedge`. Run `npm run test:release` for seeds 0–19 plus a separate all-pass match. `npm run test:release -- --faults` exercises storage and worker interruptions. `node scripts/release-presentation.mjs` checks controls, zoom and presentation fallbacks. `DOF_FIRST_SEED`, `DOF_LAST_SEED`, `DOF_INPUT=keyboard`, `DOF_BROWSER_EXECUTABLE` and `DOF_EVIDENCE_DIR` select a shorter range, actual keyboard input, browser binary and output directory. Use `DOF_CAPTURE_TURNS=1` for turn-by-turn screenshots of seeds 0–2. A new browser profile can select a deterministic initial deal through `/match?seed=6`; the route removes the query and an existing record takes precedence.
 
-`node scripts/cantilever-browser.mjs` provides the fixed-collar pointer, keyboard, touch-emulation and GPU-fallback walkthrough. Focused unit and numerical coverage is listed in [cantilever placement](cantilever-placement.md#verification-and-remaining-scope); browser and platform claims require the corresponding completed run.
+`node scripts/cantilever-browser.mjs` provides the fixed-collar walkthrough. The [recorded run](../evidence/cantilevers/README.md) passed all six cases in Chromium 156.0.8078.79: pointer controls, production scene picking, precise endpoint entry, keyboard, touch emulation and unavailable-WebGL fallback, including draft reload and assessed private handoff. Focused unit and numerical coverage and remaining platform limits are listed in [cantilever placement](cantilever-placement.md#verification-and-remaining-scope).
 
 Run `node scripts/release-performance.mjs` for default-decoration frame and input timing, and `node scripts/release-resources.mjs` for repeated route and scene resets. The performance report includes the active graphics renderer, CPU, installed memory, browser, build and individual timing samples. The [release criteria ledger](criteria-ledger.md) records measured results, unavailable platforms and acceptance status.

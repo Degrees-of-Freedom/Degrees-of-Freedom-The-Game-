@@ -23,6 +23,8 @@ validated_against:
   - apps/web/src/game/cantileverRelease.test.ts
   - apps/web/src/menu/startPlan.test.ts
   - docs/evidence/cantilever-evaluation/observations.json
+  - docs/evidence/cantilevers/results.json
+  - scripts/cantilever-browser.mjs
 owner: unknown
 status: partial
 ---
@@ -54,7 +56,7 @@ The active authority remains `game/turns.ts`, presented through `ReleaseBoard` a
 4. **Place element** stages geometry. The contact remains **Unconnected**, with a dashed scene ring for an interior source. **Attach with Fixed connector** spends the named compatible hand card only after the player clicks it. The status becomes **Attached** after acceptance. A missing compatible card or exhausted connection allowance leaves the legal unconnected draft available.
 5. **End turn** uses the existing assessment, deduction, repair and save flow. Legal placement, connection and foundation reachability do not promise structural stability.
 
-The same controls support keyboard selection and coordinate fallback. **Enter free tip coordinates** derives the complete pinned member from a target tip. **Precise placement** retains the two-endpoint form for independent placement. Escape backs out of the current targeting operation before cancelling card selection; **Cancel draft** retains its existing whole-draft meaning. A hover is not needed to select a target or spend a card.
+The same controls support keyboard selection and coordinate fallback. **Enter free tip coordinates** derives the complete pinned member from a target tip. **Precise placement** accepts grid coordinates or named original ports for both endpoints and forwards the selected interior contact when an attachment station is active. The authority verifies that those endpoints meet the pinned station exactly. Without a selected interior contact, the form retains ordinary independent placement. Escape backs out of the current targeting operation before cancelling card selection; **Cancel draft** retains its existing whole-draft meaning. A hover is not needed to select a target or spend a card.
 
 ```mermaid
 flowchart LR
@@ -97,7 +99,9 @@ The focused regression suites cover:
 - `cantileverRelease.test.ts`: a genuine dealt v2 quarter-supported 5 kN match through all 16 turns, one card per physical play, unchanged starting fittings, Rust final-score provenance, complete private draft/final replay and v1 private-save preservation.
 - `menu/startPlan.test.ts`: the v2 preset reaches the release board dimensions while Continue retains a historical match.
 
-`scripts/cantilever-browser.mjs` is the reproducible browser walkthrough for pointer, keyboard, touch emulation and unavailable-WebGL controls. Its presence alone is not evidence of a completed browser run. Hardware touch, assistive technology and the broader release matrix remain governed by the [controls criteria](controls-camera-criteria.md) and [release ledger](criteria-ledger.md).
+The [2026-11-15 browser walkthrough](../evidence/cantilevers/README.md) passed **6/6 scenarios** in Chromium 156.0.8078.79 with genuine seed 6: pointer controls, actual scene picking, precise endpoint entry, keyboard input, touch emulation and unavailable-WebGL fallback. Each scenario staged one whole beam and one explicitly chosen `q1` fixed connector, reloaded the exact draft, placed a 5 kN tip load, completed assessment/private handoff, verified the committed geometry and checked horizontal overflow. The full TypeScript suite passed **606 tests, with 9 skipped**. Shared-contract and web production builds passed. The top-level Rust rebuild was unavailable because Cargo was absent; no Rust code changed and validation used the checked-in WASM. See [recorded results and reproduction](../evidence/cantilevers/README.md).
+
+These browser results use Linux Chromium and touch emulation. Hardware touch, assistive technology and the broader release matrix remain governed by the [controls criteria](controls-camera-criteria.md) and [release ledger](criteria-ledger.md).
 
 Partial-lock, ball and elastic **interior source** collars remain unimplemented. They require a separate six-DOF relation between the through-member's continuous private node and the receiving joint; plain node aliasing would incorrectly lock their released axes. Releasing both beam segments would incorrectly cut the parent's continuity. Axial-family and assembly source collars likewise require their own defined physical interfaces and validation. These limits do not remove existing end or target-quarter capabilities.
 
