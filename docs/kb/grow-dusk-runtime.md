@@ -38,7 +38,7 @@ Private hands, deck order, draw identities, seed and the draft are absent from t
 
 ## Board and presentation
 
-The header shows seat, round, remaining allowances and deductions. The hand tray groups cards and exposes targeting when a card is selected. Original-quarter and precise coordinate controls supplement the 3D board. Inspect exposes engineering evidence for the current scope. GPU fallback keeps the precision controls available. Settings control companion, glow, reduced motion and opt-in sound. The presentation reads committed public reports. The compact Timburr/Conkeldurr companion uses locally attributed models, procedural poses and matching portrait fallbacks. A qualified foreman reaction requires a newly penalized instability or utilization of at least 1.25, with a 45-second cooldown. Final scoring and privacy take priority over cosmetic events.
+The header shows seat, round, remaining allowances and deductions. The compact hand tray groups cards and uses blue for elements, purple for connections and amber for gravity; labels and symbols also identify each type. Selecting a card exposes targeting. Original-quarter and precise coordinate controls supplement the 3D board. Inspect exposes engineering evidence for the current scope. GPU fallback keeps the precision controls available. Settings control companion, glow, reduced motion and opt-in sound. The presentation reads committed public reports. The compact Timburr/Conkeldurr companion uses locally attributed models, procedural poses and matching portrait fallbacks. A qualified foreman reaction requires a newly penalized instability or utilization of at least 1.25, with a 45-second cooldown. Final scoring and privacy take priority over cosmetic events.
 
 ### View modes and legends
 
