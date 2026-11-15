@@ -75,4 +75,11 @@ describe("Shared table pinned placement", () => {
       a: "port:4:1", b: "port:5:1", contact: {quarter: 1, target: "5,7,1"},
     });
   });
+
+  it("does not offer analytical load-only endpoint nodes as authoring anchors", () => {
+    const state = fixture();
+    state.turn!.board.joints.push({id: "endpoint:9:b", point: "8,7,1"});
+    expect(placementAnchorTargets(state.turn!).map(target => target.id)).not.toContain("endpoint:9:b");
+    expect(placementAnchorTargets(state.turn!).map(target => target.id)).toContain("5,7,1");
+  });
 });

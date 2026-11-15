@@ -27,7 +27,9 @@ export function placementAnchorTargets(turn: TurnState): {id: string; point: Gri
   const targets = new Map<string, {id: string; point: GridPoint; label: string}>();
   for (const joint of turn.board.joints) {
     if (joint.system || systemTarget(turn, joint.id)) continue;
-    const point = parseNodeKey(joint.point ?? targetCoordinate(turn.board.members, joint.id));
+    // A load can materialize a private endpoint node in the saved joint list.
+    // Keep the same coordinate/original-port language as player authoring.
+    const point = parseNodeKey(targetCoordinate(turn.board.members, joint.id));
     if (!point.every(Number.isFinite)) continue;
     targets.set(joint.id, {id: joint.id, point, label: `Joint (${point.join(", ")})${joint.foundationOwner ? " · foundation" : ""}`});
   }
