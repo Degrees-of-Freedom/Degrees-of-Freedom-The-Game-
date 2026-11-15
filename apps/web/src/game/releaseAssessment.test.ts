@@ -41,6 +41,13 @@ describe('actual release turn solver, receipts and card lifecycle', () => {
     expect(completed.finalScore).toMatchObject({totalGravityKN:0,partial:false,winners:['player-1','player-2']});
     expect(endTurn(completed).ok).toBe(false);
     expect(parseTurnState(JSON.parse(JSON.stringify(completed)))).toEqual(completed);
+    // Archived editor turns may carry a solver comparison. Release saves
+    // reconstruct explanations exclusively from their own physical receipts.
+    const altered = structuredClone(completed.events);
+    const last = altered.at(-1)!;
+    if (last.kind !== 'end') throw new Error('Missing final event.');
+    last.reason = 'External verdict';
+    expect(parseTurnState({version: 1, catalogue: RELEASE_CATALOGUE, seed: 0, events: altered})).toBeNull();
   });
 
   it('assigns cantilever tip gravity to its owner and rejects a forged but balanced signed receipt', () => {
