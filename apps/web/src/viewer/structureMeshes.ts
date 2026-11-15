@@ -12,7 +12,7 @@ import {
 import { isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
 import { poseSection, wideFlangeGeometry, type WideFlange } from "./sectionGeometry";
 import { assemblyGeometry } from "./assemblyGeometry";
-import { springGeometry } from "./springGeometry";
+import { springDisplayAxis, springGeometry } from "./springGeometry";
 import {
   computeLoadPath,
   traceToGround,
@@ -105,7 +105,8 @@ export function buildStructure(
                 : "#5a6370";
     const pending = activeMembers.has(member.id);
     if (member.type === "spring") {
-      const mesh = new THREE.Mesh(springGeometry(member, 1.8), new THREE.MeshStandardMaterial({
+      const displayedAxis = v.deformed && result ? springDisplayAxis(member.id, result, v.combo, point) : undefined;
+      const mesh = new THREE.Mesh(springGeometry(member, 1.8, displayedAxis), new THREE.MeshStandardMaterial({
         color, transparent: pending, opacity: pending ? 0.65 : 1,
         emissive: s.selected?.type === "member" && s.selected.id === member.id ? 0x536b54 : 0,
       }));
