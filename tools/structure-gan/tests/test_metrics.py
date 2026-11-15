@@ -69,3 +69,32 @@ def test_complexity_rewards_size_and_loops(column):
 def test_lean_and_overhang_raise_dynamism(column):
     leaning = make(chain((5, 5, 0), (5, 5, 2), (6, 5, 3), (7, 6, 4), (8, 7, 5), (9, 8, 6)), [(5, 5, 0)], [(9, 8, 6)])
     assert metrics.dynamism(leaning) > metrics.dynamism(column) == pytest.approx(0.0, abs=0.35)
+
+
+def _ladders(rows: int):
+    """``rows`` parallel braced ladders of 11 bays (57 members each) inside the 12-wide lattice."""
+    edges = []
+    for y in range(rows):
+        for x in range(12):
+            edges += chain((x, y, 0), (x, y, 2))
+            if x:
+                edges += chain((x - 1, y, 0), (x, y, 0)) + chain((x - 1, y, 2), (x, y, 2)) + chain((x - 1, y, 0), (x, y, 2))
+    return make(edges, [(0, 0, 0)], [(11, 0, 2)])
+
+
+def test_bloat_is_not_rewarded():
+    one, two = _ladders(1), _ladders(2)
+    assert len(one.edges) == 57 and len(two.edges) == 114
+    assert metrics.complexity(one) > metrics.complexity(two)
+
+
+def test_density_asymmetry_separates_balanced_from_lopsided():
+    balanced = make(
+        chain((2, 2, 0), (2, 2, 3)) + chain((9, 9, 0), (9, 9, 3)) + chain((2, 9, 0), (2, 9, 3)) + chain((9, 2, 0), (9, 2, 3)),
+        [(2, 2, 0)], [(2, 2, 3)],
+    )
+    lopsided = make(
+        chain((2, 2, 0), (2, 2, 3), (3, 2, 4), (5, 2, 5), (7, 2, 5), (9, 3, 6)) + chain((2, 2, 1), (2, 3, 1)),
+        [(2, 2, 0)], [(9, 3, 6)],
+    )
+    assert metrics.asymmetry(balanced) < 0.3 < metrics.asymmetry(lopsided)

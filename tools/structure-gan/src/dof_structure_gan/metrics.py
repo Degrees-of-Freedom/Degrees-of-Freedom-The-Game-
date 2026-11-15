@@ -109,55 +109,65 @@ def curvature(structure: Structure) -> float:
 
 
 def organic(structure: Structure) -> float:
-    """Departure from an orthogonal grid: oblique members, varied directions, branching."""
+    """Departure from an orthogonal grid: mostly oblique members, varied directions and lengths.
+
+    Dense bracing makes nearly every node a junction, so branching is not
+    scored (it was always saturated); obliqueness carries the weight.
+    """
     vectors = np.array([np.subtract(b, a) for a, b in structure.edges], dtype=float)
     axis_aligned = (np.count_nonzero(vectors, axis=1) == 1).mean()
     unit = vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
-    # Entropy of member directions over 26 equal-ish sectors (octants x 3 elevation bands).
+    # Entropy of member directions over 24 bins (octants x 3 elevation bands).
     octant = (unit[:, 0] > 0) * 1 + (unit[:, 1] > 0) * 2 + (unit[:, 2] > 0) * 4
     band = np.digitize(np.abs(unit[:, 2]), [0.33, 0.8])
     bins = np.bincount(octant * 3 + band, minlength=24).astype(float)
     p = bins[bins > 0] / bins.sum()
     entropy = float(-(p * np.log(p)).sum() / math.log(24))
-    adjacency = _adjacency(structure)
-    branching = sum(1 for n in adjacency.values() if len(n) >= 3) / len(adjacency)
     lengths = np.linalg.norm(vectors, axis=1)
     length_variety = float(np.std(lengths) / np.mean(lengths))
-    return _clip01(
-        0.2 * (1 - axis_aligned) + 0.35 * entropy / 0.95 + 0.25 * branching / 0.35 + 0.2 * length_variety / 0.5
-    )
+    return _clip01(0.5 * (1 - axis_aligned) / 0.7 + 0.3 * entropy / 0.95 + 0.2 * length_variety / 0.5)
+
+
+_DENSITY_BINS = 4
+
+
+def _density(structure: Structure) -> np.ndarray:
+    """Length-weighted member-midpoint density on a 4 x 4 x 3 grid over a square footprint."""
+    mids = np.array([(np.add(a, b) / 2.0) for a, b in structure.edges])
+    lengths = np.array([math.dist(a, b) for a, b in structure.edges])
+    lo = mids.min(axis=0)
+    size = max(float(np.ptp(mids[:, 0])), float(np.ptp(mids[:, 1])), 1e-9)
+    ranges = [(lo[0], lo[0] + size), (lo[1], lo[1] + size), (lo[2], max(mids[:, 2].max(), lo[2] + 1e-9))]
+    grid, _ = np.histogramdd(mids, bins=(_DENSITY_BINS, _DENSITY_BINS, 3), range=ranges, weights=lengths)
+    return grid
 
 
 def asymmetry(structure: Structure) -> float:
-    """One minus the best overlap with any mirror/rotation of itself, rescaled.
+    """How far the mass distribution is from any mirror or quarter-turn of itself.
 
-    Footprint symmetries are applied about the bounding-box centre (so a pure
-    translation does not count) and compared as member sets.
+    Exact edge-set symmetry is almost never present in dense forms (so it
+    saturated), so this compares coarse density fields: the best cosine
+    similarity of the footprint-square density with its 7 non-trivial
+    symmetries. Similarity above ~0.9 reads as symmetric (score 0); around 0.5
+    or below reads as lopsided (score 1).
     """
-    nodes = np.array(sorted(structure.nodes))
-    lo, hi = nodes[:, :2].min(axis=0), nodes[:, :2].max(axis=0)
-    centre2 = lo + hi  # doubled centre keeps coordinates integral
-
-    def mapped(op: int) -> set[tuple[tuple[int, int, int], tuple[int, int, int]]]:
-        def move(n: Node) -> Node:
-            x, y = 2 * n[0] - centre2[0], 2 * n[1] - centre2[1]
-            if op & 4:
-                x, y = y, x
-            if op & 1:
-                x = -x
-            if op & 2:
-                y = -y
-            return (int(x), int(y), n[2])
-
-        out = set()
-        for a, b in structure.edges:
-            ma, mb = move(a), move(b)
-            out.add((ma, mb) if ma < mb else (mb, ma))
-        return out
-
-    original = mapped(0)
-    best = max(len(original & mapped(op)) / len(original | mapped(op)) for op in range(1, 8))
-    return _clip01((1 - best) / 0.7)
+    grid = _density(structure)
+    flat = grid.ravel()
+    norm = float(np.linalg.norm(flat))
+    if norm < 1e-12:
+        return 0.0
+    best = 0.0
+    for op in range(1, 8):
+        moved = grid
+        if op & 4:
+            moved = moved.transpose(1, 0, 2)
+        if op & 1:
+            moved = moved[::-1, :, :]
+        if op & 2:
+            moved = moved[:, ::-1, :]
+        other = moved.ravel()
+        best = max(best, float(flat @ other) / (norm * float(np.linalg.norm(other)) + 1e-12))
+    return _clip01((0.9 - best) / 0.4)
 
 
 def dimensionality(structure: Structure) -> float:
@@ -171,15 +181,22 @@ def dimensionality(structure: Structure) -> float:
     planarity = singular[2] / max(singular[1], 1e-9)
     slenderness = singular[1] / singular[0]
     levels = len({n[2] for n in structure.nodes})
-    return _clip01(math.sqrt(_clip01(planarity / 0.5) * _clip01(slenderness / 0.5)) * 0.7 + 0.3 * _clip01(levels / 8))
+    return _clip01(math.sqrt(_clip01(planarity / 0.7) * _clip01(slenderness / 0.7)) * 0.7 + 0.3 * _clip01(levels / 8))
 
 
 def complexity(structure: Structure) -> float:
-    """Enough members and independent loops to be intricate, without rewarding bloat."""
+    """Intricate but not bloated: member count peaks at 60-90, loops count too.
+
+    Size rises to 1 at 62 members, holds to 90, then falls to 0.4 at 120, so
+    filling the member cap is penalised rather than rewarded.
+    """
     members = len(structure.edges)
     loops = members - len(structure.nodes) + 1  # cyclomatic number of a connected graph
-    size = _clip01((members - 12) / 40)
-    return _clip01(0.5 * size + 0.5 * _clip01(loops / 8))
+    if members <= 62:
+        size = _clip01((members - 12) / 50)
+    else:
+        size = 1.0 if members <= 90 else _clip01(1.0 - 0.6 * (members - 90) / 30)
+    return _clip01(0.6 * size + 0.4 * _clip01(loops / 25))
 
 
 def dynamism(structure: Structure) -> float:

@@ -14,8 +14,9 @@ from pathlib import Path
 
 from .evaluation import Evaluation
 from .lattice import CELL_METRES, Structure
+from .preview import render_svg
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 ORACLE = "dof_opensees.engine.analyze; steel SHS 200x200x10, fixed joints, fixed foundations"
 
 _SCHEMA = """
@@ -40,7 +41,8 @@ CREATE TABLE IF NOT EXISTS evolved_structures (
   curvature REAL NOT NULL, organic REAL NOT NULL, asymmetry REAL NOT NULL,
   dimensionality REAL NOT NULL, complexity REAL NOT NULL, dynamism REAL NOT NULL,
   oracle TEXT NOT NULL,
-  save_json TEXT NOT NULL
+  save_json TEXT NOT NULL,
+  preview_svg TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS evolved_fitness ON evolved_structures (fitness DESC);
 """
@@ -127,6 +129,7 @@ class StructureStore:
             "curvature": a.curvature, "organic": a.organic, "asymmetry": a.asymmetry,
             "dimensionality": a.dimensionality, "complexity": a.complexity, "dynamism": a.dynamism,
             "oracle": ORACLE, "save_json": json.dumps(with_loads(voxel_save(s), s, load_kn), separators=(",", ":")),
+            "preview_svg": render_svg(s),
         }
         columns = ", ".join(row)
         marks = ", ".join(f":{k}" for k in row)

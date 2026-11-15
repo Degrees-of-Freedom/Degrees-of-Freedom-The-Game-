@@ -75,3 +75,17 @@ def test_store_refuses_non_excellent(tmp_path, column):
 def test_source_is_constrained(tmp_path, excellent):
     with StructureStore(tmp_path / "x.sqlite") as store, pytest.raises(sqlite3.IntegrityError):
         store.add(excellent, run_id="r", generation=0, source="oracle", load_kn=1)
+
+
+def test_preview_svg_is_stored_and_wellformed(tmp_path, excellent):
+    import xml.etree.ElementTree as ET
+
+    from dof_structure_gan.preview import render_svg
+
+    svg = render_svg(excellent.structure)
+    root = ET.fromstring(svg)
+    assert root.tag.endswith("svg")
+    assert svg.count("<line") == len(excellent.structure.edges)
+    with StructureStore(tmp_path / "p.sqlite") as store:
+        store.add(excellent, run_id="r", generation=0, source="seed", load_kn=1)
+    assert sqlite3.connect(tmp_path / "p.sqlite").execute("SELECT preview_svg FROM evolved_structures").fetchone()[0] == svg
