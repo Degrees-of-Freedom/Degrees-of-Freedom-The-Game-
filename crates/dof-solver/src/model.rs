@@ -168,6 +168,25 @@ pub struct Load {
     pub moment: Vec3,
 }
 
+/// Most load cases accepted in one request.
+pub const MAX_LOAD_CASES: usize = 100;
+
+/// One load case of a multi-case request: the same structure analysed under
+/// different loads. Each case is a complete, independent analysis; omitted
+/// fields keep the request's model loads and options.
+#[derive(Clone, Debug)]
+pub struct LoadCase {
+    pub id: String,
+    /// Replaces the model's nodal loads for this case.
+    pub loads: Option<Vec<Load>>,
+    /// Replaces `options.load_factor`.
+    pub load_factor: Option<f64>,
+    /// Replaces `options.gravity`, so self-weight can be factored per case.
+    pub gravity: Option<Vec3>,
+    /// `false` analyses this case without self-weight.
+    pub self_weight: bool,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum Fidelity {
     /// Small-displacement linear elastic analysis about the undeformed model.

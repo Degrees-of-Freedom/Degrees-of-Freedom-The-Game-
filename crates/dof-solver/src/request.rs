@@ -270,12 +270,55 @@ fn parse_options(value: Option<&Json>) -> Parsed<Options> {
     Ok(options)
 }
 
-/// Parse a request of the form `{"model": {...}, "options": {...}}`.
-pub fn parse_request(text: &str) -> Result<(Model, Options), String> {
+fn parse_case(value: &Json, path: &str) -> Parsed<LoadCase> {
+    let mut f = Fields::new(value, path)?;
+    let loads = match f.opt("loads") {
+        None => None,
+        Some(_) => Some(f.list("loads", parse_load)?),
+    };
+    let case = LoadCase {
+        id: f.req_text("id")?,
+        loads,
+        load_factor: f.num("loadFactor")?,
+        gravity: f.vec3("gravity")?,
+        self_weight: f.flag_or("selfWeight", true)?,
+    };
+    f.done()?;
+    Ok(case)
+}
+
+/// A parsed request: one model and its options, plus the load cases when the
+/// request asks for several (`None` means a single analysis).
+pub struct Request {
+    pub model: Model,
+    pub options: Options,
+    pub cases: Option<Vec<LoadCase>>,
+}
+
+/// Parse a request of the form `{"model": {...}, "options": {...}}`, with an
+/// optional `"cases": [...]` list of load cases.
+pub fn parse_request(text: &str) -> Result<Request, String> {
     let document = crate::json::parse(text)?;
     let mut f = Fields::new(&document, "request")?;
     let model = parse_model(f.req("model")?)?;
     let options = parse_options(f.opt("options"))?;
+    let cases = match f.opt("cases") {
+        None => None,
+        Some(_) => {
+            let cases = f.list("cases", parse_case)?;
+            if cases.is_empty() {
+                return Err("request.cases must list at least one load case.".into());
+            }
+            if cases.len() > MAX_LOAD_CASES {
+                return Err(format!("request.cases has {} load cases; at most {MAX_LOAD_CASES} are accepted.", cases.len()));
+            }
+            let mut ids = std::collections::BTreeSet::new();
+            if let Some(case) = cases.iter().find(|c| !ids.insert(c.id.as_str())) {
+                return Err(format!("request.cases has a duplicate id \"{}\".", case.id));
+            }
+            Some(cases)
+        }
+    };
     f.done()?;
-    Ok((model, options))
+    Ok(Request { model, options, cases })
 }

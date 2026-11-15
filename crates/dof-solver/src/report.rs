@@ -476,6 +476,40 @@ fn note_overload(best: &mut Option<Overload>, check: Option<(f64, &'static str)>
     }
 }
 
+/// Analyse one structure under several load cases.
+///
+/// Returns `{"cases": [{"id": ..., "result": ...}]}` in request order. Each
+/// result is exactly what [`analyze`] gives for the model with that case's
+/// loads and options, so a case can be rejected (`invalid`) on its own, for
+/// example for a load on an unknown node, while the others are analysed.
+///
+/// The gain over separate calls is the request: the model is sent, parsed
+/// and decoded once. Each case is still solved from scratch; stiffness
+/// factorisations are not shared between cases.
+pub fn analyze_cases(model: &Model, options: &Options, cases: &[LoadCase]) -> Json {
+    let results = cases
+        .iter()
+        .map(|case| {
+            let mut case_model = model.clone();
+            if let Some(loads) = &case.loads {
+                case_model.loads = loads.clone();
+            }
+            let mut case_options = options.clone();
+            if let Some(factor) = case.load_factor {
+                case_options.load_factor = factor;
+            }
+            if case.gravity.is_some() {
+                case_options.gravity = case.gravity;
+            }
+            if !case.self_weight {
+                case_options.gravity = None;
+            }
+            object([("id", case.id.as_str().into()), ("result", analyze(&case_model, &case_options))])
+        })
+        .collect();
+    object([("cases", Json::Arr(results))])
+}
+
 /// Analyse a validated model. Never fails: every outcome is a result.
 pub fn analyze(input: &Model, options: &Options) -> Json {
     let issues = validate(input, options);
