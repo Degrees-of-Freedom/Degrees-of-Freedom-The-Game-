@@ -458,3 +458,27 @@ fn a_fully_released_end_is_not_a_connection() {
     assert_eq!(r.component_of("a").get("status").unwrap().as_str(), Some("stable"));
     assert_eq!(r.displacement("b"), [0.0; 6]);
 }
+/// Rotate the connector basis about a skew beam without rolling its section.
+/// Under an axial load P the fixed-base reaction is -P, the end translates
+/// PL/EA and the compliant connector translates (P dot d)/k along d.
+#[test]
+fn physical_connector_axes_are_independent_of_section_roll() {
+    let l = 2.0;
+    let p = 1000.0;
+    let k = 8.0e6;
+    let d = [0.6, 0.8, 0.0];
+    for nonlinear in [false, true] {
+        let mut b = if nonlinear { Build::new() } else { Build::linear() };
+        b.node("a", [0.0; 3]).node("b", d.map(|v| l*v));
+        let m = b.beam("m", "a", "b");
+        m.start.axes = Some([[1.,0.,0.], [0.,1.,0.], [0.,0.,1.]]);
+        m.start.laws[0] = Law::Elastic(k);
+        m.orientation = Some([0.,0.,1.]);
+        b.support("a", FIXED).load("b", d.map(|v| p*v));
+        let result = b.run();
+        assert_eq!(result.status(0), "stable");
+        close(result.displacement("b")[0], d[0]*p*l/(E*A) + d[0]*p/k, 1e-6);
+        close(result.displacement("b")[1], d[1]*p*l/(E*A), 1e-6);
+        close(result.reaction("a")[0], -d[0]*p, 1e-7);
+    }
+}

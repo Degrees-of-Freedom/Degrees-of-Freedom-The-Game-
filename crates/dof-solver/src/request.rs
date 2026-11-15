@@ -118,6 +118,10 @@ fn parse_connection(value: Option<&Json>, path: &str) -> Parsed<Connection> {
     };
     let mut f = Fields::new(value, path)?;
     let mut connection = Connection::default();
+    if let Some(axes) = f.opt("axes") {
+        let items = axes.as_array().filter(|axes| axes.len() == 3).ok_or(format!("{path}.axes needs three reference directions."))?;
+        connection.axes = Some([numbers(&items[0], path)?, numbers(&items[1], path)?, numbers(&items[2], path)?]);
+    }
     if let Some(laws) = f.opt("laws") {
         let items = laws.as_array().filter(|a| a.len() == 6).ok_or(format!("{path}.laws must be an array of 6 laws."))?;
         for (i, item) in items.iter().enumerate() {

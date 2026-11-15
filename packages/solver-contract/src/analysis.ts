@@ -46,6 +46,9 @@ export interface ConnectionCapacity {
 
 /** How one member end joins its node. Omitted laws are rigid. */
 export interface MemberConnection {
+  /** Undeformed connector X/Y/Z unit directions in global axes. They turn
+   * with the node. Omission uses the member's local reference directions. */
+  axes?: readonly [Vector3, Vector3, Vector3];
   laws?: ConnectionLaws;
   capacity?: ConnectionCapacity;
 }
@@ -224,6 +227,8 @@ export interface MemberResult {
    * positive in tension.
    */
   forces: { start: Vector6; end: Vector6 } | null;
+  /** End cuts of internal beam elements, including both sides of a mesh node. */
+  stations?: readonly { fraction: number; forces: Vector6 }[];
   utilization: number | null;
   governingLimitState?: string | null;
   connections?: { start: ConnectionResult; end: ConnectionResult } | null;

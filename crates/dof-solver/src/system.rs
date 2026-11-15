@@ -239,6 +239,7 @@ impl System {
                     dx: dx.map(|v| v / count as f64),
                     l0: seg_length,
                     e0,
+                    connector_basis: [IDENTITY; 2],
                     ea: section.e * section.a,
                     gj: section.g * section.j,
                     eiy: section.e * section.iy,
@@ -253,7 +254,11 @@ impl System {
                     if k != at || !end_attached(member, end) {
                         continue;
                     }
-                    let laws = if end == 0 { &member.start.laws } else { &member.end.laws };
+                    let connection = if end == 0 { &member.start } else { &member.end };
+                    if let Some([x, y, z]) = connection.axes {
+                        geom.connector_basis[end] = tmat_mul(&e0, &from_cols(&x, &y, &z));
+                    }
+                    let laws = &connection.laws;
                     for (i, law) in laws.iter().enumerate() {
                         match law {
                             Law::Rigid => {}
@@ -383,7 +388,8 @@ impl System {
                     let (end, i) = (k / 6, k % 6);
                     let base = 6 * end + if i < 3 { 0 } else { 3 };
                     let load = [seg.self_weight[base], seg.self_weight[base + 1], seg.self_weight[base + 2]];
-                    system.fext_q[seg.q_eq[k] as usize] += dot(&load, &col(&seg.geom.e0, i % 3));
+                    let direction = mat_vec(&seg.geom.e0, &col(&seg.geom.connector_basis[k / 6], i % 3));
+                    system.fext_q[seg.q_eq[k] as usize] += dot(&load, &direction);
                 }
             }
         }

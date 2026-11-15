@@ -312,6 +312,10 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
                     fields.extend([
                         ("state", "active".into()),
                         ("forces", object([("start", start.into()), ("end", end.into())])),
+                        ("stations", Json::Arr(stations.iter().enumerate().map(|(i, forces)| {
+                            let fraction = (i / 2 + i % 2) as f64 / range.len() as f64;
+                            object([("fraction", fraction.into()), ("forces", (*forces).into())])
+                        }).collect())),
                         u,
                         g,
                         ("connections", object([("start", connections.remove(0)), ("end", connections.remove(0))])),

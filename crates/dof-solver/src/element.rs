@@ -30,6 +30,8 @@ pub struct SegGeom {
     pub l0: f64,
     /// Undeformed local axes as matrix columns.
     pub e0: M3<f64>,
+    /// Columns are each connector's axes expressed in the reference member frame.
+    pub connector_basis: [M3<f64>; 2],
     pub ea: f64,
     pub gj: f64,
     pub eiy: f64,
@@ -108,9 +110,10 @@ fn end_kinematics<T: Scalar>(g: &SegGeom, s: &SegState, q: &[f64; 12], k: usize)
     let triad = node_triad::<T>(g, s, k);
     let variable = |i: usize| if g.conn_var[b + i] { T::variable(q[b + i], connection_variable(g, b + i)) } else { T::cst(q[b + i]) };
     let slides = g.conn_var[b] || g.conn_var[b + 1] || g.conn_var[b + 2];
-    let slide = slides.then(|| mat_vec(&triad, &[variable(0), variable(1), variable(2)]));
+    let motion = |i| mat_vec(&lift(&g.connector_basis[k]), &[variable(i), variable(i + 1), variable(i + 2)]);
+    let slide = slides.then(|| mat_vec(&triad, &motion(0)));
     let turns = g.conn_var[b + 3] || g.conn_var[b + 4] || g.conn_var[b + 5];
-    let triad = if turns { mat_mul(&triad, &exp_so3(&[variable(3), variable(4), variable(5)])) } else { triad };
+    let triad = if turns { mat_mul(&triad, &exp_so3(&motion(3))) } else { triad };
     (slide, triad)
 }
 
@@ -320,7 +323,10 @@ pub fn seg_linear(g: &SegGeom) -> SegDerivatives {
     }
     for m in 0..12 {
         if g.conn_var[m] {
-            d[m][12 + m] = 1.0;
+            let block = m / 3 * 3;
+            for i in 0..3 {
+                d[block + i][12 + m] = g.connector_basis[m / 6][i][m % 3];
+            }
         }
     }
     // B D, then (B D)ᵀ K₇ (B D).
@@ -447,6 +453,7 @@ mod tests {
             dx: [2.0, 0.0, 0.0],
             l0: 2.0,
             e0: IDENTITY,
+            connector_basis: [IDENTITY; 2],
             ea: 5.0e6,
             gj: 3.0e4,
             eiy: 7.0e4,
