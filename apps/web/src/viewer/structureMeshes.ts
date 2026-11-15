@@ -28,6 +28,7 @@ export function buildStructure(
   const palette = SCENE_STYLES[s.style];
   const turn = s.mode === "multiplayer" ? s.turn : null;
   const playerColors = ["#e9806e", "#6a9bd8"];
+  const neutralSteel = "#d7b55f";
   // Each rebuilt structure owns its profiles; sliced pieces share the same unit prism.
   const sections = new Map<WideFlange, THREE.BufferGeometry>();
   const turnOwners = new Map(
@@ -76,7 +77,7 @@ export function buildStructure(
     const defaultColor =
       owner >= 0
         ? playerColors[owner]
-        : (palette.roles?.[role] ?? ITEMS[member.type].color);
+        : turnOwners.get(member.id) === "neutral" ? neutralSteel : (palette.roles?.[role] ?? ITEMS[member.type].color);
     let color =
       v.utilization && result && !result.error && result.designChecksAvailable !== false
         ? result.mechanism

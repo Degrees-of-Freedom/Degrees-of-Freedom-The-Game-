@@ -1,4 +1,4 @@
-// node check.mjs <workspace> <Playwright module> <Chrome executable> <before|after>
+// node check.mjs <workspace> <Playwright module> <Chrome executable> <before|after|brace-before|brace-after>
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
 
 const [workspace, playwright, executablePath, phase] = process.argv.slice(2);
-assert.ok(["before", "after"].includes(phase));
+assert.ok(["before", "after", "brace-before", "brace-after"].includes(phase));
 const root = resolve(workspace, "apps/web");
 const server = await createServer({ root, configFile: resolve(root, "vite.config.ts"),
   server: { host: "127.0.0.1", port: 0, hmr: false, watch: null } });
@@ -41,27 +41,45 @@ try {
   await page.getByRole("heading", { name: "Pass to Player 2" }).waitFor();
   await page.reload();
   await ready.click();
-  await details.click();
-  await panel.waitFor();
-  const summary = panel.getByText("Turn deductions (1)", { exact: true });
-  const publicReport = await page.evaluate(async () => {
-    const { useGameStore } = await import("/src/game/store.ts");
-    const { publicTurnModel } = await import("/src/game/publicTurnModel.ts");
-    return publicTurnModel(useGameStore.getState().turn).reports[0];
-  });
-  if (phase === "after") {
-    assert.equal(publicReport.penalty, -1);
-    assert.deepEqual(publicReport.penaltyReasons.map(r => r.id), ["instability:3"]);
-    await summary.click();
-    await panel.getByText("Turn 1 · Player 1 · −1 point", { exact: true }).waitFor();
-    await panel.getByText(/Member 3 · new instability/).waitFor();
+  if (phase.startsWith("brace-")) {
+    const props = await page.evaluate(async () => {
+      const { useGameStore } = await import("/src/game/store.ts");
+      return useGameStore.getState().turn.board.members.filter(member => member.system);
+    });
+    assert.equal(props.length, phase === "brace-after" ? 1 : 0);
+    if (props.length) {
+      assert.equal(props[0].owner, "neutral");
+      assert.equal(props[0].endTargets.a, "port:3:2");
+      assert.equal(props[0].b, "3,2,0");
+    }
+    await page.getByRole("button", { name: "Fit", exact: true }).first().click();
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await page.screenshot({ path: fileURLToPath(new URL("../match/" + phase + ".png", import.meta.url)) });
+    assert.deepEqual(errors, []);
+    console.log(JSON.stringify({ browser: browser.version(), phase, props }));
   } else {
-    assert.equal(publicReport.penalty, 0);
-    assert.equal(await summary.count(), 0);
+    await details.click();
+    await panel.waitFor();
+    const summary = panel.getByText("Turn deductions (1)", { exact: true });
+    const publicReport = await page.evaluate(async () => {
+      const { useGameStore } = await import("/src/game/store.ts");
+      const { publicTurnModel } = await import("/src/game/publicTurnModel.ts");
+      return publicTurnModel(useGameStore.getState().turn).reports[0];
+    });
+    if (phase === "after") {
+      assert.equal(publicReport.penalty, -1);
+      assert.deepEqual(publicReport.penaltyReasons.map(r => r.id), ["instability:3"]);
+      await summary.click();
+      await panel.getByText("Turn 1 · Player 1 · −1 point", { exact: true }).waitFor();
+      await panel.getByText(/Member 3 · new instability/).waitFor();
+    } else {
+      assert.equal(publicReport.penalty, 0);
+      assert.equal(await summary.count(), 0);
+    }
+    await page.screenshot({ path: fileURLToPath(new URL(phase + ".png", import.meta.url)) });
+    assert.deepEqual(errors, []);
+    console.log(JSON.stringify({ browser: browser.version(), phase, publicReport, errors }));
   }
-  await page.screenshot({ path: fileURLToPath(new URL(phase + ".png", import.meta.url)) });
-  assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ browser: browser.version(), phase, publicReport, errors }));
 } finally {
   await browser.close();
   await server.close();

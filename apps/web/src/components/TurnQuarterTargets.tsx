@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { useGameStore } from "../game/store";
 import type { TurnCard } from "../game/turns";
-import { originalPorts, portLabel, findPort } from "../game/turnPorts";
+import { originalPorts, portLabel, findPort, systemTarget } from "../game/turnPorts";
 
 type Game = ReturnType<typeof useGameStore.getState>;
 
@@ -11,8 +11,9 @@ export function TurnQuarterTargets({ game, card, onMessage }: {
 }) {
   const [a, setA] = useState(""), [b, setB] = useState("");
   if (!game.turn || card.kind === "connection") return null;
-  const members = game.turn.board.members;
-  const ports = members.flatMap(originalPorts);
+  const turn = game.turn;
+  const members = turn.board.members.filter(m => !m.system);
+  const ports = members.flatMap(originalPorts).filter(p => !systemTarget(turn, p.id));
   if (card.kind === "load") {
     const joints = [...game.turn.board.connections, ...game.turn.draft.connections];
     const active = ports.filter(port => joints.some(j => j.jointId === port.id));

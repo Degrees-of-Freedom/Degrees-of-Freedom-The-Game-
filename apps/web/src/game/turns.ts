@@ -7,8 +7,9 @@ import {
 import { LEGACY_CATALOGUE, SCORED_CATALOGUE, printedCards, type CardDefinition, type CatalogueId } from "./cardCatalogue";
 import { conflictingJointAxes, CONNECTION_PROFILES } from "./jointFreedom";
 import { findMaterialClash } from "./materialClashes";
-import { findPort, targetCoordinate, turnJoints } from "./turnPorts";
+import { findPort, systemTarget, targetCoordinate, turnJoints } from "./turnPorts";
 import { analyzeTurn } from "./turnAnalysis";
+import { correctInstability, REPAIR_POLICY, type CorrectionReceipt, type SystemProvenance } from "./turnRepair";
 import { assessTurnIssues, matchesIssueEvidence, type IssueAssessment } from "./turnIssues";
 import { decidePenalty, type PenaltyDecision } from "./turnPenalty";
 import { awardFinalScore, finalReceipt, recoverFinalScore, type FinalScore } from "./finalScore";
@@ -27,10 +28,11 @@ export const KIT_PLAYTEST = {
 
 type TurnMember = Member & {
   owner: string; cardId?: string;
+  system?: SystemProvenance;
   /** Selection provenance only. A separate connector must activate this attachment. */
   endTargets?: Partial<Record<"a" | "b", string>>;
 };
-type Joint = { id: string; foundationOwner?: string; point?: string };
+type Joint = { id: string; foundationOwner?: string; point?: string; system?: SystemProvenance };
 type Load = {
   cardId: string;
   jointId: string;
@@ -39,6 +41,7 @@ type Load = {
 };
 type Connection = {
   cardId?: string;
+  system?: SystemProvenance;
   memberId: number;
   end: "a" | "b";
   jointId: string;
@@ -62,7 +65,7 @@ type Event =
       end: "a" | "b";
       jointId?: string;
     }
-  | { kind: "end"; turn: number; status?: TurnReport["status"]; final?: FinalScore; issues?: IssueAssessment; penaltyDecision?: PenaltyDecision };
+  | { kind: "end"; turn: number; status?: TurnReport["status"]; final?: FinalScore; issues?: IssueAssessment; penaltyDecision?: PenaltyDecision; repairPolicy?: typeof REPAIR_POLICY; correction?: CorrectionReceipt };
 
 export type TurnReport = {
   turn: number;
@@ -72,6 +75,7 @@ export type TurnReport = {
   penalty: 0 | -1;
   issues?: IssueAssessment;
   penaltyDecision?: PenaltyDecision;
+  correction?: CorrectionReceipt;
 };
 
 export interface TurnState {
@@ -243,6 +247,7 @@ export function stageElement(
   if (state.draft.members.length >= 1)
     return fail("One element may be played per turn.");
   const parents = state.board.members;
+  if (systemTarget(state, a) || systemTarget(state, b)) return fail("Neutral repair objects are inspection-only.");
   const portA = findPort(parents, a), portB = findPort(parents, b);
   if (portA?.available === false || portB?.available === false)
     return fail("This family’s interior attachment law is unavailable.");
@@ -297,6 +302,7 @@ export function stageLoad(
   if (card?.kind !== "load") return fail("Choose a load card from your hand.");
   if (state.draft.loads.length >= 1)
     return fail("One load may be played per turn.");
+  if (systemTarget(state, jointId)) return fail("Neutral repair objects are inspection-only.");
   if (!turnJoints(state).some(({ id }) => id === jointId))
     return fail("Choose an existing or staged shared joint.");
   const load: Load = {
@@ -351,11 +357,13 @@ export function stageConnection(
   );
   if (!member || (end !== "a" && end !== "b"))
     return fail("Choose one end of an existing or staged member.");
+  if (member.system) return fail("Neutral repair objects are inspection-only.");
   const connections = [...state.board.connections, ...state.draft.connections];
   if (connections.some((item) => item.memberId === memberId && item.end === end)) {
     return fail("This end already has an immutable connection.");
   }
   const target = jointId ?? member.endTargets?.[end] ?? member[end];
+  if (systemTarget(state, target)) return fail("Neutral repair objects are inspection-only.");
   const parents = [...state.board.members, ...state.draft.members];
   const port = findPort(parents, target);
   if (port && (!port.available || port.memberId === memberId))
@@ -406,7 +414,7 @@ function commitTurn(
   state: TurnState,
   expectedTurn: number,
   status: TurnReport["status"] = "unresolved",
-  replay?: { final: unknown; issues: unknown; penaltyDecision: unknown },
+  replay?: { final: unknown; issues: unknown; penaltyDecision: unknown; repairPolicy: unknown; correction: unknown },
 ): Transition {
   if (state.finished || expectedTurn !== state.turn)
     return fail("This turn has already ended.");
@@ -425,8 +433,9 @@ function commitTurn(
     spent = draftIds(state);
   // Old scored receipts did not record an assessment. Keep their historical
   // evidence scope while replaying. A new assessed event must reproduce it.
+  const previous = state.reports.at(-1);
   const issues = state.catalogue === SCORED_CATALOGUE && (!replay || replay.issues !== undefined)
-    ? assessTurnIssues(state, state.reports.at(-1)?.issues?.memory) : undefined;
+    ? assessTurnIssues(state, previous?.correction?.memory ?? previous?.issues?.memory) : undefined;
   if (replay?.issues !== undefined && !matchesIssueEvidence(issues, replay.issues))
     return fail("The saved issue assessment does not match the replayed structure.");
   // Earlier matches recorded issue comparisons before penalties were in force.
@@ -435,9 +444,22 @@ function commitTurn(
     ? decidePenalty(state, issues) : undefined;
   if (replay?.penaltyDecision !== undefined && !matchesIssueEvidence(penaltyDecision, replay.penaltyDecision))
     return fail("The saved penalty decision does not match the originating turn.");
+  const frozen = { ...state, board: {
+    members: [...state.board.members, ...state.draft.members], connections,
+    loads: [...state.board.loads, ...state.draft.loads], joints: turnJoints(state),
+  }, draft: emptyDraft() };
+  if (replay?.repairPolicy !== undefined && (replay.repairPolicy !== REPAIR_POLICY || !penaltyDecision))
+    return fail("Unsupported or incomplete saved correction policy.");
+  const correctionEnabled = !!penaltyDecision && (!replay || replay.repairPolicy === REPAIR_POLICY);
+  const repair = issues && correctionEnabled
+    ? correctInstability(frozen, issues, state.turn) : undefined;
+  if (replay && !matchesIssueEvidence(repair?.receipt, replay.correction))
+    return fail("The saved corrective work does not match the originating turn and verified structure.");
   const endEvent: Extract<Event, { kind: "end" }> = {
     kind: "end", turn: state.turn, status,
     ...(issues && { issues }), ...(penaltyDecision && { penaltyDecision }),
+    ...(correctionEnabled && { repairPolicy: REPAIR_POLICY }),
+    ...(repair && { correction: repair.receipt }),
   };
   const report: TurnReport = {
     turn: state.turn,
@@ -452,10 +474,11 @@ function commitTurn(
     penalty: penaltyDecision?.event?.amount ?? 0,
     ...(issues && { issues }),
     ...(penaltyDecision && { penaltyDecision }),
+    ...(repair && { correction: repair.receipt }),
   };
   const finished = state.turn === KIT_PLAYTEST.players * KIT_PLAYTEST.rounds;
   const committed: TurnState = {
-    ...state,
+    ...(repair?.state ?? frozen),
     finished,
     turn: finished ? state.turn : state.turn + 1,
     playerIndex: finished
@@ -466,13 +489,6 @@ function commitTurn(
         ? { ...entry, hand: entry.hand.filter(({ id }) => !spent.has(id)) }
         : entry,
     ),
-    board: {
-      members: [...state.board.members, ...state.draft.members],
-      connections,
-      loads: [...state.board.loads, ...state.draft.loads],
-      joints: turnJoints(state),
-    },
-    draft: emptyDraft(),
     reports: [...state.reports, report],
     events: [...state.events, endEvent],
   };
@@ -569,6 +585,7 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
       event.status !== "partial" && event.status !== "unresolved") return null;
     return commitTurn(state, event.turn, event.status, {
       final: event.final, issues: event.issues, penaltyDecision: event.penaltyDecision,
+      repairPolicy: event.repairPolicy, correction: event.correction,
     });
   }
   if (typeof event.cardId !== "string") return null;

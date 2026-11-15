@@ -4,7 +4,7 @@ import { TurnQuarterTargets } from "./TurnQuarterTargets";
 import { FinalScorePanel } from "./FinalScorePanel";
 import { publicTurnReport } from "../game/publicTurnModel";
 import { CardDefinitionDetails } from "./CardDefinitionDetails";
-import { connectionLocations, findPort, portLabel } from "../game/turnPorts";
+import { connectionLocations, findPort, portLabel, systemTarget } from "../game/turnPorts";
 
 type Game = ReturnType<typeof useGameStore.getState>;
 export function TurnPanel({
@@ -105,7 +105,7 @@ export function TurnPanel({
           {selectedCard && <TurnQuarterTargets key={selectedCard.id} game={game} card={selectedCard} onMessage={onMessage} />}
           {selectedCard?.kind === "connection" && (
             <div className="turn-cards">
-              {members.flatMap((member) =>
+              {members.filter(member => !member.system).flatMap((member) =>
                 (["a", "b"] as const)
                   .filter(
                     (end) =>
@@ -115,7 +115,7 @@ export function TurnPanel({
                           connection.end === end,
                       ),
                   )
-                  .flatMap((end) => connectionLocations(members, member, end).map(target => {
+                  .flatMap((end) => connectionLocations(members, member, end).filter(target => !systemTarget(turn, target)).map(target => {
                     const port = findPort(members, target);
                     return (
                     <button

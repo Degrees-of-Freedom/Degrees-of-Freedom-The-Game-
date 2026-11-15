@@ -1,5 +1,5 @@
 import { nodeKey, type GridPoint } from "../game/model";
-import { connectionLocations, originalPorts } from "../game/turnPorts";
+import { connectionLocations, originalPorts, systemTarget } from "../game/turnPorts";
 import {
   activeTurnHand,
   stageConnection,
@@ -54,8 +54,10 @@ export function turnConnectionTargets(state: GameState): ConnectionTarget[] {
 export function turnPointPorts(state: GameState) {
   const card = selectedTurnCard(state);
   if (!state.turn || !card || card.kind === "connection") return [];
-  if (card.kind === "element") return state.turn.board.members.flatMap(originalPorts);
-  const active = new Set([...state.turn.board.connections, ...state.turn.draft.connections].map(c => c.jointId));
-  return [...state.turn.board.members, ...state.turn.draft.members]
-    .flatMap(originalPorts).filter(port => active.has(port.id));
+  const turn = state.turn;
+  const members = card.kind === "element" ? turn.board.members : [...turn.board.members, ...turn.draft.members];
+  const ports = members.filter(m => !m.system).flatMap(originalPorts).filter(p => !systemTarget(turn, p.id));
+  if (card.kind === "element") return ports;
+  const active = new Set([...turn.board.connections, ...turn.draft.connections].map(c => c.jointId));
+  return ports.filter(port => active.has(port.id));
 }

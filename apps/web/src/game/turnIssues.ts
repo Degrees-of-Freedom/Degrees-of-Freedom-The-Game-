@@ -74,13 +74,15 @@ function evidenceId(turn: TurnState) {
 /** Inspect each immutable parent/end, including another player's members and
  * system-owned objects. Forces are used only inside their verified component.
  */
-export function inspectIssues(turn: TurnState): IssueSnapshot {
+export function inspectIssues(turn: TurnState, analysis?: ReturnType<typeof analyzeTurn> | null): IssueSnapshot {
   const members = [...turn.board.members, ...turn.draft.members];
   const connections = [...turn.board.connections, ...turn.draft.connections];
   const input = toTurnVoxelInput(turn);
   const motion = rigidBodyWitnesses(input);
-  let result: ReturnType<typeof analyzeTurn> | undefined;
-  try { result = analyzeTurn(turn, 'card-gravity'); } catch { /* Unknown forces retain their physical scope. */ }
+  let result = analysis;
+  if (result === undefined) {
+    try { result = analyzeTurn(turn, 'card-gravity'); } catch { /* Unknown forces retain their physical scope. */ }
+  }
   const parents = new Map(input.members.map(m => [m.id, m.parentSpan?.memberId ?? m.id]));
   const scopes = new Map<number, { ids: number[]; stable: boolean; reason: string }>();
   for (const scope of result?.combos[0]?.components ?? []) {

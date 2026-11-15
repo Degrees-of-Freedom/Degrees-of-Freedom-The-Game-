@@ -3,7 +3,7 @@ import { originalPorts } from "./turnPorts";
 import { dot, localAxes } from "../solver/frameMath";
 import { SECTION_GEOMETRY } from "../solver/voxelSections";
 
-type Placed = Member & { endTargets?: Partial<Record<"a" | "b", string>> };
+type Placed = Member & { endTargets?: Partial<Record<"a" | "b", string>>; owner?: string };
 type Vector = number[];
 type Interval = [number, number];
 type SectionPart = { y: number; z: number; width: number; depth: number };
@@ -109,10 +109,11 @@ function outsideFittings(length: number, stations: number[]): Interval[] {
   return spans;
 }
 
-function clash(a: Solid, b: Solid): boolean {
+function clash(a: Solid, b: Solid, allowFitting: boolean): boolean {
   if (!intersects(a.bounds, b.bounds)) return false;
   const fullA: Interval = [0, a.length], fullB: Interval = [0, b.length];
   if (!materialIntersects(a, fullA, b, fullB)) return false;
+  if (!allowFitting) return true;
   const [stationsA, stationsB] = contacts(a.member, b.member);
   if (!stationsA.length) return true;
   return outsideFittings(a.length, stationsA).some(span => materialIntersects(a, span, b, fullB))
@@ -122,12 +123,15 @@ function clash(a: Solid, b: Solid): boolean {
 /** Check one proposed physical member against other reference members. Callers
  * supply distinct, previously validated IDs and nonzero finite spans. The same
  * narrow phase is available to candidate system repairs before analysis. */
-export function findMaterialClash(candidate: Placed, others: readonly Placed[]): string | null {
+export function findMaterialClash(candidate: Placed, others: readonly Placed[], fittingParentId?: number): string | null {
   const unavailable = [candidate, ...others].find(member => !Object.hasOwn(SECTION_GEOMETRY, member.type));
   if (unavailable) return `No verified clearance envelope is available for member ${unavailable.id} (${unavailable.type}).`;
   const incoming = solid(candidate);
   for (const existing of others) {
-    if (clash(incoming, solid(existing))) {
+    // A system prop may contact only its declared parent, including at a
+    // coincident end that would ordinarily be eligible for a player fitting.
+    const fittingAllowed = fittingParentId === undefined ? existing.owner !== "neutral" : existing.id === fittingParentId;
+    if (clash(incoming, solid(existing), fittingAllowed)) {
       return `Member ${candidate.id} (${candidate.type}) would intersect material in member ${existing.id} (${existing.type}). Choose a clear span or target an original attachment port.`;
     }
   }

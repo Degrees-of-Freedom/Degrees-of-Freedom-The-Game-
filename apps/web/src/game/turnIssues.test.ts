@@ -27,9 +27,11 @@ describe('scored whole-structure issue comparison', () => {
     const next = accepted(endTurn(turn));
     expect(next.reports[0].issues).toEqual(assessment);
     expect(parseTurnState(JSON.parse(JSON.stringify(next)))).toEqual(next);
-    const persistent = assessTurnIssues(next, assessment.memory);
-    expect(persistent.changes.filter(c => c.eligible)).toEqual([]);
-    expect(persistent.changes.find(c => c.id === issue.id)?.change).toBe('persistent');
+    const correction = next.reports[0].correction!;
+    expect(correction.changes.find(c => c.id === issue.id)?.change).toBe('resolved');
+    const following = assessTurnIssues(next, correction.memory);
+    expect(following.changes.filter(c => c.eligible)).toEqual([]);
+    expect(following.changes.find(c => c.id === issue.id)).toBeUndefined();
     const corrupt = JSON.parse(JSON.stringify(next));
     corrupt.events.at(-1).issues.changes[0].eligible = !corrupt.events.at(-1).issues.changes[0].eligible;
     expect(parseTurnState(corrupt)).toBeNull();

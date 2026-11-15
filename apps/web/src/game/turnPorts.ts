@@ -45,6 +45,14 @@ export function findPort(members: readonly Member[], target: string): QuarterPor
   return parent && originalPorts(parent)[Number(match[2]) - 1];
 }
 
+/** A neutral-only fitting, anchor or original port on a prop can be
+ * inspected. A separate player joint at the same coordinates keeps its ID. */
+export function systemTarget(state: TurnState, id: string) {
+  if (state.board.joints.some(j => j.id === id && j.system)) return true;
+  const port = findPort(state.board.members, id);
+  return !!port && state.board.members.some(m => m.id === port.memberId && m.system);
+}
+
 export function targetCoordinate(members: readonly Member[], target: string): string {
   const port = findPort(members, target);
   return port ? nodeKey(...port.point) : target;

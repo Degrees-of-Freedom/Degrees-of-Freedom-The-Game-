@@ -1,4 +1,5 @@
 import type { TurnReport, TurnState } from "./turns";
+import type { SystemProvenance } from "./turnRepair";
 
 type Board = TurnState["board"];
 
@@ -8,12 +9,18 @@ interface PublicTurnModel {
   activePlayerId: string | null;
   finished: boolean;
   board: {
-    joints: Pick<Board["joints"][number], "id" | "point" | "foundationOwner">[];
-    members: Pick<Board["members"][number], "id" | "a" | "b" | "type" | "owner">[];
+    joints: Pick<Board["joints"][number], "id" | "point" | "foundationOwner" | "system">[];
+    members: Pick<Board["members"][number], "id" | "a" | "b" | "type" | "owner" | "system">[];
     loads: Pick<Board["loads"][number], "jointId" | "magnitude" | "owner">[];
-    connections: Pick<Board["connections"][number], "memberId" | "end" | "jointId" | "profile" | "owner">[];
+    connections: Pick<Board["connections"][number], "memberId" | "end" | "jointId" | "profile" | "owner" | "system">[];
   };
   reports: ReturnType<typeof publicTurnReport>[];
+}
+
+function systemIdentity(source?: SystemProvenance) {
+  if (!source) return {};
+  const { objectId, turn, issueId, policy, definitionVersion } = source;
+  return { system: { objectId, turn, issueId, policy, definitionVersion } };
 }
 
 /** Publish physical reasons, keeping the match seed, model signatures and saved
@@ -39,11 +46,11 @@ export function publicTurnModel(state: TurnState): PublicTurnModel {
     activePlayerId: state.finished ? null : state.players[state.playerIndex].id,
     finished: state.finished,
     board: {
-      joints: joints.map(({ id, point, foundationOwner }) => ({ id, ...(point && { point }), foundationOwner })),
-      members: members.map(({ id, a, b, type, owner }) => ({ id, a, b, type, owner })),
+      joints: joints.map(({ id, point, foundationOwner, system }) => ({ id, ...(point && { point }), foundationOwner, ...systemIdentity(system) })),
+      members: members.map(({ id, a, b, type, owner, system }) => ({ id, a, b, type, owner, ...systemIdentity(system) })),
       loads: loads.map(({ jointId, magnitude, owner }) => ({ jointId, magnitude, owner })),
-      connections: connections.map(({ memberId, end, jointId, profile, owner }) => ({
-        memberId, end, jointId, profile, owner,
+      connections: connections.map(({ memberId, end, jointId, profile, owner, system }) => ({
+        memberId, end, jointId, profile, owner, ...systemIdentity(system),
       })),
     },
     reports: state.reports.map(publicTurnReport),

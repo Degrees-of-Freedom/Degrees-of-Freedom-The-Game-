@@ -74,8 +74,9 @@ describe("undeformed section material in the scored frame preset", () => {
     const incoming = longCard(second);
     if (!incoming) throw Error("Fixture exhausted the scored deck");
     const before = structuredClone(second);
+    const crossing = new RegExp('member ' + second.nextId + '.*member 3', 'i');
     expect(stageElement(second, incoming.id, "1,3,1", "3,1,1")).toMatchObject({
-      ok: false, reason: expect.stringMatching(/member 4.*member 3/i),
+      ok: false, reason: expect.stringMatching(crossing),
     });
     expect(second).toEqual(before);
     expect(parseTurnState(second)).toEqual(second);
@@ -83,7 +84,7 @@ describe("undeformed section material in the scored frame preset", () => {
     if (!clear.ok) throw Error(clear.reason);
     const stale = structuredClone(clear.state);
     Object.assign(stale.draft.members[0], { a: "1,3,1", b: "3,1,1" });
-    expect(endTurn(stale)).toMatchObject({ ok: false, reason: expect.stringMatching(/member 4.*member 3/i) });
+    expect(endTurn(stale)).toMatchObject({ ok: false, reason: expect.stringMatching(crossing) });
     expect(endTurn(clear.state).ok).toBe(true);
   });
 });
