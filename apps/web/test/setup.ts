@@ -16,3 +16,8 @@ globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestIni
     return new Response(null, { status: 404 });
   }
 }) as typeof fetch;
+
+// Same order as main.tsx: the Rust turn solver is ready before any store or
+// saved match is loaded.
+const { prepareTurnSolver } = await import('../src/game/turnAnalysis');
+await prepareTurnSolver();

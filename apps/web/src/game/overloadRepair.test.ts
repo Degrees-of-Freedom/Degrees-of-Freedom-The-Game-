@@ -32,7 +32,8 @@ it('carries part of an overloaded timber cantilever load through an explicit neu
   expect(state.board.connections.slice(0, staged.board.connections.length)).toEqual(staged.board.connections);
   const relief = repair.changes.find(c => c.id === 'member-overload:3')!;
   expect(relief.change).toBe('resolved');
-  expect(relief.before?.utilization).toBeCloseTo(1.21761, 4);
+  // 1.21761 on the linear kernel; the nonlinear lever arm adds about 0.02 %.
+  expect(Math.abs(relief.before!.utilization! / 1.21761 - 1)).toBeLessThan(1e-3);
   expect(relief.after.utilization).toBeLessThan(0.999);
   const neutral = repair.afterFoundations.find(f => f.owner === 'neutral')!.upwardKN!;
   expect(neutral).toBeGreaterThan(0);
@@ -51,7 +52,7 @@ it('replays the original instability-only policy without adding a retroactive ov
     const { correction: _newReceipt, ...end } = e;
     return { ...end, repairPolicy: LEGACY_REPAIR_POLICY };
   });
-  const recovered = parseTurnState({ version: state.version, catalogue: state.catalogue, seed: state.seed, events });
+  const recovered = parseTurnState({ version: state.version, catalogue: state.catalogue, engine: state.engine, seed: state.seed, events });
   expect(recovered?.reports[1].penalty).toBe(-1);
   expect(recovered?.reports[1].correction).toBeUndefined();
   expect(recovered?.board.members.some(m => m.system)).toBe(false);
@@ -103,7 +104,7 @@ it('relieves an overloaded fixed system connector without altering its law or co
   const correction = report.correction!;
   expect(correction.pending, JSON.stringify(correction.attempts)).toEqual([]);
   const change = correction.changes.find(c => c.id === id)!;
-  expect(change.before?.utilization).toBeCloseTo(Math.hypot(115/700, 230/220), 8);
+  expect(Math.abs(change.before!.utilization! / Math.hypot(115/700, 230/220) - 1)).toBeLessThan(1e-4);
   expect(change.after.utilization).toBeLessThan(0.999);
   expect(change.change).toBe('resolved');
   expect(correction.attempts.find(a => a.status === 'verified')).toMatchObject({ memberId: 3, issueId: id, contact: '2,3,0' });

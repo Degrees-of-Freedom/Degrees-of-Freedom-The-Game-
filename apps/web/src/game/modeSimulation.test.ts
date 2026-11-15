@@ -28,7 +28,7 @@ describe("simulation across game modes", () => {
       const result = mode === "multiplayer" ? analyzeTurn(createTurnGame()) : await analyzeGame(structure, LEVELS[levelId]);
       expect(result.error).toBeUndefined();
       expect(result.combos.length).toBeGreaterThan(0);
-      expect(result.combos.some((combo) => combo.u && combo.reac)).toBe(true);
+      expect(result.combos.some((combo) => (combo.u || combo.partialDisplacements?.size) && combo.reac)).toBe(true);
       expect(result.floating.length > 0).toBe(mode === "forensics");
     },
   );

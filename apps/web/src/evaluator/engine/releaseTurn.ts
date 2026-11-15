@@ -1,5 +1,6 @@
 import type { AnalysisComponent, AnalysisModel, AnalysisSection, ConnectionLaws, DetailedAnalysisResult, MemberConnection, Vector3 } from '@dof/solver-contract';
-import { sectionFor } from './siSections';
+import { GRAVITY, sectionFor } from './siSections';
+import { ITEMS } from '../sections';
 import type { FrameConnection } from '../connections';
 import { localAxes, vecToLocal } from '../vector';
 import { prepareGeometry } from '../geometry';
@@ -38,14 +39,19 @@ export function turnReferenceModel(input: EvaluatorModel, ctx: Context, version:
       parentId: String(m.parentSpan?.memberId ?? m.id), sectionId: m.type };
     if (m.type === 'spring') {
       const fraction = m.parentSpan ? (m.parentSpan.toQuarter - m.parentSpan.fromQuarter) / 4 : 1;
-      if (!(m.springStiffnessNPerM! > 0)) throw new Error('Spring printing has no stiffness.');
+      // Older playtest springs carry the card default, as in the voxel kernel.
+      const stiffness = m.springStiffnessNPerM ?? ITEMS.spring.stiffnessNPerM;
+      if (!(stiffness > 0)) throw new Error('Spring printing has no stiffness.');
       const sectionId = 'spring:' + m.id;
-      sections.set(sectionId, {id: sectionId, A: 1, E: m.springStiffnessNPerM! * length / fraction});
+      sections.set(sectionId, {id: sectionId, A: 1, E: stiffness * length / fraction});
       return {...base, sectionId, kind: 'brace', restLength: length};
     }
     if (!sections.has(m.type)) sections.set(m.type, sectionFor(m.type));
     if (m.type === 'cable') {
-      if (!(m.restLengthM! > 0)) throw new Error('Cable printing has no unstressed length.');
+      // Older playtest cables carry no printed rest length: they keep the
+      // card pretension as initial strain, as in the structure evaluator.
+      if (m.restLengthM === undefined) return { ...base, kind: 'cable', initialStrain: ITEMS.cable.P0 / (ITEMS.cable.E * ITEMS.cable.A) };
+      if (!(m.restLengthM > 0)) throw new Error('Cable printing has no unstressed length.');
       return { ...base, kind: 'cable', restLength: m.restLengthM };
     }
     const orientation = triple(localAxes(delta.map(v => v / length))[2]);
@@ -102,9 +108,10 @@ function scopeResponse(scope: AnalysisComponent, result: DetailedAnalysisResult,
 /** Adopt only quantities computed by the Rust kernel. The game view and card
  * strengths use kN, kN m and m. Rust reports N and N m on the positive cut
  * face; the legacy view's start actions are outward nodal actions. */
-function project(input: EvaluatorModel, ctx: Context, result: DetailedAnalysisResult, model: AnalysisModel): StructureEvaluation {
+function project(input: EvaluatorModel, ctx: Context, result: DetailedAnalysisResult, model: AnalysisModel, selfWeight = false): StructureEvaluation {
   const components = result.components.map(c => scopeResponse(c, result, ctx, model));
-  const combo: Combo = { combo: {name: 'Card gravity', short: 'Gravity', type: 'SLS', dir: [0, 0, -1]},
+  const name = selfWeight ? 'Card gravity + self-weight' : 'Card gravity';
+  const combo: Combo = { combo: {name, short: selfWeight ? 'Gravity + self-weight' : 'Gravity', type: 'SLS', dir: [0, 0, -1]},
     components, F: new Float64Array(6*ctx.NA), vis: [], partialDisplacements: new Map(), ef: new Map(), reac: {} };
   const analysis: StructureEvaluation = { ctx, combos: [combo], members: {}, nodes: {}, found: {}, objectives: [],
     ...(result.analysis.modelVersion && {reference:{modelVersion:result.analysis.modelVersion,
@@ -157,18 +164,22 @@ export function createTurnSolver(source?: WasmSource) {
   let previous: { key: string; result: DetailedAnalysisResult } | undefined;
   return {
     prepare: solver.prepare,
-    analyze(input: EvaluatorModel, version: string) {
+    /** `selfWeight` adds member self-weight, for previews of the older
+     * playtest card sets. Scoring and the release use card gravity alone,
+     * and their requests are unchanged by the option's existence. */
+    analyze(input: EvaluatorModel, version: string, { selfWeight = false }: { selfWeight?: boolean } = {}) {
       const {ctx} = prepareGeometry(input);
       const model = turnReferenceModel(input, ctx, version);
-      const key = JSON.stringify(model);
-      if (previous?.key === key) return project(input, ctx, previous.result, model);
+      const key = JSON.stringify(model) + (selfWeight ? '|self-weight' : '');
+      if (previous?.key === key) return project(input, ctx, previous.result, model, selfWeight);
       let hash = 2166136261;
       for (let i = 0; i < key.length; i++) hash = Math.imul(hash ^ key.charCodeAt(i), 16777619);
       model.version = version + '/' + (hash >>> 0).toString(16);
-      const result = solver.analyzePrepared(model, {fidelity: 'nonlinear', subdivisions: 2, failure: 'report', residualGate: 1e-5, memberFields:true});
+      const result = solver.analyzePrepared(model, {fidelity: 'nonlinear', subdivisions: 2, failure: 'report', residualGate: 1e-5, memberFields:true,
+        ...(selfWeight && { gravity: [0, 0, -GRAVITY] as [number, number, number] })});
       if (result.analysis.status === 'ok' && result.analysis.solverVersion !== '0.2.0') throw new Error('Unsupported browser solver version.');
       if (result.analysis.status === 'ok') previous = {key, result};
-      return project(input, ctx, result, model);
+      return project(input, ctx, result, model, selfWeight);
     },
   };
 }

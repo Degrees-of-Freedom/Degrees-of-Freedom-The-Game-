@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { localAxes } from "../solver/voxel/frameMath";
+import { localAxes } from "../evaluator/vector";
 import { SECTION_GEOMETRY } from "../evaluator/sections";
 
 export type WideFlange = "ipe" | "heb";

@@ -1,4 +1,4 @@
-import { localAxes } from '../solver/voxel/frameMath';
+import { localAxes } from '../evaluator/vector';
 import { SPRING } from '../evaluator/sections';
 import { CELL_SIZE, parseNodeKey, type GridPoint, type Member } from './model';
 

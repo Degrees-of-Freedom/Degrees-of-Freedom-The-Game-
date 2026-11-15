@@ -36,8 +36,10 @@ describe('Shared table structural simulation', () => {
     expect(input.members.at(-1)?.a).toBe(end);
     const result = analyzeTurn(placed.state);
     expect(result.floating).toEqual([`endpoint:${memberId}:a`, `endpoint:${memberId}:b`]);
-    expect(result.members[memberId]).toBeUndefined();
-    expect(result.members[1]).toBeDefined();
+    // Only supported members are analysed and carry a response.
+    const analysed = (id: number) => result.ctx!.els.find(e => e.m.id === id);
+    expect(analysed(memberId)).toBeUndefined();
+    expect(result.combos[0].ef!.get(analysed(1)!)).toBeDefined();
   });
 
   it('isolates a double-ball column from an independently loaded cantilever', () => {
@@ -52,7 +54,7 @@ describe('Shared table structural simulation', () => {
     const expected = analyzeTurn(alone);
     turn.board.connections.find((item) => item.memberId === member.id && item.end === 'b')!.profile = 'ball';
     const singleBall = analyzeTurn(turn);
-    const force = singleBall.combos[0].ef?.get(singleBall.members[member.id].e)?.f;
+    const force = singleBall.combos[0].ef?.get(singleBall.ctx!.els.find(e => e.m.id === member.id)!)?.f;
     expect(force?.slice(9)).toEqual(new Float64Array(3));
     turn.board.connections.find((item) => item.memberId === member.id && item.end === 'a')!.profile = 'ball';
     const result = analyzeTurn(turn);
@@ -66,10 +68,11 @@ describe('Shared table structural simulation', () => {
     ]));
     expect(response.reac![active(result, stable.a)]).toEqual(reference.reac![active(expected, stable.a)]);
     expect(displacementAt(response, active(result, stable.b))).toEqual(displacementAt(reference, active(expected, stable.b)));
-    expect(response.ef!.get(result.members[stable.id].e)).toEqual(reference.ef!.get(expected.members[stable.id].e));
+    const element = (analysis: typeof result, id: number) => analysis.ctx!.els.find(e => e.m.id === id)!;
+    expect(response.ef!.get(element(result, stable.id))).toEqual(reference.ef!.get(element(expected, stable.id)));
     expect(response.reac![active(result, member.a)]).toBeUndefined();
     expect(displacementAt(response, active(result, member.b))).toBeUndefined();
-    expect(result.members[member.id]).toBeUndefined();
+    expect(response.ef!.get(element(result, member.id))).toBeUndefined();
     expect(result.unstable.has(stable.b)).toBe(false);
   });
 });

@@ -97,7 +97,7 @@ describe("final signed foundation share", () => {
     expect(t.finalScore?.totalGravityKN).toBe(5);
     expect(t.events.filter(e => e.kind === "end" && e.final)).toHaveLength(1);
     expect(endTurn(t).ok).toBe(false);
-    const saved = { version:1, seed:t.seed, catalogue:t.catalogue, events:JSON.parse(JSON.stringify(t.events)) };
+    const saved = { version:1, seed:t.seed, catalogue:t.catalogue, engine:t.engine, events:JSON.parse(JSON.stringify(t.events)) };
     expect(parseTurnState(saved)).toEqual(t);
     saved.events.at(-1).final.awards[0].finalScore = 999;
     expect(parseTurnState(saved)).toBeNull();

@@ -1,5 +1,5 @@
 import type { StructureEvaluation } from "../evaluator/results";
-import { verifiedResponse } from "../solver/voxel/linearVerification";
+import { verifiedResponse } from "../evaluator/evidence";
 
 export const cutActions = ["Axial N", "Shear Vy", "Shear Vz", "Torsion T", "Moment My", "Moment Mz"] as const;
 export interface CutSeries {

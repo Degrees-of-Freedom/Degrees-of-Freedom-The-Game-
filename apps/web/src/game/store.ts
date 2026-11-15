@@ -322,7 +322,8 @@ export const useGameStore = create<GameState>((set, get) => {
       if (attempted && writer) return writer.serialize(attempted);
       if (attempted) return JSON.stringify({ version: 1, mode: attempted.mode, style: attempted.style,
         turn: attempted.turn && { version: attempted.turn.version, seed: attempted.turn.seed,
-          catalogue: attempted.turn.catalogue, events: attempted.turn.events } });
+          catalogue: attempted.turn.catalogue, ...(attempted.turn.engine && { engine: attempted.turn.engine }),
+          events: attempted.turn.events } });
       return null;
     },
     retrySessionSave: () => {

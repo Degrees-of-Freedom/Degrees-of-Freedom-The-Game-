@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { StructureEvaluation } from "../evaluator/results";
-import { verifiedResponse } from "../solver/voxel/linearVerification";
+import { verifiedResponse } from "../evaluator/evidence";
 import { spanPoint, type DeformationField } from "./deformationField";
 
 export type SectionAction = 1 | 2 | 4 | 5;

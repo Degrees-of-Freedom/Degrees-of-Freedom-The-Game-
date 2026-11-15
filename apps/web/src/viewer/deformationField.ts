@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { displacementAt, type Element, type ElementForce, type StructureEvaluation } from "../evaluator/results";
-import { verifiedResponse } from "../solver/voxel/linearVerification";
+import { verifiedResponse } from "../evaluator/evidence";
 
 export interface DeflectedSpan {
   element: Element;

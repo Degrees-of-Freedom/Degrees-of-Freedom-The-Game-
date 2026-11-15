@@ -58,10 +58,17 @@ describe('four-panel welded planar card', () => {
       2*Math.hypot(...p.a.point.map((v,i) => v-p.b.point[i]))*ITEMS.shs.w, 0);
     expect(ordinary.combos[0].reac![ctx.aid[ctx.idx.get(parent.a)!]][2]).toBeCloseTo(1+weight, 8);
   });
-  it('keeps an excessive-motion assembly outside verified strength', () => {
+  // The legacy linear kernel withheld this capacity as outside its small-motion
+  // envelope. The nonlinear Rust equilibrium is verified even when it deforms
+  // excessively (the release's policy), so the overload is reported instead.
+  it('reports a grossly overloaded, excessively deformed assembly as overloaded', () => {
     const result = analyzeTurn(fixture(3, 500), 'card-gravity');
-    expect(result.capacity!.members[3].status).toBe('unavailable');
-    expect(result.combos[0].components?.[0].verification?.status).not.toBe('verified-linear');
+    const scope = result.combos[0].components![0];
+    expect(scope.excessiveDeformation).toBe(true);
+    expect(scope.reason).toContain('strengthExceeded');
+    const check = result.capacity!.members[3];
+    expect(check.status).toBe('verified');
+    if (check.status === 'verified') expect(check.utilization).toBeGreaterThan(10);
   });
   it('checks the upper chord and opening, allows only original physical external joints', () => {
     const incoming = {id:4,type:'shs' as const,a:'2,2,0.25',b:'2,4,0.25'};

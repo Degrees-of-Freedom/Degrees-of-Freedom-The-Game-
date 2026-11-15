@@ -48,16 +48,18 @@ describe('tension-only cable printing',()=>{
     const model=toTurnEvaluatorInput(turn);
     expect(model.members.map(m=>m.restLengthM)).toEqual([q/4,(4-q)/4].map(f=>turn.board.members[0].restLengthM!*f));
     const result=analyzeTurn(turn,'card-gravity'), ctx=result.ctx!, combo=result.combos[0];
-    expect(combo.components![0].verification?.status, JSON.stringify(combo.components)).toBe('verified-cable');
+    expect(combo.components![0].verification?.status, JSON.stringify(combo.components)).toBe('verified-nonlinear');
     const u=displacementAt(combo,ctx.aid[ctx.idx.get(port)!])!;
-    expect(u[0]+2*q).toBeCloseTo(x,8); expect(u[2]).toBeCloseTo(z,8);
+    // The Rust turn solver matches the independent reference to a few 1e-9.
+    const near=(actual:number,expected:number)=>expect(Math.abs(actual/expected-1)).toBeLessThan(1e-8);
+    near(u[0]+2*q,x); near(u[2],z);
     const reactions=combo.reac![ctx.aid[ctx.idx.get(left)!]];
-    expect(reactions[0]).toBeCloseTo(-h,7); expect(reactions[2]).toBeCloseTo(v,8);
+    near(reactions[0],-h); near(reactions[2],v);
     const check=result.capacity!.members[3];
     expect(check.status).toBe('verified');
-    if(check.status==='verified') expect(check.utilization).toBeCloseTo(tension/260,8);
+    if(check.status==='verified') near(check.utilization,tension/260);
     const score=awardFinalScore(turn,finalReceipt(turn,result));
-    expect(score.awards[0].awardedShare).toBeCloseTo(100*v/5,7);
+    near(score.awards[0].awardedShare,100*v/5);
     expect(score.unknownGravityKN).toBe(0);
   });
 
@@ -70,7 +72,8 @@ describe('tension-only cable printing',()=>{
       const capacity = result.capacity!.members[3];
       expect(capacity.status).toBe('verified');
       if (capacity.status !== 'verified') throw Error(capacity.reason);
-      expect(capacity.actions.N).toBeCloseTo(tensionKN, 7);
+      // Agrees with the independent force-method reference to about 3e-9.
+      expect(Math.abs(capacity.actions.N / tensionKN - 1)).toBeLessThan(1e-8);
       expect(capacity.utilization).toBeCloseTo(tensionKN / 260, 8);
       expect(capacity.utilization > 1.001).toBe(gravityKN === 50);
       expect(result.mechanism).toBe(false);
@@ -135,7 +138,10 @@ describe('tension-only cable printing',()=>{
     const r=analyzeTurn(s,'card-gravity');
     const check=r.capacity!.members[3];
     expect(check.status,JSON.stringify(r.combos[0].components)).toBe('verified');
-    if(check.status==='verified') expect(check.actions.N).toBeCloseTo(2.9996205256,8);
+    // Observed on the Rust turn solver, not an independent reference. The
+    // linear voxel kernel, without shear deformation of the columns, gave
+    // 2.9996 kN; the symmetric 50/50 award below is the physical check.
+    if(check.status==='verified') expect(check.actions.N).toBeCloseTo(3.0234947520,6);
     expect(s.board.loads.map(l=>l.jointId)).toEqual(['port:3:1','port:3:3']);
     while(!s.finished) s=accept(endTurn(s));
     expect(s.finalScore!.unknownGravityKN).toBe(0);

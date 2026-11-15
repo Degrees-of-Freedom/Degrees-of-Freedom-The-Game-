@@ -129,7 +129,8 @@ describe('applied linear frame verification', () => {
   });
 
   it('matches card-only gravity and keeps the original turn preview load policy', () => {
-    const turn = createTurnGame(23);
+    // A match saved before the Rust migration (no engine) analyses on this kernel.
+    const turn = createTurnGame(23, undefined, null);
     turn.board.loads.push({ cardId: 'test', jointId: '5,3,1', magnitude: 10, owner: 'player-1' });
     const scored = analyzeTurn(turn, 'card-gravity'), original = analyzeTurn(turn);
     const reaction = (analysis: typeof scored) => analysis.combos[0].reac![analysis.ctx!.aid[analysis.ctx!.idx.get('5,3,0')!]][2];

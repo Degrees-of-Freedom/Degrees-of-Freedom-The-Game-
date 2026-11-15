@@ -116,7 +116,10 @@ describe('two-way axial spring and its original three collars', () => {
     const r=analyzeTurn(s,'card-gravity');
     const check = r.capacity!.members[4];
     expect(check.status,JSON.stringify(check)).toBe('verified');
-    if (check.status === 'verified') expect(check.actions.N).toBeCloseTo(0.043750059,8);
+    // Observed on the Rust turn solver, not an independent reference. In this
+    // statically indeterminate frame the spring's share depends on the HEB's
+    // shear flexibility, which the legacy kernel ignored (it gave 0.04375 kN).
+    if (check.status === 'verified') expect(check.actions.N).toBeCloseTo(0.0451911957,8);
     expect(s.board.members).toHaveLength(5);
     expect(s.board.connections.filter(c=>c.memberId===4)).toHaveLength(2);
     expect(parseTurnState(s)).toEqual(s);

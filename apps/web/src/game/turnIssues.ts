@@ -2,7 +2,7 @@ import type { TurnState } from './turns';
 import { analyzeTurn, toTurnEvaluatorInput } from './turnAnalysis';
 import { rigidBodyWitnesses } from '../evaluator/rigidBodyFreedom';
 import type { CapacityCheck } from '../evaluator/capacity';
-import { verifiedResponse } from '../solver/voxel/linearVerification';
+import { verifiedResponse } from '../evaluator/evidence';
 
 export const ISSUE_POLICY = 'card-gravity-issues-1' as const;
 const overloadEntry = 1.001, overloadExit = 0.999, worseningIncrement = 0.10;

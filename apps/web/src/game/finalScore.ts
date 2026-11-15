@@ -1,7 +1,7 @@
 import { z } from "zod";
-import type { TurnState } from "./turns";
+import { RUST_TURN_ENGINE, type TurnState } from "./turns";
 import type { StructureEvaluation } from "../evaluator/results";
-import { CABLE_FORMULATION, RELEASE_SOLVER, verifiedResponse } from "../solver/voxel/linearVerification";
+import { CABLE_FORMULATION, RELEASE_SOLVER, verifiedResponse } from "../evaluator/evidence";
 import { analysisLoadJoint } from "./turnPorts";
 
 export const SCORE_POLICY = "signed-card-gravity-v1";
@@ -58,7 +58,7 @@ function unknownScope(turn: TurnState, reason: string): ScopeEvidence {
 
 /** Only an independently checked component contributes signed physical reactions. */
 function solverFor(turn: TurnState) {
-  return turn.catalogue === "grow-dusk-release-1" ? RELEASE_SOLVER :
+  return turn.catalogue === "grow-dusk-release-1" || turn.engine === RUST_TURN_ENGINE ? RELEASE_SOLVER :
     turn.board.members.some(m => m.restLengthM !== undefined) ? CABLE_FORMULATION : "voxel-linear-frame-v1";
 }
 

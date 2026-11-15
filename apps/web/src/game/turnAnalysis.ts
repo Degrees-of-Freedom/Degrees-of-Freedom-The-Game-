@@ -1,7 +1,7 @@
 import { recordTurnAnalysis } from './turnEvidence';
 import { CELL_SIZE, parseNodeKey } from './model';
 import { assemblyParts, type AssemblyNode } from './assembly';
-import type { TurnState } from './turns';
+import { RUST_TURN_ENGINE, type TurnState } from './turns';
 import { analysisLoadJoint, originalPorts, turnJoints } from './turnPorts';
 import { connectionDefinition } from './jointFreedom';
 import { analyzeVoxel } from '../solver/voxel/analyze';
@@ -10,13 +10,17 @@ import type { EvaluatorLevel, EvaluatorModel } from '../evaluator/model';
 import { createTurnSolver } from '../evaluator/engine/releaseTurn';
 import type { WasmSource } from '../solver/wasm/wasmSolver';
 
-let releaseSolver = createTurnSolver();
-/** Initialize once in the transaction worker before replaying or assessing
- * the release. Tests can provide the same checked-in binary as bytes. */
-export async function prepareReleaseSolver(source?: WasmSource): Promise<void> {
-  if (source) releaseSolver = createTurnSolver(source);
-  await releaseSolver.prepare();
+let turnSolver = createTurnSolver();
+/** Instantiate the Rust turn solver once per thread before replaying or
+ * assessing a match that uses it: in the release's transaction worker, and on
+ * the main thread before the store decodes a saved playtest match. Tests can
+ * provide the same checked-in binary as bytes. */
+export async function prepareTurnSolver(source?: WasmSource): Promise<void> {
+  if (source) turnSolver = createTurnSolver(source);
+  await turnSolver.prepare();
 }
+/** The release's name for `prepareTurnSolver`. */
+export const prepareReleaseSolver = prepareTurnSolver;
 
 const turnLevel: EvaluatorLevel = { type: 'sandbox', q0: 0, budget: Infinity, inv: null, loadCase: 'applied' };
 
@@ -100,12 +104,20 @@ export function toTurnEvaluatorInput(turn: TurnState): EvaluatorModel {
   return { members, attrs, positions, inactiveRotations, nextId: turn.nextId };
 }
 
-/** Scoring uses card gravity alone. Ordinary experimental previews retain their original load case. */
+/** Whether a match is assessed by the Rust turn solver (see `TurnState.engine`). */
+export function usesRustTurnSolver(turn: Pick<TurnState, 'catalogue' | 'engine'>) {
+  return turn.catalogue === 'grow-dusk-release-1' || turn.engine === RUST_TURN_ENGINE;
+}
+
+/** Scoring uses card gravity alone. Ordinary previews also include member
+ * self-weight. The release always uses card gravity. Matches saved before
+ * the Rust migration replay on the legacy voxel kernel. */
 export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card-gravity' = 'with-self-weight') {
   const input = toTurnEvaluatorInput(turn);
   const release = turn.catalogue === 'grow-dusk-release-1';
-  const response = release ? releaseSolver.analyze(input, turn.catalogue)
-    : analyzeVoxel(input, { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });
+  const response = release ? turnSolver.analyze(input, turn.catalogue)
+    : usesRustTurnSolver(turn) ? turnSolver.analyze(input, `${turn.catalogue}/${turn.engine}`, { selfWeight: loading === 'with-self-weight' })
+      : analyzeVoxel(input, { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });
   const capacity = release || loading === 'card-gravity'
     ? assessCardCapacity(input, response, [...turn.board.connections, ...turn.draft.connections])
     : undefined;

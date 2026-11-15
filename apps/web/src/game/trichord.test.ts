@@ -93,12 +93,16 @@ describe('triangular four-panel assembly', () => {
     }
   });
 
-  it('counts each physical piece once and withholds unverified capacity beyond the linear envelope', () => {
+  it('counts each physical piece once and reports a gross overload of a deformed assembly', () => {
     const physicalWeight = assemblyParts(parent).reduce((sum, p) =>
       sum + CELL_SIZE * Math.hypot(...p.b.point.map((v,k) => v-p.a.point[k])) * ITEMS.shs.w, 0);
     const preview = analyzeTurn(fixture(2)), ctx = preview.ctx!;
     expect(preview.combos[0].reac![ctx.aid[ctx.idx.get(parent.a)!]][2]).toBeCloseTo(1 + physicalWeight,8);
-    expect(analyzeTurn(fixture(3,500),'card-gravity').capacity!.members[3].status).toBe('unavailable');
+    // Nonlinear and verified despite excessive deformation: a gross overload,
+    // not withheld as on the legacy linear kernel.
+    const overloaded = analyzeTurn(fixture(3,500),'card-gravity').capacity!.members[3];
+    expect(overloaded.status).toBe('verified');
+    if (overloaded.status === 'verified') expect(overloaded.utilization).toBeGreaterThan(10);
   });
 
   it('detects interference with the second chord and permits a deliberate fitting only on the exposed first chord', () => {

@@ -1,3 +1,4 @@
+import { displacementAt } from '../evaluator/results';
 import { expect, it } from 'vitest';
 import { JOINT_CATALOGUE, SCORED_CATALOGUE, printedCards } from './cardCatalogue';
 import { activeTurnHand, createTurnGame, endTurn, parseTurnState, stageConnection, stageElement, stageLoad, type TurnState } from './turns';
@@ -33,7 +34,7 @@ it('preserves both seat printings and the rejected hinge in a real seed-1 replay
   state = accepted(endTurn(state));
   const outcome = analyzeTurn(state,'card-gravity'), e = outcome.ctx!.els.find(e=>e.m.id===3)!;
   const combo = outcome.combos[0], end = combo.ef!.get(e)!;
-  const node = combo.u!.slice(6*e.b,6*e.b+6);
+  const node = displacementAt(combo, e.b)!;
   expect(node[2]-vecToGlobal(end.ul,e.R)[8]).toBeCloseTo(-10/20000,11);
   const rating = outcome.capacity!.connections['3:b'];
   expect(rating.status).toBe('verified');
