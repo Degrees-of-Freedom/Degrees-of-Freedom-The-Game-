@@ -1,15 +1,16 @@
 {
   "build": {
-    "commit": "2f991411b5fcfc39fcbfe212ed57c5e03f6715b2",
+    "commit": "13e9785d53d01f56ec04c30bc34de11d514172df",
     "dirtySource": false,
     "solverFile": "dof_solver-gaCMDH3i.wasm",
     "solverSha256": "e144aa6c2805188f69924176ddafe19b9d91aafc3f9068f3b713437ef3ce9634",
-    "assetsSha256": "6fd72a530a679971da3eb7f717e7587ace29747f3d322e34e0396d1098a3c3d1"
+    "assetsSha256": "ea27681d6b98abe002554cdb1bf26675f29eef1f035d7e0b3a9385d7c07bc1d0"
   },
-  "mergedAs": "60005bc23aa595f4152c10abf94cc381dfe7a588",
-  "archive": "shared-table-forces-2f99141.zip",
-  "sha256": "a62a9fa3453e3ea389da71c7c44dcca13f98dfab554ccbdbc685c7aaae8b3f84",
-  "bytes": 3358856,
+  "featureMergedAs": "60005bc23aa595f4152c10abf94cc381dfe7a588",
+  "renderingFollowupSource": "13e9785d53d01f56ec04c30bc34de11d514172df",
+  "archive": "shared-table-forces-13e9785.zip",
+  "sha256": "3be080621baf8ad7e77601c87941cbb2493b08a9d1c6a0c06bb93cab438e0a9c",
+  "bytes": 3358996,
   "files": 73,
   "verified": "Every archived file byte-equals the clean production build.",
   "hosting": "Serve at the HTTPS origin root with SPA fallback to index.html and local assets, workers and companion files."
