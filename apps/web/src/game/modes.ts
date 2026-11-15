@@ -58,6 +58,15 @@ export function modeSetup(mode: GameMode): {
   };
 }
 
+/**
+ * Modes whose Grow Dusk tools include the Foundation tool. Creative builds
+ * freely. Load in space starts with weights only and a supply of foundations,
+ * so it cannot be completed without placing one.
+ */
+export function placesFoundations(mode: GameMode): boolean {
+  return mode === "creative" || mode === "load-space";
+}
+
 /** Interpret only available prototype results; never treat an error as success. */
 export function modeProgress(
   mode: GameMode,

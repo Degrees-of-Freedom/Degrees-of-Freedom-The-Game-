@@ -72,6 +72,9 @@
 .dof-menu .btn:active { transform: scale(.96); }
 .dof-menu .btn.primary { background: var(--amber); color: var(--ink); box-shadow: 0 6px 18px rgba(242,177,52,.28); }
 .dof-menu .btn.primary:hover { background: #ffc34f; }
+/* Confirms an action that deletes saved progress. */
+.dof-menu .foot .btn.danger { background: #e0566c; color: #fff; }
+.dof-menu .foot .btn.danger:hover { background: #ea6c80; }
 .dof-menu .home { padding: 0; overflow: hidden; }
 .dof-menu .home .hero { position: absolute; left: clamp(28px, 6vw, 110px); top: 50%; transform: translateY(-50%); width: min(520px, 46vw); }
 .dof-menu .home .hero > * { animation: dm-rise .7s cubic-bezier(.2,.7,.2,1) backwards; animation-delay: calc(var(--i, 0) * 90ms + 100ms); }

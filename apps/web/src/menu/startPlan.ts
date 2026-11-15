@@ -20,7 +20,7 @@ export interface StartActions {
   setMode(mode: GameMode, catalogue?: CatalogueId): void;
   setLevel(id: LevelId): void;
   reset(): void;
-  newMatch(catalogue?: CatalogueId): string | null;
+  newMatch(catalogue?: CatalogueId, options?: { replaceUnfinished?: boolean }): string | null;
   importModel(value: unknown): string | null;
 }
 
@@ -42,7 +42,8 @@ export type StartStep =
  *   challenge restores the last saved level first; the chosen level is applied after.
  * - `reset` clears the active model (forensics: restores the prepared fixture),
  *   so it follows whatever `setMode`/`setLevel` loaded.
- * - `newMatch` only works on a finished match; the UI offers it only then.
+ * - `newMatch` replaces the saved match. For a match in progress the setup
+ *   screen asks for confirmation first, then Start passes `replaceUnfinished`.
  */
 export function planStart(choice: StartChoice): StartStep[] {
   const steps: StartStep[] = [
@@ -89,7 +90,7 @@ export function runStart(
         );
         break;
       case "newMatch":
-        error = choice.mode === "multiplayer" && choice.catalogue ? actions.newMatch(choice.catalogue) : actions.newMatch();
+        error = actions.newMatch(choice.mode === "multiplayer" ? choice.catalogue : undefined, { replaceUnfinished: true });
         break;
     }
     if (error) return error;

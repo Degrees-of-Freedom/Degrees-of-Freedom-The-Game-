@@ -24,8 +24,8 @@ const FOCUSABLE = "button:not([disabled]), input:not([disabled]), a[href]";
  *   capture-phase key listener swallows every key for the rest of the app, so
  *   scene shortcuts such as `R` or `1` cannot fire behind it.
  * - Restart calls an existing store action: `reset` (Creative, Challenge,
- *   Forensics, Load in space) or `newMatch` (Shared table, only once the match
- *   has finished because the store refuses it otherwise).
+ *   Forensics, Load in space) or `newMatch` (Shared table). Restarting a match
+ *   in progress deletes it, so the confirmation says so before the store acts.
  */
 export function PauseMenu({
   open,
@@ -55,10 +55,12 @@ export function PauseMenu({
   const title = MODE_CATALOG.find((item) => item.id === mode)?.title ?? "";
   const subtitle =
     mode === "challenge" ? `${title} · ${LEVELS[levelId].name}` : title;
-  const canRestart = mode !== "multiplayer" || !!turn?.finished;
+  const matchInProgress = mode === "multiplayer" && !!turn && !turn.finished;
   const restartText =
     mode === "multiplayer"
-      ? "Deal a new match. The finished match is replaced."
+      ? matchInProgress
+        ? "Replace the current save and start a new match? Your progress in this match will be lost."
+        : "Deal a new match. The finished match is replaced."
       : mode === "forensics"
         ? "Restore the prepared structure. Your repairs are replaced. You can undo this."
         : "Clear every member you placed. Supports and loads set by the level stay. You can undo this.";
@@ -71,8 +73,8 @@ export function PauseMenu({
   function restart() {
     const game = useGameStore.getState();
     if (game.mode === "multiplayer") {
-      const error = game.newMatch();
-      onMessage(error ?? "New match dealt");
+      const error = game.newMatch(undefined, { replaceUnfinished: true });
+      onMessage(error ?? "New match dealt. Pass the table to Player 1.");
     } else {
       game.reset();
       onMessage(game.mode === "forensics" ? "Repair exercise restarted" : "Structure cleared");
@@ -167,18 +169,9 @@ export function PauseMenu({
               <button className="btn mbtn primary" data-first onClick={close}>
                 Resume
               </button>
-              <button
-                className="btn mbtn"
-                disabled={!canRestart}
-                onClick={() => setView("confirm")}
-              >
-                Restart
+              <button className="btn mbtn" onClick={() => setView("confirm")}>
+                {mode === "multiplayer" ? "New match" : "Restart"}
               </button>
-              {!canRestart && (
-                <p className="mnote">
-                  A match can be restarted once it is finished.
-                </p>
-              )}
               <button
                 className="btn mbtn"
                 onClick={() => navigate("/how", { state: { from: "/play" } })}
@@ -211,14 +204,14 @@ export function PauseMenu({
         )}
         {view === "confirm" && (
           <section>
-            <h2 id="dm-pause-title">Restart?</h2>
+            <h2 id="dm-pause-title">{matchInProgress ? "Delete this match?" : "Restart?"}</h2>
             <p className="ask">{restartText}</p>
             <div className="mrow">
               <button className="btn mbtn" data-first onClick={() => setView("main")}>
                 Cancel
               </button>
               <button className="btn mbtn danger" onClick={restart}>
-                Restart
+                {matchInProgress ? "Delete and start new" : "Restart"}
               </button>
             </div>
           </section>

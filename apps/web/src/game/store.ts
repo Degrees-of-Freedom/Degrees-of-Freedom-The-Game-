@@ -28,6 +28,7 @@ import { createGameSave, readGameSave, type GameSave } from "./structuralState";
 import {
   hasForensicsFixture,
   modeSetup,
+  placesFoundations,
   type GameMode,
   type PresentationStyle,
 } from "./modes";
@@ -81,7 +82,12 @@ interface GameState {
   cancelDraft: () => string | null;
   endTurn: () => string | null;
   setMode: (mode: GameMode, catalogue?: CatalogueId) => void;
-  newMatch: (catalogue?: CatalogueId) => string | null;
+  /**
+   * Deal a new Shared table match. A finished match is replaced as before.
+   * A match in progress is only replaced, and thereby deleted, when the caller
+   * passes `replaceUnfinished` after the player has confirmed the loss.
+   */
+  newMatch: (catalogue?: CatalogueId, options?: { replaceUnfinished?: boolean }) => string | null;
   setStyle: (style: PresentationStyle) => void;
   addBay: (
     origin: GridPoint,
@@ -393,9 +399,10 @@ export const useGameStore = create<GameState>((set, get) => {
         return "Could not prepare the turn analysis. The draft is still open.";
       }
     },
-    newMatch: (catalogue) => {
+    newMatch: (catalogue, options) => {
       const s = get();
-      if (s.mode !== "multiplayer" || !s.turn?.finished)
+      if (s.mode !== "multiplayer" || !s.turn) return "No multiplayer game is active";
+      if (!s.turn.finished && !options?.replaceUnfinished)
         return "Finish the current match before starting another.";
       return turnTransition({
         ok: true,
@@ -659,7 +666,9 @@ export const useGameStore = create<GameState>((set, get) => {
     setTool: (tool) => set({ tool, chainStart: null }),
     placeFoundation: (point) => {
       const state = get();
-      if (state.mode !== "creative") return "Foundation placement is available in Creative.";
+      // Load in space starts with no support and a supply of foundations, so
+      // the player must be able to place them. The level supply still limits how many.
+      if (!placesFoundations(state.mode)) return "Foundation placement is available in Creative and Load in space.";
       const key = nodeKey(...point);
       if (!state.model.attrs[key]?.found) {
         const issue = state.toggleAttr(point, "found");

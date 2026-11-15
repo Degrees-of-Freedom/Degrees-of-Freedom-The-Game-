@@ -110,9 +110,9 @@ describe("against the real store", () => {
     runStart({ mode: "multiplayer", begin: "continue" }, store.getState());
     expect(store.getState().mode).toBe("multiplayer");
     expect(store.getState().turn?.players).toHaveLength(2);
-    // A match in progress cannot be replaced; the store says so.
-    expect(runStart({ mode: "multiplayer", begin: "new" }, store.getState())).toMatch(
-      /Finish/,
-    );
+    // "New match" replaces the match in progress; the setup screen confirms before calling this.
+    const seed = store.getState().turn!.seed;
+    expect(runStart({ mode: "multiplayer", begin: "new" }, store.getState())).toBeNull();
+    expect(store.getState().turn).toMatchObject({ seed: seed + 1, turn: 1, finished: false });
   });
 });

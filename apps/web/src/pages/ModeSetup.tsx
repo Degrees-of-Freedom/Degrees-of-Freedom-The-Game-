@@ -93,6 +93,7 @@ function Setup({ id }: { id: GameMode }) {
   const [pick, setPick] = useState<string | null>(null);
   const [catalogue, setCatalogue] = useState<ScoredCatalogue>(SCORED_CATALOGUE);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const saved = useMemo(() => hasSavedProgress(id, levelId), [id, levelId]);
   const turn = initial.turn;
 
@@ -138,8 +139,7 @@ function Setup({ id }: { id: GameMode }) {
         title: "New match",
         desc: turn.finished
           ? "Deal a new match. The finished one is replaced."
-          : "Available once the current match is finished.",
-        disabled: !turn.finished,
+          : "Delete the match in progress and deal a new one.",
       },
     ];
   else if (id !== "multiplayer" && saved)
@@ -194,8 +194,17 @@ function Setup({ id }: { id: GameMode }) {
               ? "Start with example"
               : "Start empty";
 
+  // Replacing a match in progress deletes it, so Start asks once before acting.
+  const deletesMatch = id === "multiplayer" && begin === "new" && !!turn && !turn.finished;
+  const asking = deletesMatch && confirming;
+
   function start() {
+    if (deletesMatch && !confirming) {
+      setConfirming(true);
+      return;
+    }
     const message = runStart(choice, useGameStore.getState());
+    setConfirming(false);
     if (message) setError(message);
     else navigate("/play");
   }
@@ -325,19 +334,31 @@ function Setup({ id }: { id: GameMode }) {
             label="Starting point"
             options={options}
             value={begin}
-            onChange={setPick}
+            onChange={(value) => {
+              setConfirming(false);
+              setPick(value);
+            }}
           />
         </div>
       )}
       <div className="foot">
-        <button className="btn primary" type="button" onClick={start}>
-          {startLabel} {ARROW}
+        {asking && (
+          <button className="btn" type="button" onClick={() => setConfirming(false)}>
+            Keep current match
+          </button>
+        )}
+        <button className={asking ? "btn danger" : "btn primary"} type="button" onClick={start}>
+          {asking ? "Delete match and start new" : startLabel} {ARROW}
         </button>
-        <span className="note" role="status">
+        <span className="note" role={asking ? "alert" : "status"}>
           {error ??
-            (replaces
+            (asking
+              ? "Replace the current save and start a new match? Your progress in this match will be lost."
+              : replaces
               ? id === "multiplayer"
-                ? "The finished match is replaced by a new one."
+                ? turn?.finished
+                  ? "The finished match is replaced by a new one."
+                  : "The match in progress is deleted. You will be asked to confirm."
                 : "This replaces your saved structure."
               : options.length && begin === "continue"
                 ? "Your saved progress is kept."
