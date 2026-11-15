@@ -137,7 +137,7 @@ Tal's always-on 10,000-state run and 2-to-4-support load-sharing tests already h
 
 ## Acceptance evidence
 
-Run with `npm run test:solver`. The 15 November 2026 suites covered 72 tests on the release branch and 77 tests on the upstream branch before combining the independent regressions. The 10,000 generated states form one test. One timing harness is opt-in.
+Run with `npm run test:solver`. The 15 November 2026 merged suite passed 81 native tests, including seven numerical range and work-budget cases. The 10,000 generated states form one test. One timing harness is opt-in.
 
 | Acceptance row | Tests (`crates/dof-solver/tests`) | Measured |
 | --- | --- | --- |
@@ -154,6 +154,8 @@ Run with `npm run test:solver`. The 15 November 2026 suites covered 72 tests on 
 
 Large-rotation references also pass at the 1 % gate: a cantilever rolled through 90° by an end moment, and the elastica tip-load case.
 
+`apps/web/src/solver/wasm/turnCatalogue.test.ts` checks 24 cases through match topology expansion and the shipped WASM adapter. All three material quarters of the zero-pretension release cable match the independent extensible-string force solution. Each quarter of HEB, IPE, SHS, CHS and glulam matches cantilever bending with shear flexibility. For the 19-piece planar and 41-piece spatial assemblies, deflection and spatial twist agree within 1% with independently assembled OpenSeesPy models. Regenerate the assembly references with `docs/evidence/planar/reference.py --shear` and `docs/evidence/trichord/reference.py --shear`. The expanded family fixtures use their authored catalogue geometries. The curated release deck deals HEB, cable and spring.
+
 Two things support the linear results beyond the closed-form cases. A unit test checks the closed-form beam stiffness against the automatically differentiated one, and the automatic gradient and Hessian against finite differences of the energy. And `crossCheck.test.ts` compares this solver with the OpenSees service through the original contract: on a mixed-connection space frame, a mechanism, and the Tower I, Bridge I and Pickup I examples, they agree on status, mechanisms, moving nodes and static indeterminacy, and on displacements, reactions and member forces within `2e-5`. That test needs the service running and is skipped otherwise.
 
 The independent nonlinear suite runs the shipped binary and OpenSeesPy on the same geometries, material constants, boundary conditions and loading paths. The sway fixture gives 0.0054120214 m and 0.0054067377 m respectively (0.098% difference). The perfect-column critical multiplier is 1.00004883 times the analytical Euler load in WASM. OpenSees brackets loss of positive tangent stiffness at 1.00078125 to 1.00156250 on the same straight column. The symmetric sagging cable gives 379632.4530 N and 379632.4526 N in tension. Run `uv run --project services/opensees pytest -qs services/opensees/tests/test_release_wasm_reference.py`.
@@ -164,14 +166,14 @@ The independent nonlinear suite runs the shipped binary and OpenSeesPy on the sa
 
 | Case | Members | Unknowns | Median | p95 | Proposed target |
 | --- | --- | --- | --- | --- | --- |
-| Game-sized frame, linear | 46 | 376 | 3.6 ms | 5.8 ms | preview p95 ≤ 50 ms |
-| Game-sized frame, nonlinear | 46 | 376 | 17.7 ms | 30.1 ms | turn ≤ 250 ms |
-| Stress frame, linear, 1 element per beam | 504 | 1,280 | 26.6 ms | 29.2 ms | |
-| Stress frame, linear, 2 elements per beam | 504 | 4,124 | 74.6 ms | 80.5 ms | |
-| Stress frame, nonlinear, 1 element per beam | 504 | 1,280 | 280.9 ms | 332.5 ms | difficult ≤ 2 s |
-| Stress frame, nonlinear, 2 elements per beam | 504 | 4,124 | 878.3 ms | 1,239.1 ms | difficult ≤ 2 s |
+| Game-sized frame, linear | 46 | 376 | 3.1 ms | 5.4 ms | preview p95 ≤ 50 ms |
+| Game-sized frame, nonlinear | 46 | 376 | 17.1 ms | 23.5 ms | turn ≤ 250 ms |
+| Stress frame, linear, 1 element per beam | 504 | 1,280 | 24.5 ms | 30.8 ms | |
+| Stress frame, linear, 2 elements per beam | 504 | 4,124 | 70.3 ms | 82.5 ms | |
+| Stress frame, nonlinear, 1 element per beam | 504 | 1,280 | 138.3 ms | 147.4 ms | difficult ≤ 2 s |
+| Stress frame, nonlinear, 2 elements per beam | 504 | 4,124 | 451.2 ms | 468.5 ms | difficult ≤ 2 s |
 
-The ordinary preview, ordinary turn and difficult nonlinear cases met their targets in this run. The 4,124-DOF linear stress run took 80.5 ms at p95. An earlier run during development with other suites active took 2,286.5 ms for the largest nonlinear stress case. These measurements cover the kernel on this host. Production browser rendering, worker scheduling, private saves and device variation require separate measurements.
+The ordinary preview, ordinary turn and difficult nonlinear cases met their targets in this run. The 4,124-DOF linear stress run took 82.5 ms at p95. An earlier run during development with other suites active took 2,286.5 ms for the largest nonlinear stress case. These measurements cover the kernel on this host. Production browser rendering, worker scheduling, private saves and device variation require separate measurements.
 
 ## Deflection, member loads and load cases
 
