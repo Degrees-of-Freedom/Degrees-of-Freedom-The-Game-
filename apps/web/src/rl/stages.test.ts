@@ -91,7 +91,7 @@ describe("randomised layouts", () => {
   const layoutOf = (seed: number) => {
     const env = new GoalEnv(GOAL_SCENARIOS.stagedR);
     const obs = env.reset(seed);
-    return { env, obs, zones: env.activeScenario.zones };
+    return { env, obs, zones: env.activeScenario.zones ?? [] };
   };
 
   it("are reproducible per seed and differ between seeds", () => {
