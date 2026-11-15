@@ -12,6 +12,10 @@ const PAINT: Record<LabelPaint, [string, string, string]> = {
 
 export function addSceneLabel(group: THREE.Group, position: THREE.Vector3, text: string, style: LabelPaint, size = 1) {
   const canvas = document.createElement('canvas');
+  // This off-DOM canvas is an active texture source, not an orphaned renderer.
+  // Disposal marks its provenance so lifecycle tests can distinguish the two.
+  canvas.dataset.sceneTexture = 'label';
+  canvas.dataset.sceneTextureState = 'active';
   const context = canvas.getContext('2d');
   if (!context) return;
   const font = '700 28px system-ui';

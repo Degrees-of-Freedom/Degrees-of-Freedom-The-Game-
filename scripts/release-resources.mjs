@@ -70,26 +70,41 @@ try {
     args: process.env.DOF_SOFTWARE_GL ? ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] : [] });
   const page = await browser.newPage({ viewport: { width: 1366, height: 900 }, reducedMotion: "reduce" });
   await page.addInitScript(instrument);
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send("DOM.enable");
   const evidence = { build, browser: browser.version(), seed: 0, snapshots: [], workersCreated: 0, workersClosed: 0, errors: [] };
   page.on("worker", worker => { evidence.workersCreated++; worker.on("close", () => evidence.workersClosed++); });
   page.on("pageerror", error => evidence.errors.push(error.message));
   const button = name => page.getByRole("button", { name, exact: true });
   const ready = button("Ready · Reveal my hand"), model = page.locator('.figure-stage[data-view="model"]');
   async function sample(cycle, route) {
-    await model.waitFor();
-    await page.evaluate(async () => { for (let i = 0; i < 4; i++) await new Promise(requestAnimationFrame); });
-    // Audio render time is independent of animation frames. Sample retained
-    // handles once short selection cues have actually disconnected their nodes.
-    await page.waitForFunction(() => window.releaseResourceSample().voices === 0, undefined, { timeout: 5000 });
-    await cdp.send("HeapProfiler.collectGarbage");
-    const memory = await cdp.send("Memory.getDOMCounters");
-    const { detachedNodes } = await cdp.send("DOM.getDetachedDomNodes");
-    const snapshot = { cycle, route, ...await page.evaluate(() => window.releaseResourceSample()), ...memory,
-      detachedCanvases: detachedNodes.filter(node => node.treeNode.nodeName === "CANVAS").length,
-      workers: page.workers().length };
-    evidence.snapshots.push(snapshot);
+    // getDetachedDomNodes pins its returned native nodes in InspectorDOMAgent.
+    // No inspector node map may span a navigation or the test retains the
+    // retired canvases it is trying to detect. A fresh session bounds it here.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("DOM.enable");
+    try {
+      await model.waitFor();
+      await page.evaluate(async () => { for (let i = 0; i < 4; i++) await new Promise(requestAnimationFrame); });
+      // Audio render time is independent of animation frames. Sample retained
+      // handles once short selection cues have actually disconnected their nodes.
+      await page.waitForFunction(() => window.releaseResourceSample().voices === 0, undefined, { timeout: 5000 });
+      await cdp.send("HeapProfiler.collectGarbage");
+      const memory = await cdp.send("Memory.getDOMCounters");
+      const { detachedNodes } = await cdp.send("DOM.getDetachedDomNodes");
+      const canvases = detachedNodes.filter(node => node.treeNode.nodeName === "CANVAS");
+      const activeLabel = node => {
+        const attributes = node.treeNode.attributes ?? [];
+        const values = Object.fromEntries(Array.from({length:attributes.length / 2}, (_, i) => [attributes[2*i],attributes[2*i+1]]));
+        return values["data-scene-texture"] === "label" && values["data-scene-texture-state"] === "active";
+      };
+      const activeLabelCanvases = canvases.filter(activeLabel).length;
+      const snapshot = { cycle, route, ...await page.evaluate(() => window.releaseResourceSample()), ...memory,
+        // Off-DOM live CanvasTexture sources are intentional. A retired texture
+        // is marked disposed and must satisfy the same zero-orphan gate as GL.
+        detachedCanvases:canvases.length-activeLabelCanvases,
+        activeLabelCanvases,
+        workers: page.workers().length };
+      evidence.snapshots.push(snapshot);
+    } finally { await cdp.detach(); }
   }
   await page.goto(host.resolvedUrls.local[0] + "?seed=0");
   const start = await page.evaluate(() => performance.timeOrigin);
@@ -123,7 +138,7 @@ try {
     const first = page.locator("[data-card-id]").first();
     await first.click(); await first.click();
     await button("Inspect").click();
-    await page.getByLabel("Board overlay").waitFor();
+    await page.getByRole("combobox", {name:/^Board overlay/}).waitFor();
     await button("Close inspection").click();
     await sample(cycle, "match");
     if (cycle % 2 === 0) await page.keyboard.down("Control");
@@ -141,6 +156,7 @@ try {
       assert.equal(s.canvases, route === "match" ? 2 : 1);
       assert.equal(s.contexts, s.canvases);
       assert.equal(s.detachedCanvases, 0);
+      assert.equal(s.activeLabelCanvases, route === "match" ? 2 : 0);
       assert.equal(s.documents, 1);
       assert.equal(s.audio, route === "match" ? 1 : 0);
       assert.equal(s.voices, 0);
