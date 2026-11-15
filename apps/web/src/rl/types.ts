@@ -60,6 +60,8 @@ export interface AnalysisSummary {
   /** Mean closeness of supported structure to each weight, in [0, 1]. */
   reach: number;
   mechanism: boolean;
+  /** Share of analysed nodes that can move freely, in [0, 1]; 0 when stable. */
+  unstableShare: number;
   unresolved: boolean;
   objectivesPassed: number;
   objectivesTotal: number;

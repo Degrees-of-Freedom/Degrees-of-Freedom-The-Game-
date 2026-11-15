@@ -40,6 +40,7 @@ export function summarizeAnalysis(
       : targets.filter((k) => !floating.has(k)).length,
     reach: reach(model),
     mechanism: analysis.mechanism,
+    unstableShare: analysis.ctx?.NA ? Math.min(1, analysis.unstable.size / analysis.ctx.NA) : 0,
     unresolved: !!analysis.unresolved,
     objectivesPassed: analysis.objectives.filter((o) => o.ok).length,
     objectivesTotal: analysis.objectives.length,
@@ -58,8 +59,14 @@ export function summarizeAnalysis(
 export function potential(a: AnalysisSummary, config: RewardConfig): number {
   if (a.error) return 0; // nothing supported yet, so reach is 0 too
   const connected = a.targets ? a.connectedTargets / a.targets : 0;
+  // Graded: each joint that frees some nodes from a mechanism earns credit, so
+  // a structure with several mechanisms gets a signal before all are fixed.
   const stable =
-    a.connectedTargets > 0 && !a.mechanism && !a.unresolved ? 1 : 0;
+    a.connectedTargets > 0 && !a.unresolved
+      ? a.mechanism
+        ? Math.min(0.99, 1 - a.unstableShare)
+        : 1
+      : 0;
   // Several objectives pass vacuously while nothing is attached (a lone
   // foundation already passes 6 of 7), so scale them by how much is connected.
   const objectives =
