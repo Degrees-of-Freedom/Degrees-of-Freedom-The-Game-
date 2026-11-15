@@ -47,7 +47,7 @@ Vitest also covers the OpenSees adapter and its health check against a stubbed `
 
 ## Agent training
 
-`apps/web/src/rl` is a headless harness for agents playing the goal mode; see [agents and reinforcement learning](rl-agents.md). `npm run train:goal -- --scenario single` trains and evaluates an agent and writes `rl-runs/` (gitignored); `npm run serve:goal` serves the game to an external agent over JSON lines. `npm run typecheck` also checks the CLI files with Node types (`apps/web/tsconfig.cli.json`), which the browser project excludes. The tests in `apps/web/src/rl` include one that trains for 240 episodes (about 15 s) and requires the greedy policy to solve the one-weight level, so a regression in the reward, features or learner fails `npm test`.
+`apps/web/src/rl` is a headless harness for agents playing the goal mode; see [agents and reinforcement learning](rl-agents.md). `npm run train:goal -- --scenario single` trains and evaluates an agent and writes `rl-runs/` (gitignored); `npm run serve:goal` serves the game to an external agent over JSON lines; `npm run compare:goal` runs the graph and erosion planners (and optionally a saved policy) on scenarios and prints a table. `npm run typecheck` also checks the CLI files with Node types (`apps/web/tsconfig.cli.json`), which the browser project excludes. The tests in `apps/web/src/rl` include one that trains for 240 episodes (about 15 s) and requires the greedy policy to solve the one-weight level, so a regression in the reward, features or learner fails `npm test`.
 
 ## Rust solver
 

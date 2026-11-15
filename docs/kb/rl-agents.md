@@ -6,6 +6,8 @@ validated_against:
   - apps/web/src/rl/goalEnv.test.ts
   - apps/web/src/rl/trainer.test.ts
   - apps/web/src/rl/bridge.test.ts
+  - apps/web/src/rl/planning
+  - apps/web/src/rl/stages.test.ts
   - apps/web/src/game/modes.ts
   - apps/web/src/game/levels.ts
   - apps/web/src/game/placementRules.ts
@@ -21,7 +23,7 @@ status: partial
 
 The goal-based mode is **Load in space** (`GameMode` `"load-space"`, level `pickup1`; see [unified runtime](unified-runtime.md)): weights hang in space and the player must connect every one to a foundation with a stable structure that passes the level's checks. `apps/web/src/rl` lets software agents play that mode headlessly and learn to meet its goal. It is a training and evaluation harness only. Nothing in the web UI uses it, and the game's rules and solver are unchanged.
 
-Status: the environment, a learner, a bridge for external agents and tests are implemented. A trained agent solves the one-weight level reliably. On the game's three-weight level it solves it only when seeded with scripted demonstrations (see [Measured results](#measured-results)); the random layout is untested for learning.
+Status: the environment (including keep-out zones and a delayed second stage), a learner, two planners, a bridge for external agents and tests are implemented. A trained agent solves the one-weight level reliably. On the game's three-weight level it solves it only when seeded with scripted demonstrations (see [Measured results](#measured-results)); the random layout is untested for learning.
 
 ## Why it reuses the game instead of reimplementing it
 
@@ -41,7 +43,10 @@ The environment calls the same functions the editor uses: `memberIssue` and `nod
 | `trainer.ts` | REINFORCE training loop. |
 | `agents.ts` | `RandomAgent`, `PolicyAgent`, `playEpisode`, `evaluate`. |
 | `schema.ts`, `bridge.ts` | zod-validated JSON-lines protocol for external agents. |
-| `cli/train.ts`, `cli/serve.ts` | `npm run train:goal`, `npm run serve:goal`. |
+| `zones.ts` | Keep-out zone geometry (scenario rule, not a game rule). |
+| `demonstrations.ts` | Scripted and planner demonstrations for the imitation term. |
+| `planning/` | Planners that solve scenarios without learning: `graphPlanner.ts`, `erosionPlanner.ts`, shared `common.ts`, runner `run.ts`. |
+| `cli/train.ts`, `cli/serve.ts`, `cli/compare.ts` | `npm run train:goal`, `serve:goal`, `compare:goal`. |
 
 ## The environment
 
@@ -115,6 +120,45 @@ Three-weight (`pickup1`) is **solved only with demonstrations**. Without them, t
 **Caveat: this is largely imitation.** The cost of 1,980 is exactly the demonstrator's solution (a glulam column and base joint under each weight), `pickup1` has fixed weights, and I did not run an ablation separating the imitation term from the policy gradient. It shows the environment, features and reward can express and hold a full solution, not that reinforcement learning discovered it. Not tested: a different weight layout (the demonstrator cannot reach `pickupR` weights above 3 cells), cheaper-than-demonstrator solutions, and imitation turned off after pretraining.
 
 The level itself is solvable with the same actions: a foundation, a glulam column and a base joint under each weight, 9 steps, cost 1,980 (checked in the environment). Diagnosis before the demonstrations (consistent with round 4, not proven): success is never seen while sampling, so the only joint signal is shaping, and with about ten candidate nodes only one or two joints are right at any time, so the average joint looks harmful and its weights drift negative. Next experiments: an ablation with the imitation weight annealed to zero; held-out layouts (needs a demonstrator or generator for taller weights); a two-weight curriculum scenario.
+
+
+## Multi-part goals, keep-out zones and planners
+
+Scenarios can now set `zones` (boxes no member or node may touch) and `laterStages` (weights that appear after N actions). A `wait` action is offered only while a stage is pending. The episode is solved only once every stage has arrived and the whole structure passes. Holding a solved stage when the next arrives earns `stageBonus` (0.5), and the drop in progress from a new weight is not charged to the action taken. Zones and stages are agent-scenario rules; the game's editor has neither. My reading of "hold, wait, avoid zones" is this staged goal plus zones; it is an interpretation, not a project decision.
+
+| Scenario | Goal |
+| --- | --- |
+| `zoned` | `pickup1` with a zone under the second weight; larger supply (10 joints, 10 glulam, 5 foundations). |
+| `staged` | One weight, then a second appears after 5 actions. |
+| `holdAvoid` | Staged and the zone together, with `pickup1`'s supply. |
+
+Two corrections made while building these, both found by checking feasibility rather than assuming it: a wider first zone could only be solved with HEB sections, of which `pickup1` has none; and the detour around the narrower zone needs a portal (a column each side of the weight, five moment connections), so with six joints `zoned` cannot be solved at all, which is why it has the larger supply.
+
+**Graph planner** (`planning/graphPlanner.ts`). Dijkstra over lattice members priced at section cost, half a joint and squared length (slender members buckle: without the length term it picked one long diagonal that failed). Weights are connected one at a time, later ones branching off earlier structure; shared trees and independent columns are both searched, every weight order for up to four weights, glulam and IPE bases. Repair is a beam search over three moves scored by the game's own objectives: the moment connection that frees the most nodes, upgrading the worst overloaded section, or adding a second leg to a weight. Shared trees of horizontal cantilevers were cheapest but left mechanisms no joint fixed, which is why independent columns are searched too, and upgrading before reinforcing spoiled the portal, which is why repair is a beam search rather than a fixed order.
+
+**Erosion planner** (`planning/erosionPlanner.ts`). Evolutionary structural optimisation: start from every legal short member around the weights with a joint at every node and a foundation at every ground node, then remove the least-utilised members (the solver's utilisation) in batches that shrink after a failure, then joints, foundations, and downgrade sections, accepting each step only if the game's analysis still passes. Two things were needed to make it work: removing a member must also remove what it was holding up (the game counts a jointed node with no member as a floating part, so one-at-a-time removal stalled in a heavy local minimum), and the starting structure had to be thin (long members only along axes) or one analysis took about 2 s and a run took over ten minutes; an explicit analysis budget now bounds every run.
+
+**Planner results** (`npm run compare:goal`; each solved in the environment with zero rejected moves unless noted; one machine, not a benchmark):
+
+| Scenario | Graph | Erosion |
+| --- | --- | --- |
+| `single` | solved, cost 660 | solved, cost 660 |
+| `pickup1` | solved, 1,980 (13 s) | solved, 1,980 (11 s) |
+| `staged` | solved, 1,320 | solved, 1,320 |
+| `zoned` | solved, 4,000 (19 s) | solved, 3,240 (9 s) |
+| `holdAvoid` | solved, 3,420 | **not solved** |
+
+Erosion is cheaper where it works but ignores the level's supply while eroding; on `holdAvoid` its local optimum needs seven moment connections and the level has six, so it is reported unsolved. The graph planner checks supply as it builds. Neither planner is optimal: both are heuristics checked only against the game's analysis.
+
+**Learner on the new scenarios** (600 episodes, seed 1, one planner demonstration (graph) imitated alongside the policy gradient, 10 held-out episodes):
+
+| Scenario | With planner demonstration | Without |
+| --- | --- | --- |
+| `staged` | **100% solved, cost 1,320** (equal to the planner's) | 0% (mean reward 0.16) |
+| `holdAvoid` | 0% (mean reward 1.23) | not run |
+| `zoned` | 0% (mean reward 0.41) | not run |
+
+So the multi-stage hold-wait-extend behaviour is learnable from one planner demonstration and not from reward alone, but as with `pickup1` this is imitation of one fixed layout, and the learner has not yet solved either zoned scenario with this budget (one seed each, 19 demonstration decisions). More seeds, longer training and a larger imitation weight are untried.
 
 ## Limitations and open questions
 
