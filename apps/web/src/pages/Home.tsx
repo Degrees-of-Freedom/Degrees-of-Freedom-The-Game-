@@ -61,6 +61,7 @@ export function Home() {
             Play {ARROW}
           </Link>
 <Link className="btn" to="/ai-lab">AI turn lab</Link>
+          <Link className="btn" to="/wiki">Companion wiki</Link>
           <Link className="btn" to="/how">
             How to play
           </Link>

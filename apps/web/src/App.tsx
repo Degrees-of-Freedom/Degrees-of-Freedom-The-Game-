@@ -3,6 +3,7 @@ import { Link, Route, Routes } from "react-router-dom";
 import { AiLab } from "./pages/AiLab";
 import { Home } from "./pages/Home";
 import { Companion } from "./companion/Companion";
+import { Wiki } from "./pages/Wiki";
 import { ModeSelect } from "./pages/ModeSelect";
 import { ModeSetup } from "./pages/ModeSetup";
 import { About, HowToPlay, SettingsPage } from "./pages/InfoPages";
@@ -25,6 +26,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<Home />} />
 <Route path="/ai-lab" element={<AiLab />} />
+        <Route path="/wiki" element={<Wiki />} />
         <Route path="/modes" element={<ModeSelect />} />
         <Route path="/setup/:mode" element={<ModeSetup />} />
         <Route path="/how" element={<HowToPlay />} />
