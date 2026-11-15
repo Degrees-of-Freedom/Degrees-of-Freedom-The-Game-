@@ -15,6 +15,7 @@ import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
 import { addResultArrows, displayPoint, viewBasePoint } from "./sceneResults";
 import { buildDisplacementShadow, labelPeakDisplacement } from "./displacementShadow";
 import { projectIslet } from "./companionIslet";
+import { createCompanionFigure } from "./companionFigure";
 import { createFlowParticles } from "./flowParticles";
 import { buildReleaseFlow, markInstability } from "./releaseFlow";
 import { drawBoardDiagram } from "./boardDiagrams";
@@ -243,12 +244,20 @@ export function Scene({
      * CSS variables on the workspace element and the stylesheet does the rest.
      */
     const workspace = element.closest<HTMLElement>(".environment");
+    const companionFigure = createCompanionFigure(scene);
     let isletKey = "";
     function anchorCompanion() {
       if (!workspace) return;
       const canvas = renderer.domElement;
+      // The companion control marks itself while the foreman is on stage.
+      const foreman = workspace.querySelector(".companion-board")?.hasAttribute("data-foreman") ?? false;
+      const standing = companionFigure.update(terrain, camera, foreman ? "conkeldurr" : "timburr");
+      if (standing !== ("isletFigure" in workspace.dataset)) {
+        if (standing) workspace.dataset.isletFigure = "model";
+        else delete workspace.dataset.isletFigure;
+      }
       const at = projectIslet(terrain, camera, canvas.clientWidth, canvas.clientHeight);
-      const key = at ? [Math.round(at.x), Math.round(at.y), Math.round(at.size), at.x > canvas.clientWidth - 330].join(",") : "";
+      const key = at ? [Math.round(at.x), Math.round(at.y), Math.round(at.size), Math.round(at.model), at.x > canvas.clientWidth - 330].join(",") : "";
       if (key === isletKey) return;
       isletKey = key;
       if (!at) {
@@ -260,6 +269,7 @@ export function Scene({
       workspace.style.setProperty("--islet-x", Math.round(at.x) + "px");
       workspace.style.setProperty("--islet-y", Math.round(at.y) + "px");
       workspace.style.setProperty("--islet-size", Math.round(at.size) + "px");
+      workspace.style.setProperty("--islet-model", Math.round(at.model) + "px");
     }
     function draw() {
       renderer.clear();
@@ -777,7 +787,11 @@ export function Scene({
     }
     return () => {
       if (memory && initial) memory.pose = { seed: initial.seed, eye: camera.position.toArray(), target: controls.target.toArray() };
-      if (workspace) delete workspace.dataset.islet;
+      companionFigure.dispose();
+      if (workspace) {
+        delete workspace.dataset.islet;
+        delete workspace.dataset.isletFigure;
+      }
       refresh.current = () => {};
       refreshPermissions.current = () => {};
       glyphs.dispose();

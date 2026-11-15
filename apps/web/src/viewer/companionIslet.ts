@@ -7,11 +7,15 @@ import { CELL_SIZE } from "../game/model";
  * outside the grid and carries no `pickTerrain` flag, so nothing can be placed
  * on it and it never intercepts a snap point.
  *
- * The companion itself stays an HTML control. Each frame `projectIslet` gives
- * the screen position of the standing spot so the control can be drawn there.
+ * The companion's model stands on it as part of the scene (see
+ * `companionFigure.ts`). Each frame `projectIslet` gives the screen position
+ * of the standing spot, so the page can lay the companion's invisible click
+ * target over the model and open its speech cloud beside it.
  */
 const NAME = "companion-islet";
-const RADIUS = 0.92 * CELL_SIZE;
+const RADIUS = 1.1 * CELL_SIZE;
+/** Height of the companion's model on the islet: the main character, taller than the cottage. */
+export const FIGURE_HEIGHT = 0.86 * CELL_SIZE;
 
 const paint = (color: string, emissive?: string) =>
   new THREE.MeshLambertMaterial({ color, ...(emissive && { emissive, emissiveIntensity: 0.9 }) });
@@ -48,7 +52,7 @@ export function addCompanionIslet(group: THREE.Group, seaLevel: number, boardDep
   const ground = top + 0.085 * u;
   // Cottage: pastel walls, a hipped red roof, a lit window and a door.
   const house = new THREE.Group();
-  house.position.set(-0.38 * u, 0.4 * u, ground);
+  house.position.set(-0.5 * u, 0.5 * u, ground);
   house.rotation.z = Math.PI / 5;
   part(house, new THREE.BoxGeometry(0.44 * u, 0.36 * u, 0.36 * u), paint("#efc7a2"), 0, 0, 0.18 * u);
   const roof = part(house, upright(new THREE.ConeGeometry(0.37 * u, 0.26 * u, 4)), paint("#cf6257"), 0, 0, 0.49 * u);
@@ -58,19 +62,28 @@ export function addCompanionIslet(group: THREE.Group, seaLevel: number, boardDep
   part(house, new THREE.BoxGeometry(0.08 * u, 0.012 * u, 0.17 * u), paint("#8a5a44"), 0.1 * u, -0.184 * u, 0.085 * u);
   islet.add(house);
   // Mooring post with a lantern.
-  part(islet, upright(new THREE.CylinderGeometry(0.022 * u, 0.028 * u, 0.5 * u, 10)), paint("#5c4735"), 0.55 * u, 0.25 * u, ground + 0.25 * u);
-  part(islet, new THREE.SphereGeometry(0.055 * u, 14, 10), paint("#ffdc8f", "#ffc24a"), 0.55 * u, 0.25 * u, ground + 0.55 * u).castShadow = false;
-  // Where the companion stands, towards the open water in front of the cottage.
-  islet.userData.stand = new THREE.Vector3(0.1 * u, -0.22 * u, ground);
+  part(islet, upright(new THREE.CylinderGeometry(0.022 * u, 0.028 * u, 0.5 * u, 10)), paint("#5c4735"), 0.72 * u, 0.3 * u, ground + 0.25 * u);
+  part(islet, new THREE.SphereGeometry(0.055 * u, 14, 10), paint("#ffdc8f", "#ffc24a"), 0.72 * u, 0.3 * u, ground + 0.55 * u).castShadow = false;
+  // Where the companion stands: on the open grass in front of the cottage.
+  islet.userData.stand = new THREE.Vector3(0.22 * u, -0.3 * u, ground);
   group.add(islet);
+}
+
+/** World position of the spot where the companion stands, or `null` without an islet. */
+export function isletStand(terrain: THREE.Object3D, out: THREE.Vector3): THREE.Vector3 | null {
+  const islet = terrain.getObjectByName(NAME);
+  const spot = islet?.userData.stand;
+  return islet && spot instanceof THREE.Vector3 ? out.copy(spot).add(islet.position) : null;
 }
 
 export interface IsletView {
   /** Screen position of the companion's feet, in CSS pixels of the view. */
   x: number;
   y: number;
-  /** Height in pixels for the companion's figure at the islet's distance. */
+  /** Height in pixels for the HTML fallback figure at the islet's distance. */
   size: number;
+  /** Height in pixels of the 3D model as drawn, for the click target over it. */
+  model: number;
 }
 
 const foot = new THREE.Vector3(), edge = new THREE.Vector3(), right = new THREE.Vector3();
@@ -82,10 +95,7 @@ const foot = new THREE.Vector3(), edge = new THREE.Vector3(), right = new THREE.
  * camera turns the islet out of sight.
  */
 export function projectIslet(terrain: THREE.Object3D, camera: THREE.Camera, width: number, height: number): IsletView | null {
-  const islet = terrain.getObjectByName(NAME);
-  const stand = islet?.userData.stand;
-  if (!islet || !(stand instanceof THREE.Vector3) || !(width > 0) || !(height > 0)) return null;
-  foot.copy(stand).add(islet.position);
+  if (!isletStand(terrain, foot) || !(width > 0) || !(height > 0)) return null;
   right.setFromMatrixColumn(camera.matrixWorld, 0);
   edge.copy(foot).addScaledVector(right, RADIUS).project(camera);
   foot.project(camera);
@@ -99,5 +109,6 @@ export function projectIslet(terrain: THREE.Object3D, camera: THREE.Camera, widt
     x: Math.min(width - size * 0.6, Math.max(size * 0.6, x)),
     y: Math.min(height - 150, Math.max(size + 70, y)),
     size,
+    model: Math.max(30, behind || !Number.isFinite(pixels) ? 30 : (pixels * FIGURE_HEIGHT) / RADIUS),
   };
 }
