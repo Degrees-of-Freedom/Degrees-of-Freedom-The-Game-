@@ -47,6 +47,7 @@ const trimLength = (value: number) =>
 import { createJointGlyphs } from "./jointGlyphs";
 /** Three.js owns only presentation and picking; the game store owns the model and rules. */
 export function Scene({
+  sharedFlow,
   diagrams,
   cameraMemory,
   still,
@@ -71,6 +72,7 @@ export function Scene({
   baySize,
 }: SceneView) {
   const view = useRef<SceneView>({
+    sharedFlow,
     diagrams,
     cameraMemory,
     still,
@@ -95,6 +97,7 @@ export function Scene({
     baySize,
   });
   view.current = {
+    sharedFlow,
     diagrams,
     cameraMemory,
     still,
@@ -127,7 +130,7 @@ export function Scene({
   useEffect(() => {
     refresh.current();
   }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath, trueScale, showInstability,
-    instabilityMode, playInstability, reactionLabels, diagrams, shadow, labels, still]);
+    instabilityMode, playInstability, reactionLabels, diagrams, shadow, labels, still, sharedFlow]);
   const workK = useGameStore((state) => state.workK);
   const style = useGameStore((state) => state.style);
   const host = useRef<HTMLDivElement>(null);
@@ -428,7 +431,7 @@ export function Scene({
       delete structure.userData.animateInstability;
       disposeGroup(guides);
       particles.reset();
-      const releaseFlow = !!view.current.cameraMemory && view.current.loadPath;
+      const releaseFlow = (!!view.current.cameraMemory || !!view.current.sharedFlow) && view.current.loadPath;
       buildStructure(structure, state, releaseFlow ? { ...view.current, loadPath: false } : view.current, point, particles.add);
       // Ownership remains visible independently of optional result-value labels.
       if (view.current.cameraMemory && state.turn) {
@@ -442,7 +445,7 @@ export function Scene({
       // Optional view-mode labels default to shown; reaction size/off remains
       // an independent release preference inside addResultArrows.
       const labels = view.current.labels !== false;
-      if (releaseFlow && view.current.result) buildReleaseFlow(structure, view.current.result, point, particles.add, labels);
+      if (releaseFlow && view.current.result) buildReleaseFlow(structure, view.current.result, point, particles.add, labels, view.current.combo);
       for (const diagram of view.current.diagrams ?? []) {
         drawBoardDiagram(structure, diagram, point, view.current.deformed ? view.current.field : undefined, view.current.scale, labels);
       }
@@ -452,9 +455,9 @@ export function Scene({
       }
       if (labels && field && (view.current.shadow || view.current.deformed)) labelPeakDisplacement(structure, field, view.current.scale);
       if (view.current.showInstability && view.current.result) {
-        markInstability(structure, view.current.result, point, labels);
+        markInstability(structure, view.current.result, point, labels, view.current.combo);
         drawInstabilityMode(structure, view.current.result, view.current.instabilityMode ?? 0,
-          !!view.current.playInstability && !view.current.still && !getSettings().reducedMotion);
+          !!view.current.playInstability && !view.current.still && !getSettings().reducedMotion, view.current.combo);
       }
       addResultArrows(structure, view.current, point, state.style !== 'engineering' && labels);
       buildGuides(

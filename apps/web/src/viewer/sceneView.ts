@@ -14,6 +14,9 @@ export interface SceneHover {
 import type { JointLayer } from "./jointGlyphs";
 import type { DeformationField } from "./deformationField";
 export interface SceneView {
+
+  /** Use the shared-table load-transfer arrows in editor views. */
+  sharedFlow?: boolean;
   /** Kept in the workspace only, so privacy handoff can unmount every private scene resource. */
   cameraMemory?: CameraMemory;
   still?: boolean;
