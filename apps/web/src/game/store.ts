@@ -4,7 +4,7 @@ import type { AttachmentSite, InteriorContact } from "./attachmentSites";
 import type { PlacementPlane } from "./cantileverPlacement";
 import type { SolverAdapter } from "@dof/solver-contract";
 import { analyzeCompletedTurn, assessTurn } from "./turnAnalysis";
-import { SCORED_CATALOGUE, isScoredCatalogue, type CatalogueId } from "./cardCatalogue";
+import { CANTILEVER_CATALOGUE, isReleaseCatalogue, isScoredCatalogue, type CatalogueId } from "./cardCatalogue";
 import { assessTurnWithSolver } from "./turnSolve";
 import { getSettings } from "../menu/settings";
 import { solverForSettings } from "../solver";
@@ -50,6 +50,7 @@ import {
   editDraftMember,
   changeCheckpointInterval,
   createTurnGame,
+  createReleaseGame,
   endTurn,
   projectTurnModel,
   stageConnection,
@@ -354,7 +355,7 @@ export const useGameStore = create<GameState>((set, get) => {
     recoverSession: async (choice, hasExternalCopy = false) => {
       if (!writer || get().sessionSave !== "invalid") return "failed";
       const target = choice === "backup" ? "backup" :
-        { mode: "multiplayer" as const, style: "grow-dusk" as const, turn: createTurnGame(1, SCORED_CATALOGUE) };
+        { mode: "multiplayer" as const, style: "grow-dusk" as const, turn: createReleaseGame(1) };
       const result = await writer.recover(target, hasExternalCopy);
       if (result === "saved") return "saved";
       if (result === "needs-copy") {
@@ -464,6 +465,9 @@ export const useGameStore = create<GameState>((set, get) => {
       if (s.mode !== "multiplayer" || !s.turn) return "No multiplayer game is active";
       if (s.turn.finished) return "This turn has already ended.";
       if (s.turnAnalysing) return "The turn is already being analysed.";
+      // Setup and normal Play share the same versioned draw/checkpoint rules.
+      // Historical presets retain the immediate-analysis path below.
+      if (s.turn.rulesRevision) return turnTransition(endTurn(s.turn));
       // Analyse exactly the turn that was ended. Staging is frozen while the
       // solver runs, and the commit is refused if the table changed anyway
       // (a new match, a mode switch), so a slow answer is never applied to a
@@ -500,14 +504,17 @@ export const useGameStore = create<GameState>((set, get) => {
     },
     newMatch: (catalogue) => {
       const s = get();
-      if (s.mode !== "multiplayer" || !s.turn?.finished)
+      if (s.mode !== "multiplayer" || !s.turn || (!s.turn.finished && !isReleaseCatalogue(s.turn.catalogue)))
         return "Finish the current match before starting another.";
+      const nextCatalogue = catalogue ?? (isScoredCatalogue(s.turn.catalogue) ? s.turn.catalogue : CANTILEVER_CATALOGUE);
       return turnTransition({
         ok: true,
-        state: createTurnGame(s.turn.seed + 1, catalogue ?? (isScoredCatalogue(s.turn.catalogue) ? s.turn.catalogue : SCORED_CATALOGUE)),
+        state: isReleaseCatalogue(nextCatalogue)
+          ? createReleaseGame(s.turn.seed + 1, nextCatalogue)
+          : createTurnGame(s.turn.seed + 1, nextCatalogue),
       });
     },
-    setMode: (mode, catalogue = SCORED_CATALOGUE) => {
+    setMode: (mode, catalogue = CANTILEVER_CATALOGUE) => {
       if (mode === get().mode) return;
       if (saveBlocked()) return;
       const prior = get();
@@ -533,7 +540,8 @@ export const useGameStore = create<GameState>((set, get) => {
         loaded.status === "found" &&
         (mode !== "forensics" || hasForensicsFixture(loaded.model));
       const turn =
-        mode === "multiplayer" ? (prior.turn ?? createTurnGame(1, catalogue)) : prior.turn;
+        mode === "multiplayer" ? (prior.turn ?? (isReleaseCatalogue(catalogue)
+          ? createReleaseGame(1, catalogue) : createTurnGame(1, catalogue))) : prior.turn;
       const saved = saveSession({ mode, style: prior.style, turn });
       if (saved === "conflict") return;
       set({

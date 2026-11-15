@@ -9,8 +9,8 @@ import type { LevelId } from "../game/model";
 import { savedLevel } from "../game/persistence";
 import { useGameStore } from "../game/store";
 import { KIT_PLAYTEST } from "../game/turns";
-import { isScoredCatalogue, CANTILEVER_CATALOGUE, HOLLOW_CATALOGUE, CABLE_CATALOGUE, JOINT_CATALOGUE, PLANAR_CATALOGUE, SCORED_CATALOGUE, TRUSS_CATALOGUE, SPRING_CATALOGUE, type ScoredCatalogue } from "../game/cardCatalogue";
-import { PLAYTEST_SETTINGS, TURN_RULES, TURN_RULES_NOTES } from "../menu/turnRules";
+import { isReleaseCatalogue, isScoredCatalogue, CANTILEVER_CATALOGUE, HOLLOW_CATALOGUE, CABLE_CATALOGUE, JOINT_CATALOGUE, PLANAR_CATALOGUE, SCORED_CATALOGUE, TRUSS_CATALOGUE, SPRING_CATALOGUE, type ScoredCatalogue } from "../game/cardCatalogue";
+import { PLAYTEST_SETTINGS, TURN_RULES, LEGACY_TURN_RULES, TURN_RULES_NOTES } from "../menu/turnRules";
 import { hasSavedProgress } from "../menu/saved";
 import { runStart, type StartChoice } from "../menu/startPlan";
 import { playerLabel } from "./ModeSelect";
@@ -169,9 +169,11 @@ function Setup({ id }: { id: GameMode }) {
       : defaultBegin;
   // Continuing always keeps the saved mechanics; the default only selects a fresh deal.
   const cantileverPreset = (begin === "continue" && turn ? turn.catalogue : catalogue) === CANTILEVER_CATALOGUE;
-  const turnRules = cantileverPreset ? TURN_RULES.map(rule => rule.startsWith("One connection card")
+  const revisedPreset = begin === "continue" && turn ? !!turn.rulesRevision : isReleaseCatalogue(catalogue);
+  const selectedRules = revisedPreset ? TURN_RULES : LEGACY_TURN_RULES;
+  const turnRules = cantileverPreset ? selectedRules.map(rule => rule.startsWith("One connection card")
     ? "One connection card attaches one original member interface to a shared joint. A placed connection cannot be changed."
-    : rule) : TURN_RULES;
+    : rule) : selectedRules;
   const settings = cantileverPreset ? [
     `${KIT_PLAYTEST.players} players, ${KIT_PLAYTEST.rounds} rounds.`,
     "Each player starts with one foundation and a connected column. Unplayed cards stay in hand.",

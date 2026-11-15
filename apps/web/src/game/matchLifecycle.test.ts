@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { readSession } from "./session";
+import { SCORED_CATALOGUE } from "./cardCatalogue";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -21,7 +22,7 @@ it("restores the active match across startup and mode changes, then persists a n
   let { useGameStore } = await loadStore();
   const { unavailableSolver } = await import("../solver/unavailable");
   useGameStore.setState({ turnSolver: unavailableSolver });
-  useGameStore.getState().setMode("multiplayer");
+  useGameStore.getState().setMode("multiplayer", SCORED_CATALOGUE);
   useGameStore.getState().setStyle("kit");
   expect(useGameStore.getState().newMatch()).toMatch(/Finish/);
   expect(await useGameStore.getState().endTurn()).toBeNull();

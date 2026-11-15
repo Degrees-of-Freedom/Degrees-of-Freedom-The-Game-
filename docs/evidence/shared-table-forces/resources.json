@@ -1,10 +1,10 @@
 {
   "build": {
-    "commit": "2f991411b5fcfc39fcbfe212ed57c5e03f6715b2",
+    "commit": "13e9785d53d01f56ec04c30bc34de11d514172df",
     "dirtySource": false,
     "solverFile": "dof_solver-gaCMDH3i.wasm",
     "solverSha256": "e144aa6c2805188f69924176ddafe19b9d91aafc3f9068f3b713437ef3ce9634",
-    "assetsSha256": "6fd72a530a679971da3eb7f717e7587ace29747f3d322e34e0396d1098a3c3d1"
+    "assetsSha256": "ea27681d6b98abe002554cdb1bf26675f29eef1f035d7e0b3a9385d7c07bc1d0"
   },
   "browser": "157.0.8103.51",
   "seed": 0,
@@ -25,7 +25,7 @@
       "audio": 1,
       "voices": 0,
       "createdVoices": 2,
-      "peakVoices": 1,
+      "peakVoices": 2,
       "canvases": 1,
       "documents": 1,
       "nodes": 401,
@@ -51,7 +51,7 @@
       "audio": 0,
       "voices": 0,
       "createdVoices": 2,
-      "peakVoices": 1,
+      "peakVoices": 2,
       "canvases": 1,
       "documents": 1,
       "nodes": 228,
@@ -71,7 +71,7 @@
         "Framebuffer": 4,
         "Renderbuffer": 1,
         "Program": 17,
-        "VertexArray": 80,
+        "VertexArray": 90,
         "Shader": 0
       },
       "audio": 1,
@@ -123,7 +123,7 @@
         "Framebuffer": 4,
         "Renderbuffer": 1,
         "Program": 17,
-        "VertexArray": 80,
+        "VertexArray": 90,
         "Shader": 0
       },
       "audio": 1,
@@ -175,7 +175,7 @@
         "Framebuffer": 4,
         "Renderbuffer": 1,
         "Program": 17,
-        "VertexArray": 80,
+        "VertexArray": 90,
         "Shader": 0
       },
       "audio": 1,
@@ -227,7 +227,7 @@
         "Framebuffer": 4,
         "Renderbuffer": 1,
         "Program": 17,
-        "VertexArray": 80,
+        "VertexArray": 90,
         "Shader": 0
       },
       "audio": 1,
@@ -279,7 +279,7 @@
         "Framebuffer": 4,
         "Renderbuffer": 1,
         "Program": 17,
-        "VertexArray": 80,
+        "VertexArray": 90,
         "Shader": 0
       },
       "audio": 1,
@@ -331,7 +331,7 @@
         "Framebuffer": 4,
         "Renderbuffer": 1,
         "Program": 17,
-        "VertexArray": 80,
+        "VertexArray": 90,
         "Shader": 0
       },
       "audio": 1,
@@ -383,7 +383,7 @@
         "Framebuffer": 4,
         "Renderbuffer": 1,
         "Program": 17,
-        "VertexArray": 80,
+        "VertexArray": 90,
         "Shader": 0
       },
       "audio": 1,
@@ -435,7 +435,7 @@
         "Framebuffer": 4,
         "Renderbuffer": 1,
         "Program": 17,
-        "VertexArray": 80,
+        "VertexArray": 90,
         "Shader": 0
       },
       "audio": 1,
@@ -487,7 +487,7 @@
         "Framebuffer": 4,
         "Renderbuffer": 1,
         "Program": 17,
-        "VertexArray": 80,
+        "VertexArray": 90,
         "Shader": 0
       },
       "audio": 1,

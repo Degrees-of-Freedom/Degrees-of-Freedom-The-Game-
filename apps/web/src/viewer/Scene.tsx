@@ -39,6 +39,7 @@ import { buildTurnGuides } from "./turnGuides";
 import { createGrowthBloom, type ScenePointer } from "./growthBloom";
 import { createDofGizmo, DOF_AXIS_COLORS } from "./dofGizmo";
 import { visualLoadDirection } from "./scenePieces";
+import { sceneUpdateKind } from "./sceneUpdates";
 
 const FREE: Restraint = [false, false, false, false, false, false];
 const FIXED: Restraint = [true, true, true, true, true, true];
@@ -440,7 +441,6 @@ export function Scene({
       interaction.clearPreview();
       disposeGroup(structure);
       delete structure.userData.animateInstability;
-      disposeGroup(guides);
       particles.reset();
       const releaseFlow = (!!view.current.cameraMemory || !!view.current.sharedFlow) && view.current.loadPath;
       buildStructure(structure, state, releaseFlow ? { ...view.current, loadPath: false } : view.current, point, particles.add);
@@ -471,9 +471,19 @@ export function Scene({
           !!view.current.playInstability && !view.current.still && !getSettings().reducedMotion, view.current.combo);
       }
       addResultArrows(structure, view.current, point, state.style !== 'engineering' && labels);
+      refreshGuides();
+      // Publish the new environment even while background tabs throttle animation frames.
+      sky.position.copy(camera.position);
+      draw();
+    }
+    function refreshGuides() {
+      const state = useGameStore.getState();
+      const palette = SCENE_STYLES[state.style];
+      interaction.clearPreview();
+      disposeGroup(guides);
       buildGuides(
         guides,
-        level,
+        sceneLevel(state),
         interaction.buildPlane(),
         palette,
         state.style,
@@ -486,7 +496,9 @@ export function Scene({
     }
     refresh.current = rebuild;
     const unsubscribe = useGameStore.subscribe((state, previous) => {
-      rebuild();
+      const update = sceneUpdateKind(state, previous);
+      if (update === "structure") rebuild();
+      else if (update === "guides") refreshGuides();
       if (state.libraryLoadRevision !== previous.libraryLoadRevision)
         cameraActions.current.fit();
     });
