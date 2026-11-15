@@ -15,6 +15,7 @@ import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
 import { addResultArrows, displayPoint } from "./sceneResults";
 import { createFlowParticles } from "./flowParticles";
 import { buildReleaseFlow, markInstability } from "./releaseFlow";
+import { drawBoardDiagram } from "./boardDiagrams";
 import { buildStructure } from "./structureMeshes";
 import { bindSceneInteraction } from "./sceneInteraction";
 import { selectedTurnCard } from "./turnPicking";
@@ -37,6 +38,7 @@ const trimLength = (value: number) =>
 import { createJointGlyphs } from "./jointGlyphs";
 /** Three.js owns only presentation and picking; the game store owns the model and rules. */
 export function Scene({
+  diagrams,
   cameraMemory,
   still,
   trueScale,
@@ -55,6 +57,7 @@ export function Scene({
   baySize,
 }: SceneView) {
   const view = useRef<SceneView>({
+    diagrams,
     cameraMemory,
     still,
     trueScale,
@@ -73,6 +76,7 @@ export function Scene({
     baySize,
   });
   view.current = {
+    diagrams,
     cameraMemory,
     still,
     trueScale,
@@ -98,7 +102,7 @@ export function Scene({
   }, [jointLayer, result, combo, deformed, scale, field]);
   useEffect(() => {
     refresh.current();
-  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath, trueScale, showInstability]);
+  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath, trueScale, showInstability, diagrams]);
   const workK = useGameStore((state) => state.workK);
   const style = useGameStore((state) => state.style);
   const host = useRef<HTMLDivElement>(null);
@@ -348,6 +352,9 @@ export function Scene({
       const releaseFlow = !!view.current.cameraMemory && view.current.loadPath;
       buildStructure(structure, state, releaseFlow ? { ...view.current, loadPath: false } : view.current, point, particles.add);
       if (releaseFlow && view.current.result) buildReleaseFlow(structure, view.current.result, point, particles.add);
+      for (const diagram of view.current.diagrams ?? []) {
+        drawBoardDiagram(structure, diagram, point, view.current.field, view.current.scale);
+      }
       if (view.current.showInstability && view.current.result) markInstability(structure, view.current.result, point);
       addResultArrows(structure, view.current, point, state.style !== 'engineering');
       buildGuides(

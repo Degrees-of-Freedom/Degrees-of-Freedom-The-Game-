@@ -14,7 +14,7 @@ import { RepairHistory } from "./RepairHistory";
 import { MemberDiagram } from "./MemberDiagram";
 import { computeLoadPath } from "../solver/loadPath";
 
-type Layer = "reference" | "shape" | "path";
+type Layer = "reference" | "shape" | "path" | "combined";
 type Game = ReturnType<typeof useGameStore.getState>;
 const units = (n: number) => Number(n.toPrecision(4)).toLocaleString("en", { maximumSignificantDigits: 4 });
 const owner = (id: string) => id === "neutral" ? "Neutral repair" : id.replace("player-", "Player ");
@@ -34,7 +34,9 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, resp
   const last = turn.reports.at(-1);
   const gravity = turn.board.loads.reduce((sum, load) => sum + load.magnitude, 0);
   const shares = response?.receipt.components.flatMap(scope => scope.foundations);
-  const path = layer === "path" && response ? computeLoadPath(response.result, 0) : null;
+  const pathVisible = layer === "path" || layer === "combined";
+  const shapeVisible = layer === "shape" || layer === "combined";
+  const path = pathVisible && response ? computeLoadPath(response.result, 0) : null;
   const submembers = response?.result.ctx?.els.filter(e => member && (e.m.parentSpan?.memberId ?? e.m.id) === member.id) ?? [];
   return <>
     {card && <CardDefinitionDetails card={card} />}
@@ -76,17 +78,31 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, resp
           <p>Browser solver · committed board after {last ? `turn ${last.turn}` : "setup"} · card gravity {units(gravity)} kN</p>
           <label>Board overlay<select value={layer} onChange={event => setLayer(event.target.value as Layer)}>
             <option value="reference">Reference geometry</option><option value="shape">Deflected shape</option><option value="path">Load transfer</option>
+            <option value="combined">Deflected shape and load transfer</option>
           </select></label>
-          {layer === "shape" && <label>Displacement scale · ×{scale}<select value={amplification} onChange={event => setAmplification(Number(event.target.value))}>
+          {shapeVisible && <label>Displacement scale · ×{scale}<select value={amplification} onChange={event => setAmplification(Number(event.target.value))}>
             <option value="0">Automatic</option>{[1, 10, 100, 500].map(n => <option key={n} value={n}>×{n}</option>)}
           </select></label>}
-          {layer === "shape" && <p>Frame displacement · blue 0 mm to amber {units(1000 * (peakM ?? 0))} mm. Dashed lines show the reference shape.</p>}
-          {layer === "path" && <p>Signed gravity transfer along each verified segment, scaled to {units(path?.maxForce ?? 0)} kN. Blue denotes tension, coral compression and violet mixed action. Zero and unavailable transfer have no arrows.</p>}
+          {shapeVisible && <p>Frame displacement · blue 0 mm to red {units(1000 * (peakM ?? 0))} mm. Dashed lines show the reference shape.</p>}
+          {pathVisible && <p>Signed gravity transfer along each verified segment, scaled to {units(path?.maxForce ?? 0)} kN. Blue denotes tension, coral compression and violet mixed action. Zero and unavailable transfer have no arrows.</p>}
           {response.receipt.components.map((scope, i) => <p key={i}>{scope.verified ? "Verified" : "Unavailable"} · {scope.reason}</p>)}
           {!!shares?.length && <details><summary>Estimated foundation shares</summary>
             {shares.map(f => <p key={f.jointId}>{owner(turn.board.joints.find(j => j.id === f.jointId)?.foundationOwner ?? "neutral")}
               {" · "}{f.upwardKN === null ? "Unavailable" : `${repairReaction(f.upwardKN)} · ${units(gravity ? 100*f.upwardKN/gravity : 0)}%`}</p>)}
             <p>Upward reactions are positive. Final scoring follows turn 16.</p>
+          </details>}
+          {!!shares?.length && <details><summary>Foundation forces and moments</summary>
+            {shares.map(f => {
+              const ctx = response.result.ctx;
+              const node = ctx?.idx.get(f.jointId);
+              const reaction = ctx && node !== undefined && f.upwardKN !== null ? response.result.combos[0]?.reac?.[ctx.aid[node]] : undefined;
+              return <section key={f.jointId}><h4>{owner(turn.board.joints.find(j => j.id === f.jointId)?.foundationOwner ?? "neutral")} · {f.jointId}</h4>
+                {reaction ? <table><caption>Signed global support reaction</caption>
+                  <thead><tr><th>Axis</th><th>Force (kN)</th><th>Moment (kN·m)</th></tr></thead>
+                  <tbody>{["X", "Y", "Z"].map((axis, i) => <tr key={axis}><th>{axis}</th><td>{units(reaction[i])}</td><td>{units(reaction[3 + i])}</td></tr>)}</tbody>
+                </table> : <p>Unavailable for this foundation.</p>}
+              </section>;
+            })}
           </details>}
         </>}
     </section>

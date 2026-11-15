@@ -20,7 +20,7 @@ export function deflectedFrameGeometry(spans: DeflectedSpan[], scale: number, ra
     const ex = new THREE.Vector3().fromArray(e.R[0]), ey = new THREE.Vector3().fromArray(e.R[1]);
     const ez = new THREE.Vector3().fromArray(e.R[2]);
     const colors = contourPeak === undefined ? null : new Float32Array(position.count * 3);
-    const low = new THREE.Color("#77c9ed"), high = new THREE.Color("#ffae50");
+    const low = new THREE.Color("#77c9ed"), high = new THREE.Color("#ef5548");
     const stations = Array.from({length: SHAPE_INTERVALS+1}, (_, i) => {
       const t = i / SHAPE_INTERVALS, center = spanPoint(span, t, scale);
       const tangent = spanPoint(span, Math.min(1,t+1e-5), scale)
