@@ -2,6 +2,7 @@
 title: "3D Viewer"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/multiplayer-refresh-criteria.md
   - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
@@ -15,6 +16,9 @@ status: partial
 ---
 
 # 3D Viewer
+
+> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
+
 
 The [structure library](structure-library.md) adds 20 selectable specimens with PNG previews and previous/next loading. Loading fits the camera to the specimen's bounds; these previews show undeformed geometry, while the interactive scene uses the usual analysis controls.
 
@@ -43,3 +47,7 @@ Grow Dusk's **Build options → Joint permissions** controls Selected joint / Al
 ## Controls, physical clashes and repair feedback
 
 [Controls/camera criteria](controls-camera-criteria.md) define input parity, target disambiguation, reference-grid/quarter selection, safe navigation and accessible inspection. [Placement](placement-criteria.md) distinguishes physical reference clash geometry from enlarged meshes and intentional port contacts. [Failure/repair](failure-repair-criteria.md) requires clear resolved/improved/persistent/unknown markers while retained structures continue in play. The viewer must not infer these rules or claim physical validity from mesh contact.
+
+## Current target interaction and geometry
+
+The latest target is the multiplayer workspace only, with a 15×15 field, 5/7/10 maximum lengths drawn shorter, near-pointer bold/far-faded snap targets and a persistent element inspector. Connections appear only at nodes as rotational DOFs; the two spring variants have two simple endpoint coils. Avatar movement is active screen-space roaming with safe zones. Checkpoint result freshness and tension-outward/compression-inward axial vectors must be explicit. These are new criteria, not assertions about the existing viewer.

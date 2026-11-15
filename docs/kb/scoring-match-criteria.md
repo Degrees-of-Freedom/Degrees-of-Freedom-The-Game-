@@ -2,6 +2,7 @@
 title: "Scoring and Match Resolution Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/multiplayer-refresh-criteria.md
   - "Project owner completion-criteria request and follow-up decisions, 2026-11-14"
   - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria.md
@@ -12,6 +13,9 @@ status: needs-review
 ---
 
 # Scoring and Match Resolution Criteria
+
+> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
+
 
 ## 1. Status and confirmed rules
 
@@ -78,3 +82,7 @@ The signed-uplift acceptance fixture uses two equal-section, perpendicular canti
 | Near tie / reordered players / display rounding | Versioned tolerance and same physical/policy outcome. |
 
 Open: round/player presets, uplift/self-weight policy, physical repair catalogue/local bounds and budget, zero-load result, tie tolerance, concession/abandonment and any future deferred penalties. These must be resolved in a release ruleset, not hard-coded from recommendations. See [release acceptance](release-acceptance-criteria.md).
+
+## 6. Local safety restraints replace scaffold supports
+
+Final-only percentage-minus-historical-penalties remains. The latest repair mechanism creates no extra foundations or columns: local system safety-constraint reactions are separately recorded, included in corrected-model equilibrium, excluded from player attraction numerators, and do not reduce total-gravity denominator. Former neutral-scaffold examples describe the same accounting principle but do not authorize that geometry. At checkpoints replay unsolved turns and attribute each verified deduction to its responsible original turn, not all to the checkpoint player. Final analysis is mandatory and deduplicated with any already-due checkpoint.

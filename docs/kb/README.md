@@ -7,7 +7,10 @@ validated_against:
   - docs/kb/architecture.md
   - docs/kb/unified-runtime.md
   - docs/kb/code-standards.md
+  - docs/kb/analysis-results.md
   - docs/kb/structural-solver.md
+  - docs/kb/rust-solver.md
+  - docs/kb/voxel-retirement.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/solver-criteria.md
   - docs/kb/turn-criteria.md
@@ -25,21 +28,28 @@ status: partial
 
 # Knowledge Base
 
-## Purpose and status
+## Current requirements and implementation status
 
-This is the canonical entry point for durable project knowledge. The web prototype contains five existing environment presenters, voxel editing, challenges and a local Shared table card playtest. Its two-player, eight-round frame preset supports private handoffs, intentional original-quarter attachments and final scoring from verified component reactions. The editor can request linear or bounded nonlinear analysis through the OpenSees adapter. The [criteria ledger](criteria-ledger.md) records the tested scope and remaining gaps.
+**Read [multiplayer simplification — current criteria](multiplayer-refresh-criteria.md) first.** This newest owner revision supersedes conflicting older rules: multiplayer only, four source-selectable draws, any held-card plays, configurable default three-global-turn checkpoints, 15×15 field, 5/7/10 maximum lengths, one axial/bending member/cable/two k₀ springs, three rotation-only connector types, immutable default foundation/column, no extra foundations or downward correction columns, minimum local safety constraints, inspector/cursor refinements, active roaming avatar, correct axial vectors and quit anytime.
+
+These are criteria, not a claim that current code implements them. Existing runtime/backend descriptions are preserved as facts; older broad catalogue/mode/repair requirements are historical where they conflict. [Core criteria hub](game-completion-criteria.md) routes the domains. [Four separate implementation-session prompts](../implementation-prompts/README.md) provide ordered handoffs; no sessions are spawned and no runtime implementation is performed by this documentation change.
 
 ## Pages
 
 | Page | Use this when |
 | --- | --- |
-| [criteria-ledger.md](criteria-ledger.md) | Checking the audited game criteria, implementation assignments, accepted playtest decisions and release evidence. |
+| [multiplayer-refresh-criteria.md](multiplayer-refresh-criteria.md) | Latest multiplayer-only rules, checkpoint cadence, minimal correction, current cards and presentation. |
+| [Implementation prompts](../implementation-prompts/README.md) | Four ordered, separate Codex/Claude session briefs and handoff contracts. |
+| [criteria-ledger.md](criteria-ledger.md) | Implementation-branch evidence and earlier playtest scope; latest MR criteria take precedence as target requirements. |
 | [unified-runtime.md](unified-runtime.md) | Mapping the source environments, runtime entry points, features and remaining gaps. |
 | [project.md](project.md) | Understanding the concept, status, and repository. |
 | [architecture.md](architecture.md) | Understanding the three intended areas, current frameworks, and modular boundaries. |
 | [code-standards.md](code-standards.md) | Applying TypeScript, folder structure, modularity, React, Zustand, and routing standards. |
 | [structural-solver.md](structural-solver.md) | Working on the model, required element catalogue, the OpenSees service, stability assessment, adapter boundaries, or solver tests. |
-| [element-representation-criteria.md](element-representation-criteria.md) | Generating lightweight column, spring, planar/trichord truss, wide-flange, HSS and cable geometry, with readable and true-scale views. |
+| [rust-solver.md](rust-solver.md) | Working on the Rust WebAssembly solver: its coverage of the criteria, test evidence, timings, and open decisions. |
+| [voxel-retirement.md](voxel-retirement.md) | Planning the proposed retirement of the voxel analysis: what depends on it, what the Rust solver and OpenSees can replace, and a migration order. |
+| [element-representation-criteria.md](element-representation-criteria.md) | Generating the standard member, cable and two endpoint-coil spring variants, with readable/true-scale views. |
+| [analysis-results.md](analysis-results.md) | Persisting versioned solver runs, validity and result provenance. |
 | [structural-state.md](structural-state.md) | Browser saves, experimental solver snapshots, and proposed general state and fixture design. |
 | [structure-library.md](structure-library.md) | Loading and cycling 20 voxel specimens, PNG previews, SQLite records and observed solver baselines. |
 | [solver-criteria.md](solver-criteria.md) | Reading the owner-supplied proposed solver requirements, acceptance gates, implementation order, and open gameplay decisions. |
@@ -62,39 +72,16 @@ This is the canonical entry point for durable project knowledge. The web prototy
 | [3d-viewer.md](3d-viewer.md) | Working on the 3D grid, interaction, or visual feedback. |
 | [development-and-testing.md](development-and-testing.md) | Finding current setup, commands, and test coverage. |
 
-## Completion rules and decisions
+## Criteria precedence and outstanding parameters
 
-Start with [core game completion criteria](game-completion-criteria.md) for the eight specifications and decision register. The owner confirmed fixed rounds, final load-share percentage minus accumulated penalties, local hot-seat privacy, grid/diagonal and quarter-point attachments for all families, no physical clashes, one assembly card per element play, and retained structures repaired through additions. Check each family's physical and gameplay acceptance in the criteria ledger.
-
-## Turn rules: source of truth
-
-Start with [turn criteria](turn-criteria.md#1-status-and-confirmed-rules) for the owner's confirmed two-deck rules. The page includes the card families, six-DOF connection profile table, turn lifecycle, whole-structure issue comparison, 1-point penalty policy, a worked example, persistence requirements and acceptance scenarios.
-
-The [completion decision register](game-completion-criteria.md#2-owner-confirmed-decision-register) specifies scoring, match format, placement and repair choices. The Shared table implements the card lifecycle and explicit attachments. Its versioned scored preset compares verified member/connector overload and witnessed instability on persistent physical IDs. Numerical tests and remaining validation gates are recorded in the [solver criteria](solver-criteria.md) and [criteria ledger](criteria-ledger.md).
-
-## Animation and sound direction
-
-[Animation and sound criteria](animation-criteria.md) record the owner-confirmed magical arena style: fast, subtle routine feedback with rare dramatic failure, major lead-change and victory moments. They cover all game actions, coordinated sound, optional structural glow/pulse and truthful structural visualization. Timing budgets, settings defaults and rollout details are proposals; this specification does not claim implementation.
-
-## Avatar and preserved prototype
-
-[Timburr avatar criteria](avatar-criteria.md) describe the compact companion and reactions. The active Grow Dusk playtest uses the two original attributed models preserved in the [prototype handoff](../../prototypes/timburr-companion/README.md), including a deliberately activated Conkeldurr preview and static portrait fallback. The models have no embedded animation clips. See [presentation acceptance](criteria-ledger.md#viewer-controls-and-presentation) for verified controls and remaining reactions.
-
-## Joint freedoms and graphical representation
-
-[Joint DOF criteria](joint-dof-criteria.md) record the owner-confirmed Selected joint / All joints / Off display (Selected default), global axes with local detail, brief optional demonstrations and a distinct solver-instability layer. All ends intentionally attached at one shared joint must now use matching freedoms, replacing earlier differing end-release choices there; foundations are fully fixed by default. Turn and solver criteria reflect the revision. The playtest enforces the law for fixed and ball profiles. Recovery identifies incompatible legacy attachments and preserves their source bytes. See the [implementation ledger](criteria-ledger.md) for overlay and elastic solver status.
-
-## Structural element representation
-
-[Element representation criteria](element-representation-criteria.md) require recognizable section/assembly geometry for the catalogue recorded in [structural solver](structural-solver.md#required-element-catalogue-and-geometry-direction). The owner confirmed planar two-chord trusses, triangular three-chord trusses, axial helical springs and slightly enlarged sections with true-scale inspection. Procedural geometry, LOD, numerical accuracy boundaries and acceptance fixtures are specified for future implementation; visual inclusion does not add playable cards or solver capabilities.
-
-## Automatic correction and final fallback
-
-In the scored frame preset, the game retains the player move and any originating deduction. It tries physical local reinforcement for verified instability and overload. Accepted props and neutral ground anchors persist, participate in equilibrium and earn no player attraction. Turn details identifies the local contact, checks, signed support redistribution and any pending issue after bounded attempts. The final award uses verified reactions divided by all applied card gravity. See the [repair policy](failure-repair-criteria.md#7-permanent-neutral-repairs-with-local-intervention), [decision register](game-completion-criteria.md#2-owner-confirmed-decision-register) and [tested match and remaining scope](criteria-ledger.md).
+The current MR01–MR19 register is authoritative. Earlier G-series decisions are retained only in [historical context](history/pre-refresh-game-decisions.md). Numerical truth, final-only adjusted share scoring, privacy, quarter attachments, no material clashes and recoverable saves remain unless explicitly revised. Actual k₀/member/capacity values, height, interval bounds, tolerance/budgets and deck/exhaustion/tie policies remain clearly authored parameters, not permission to restore old restrictions.
 
 ## Maintenance
 
-- Validate facts against current code, configuration, tests, or explicitly identified project decisions; list sources in front matter.
-- Update affected pages in the same change as durable behavior or decisions. Keep `last_validated` and `status` accurate.
-- Use `current`, `partial`, `needs-review`, or `deprecated` for status. Record unanswered questions rather than guessing.
-- Treat design intent as intent, not shipped functionality. Existing non-KB documents are context unless explicitly cited and validated.
+- Keep current requirements distinct from actual runtime/backend behavior and historical tests.
+- Link changed rules to the current revision and record pass/fail evidence for later implementation.
+- Do not present archived prototypes, screenshots or pending numerical work as accepted features.
+
+## Implementation branch status
+
+This criteria-only integration preserves the runtime at implementation commit `633887d`, including its owner-requested pause and unfinished workstreams. See [criteria ledger](criteria-ledger.md) for implementation evidence. The new target criteria do not revert or reimplement that code and do not claim its existing frame/quarter-attachment/scoring work is absent. Previously recorded evidence remains in Git history at that commit and in the ledger; future implementation must reconcile it with the MR01–MR19 target rather than overwrite it.

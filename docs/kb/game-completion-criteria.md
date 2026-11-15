@@ -1,86 +1,52 @@
 ---
-title: "Core Game Completion Criteria and Decisions"
+title: "Core Game Criteria — Current Multiplayer Rules"
 last_validated: 2026-11-14
 validated_against:
-  - "Project owner completion-criteria request and follow-up decisions, 2026-11-14"
+  - "Project owner multiplayer simplification and follow-up answers, 2026-11-14"
+  - docs/kb/multiplayer-refresh-criteria.md
   - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria.md
-  - docs/kb/scoring-match-criteria.md
-  - docs/kb/placement-criteria.md
-  - docs/kb/card-definition-criteria.md
-  - docs/kb/failure-repair-criteria.md
-  - docs/kb/controls-camera-criteria.md
-  - docs/kb/multiplayer-criteria.md
-  - docs/kb/saved-match-criteria.md
-  - docs/kb/release-acceptance-criteria.md
 owner: project owner
 status: needs-review
 ---
 
-# Core Game Completion Criteria and Decisions
+# Core Game Criteria — Current Multiplayer Rules
 
-## 1. Scope and source of truth
+## 1. Current source of truth
 
-This is the entry point for the eight completion criteria requested after the initial game/solver/presentation specifications. **Documentation only:** it does not implement the rules, physics, privacy screens, meshes, persistence or release tests. Owner-confirmed choices below supersede earlier contradictory proposals. Recommendations and unresolved parameters are explicitly labelled; a future implementer must not promote them to approved rules silently.
+Read [multiplayer simplification](multiplayer-refresh-criteria.md) first. It contains the latest confirmed MR01–MR19 register and supersedes earlier conflicting decisions, even if an older page called them confirmed. This is documentation, not a claim of implemented behavior. [Pre-refresh decisions](history/pre-refresh-game-decisions.md) are historical only.
 
-| Area | Criteria page | Responsibility |
-| --- | --- | --- |
-| Scoring and match resolution | [Scoring](scoring-match-criteria.md) | Final attraction formula, penalties, fixed rounds, validity and outcome. |
-| Placement and connection legality | [Placement](placement-criteria.md) | Grid/diagonal geometry, clashes, quarter ports, assembly economy and immutable attachments. |
-| Element/card definitions | [Cards](card-definition-criteria.md) | Versioned physical data, capabilities, catalogue/deck authoring and instance locations. |
-| Failure and repair | [Issues and repair](failure-repair-criteria.md) | Verified comparisons, one-point ledger, retained structure and explicit repair outcomes. |
-| Controls and camera | [Interaction](controls-camera-criteria.md) | Mouse/keyboard/touch parity, precision targeting, navigation and interruption. |
-| Multiplayer/information | [Multiplayer](multiplayer-criteria.md) | First-release local hot-seat, private handoff and future authority boundary. |
-| Complete saved match | [Persistence](saved-match-criteria.md) | Atomic/recoverable full state, deterministic replay, validation and migration. |
-| Integrated acceptance | [Release gates](release-acceptance-criteria.md) | One complete-match acceptance matrix and supported-scope/evidence declaration. |
-
-[Turn criteria](turn-criteria.md) remain the source for the confirmed draw/play limits and per-end connection cards. [Solver criteria](solver-criteria.md) govern numerical verification; [visualization criteria](visualization-criteria.md) govern the calculated deflected shape and explanatory load-path displays, with the confirmed score/neutral-support policies kept separate from raw physical quantities. [Joint DOFs](joint-dof-criteria.md), [element geometry](element-representation-criteria.md), [animation](animation-criteria.md) and [avatar](avatar-criteria.md) remain presentation specifications; they do not decide legal actions or fabricate physical evidence.
+Only multiplayer Shared table remains a target game type. The current release remains local hot-seat with private handoff, fixed rounds and final-only adjusted load-share scoring. The deck, turn and physics checkpoint rules have changed substantially; do not reproduce the old per-turn solver/1-member/1-load/2-connector prototype as the intended game.
 
 ## 2. Owner-confirmed decision register
 
-| ID | Confirmed decision | Supersedes / consequence |
+The current confirmed register is [MR01–MR19](multiplayer-refresh-criteria.md#2-current-confirmed-decisions); it replaces conflicting G-series decisions. Earlier G-series records are [historical](history/pre-refresh-game-decisions.md).
+
+## Current criteria map
+
+| Area | Source | Current requirement |
 | --- | --- | --- |
-| G01 | Load attraction is scored only at match end. | No per-turn or per-round attraction accumulation. |
-| G02 | A fixed number of complete rounds ends the standard match. | No target-score victory. Exact round count remains a preset decision. |
-| G03 | Final score = final foundation load-share percentage minus accumulated penalty points; highest adjusted score wins. | Raw load share alone is not the winner after penalties. |
-| G04 | Local hot-seat first, with a private handoff screen. | Online multiplayer is deferred beyond the first release. |
-| G05 | 3D grid endpoints, including diagonals within card-defined lengths/orientations. | No arbitrary free-positioning default. |
-| G06 | Interior attachment at original-reference 25%, 50% and 75% only. | Earlier blanket deferral of interior attachments is superseded. Proposed quarter-port exception handles non-grid coordinates explicitly. |
-| G07 | Quarter attachments are required for every element family, including cables and springs. | Validation cannot be skipped by presenting a marker; compatible analytical laws are required. |
-| G08 | Unconnected elements are allowed, physical clashes are not. | Visual coincidence is not connectivity; projected crossing and physical material interference are different cases. |
-| G09 | One planar/trichord assembly card consumes one element play; each external attachment needs a connection card. | Earlier one-member-only prohibition is revised for authored assembly cards; internal authored parts are not separately dealt cards. |
-| G10 | Keep the player move and automatically apply a clearly recorded game-owned repair for instability and overload. | Supersedes player-card-only repair; no hidden removal or property rewrite of player objects. |
-| G11 | Repairs are clearly identified and allow continued play. | Resolved issues clear from active warnings after verification; retained unknown geometry is not an invented equilibrium. |
-| G12 | Historical -1 penalties remain after repair. | A resolved current issue does not refund or duplicate the originating deduction. |
-| G13 | Elastic connections may have different stiffness values at the same joint, provided freedoms and physical axes match. | Common freedom states do not require identical constitutive stiffness; retain each connector’s actual values. |
-| G14 | Final fallback scores verified components against total applied gravity and awards no attraction for unverified contributions. | Do not renormalize the verified subset or fabricate zero physical reactions. Mark final evidence completeness. |
-| G15 | Timburr explains recorded automatic correction for both instability and overload. | Presentation does not create physics or a score event. |
-| G16 | Neutral system scaffolding/ground anchors are allowed, with no player attraction award, and remain for the rest of the match. | System-only exception to setup-only player foundations; total gravity remains the denominator. |
-| G17 | Repair should directly affect the local element/connection. | Interpreted as local intervention, with whole-structure reanalysis for unavoidable indirect redistribution; not linear-only analysis. |
+| Turns/cards | [Turn criteria](turn-criteria.md) | Four source-selectable draws; any held elements/connections/loads playable; preserve explicit attachment identity. |
+| Checkpoints | [Refresh sections 3–4](multiplayer-refresh-criteria.md#3-analysis-cadence-settings-and-result-freshness) | Every 3 global completed turns by default, editable interval, match-end solve; checkpoint replay attributes original turns. |
+| Scoring | [Scoring criteria](scoring-match-criteria.md) | Final share percentage minus historical penalties; system safety reactions unscored, unknown forces unavailable. |
+| Placement | [Placement criteria](placement-criteria.md) | 15×15 field, max lengths 5/7/10 can be shorter, quarter interfaces, no material clashes, locked starting pieces. |
+| Definitions | [Card criteria](card-definition-criteria.md) | One axial/bending member, cable, springs 0.25k₀/0.5k₀; only 1/2/3 restrained-rotation connector types. |
+| Correction | [Repair criteria](failure-repair-criteria.md) | Minimum local restraints; no downward columns, props or new foundations. |
+| Interaction | [Controls criteria](controls-camera-criteria.md) | Inspector panel, editable drafts/read-only committed pieces, bold nearby/faded distant targets, quit anytime. |
+| Privacy | [Multiplayer criteria](multiplayer-criteria.md) | Only multiplayer; independent source-deck draws and private hot-seat handoff, no card leaks. |
+| Persistence | [Saved match criteria](saved-match-criteria.md) | Save pending checkpoint window, selected draws, repair layers, settings and quit/resume state atomically/recoverably. |
+| Visuals | [Geometry](element-representation-criteria.md), [DOFs](joint-dof-criteria.md), [visualization](visualization-criteria.md) | Reduced catalogue, two endpoint coils, node-only rotations, tension outward/compression inward vectors. |
+| Personality/events | [Avatar](avatar-criteria.md), [animation](animation-criteria.md) | Active roaming/emotive Timburr; explicit cause-to-effect turn/checkpoint/correction events. |
+| Acceptance | [Release criteria](release-acceptance-criteria.md) | Validate the revised full match, including no noncheckpoint solver calls and original-turn penalty attribution. |
 
-The earlier confirmed two decks, two draws per deck, independent up-to-1/1/2 plays, shared access, setup-only fixed player foundations (with the explicit neutral-system repair exception), immutable placed player connections, matching shared-joint freedoms and no repeat/unknown penalties remain in force. Distinct external attachment cards still matter even when geometry is subdivided internally.
+## 3. Retained and superseded decisions
 
-## 3. Pending decisions and recommendations
+Retained: shared access, intentional connectivity, quarter attachment on every playable family, no physical clashes, immutable committed player pieces, compatible common rotational freedoms at shared joints, fixed setup foundation/column, one historical -1 per responsible turn with verified new/worsened eligible issues, no repeated/unknown penalties, final verified-component fallback, honest validity and private hot-seat hands.
 
-During the implementation audit the owner selected a scored preset of two players and eight rounds. Use signed verified reactions under persistent gravity-card loads only, give zero attraction when no gravity is applied, and declare joint winners within 0.01 adjusted points. The first connector establishes the common joint law. Reject incompatible incoming attachments and leave the card in hand. Hand identities, counts and discard details remain private until the appropriate deliberate reveal. The owner authorized candidate physical catalogue values and analytical laws for playtesting and review. Keep unvalidated families outside scored play. The [implementation ledger](criteria-ledger.md) distinguishes this authorization from numerical validation and records runtime status.
+Superseded: multiple game types; two fixed draws per deck; 1/1/2 play caps; mandatory every-turn solves; assembly/section-family card decks; player translational/elastic connection laws; additional neutral anchor/foundation/column meshes; mandatory fixed corner avatar. System-only corrective translation restraints are an explicitly recorded exception, not a new connection card or a new foundation.
 
-Historical penalties, unequal elastic stiffness and partial-result final scoring are now confirmed (G12–G14). The owner confirmed game-owned automatic correction for instability and overload while retaining the player move, with Timburr explaining it. Neutral scaffolding/ground anchors, no player attraction award, permanent in-match lifetime and local direct intervention are now confirmed (G16–G17). Exact local envelopes/repair catalogue, target permissions on system objects and numerical parameters still need definition. See [automatic correction](failure-repair-criteria.md#6-automatic-correction-transaction).
+## 4. Implementation handoff and open parameters
 
-Remaining choices include deck retention/exhaustion for additional presets, catalogue numbers and quarter laws, clash and fitting tolerances, issue thresholds, device targets and storage/migration limits. Recommendations are developed in the linked pages; a scored release must freeze all applicable choices in a versioned ruleset.
+Run the [four separate implementation prompts](../implementation-prompts/README.md) in order. Each session reads current main, preserves unrelated work and produces a concrete tested handoff. They are prompts, not already created sessions or implementation.
 
-In particular, the proposed scoring formula uses signed upward reactions over the same total applied gravity load and does not renormalize missing components. The confirmed partial-evidence fallback is a game award rule: unavailable reaction data stays unavailable even when its attraction award is zero. The implementation preset uses the signed-reaction and zero-gravity policies recorded above. A solver must diagnose/report every supported input outcome but cannot guarantee a stable physical equilibrium for every topology without a permitted change to the model.
-
-## 4. Implementation sequence and current limitations
-
-1. Freeze the initial reviewed rules/catalogue and evidence validity policy. Resolve open gameplay choices before shipping dependent scoring/legality.
-2. Extend definitions, joint/port identity and complete-match transactions without breaking legacy data. The existing shared structural snapshot is a building block, not complete match persistence.
-3. Implement grid/quarter/clash/assembly validation and validate associated numerical subdivision/constitutive laws. The current two-end spring/cable or per-end fixed/ball records do not establish this scope.
-4. Integrate component-valid analysis, issue comparisons and the idempotent penalty ledger, then final scoring.
-5. Implement hot-seat privacy, full input/camera workflows and interruption/recovery.
-6. Validate a complete match with the release matrix, including geometry/DOF/presentation/accessibility and stress evidence.
-
-This ordering is a recommendation, not a claim of completed work. The local Shared table has partial draws/staging/commits and experimental analysis; verified penalty comparison, final scoring, broad quarter ports, clash-aware physical catalogue and complete recovery/privacy acceptance are not established by current documentation or prototype tests. Keep [development and testing](development-and-testing.md) and the [solver gap analysis](solver-criteria-gap-analysis.md) accurate as later work ships.
-
-## 5. Criteria-document acceptance
-
-All eight areas must contain traceable confirmed decisions, proposed workflows, error/unknown handling, acceptance scenarios and open parameters. Cross-links and older criteria must reflect superseding choices, especially final-only scoring, quarter attachments for every family, assembly cards and retained repaired structures. No runtime change or unsupported numerical claim belongs in this documentation task. Future implementation evidence must be recorded separately from these design requirements.
+Remaining authored parameters include actual k₀/member properties, vertical field extent, supported interval limits, tolerance/correction budgets, card counts/load magnitudes/exhaustion, and tie/uplift/self-weight/zero-load policy. Do not reopen the answered cadence, draw, unlimited-load, spring-reference or inspector-permission decisions. Keep current solver integration facts in [structural solver](structural-solver.md) and [Rust solver](rust-solver.md); do not discard working backends because the playable catalogue is smaller.

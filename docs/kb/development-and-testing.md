@@ -2,6 +2,7 @@
 title: "Development and Testing"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/multiplayer-refresh-criteria.md
   - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
@@ -25,6 +26,9 @@ status: partial
 ---
 
 # Development and Testing
+
+> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
+
 
 The [criteria acceptance ledger](criteria-ledger.md) records the current implementation run. The OpenSees suite includes a reproducible 10,000-state test in `services/opensees/tests/test_seeded_states.py`. It compares 6,000 oblique, subdivided cantilevers with analytical displacement and six-axis reaction balance, and checks 4,000 invalid or unstable configurations for classification and absence of fabricated response. The initial Windows x64 run recorded maximum relative displacement error 6.67e-13, normalized force residual 1.24e-12 and moment residual 7.72e-13. The generator-plus-solve p95 was 1.45 ms for these one-to-four-member cases. Nonlinear and game-scale performance need separate evidence.
 
@@ -90,3 +94,11 @@ Reviewed the completion criteria against latest main baseline `d18e5e2`, preserv
 Validated 226 relative documentation links/anchors across the root README and all 27 KB pages, plus whitespace checks. Cross-checked final-only adjusted scoring, unequal elastic stiffnesses, original-quarter attachments, assembly plays, retained historical penalties, permanent neutral local repairs, and separate verified-neutral versus unavailable reaction scope. Existing visualization art/overlay decisions were preserved and linked to the confirmed scoring/repair policy. Remaining numerical, balance, physical-catalogue and device parameters stay explicitly proposed/open.
 
 The merge changes documentation only; application, shared-contract, service and archived-prototype bytes are unchanged from the latest main baseline. Runtime/numerical/browser tests were not rerun for this documentation-only review, and no implementation, solver correctness or performance acceptance is claimed. Future release evidence must follow [whole-game acceptance](release-acceptance-criteria.md).
+
+## Multiplayer refresh documentation scope
+
+The multiplayer simplification revision and four implementation prompts are documentation only. Future implementation must validate the reduced catalogue, freely allocated four draws/unlimited plays, configurable global-turn cadence, checkpoint replay attribution, minimal local constraints/no new foundations, immutable setup, 15×15/Euclidean maxima, inspector/cursor behavior, active avatar/animation events, axial-flow direction and quit/recovery. No runtime, numerical or browser test result is claimed by this criteria update.
+
+Documentation validation for this refresh: 277 relative links/anchors across 38 KB/history/prompt pages passed; MR01–MR19 are unique; exactly four session prompts exist. Whitespace checks passed. Application, solver, service, crate and prototype files are unchanged; no runtime implementation or numerical acceptance is claimed.
+
+This refresh evidence records the source criteria documentation check at `17415db`, not runtime acceptance of this implementation branch. The branch’s existing criteria ledger and evidence remain preserved above; bringing in these requirements does not import another branch’s runtime, Rust integration or revised OpenSees implementation.

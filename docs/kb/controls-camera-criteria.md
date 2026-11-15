@@ -2,6 +2,7 @@
 title: "Controls and Camera Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/multiplayer-refresh-criteria.md
   - "Project owner completion-criteria request and follow-up decisions, 2026-11-14"
   - docs/kb/placement-criteria.md
   - docs/kb/joint-dof-criteria.md
@@ -12,6 +13,9 @@ status: needs-review
 ---
 
 # Controls and Camera Criteria
+
+> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
+
 
 ## 1. Status and scope
 
@@ -69,3 +73,7 @@ In the scored frame preset, Turn details provides grid and original-quarter elem
 The [seed 1 match runner](../evidence/match/check.mjs) exercises a load on the opposing starting foundation followed by cancellation, a midpoint branch and load, a staged-draft reload, a new unstable member and all 16 turns. Keyboard tests use Tab or Shift+Tab to reach controls and the native selection keys. Chrome touch emulation uses taps for buttons, native select changes and text entry at 412 × 915 CSS pixels. The release matrix tracks hardware touch and screen-reader coverage separately. [Touch layout](../evidence/input-parity/touch-hand-controls.png) · [Keyboard quarter form](../evidence/input-parity/keyboard-quarter-form.png).
 
 Open: final keymap, touch gesture mapping, camera limits/defaults per environment and assistive-technology/device matrix. Validate against [whole-game release gates](release-acceptance-criteria.md); do not claim controls are complete from desktop mouse testing alone.
+
+## 7. Inspector, cursor salience and quit at any time
+
+Inspecting an element opens a persistent property panel with actual/max length, owner/card/family, endpoints/quarter ports, rotation masks, spring multiplier/k₀/k, setup locks, last checkpoint/results and system overrides. Edit only draft printed choices; committed physical properties are read-only and setup is always locked. Nearby legal snap points are bold/opaque; distant points fade smoothly, preserving hit identity, depth cycling and keyboard/touch selection. Do not trigger a solver by inspecting or moving the cursor. Quit/Menu stays reachable during draw/placement/privacy/animation/checkpoint/correction; suspend and save exact state without an implicit commit/pass/final solve or forfeiture.

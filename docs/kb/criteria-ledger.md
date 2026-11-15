@@ -10,6 +10,9 @@ status: partial
 
 # Criteria ledger
 
+> **Target revision:** [MR01–MR19 multiplayer refresh](multiplayer-refresh-criteria.md) supersedes conflicting older rule assumptions in this implementation ledger. This page retains historical implementation/test evidence; criteria synchronization does not resume paused work, alter runtime behavior or establish acceptance of the new target.
+
+
 The three domain audits used local commit `cdd5c9a`, also the tip of main and the criteria branch. The implementation branch is `codex/criteria-implementation`. This ledger tracks the normal game, service or renderer entry point specified in each row. An isolated helper passing its tests does not establish game integration. Section numbers identify the acceptance cases in the linked specifications.
 
 ## Paused for playtest review

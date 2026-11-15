@@ -2,6 +2,7 @@
 title: "Placement and Connection Legality Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/multiplayer-refresh-criteria.md
   - "Project owner completion-criteria request and follow-up decisions, 2026-11-14"
   - docs/kb/turn-criteria.md
   - docs/kb/joint-dof-criteria.md
@@ -13,6 +14,9 @@ status: needs-review
 ---
 
 # Placement and Connection Legality Criteria
+
+> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
+
 
 ## 1. Confirmed decisions and implementation status
 
@@ -88,3 +92,7 @@ Open: grid/board preset and tolerances, actual clearance/fitting rules, quarter-
 The current Shared table implements original ¼, ½ and ¾ port identities for its scored prismatic frames. Scene and precise controls preserve the selected parent and fraction. The numerical model splits at activated ports with internal continuity and retains parent-span mapping. The turn spends the external connection card once. The [ledger](criteria-ledger.md) records the diagonal pointer and four-section analytical fixtures, plus the pending spring, cable and assembly laws.
 
 The owner now authorizes recorded game-owned automatic repair for instability and overload, preserving player moves. It does not legalize an invalid player draft, delete loads, upgrade immutable player connectors or silently waive clash/quarter/common-freedom rules. System objects must have a declared physical/attachment policy, ownership and provenance; neutral ground anchors are now an explicit system-only exception to player setup-only foundations; accepted repairs remain permanent for the match. Direct player contacts stay local to the flagged element/interfaces and must be recorded; indirect redistribution is verified globally. Matching elastic freedom states/axes permit differing connector stiffness values, retained individually. See [repair transaction](failure-repair-criteria.md#6-automatic-correction-transaction).
+
+## 8. Current field, reach and setup
+
+Current multiplayer bounds are 15×15 horizontal cells (working interpretation: positions 0..15); publish height separately. Maximum member lengths are 5/7/10 lattice units and permit legal shorter spans using Euclidean distance, not per-axis reach. Keep original-quarter targets and physical clashes. Only four current member variants remain; no assembly plays. Every player has exactly one immutable fully fixed default foundation and starting column. No player/system new foundation, downward prop or anchor mesh is permitted; system-only safety constraints are separate records. No per-category play caps remain.
