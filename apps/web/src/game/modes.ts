@@ -65,7 +65,7 @@ export function modeProgress(
 ): "complete" | "incomplete" | "unavailable" {
   if (mode !== "forensics" && mode !== "load-space" && mode !== "challenge")
     return "unavailable";
-  if (analysis.error) return "unavailable";
+  if (analysis.error || analysis.unresolved) return "unavailable";
   if (mode === "forensics")
     return !analysis.mechanism && analysis.floating.length === 0
       ? "complete"

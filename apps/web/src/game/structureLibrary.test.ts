@@ -2,13 +2,21 @@
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { parseStructureLibrary } from './structureLibrary';
 import { allNodeKeys, parseNodeKey } from './model';
 import { LEVELS } from './levels';
 import { analyzeGame } from './analysis';
 import { toStructuralModel } from './structuralModel';
 import { useGameStore } from './store';
+
+// Switching a real match into the library requires an acknowledged save.
+vi.hoisted(() => {
+  const values = new Map<string, string>();
+  vi.stubGlobal("localStorage", { getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value) });
+});
+afterAll(() => vi.unstubAllGlobals());
 
 const directory = new URL('../../public/structures/', import.meta.url);
 const catalogText = readFileSync(new URL('catalog.json', directory), 'utf8');

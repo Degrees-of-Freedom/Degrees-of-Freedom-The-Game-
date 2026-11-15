@@ -149,3 +149,20 @@
   color: var(--cream);
   border: 1px solid var(--warm-line);
 }
+
+@media (max-width: 700px) {
+  /* The two-seat banner can wrap as the hand and public turn report change.
+     Let the toolbar follow its actual height so both rows stay reachable. */
+  .environment[data-style="grow-dusk"] #ui:has(.shared-hand) > :is(#topleft, #actions) {
+    position: relative;
+    inset: auto;
+    width: auto;
+    margin: 6px 8px 0;
+  }
+  .environment[data-style="grow-dusk"] #ui:has(.shared-hand) > #topleft {
+    margin-top: max(8px, env(safe-area-inset-top));
+  }
+  .environment[data-style="grow-dusk"] .shared-hand {
+    bottom: 204px;
+  }
+}

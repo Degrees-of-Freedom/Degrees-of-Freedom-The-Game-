@@ -18,12 +18,12 @@ export function autoDesignVoxel(
   };
   let analysis = analyzeVoxel(model, LV),
     changedAny = false;
-  if (!analysis.error && !analysis.mechanism) {
+  if (!analysis.error && !analysis.mechanism && !analysis.unresolved) {
     const order: BeamType[] = (
       ['shs', 'glulam', 'ipe', 'heb'] as BeamType[]
     ).sort((a, b) => ITEMS[a].cost - ITEMS[b].cost);
     for (let round = 0; round < 4; round++) {
-      if (analysis.error || analysis.mechanism) break;
+      if (analysis.error || analysis.mechanism || analysis.unresolved) break;
       const pool = Object.fromEntries(
         order.map((t) => [t, LV.inv ? LV.inv[t] || 0 : Infinity]),
       );

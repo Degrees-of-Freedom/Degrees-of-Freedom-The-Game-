@@ -34,9 +34,21 @@ Configuration, by environment variable:
 | `DOF_OPENSEES_MAX_MEMBERS` | `8000` | Largest accepted member count. |
 | `DOF_OPENSEES_WORKERS` | `2` | Worker processes in the Docker image. |
 
+The capabilities response includes a 2,688-equation dense linear budget (the
+largest benchmarked grid) and a 1,200-equation nonlinear tangent budget. Both
+include the free rotations of released ends. A larger system returns
+`unresolved` before dense matrix allocation. The engine checks finite
+combined nodal loads, representable spans, section products, actual mesh
+stations and finite result fields. A requested geometry or law beyond the
+numeric range returns `error`. Unavailable native results and a linear
+force or moment imbalance above the normalized 1e-5 tolerance return
+`unresolved`. Such responses carry a reason and omit physical fields.
+
 OpenSees holds one global model per process, so each process analyses one model at a time. Concurrency comes from worker processes.
 
 ## What is modelled
+
+With no analysis option, the following linear behavior applies. The editor's **Run nonlinear check** action sends `analysis: { type: "corotational", segmentsPerFrame: 8 }` and explicit section or rest-length cable laws to the same endpoint. The opt-in path subdivides continuous frames, advances dead nodal loads incrementally and checks final tangent stability and deformed-state equilibrium. It reports an unresolved outcome when verification fails. Its expanded mesh limit is 1,200 free equations. The returned forces use SI units. Strength checks and scoring belong to separate game paths. See [numerical evidence](../../docs/kb/criteria-ledger.md).
 
 - **Analysis:** linear elastic, small-displacement, static. One load case made of the nodal forces and moments in the request. No self-weight, member loads, load combinations, buckling, or member capacity checks.
 - **Units:** SI base units. Metres, newtons, newton-metres, radians.
@@ -58,6 +70,12 @@ The reported counts are `freeDofs`, `mechanisms`, `translationalMechanisms`, `ro
 A model is `unstable` when it has any translational mechanism, or a rotational mechanism that a load does work on. The result then carries mode shapes per node for display and the list of nodes involved.
 
 Rotational mechanisms that no load acts on do not stop the analysis. The usual case is a straight run of rigidly joined members that can spin about its own axis between pin supports. The service reports the mode, adds rotational springs one millionth as stiff as the members to hold it still, and solves. Results on such models match closed-form values to about `1e-5` relative.
+
+## Independent regions
+
+The service finds connected regions by original member end-node IDs. On a model with multiple active regions, the response includes `components`. Each entry carries its original `nodeIds`, `memberIds` and the same `result` shape as an isolated solve. Linear mechanisms keep their local stability report. An unverified nonlinear equilibrium carries a reason. Displacements, member forces and signed support reactions are available only on successful component results. Fully successful requests also retain their conventional whole-model fields. A partially computed model returns `unstable` when linear stability identifies a mechanism, or `unresolved` when the full response is unavailable. Single-component responses retain their existing shape.
+
+Unused nodes are listed separately in `inactiveNodeIds` on multi-region requests. The complete request shares its input, expanded mesh, equation, load-increment and mode-shape limits across regions. Smaller anchored regions are attempted first. Unknown or duplicate physical IDs invalidate the request before solving. A bad local span, incompatible local formulation or out-of-range local load leaves other valid regions available. All native solves use the existing process lock.
 
 ## Measured speed
 

@@ -33,6 +33,8 @@ A save must contain resolved definitions or an immutable retrievable definition 
 
 ## 3. Atomicity and crash recovery
 
+The new local session envelope stores revision and parent. A short origin-wide Web Lock guards the comparison with the tab's expected head and replacement of the complete envelope. A losing tab conceals private state and reloads the winning revision through handoff. Version-one sessions remain readable. The [implementation ledger](criteria-ledger.md) records the two-tab fixture and queued-write interruption coverage.
+
 Treat an accepted turn as one logical commit: structure, card/pile changes, evidence/issue scope, penalty event and turn advancement either all belong to the committed revision or none do. Persist a validated revision and update a current-head pointer using a documented transactional or recoverable journaling protocol. A succession of unrelated localStorage writes is not by itself atomic. Detect orphan/incomplete writes and recover the last complete revision; preserve the incomplete copy for diagnosis/export.
 
 Serialize writes per match, reject conflicting/stale parent revisions and avoid silent last-writer-wins across tabs. An interrupted draw resumes with the same recorded card identities; it must not reroll randomness. A pending analysis request may be retried with the same idempotent intent/model/options, but a stale reply cannot overwrite newer evidence or duplicate a penalty. Completed animation callbacks never decide whether a turn was saved.

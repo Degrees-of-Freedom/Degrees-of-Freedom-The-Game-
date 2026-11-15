@@ -21,11 +21,15 @@ Proposed initial preset is two local players; 2–4-player support remains to va
 
 ## 2. Public and private information
 
+The ordinary Shared table Solver input drawer now projects committed public board fields and turn reports. On seed 23 the drawer hid both hands, the future deck, seed and a staged gravity load. See the [runtime ledger and browser evidence](criteria-ledger.md). This check covers the drawer.
+
 Proposed information policy: structure, intentional connections/profiles, loads, foundation ownership, committed turns, public issue reports and penalty/score breakdowns are public. Active players can inspect their own hand; opponent card faces, hand identities, future draw order and hidden seeds/deck state are not public UI information. Whether hand counts and discard identities are public must be declared in the release policy.
 
 Do not leak private cards through tooltips, DOM accessible names, background rendered layers, audio cues, avatar remarks, image alt text, debug panels or replay views intended to be public. Separate full local saves/debug exports from redacted public/share exports. A local device owner can inspect local files/developer state: hot-seat privacy protects normal play, not a hostile administrator. Do not describe client-side hiding as cryptographic secrecy or online anti-cheat.
 
 ## 3. Handoff state machine
+
+Shared table now waits on a neutral Ready screen before showing the incoming player's board and hand. Reload, pause and losing tab visibility conceal the private view and preserve the draft. On the accepted desktop fixture, holding Enter and repeated clicks did not reveal or commit the next player's turn. [Browser walkthrough and screenshots](criteria-ledger.md)
 
 1. Resolve and atomically commit the outgoing player's turn under the rules; finish public outcome presentation or allow its safe skip.
 2. Hide the outgoing hand, private tooltips/dialogs and focused private labels **before** revealing the incoming hand or allowing input. The privacy cover appears immediately; animation does not delay concealment.

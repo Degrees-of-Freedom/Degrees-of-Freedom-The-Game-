@@ -85,13 +85,13 @@ export function evaluateObjectives(
     loose.length ? `${loose.length} floating node(s) ignored` : '',
   );
   add(
-    !out.mechanism,
+    !out.mechanism && !out.unresolved,
     'Stable — no mechanism',
     out.mechanism
       ? 'Structure moves freely: add bracing (triangles) or moment connections'
-      : '',
+      : out.unresolved ? 'The solver could not resolve every supported component.' : '',
   );
-  if (!out.mechanism && out.designChecksAvailable) {
+  if (!out.mechanism && !out.unresolved && out.designChecksAvailable) {
     const aTxt =
       aMin === Infinity
         ? 'no compression'
@@ -127,7 +127,7 @@ export function evaluateObjectives(
       `Reach ${LV.target! * S} m height`,
       `top at ${topZ} m`,
     );
-    if (!out.mechanism) {
+    if (!out.mechanism && !out.unresolved) {
       let drift = 0;
       const tops = [];
       for (let a = 0; a < NA; a++) if (pos[act[a]][2] === topZ) tops.push(a);
@@ -152,7 +152,7 @@ export function evaluateObjectives(
         ? ''
         : `chain beams at z = ${LV.cliffH! * S} m from left to right abutment`,
     );
-    if (!out.mechanism) {
+    if (!out.mechanism && !out.unresolved) {
       let dz = 0;
       for (let a = 0; a < NA; a++) {
         const [i, , k] = parse(keys[act[a]]);
@@ -170,7 +170,7 @@ export function evaluateObjectives(
       );
     }
   }
-  if (LV.type === 'pickup' && !out.mechanism) {
+  if (LV.type === 'pickup' && !out.mechanism && !out.unresolved) {
     let worst = 0,
       txt = '';
     for (const k of targets) {

@@ -10,6 +10,9 @@ import {
   visualLoadDirection,
 } from "./scenePieces";
 import { isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
+import { poseSection, wideFlangeGeometry, type WideFlange } from "./sectionGeometry";
+import { assemblyGeometry } from "./assemblyGeometry";
+import { springDisplayAxis, springGeometry } from "./springGeometry";
 import {
   computeLoadPath,
   traceToGround,
@@ -27,6 +30,9 @@ export function buildStructure(
   const palette = SCENE_STYLES[s.style];
   const turn = s.mode === "multiplayer" ? s.turn : null;
   const playerColors = ["#e9806e", "#6a9bd8"];
+  const neutralSteel = "#d7b55f";
+  // Each rebuilt structure owns its profiles; sliced pieces share the same unit prism.
+  const sections = new Map<WideFlange, THREE.BufferGeometry>();
   const turnOwners = new Map(
     turn
       ? [...turn.board.members, ...turn.draft.members].map((member) => [
@@ -73,7 +79,7 @@ export function buildStructure(
     const defaultColor =
       owner >= 0
         ? playerColors[owner]
-        : (palette.roles?.[role] ?? ITEMS[member.type].color);
+        : turnOwners.get(member.id) === "neutral" ? neutralSteel : (palette.roles?.[role] ?? ITEMS[member.type].color);
     let color =
       v.utilization && result && !result.error && result.designChecksAvailable !== false
         ? result.mechanism
@@ -98,6 +104,32 @@ export function buildStructure(
                 ? "#c58cff"
                 : "#5a6370";
     const pending = activeMembers.has(member.id);
+    if (member.type === "spring") {
+      const displayedAxis = v.deformed && result ? springDisplayAxis(member.id, result, v.combo, point) : undefined;
+      const mesh = new THREE.Mesh(springGeometry(member, 1.8, displayedAxis), new THREE.MeshStandardMaterial({
+        color, transparent: pending, opacity: pending ? 0.65 : 1,
+        emissive: s.selected?.type === "member" && s.selected.id === member.id ? 0x536b54 : 0,
+      }));
+      mesh.castShadow = !pending; mesh.receiveShadow = true;
+      structure.add(mesh);
+      continue;
+    }
+    if (member.assembly) {
+      const connections = [...(turn?.board.connections ?? []), ...(turn?.draft.connections ?? [])];
+      const geometry = assemblyGeometry(member, node => {
+        const end = node.station === 0 ? "a" : node.station === 1 ? "b" : undefined;
+        const key = end ? connections.find(c => c.memberId === member.id && c.end === end)?.jointId ??
+          `endpoint:${member.id}:${end}` : node.id;
+        return result?.ctx?.idx.has(key) ? point(key) : new THREE.Vector3(...node.point).multiplyScalar(CELL_SIZE);
+      });
+      const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+        color, transparent: pending, opacity: pending ? 0.65 : 1,
+        emissive: s.selected?.type === 'member' && s.selected.id === member.id ? 0x536b54 : 0,
+      }));
+      mesh.castShadow = !pending; mesh.receiveShadow = true;
+      structure.add(mesh);
+      continue;
+    }
     if (
       s.style === "levels" &&
       Math.min(az, bz) < s.workK &&
@@ -123,8 +155,13 @@ export function buildStructure(
       const radius = v.loadPath
         ? width / 2
         : CELL_SIZE * (s.style === "kit" ? 0.1 : 0.072);
+      let profile: THREE.BufferGeometry | undefined;
+      if (member.type === "ipe" || member.type === "heb") {
+        profile = sections.get(member.type) ?? wideFlangeGeometry(member.type);
+        sections.set(member.type, profile);
+      }
       const mesh = new THREE.Mesh(
-        isRound
+        profile ?? (isRound
           ? new THREE.CapsuleGeometry(
               radius,
               Math.max(0.01, span - radius * 2),
@@ -135,7 +172,7 @@ export function buildStructure(
               s.style === "levels" ? CELL_SIZE * 0.17 : width,
               span,
               s.style === "levels" ? CELL_SIZE * 0.17 : width,
-            ),
+            )),
         new THREE.MeshStandardMaterial({
           color,
           transparent: isGhost,
@@ -148,11 +185,12 @@ export function buildStructure(
               : 0x000000,
         }),
       );
-      mesh.position.copy(start).add(end).multiplyScalar(0.5);
-      mesh.quaternion.setFromUnitVectors(
-        new THREE.Vector3(0, 1, 0),
-        delta.normalize(),
-      );
+      if (profile) {
+        poseSection(mesh, start, end, new THREE.Vector3(bx - ax, by - ay, bz - az));
+      } else {
+        mesh.position.copy(start).add(end).multiplyScalar(0.5);
+        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.normalize());
+      }
       mesh.castShadow = !isGhost && s.style !== "engineering";
       mesh.receiveShadow = s.style !== "engineering";
       structure.add(mesh);

@@ -42,6 +42,7 @@ describe("menu settings", () => {
   it("round-trips through storage under dof.settings", () => {
     const storage = fakeStorage();
     const settings = {
+      jointDisplay: "all" as const,
       sound: true,
       reducedMotion: true,
       showHelpOnStart: true,
@@ -100,3 +101,4 @@ describe("menu settings", () => {
     expect(writeSettings(DEFAULT_SETTINGS, null)).toBe(false);
   });
 });
+

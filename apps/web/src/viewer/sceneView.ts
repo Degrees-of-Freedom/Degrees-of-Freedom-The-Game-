@@ -9,7 +9,9 @@ export interface SceneHover {
   /** For example "2 of 3 overlapping" when several targets share a pixel. */
   stack: string;
 }
+import type { JointLayer } from "./jointGlyphs";
 export interface SceneView {
+  jointLayer?: JointLayer;
   result: VoxelAnalysis | null;
   combo: number;
   baySize?: GridPoint;

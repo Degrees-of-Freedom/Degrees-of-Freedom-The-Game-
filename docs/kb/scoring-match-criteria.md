@@ -17,9 +17,11 @@ status: needs-review
 
 This is a design specification, not implemented scoring. The owner confirmed a fixed-round match, foundation load attraction scored **only at match end**, and **final score = final load-share percentage minus accumulated penalty points**. Highest adjusted score wins. This supersedes earlier unconfirmed cumulative/round scoring options and the raw-share-only interpretation. No load-attraction points accumulate during play. The existing once-per-turn -1 penalty for a verified new/worsened eligible issue remains in force.
 
-The first multiplayer release is local hot-seat. Exact round count, tie tolerances and load/uplift/zero-load policies below remain proposals; the verified-component final fallback is confirmed. A round is one completed turn by each configured player; passes count. Proposed starting preset: 2 players, 8 full rounds, with supported player counts and round limit declared before setup. The older playtest's settings are not automatically final balance rules.
+The first multiplayer release is local hot-seat. The owner approved two players, eight rounds, signed reactions under gravity-card loads only, zero attraction at zero gravity, and joint winners within 0.01 points for the scored preset. A round is one completed turn by each configured player; passes count. Proposed starting preset: 2 players, 8 full rounds, with supported player counts and round limit declared before setup. The older playtest's settings are not automatically final balance rules.
 
 ## 2. Final score calculation
+
+The new scored preset finalizes once after the last committed turn and stores a versioned receipt of reaction evidence and awards. The final drawer shows verified foundation share, historical penalties, adjusted scores, neutral share and unavailable gravity. A restored presetless legacy playtest retains its original unscored outcome. See the [runtime ledger](criteria-ledger.md).
 
 Use an explicit versioned scoring policy and final committed model/result. For a candidate base policy, Z is up and all scored applied loads are persistent downward gravity. Let W be their total positive downward force magnitude across the complete shared model. Let R_i be the sum of available signed upward foundation reactions belonging to player i from verified components in that same final load state. Keep a separate completeness mask; unavailable reactions are not numeric zero. Define:
 
@@ -29,9 +31,9 @@ Use an explicit versioned scoring policy and final committed model/result. For a
 
 Penalty points are positive counts of committed -1 events, not a second deduction applied when loading the match. By owner decision they remain historical deductions after verified repair; do not refund them when current issue markers clear. Example: a verified 60% share and two penalty events gives 58 points; 40% and no penalties gives 40. Show share, penalty subtotal and adjusted score separately. Display rounding must not determine the winner; compare stored full-precision values under a versioned tie tolerance. Negative adjusted scores are allowed under this proposed formula.
 
-**Proposed uplift policy:** retain signed R_i. An uplift reaction can produce a negative share; another foundation may exceed 100%. Do not clamp/renormalize reactions, cap shares at 100%, or introduce positive-only attraction without owner approval. Under a fully valid gravity-only state the signed reactions across all player **and neutral system** supports must balance W within solver tolerances, not arbitrary display rounding. Player shares alone need not sum to 100% when neutral supports carry load.
+**Approved scored preset uplift policy.** retain signed R_i. An uplift reaction can produce a negative share; another foundation may exceed 100%. Do not clamp/renormalize reactions, cap shares at 100%, or introduce positive-only attraction without owner approval. Under a fully valid gravity-only state the signed reactions across all player **and neutral system** supports must balance W within solver tolerances, not arbitrary display rounding. Player shares alone need not sum to 100% when neutral supports carry load.
 
-**Proposed load policy:** self-weight off for the first scored preset, so W and reactions refer to the same gravity-card load set. If self-weight is enabled later, declare whether it is included in both the scoring load and denominator. Do not subtract separately solved self-weight/pretension contributions from nonlinear results using assumed superposition. Foundation ownership groups verified reactions; member/card ownership never changes stiffness or load attraction. Pretension alone does not create scored applied gravity load.
+**Approved scored preset load policy.** self-weight off for the first scored preset, so W and reactions refer to the same gravity-card load set. If self-weight is enabled later, declare whether it is included in both the scoring load and denominator. Do not subtract separately solved self-weight/pretension contributions from nonlinear results using assumed superposition. Foundation ownership groups verified reactions; member/card ownership never changes stiffness or load attraction. Pretension alone does not create scored applied gravity load.
 
 ### Permanent neutral support share
 
@@ -51,17 +53,19 @@ For each player expose verified awarded share, unavailable component scope and e
 
 Example: W = 100 kN, verified upward contributions are 30 kN and 20 kN, and 50 kN belongs to unverified scope. Attraction awards are 30 and 20 points before penalties, with 50 percentage points unawarded. They are not 60/40. This is a scoring decision, not a claim that missing supports carry zero physical force. The owner wants automatic correction to make fallback unnecessary in ordinary play; game-owned automatic correction for instability and overload is confirmed, with permanent neutral local repairs under [repair criteria](failure-repair-criteria.md#7-permanent-neutral-repairs-with-local-intervention). These require real physical models and cannot be replaced by artificial stabilization or fabricated results.
 
-If W is zero, do not divide by zero or award equal invented percentages. Proposed policy: zero attraction points for all players, then compare accumulated penalties; label “no scored gravity loads.” This differs from numerical failure and needs confirmation. Any self-equilibrated loading still needs valid interpretation before applying a gravity-share formula.
+If W is zero, do not divide by zero or award equal invented percentages. The approved preset gives zero attraction points to all players, compares accumulated penalties and uses the label “no scored gravity loads.” Any self-equilibrated loading still needs valid interpretation before applying a gravity-share formula.
 
 ## 4. Ending and tie handling
 
 Freeze the configured round limit, player order, supported catalogue, seed and scoring/penalty versions at setup. End after every player has completed the final round; there are no extra draws, turns or attraction awards after the boundary. A legal final pass still receives normal analysis and issue assessment. No target-score victory is used in this confirmed fixed-round format.
 
-Once the final turn, bounded resolution process and verified-component award scope are committed, create one idempotent finalization event referencing the model/result and score breakdown. Proposed tie policy: joint winners within a documented absolute score tolerance, initially 0.01 points for playtesting. Do not secretly use raw share, seat order or animation timing as a tiebreak. Concessions, abandoned games, rematches and optional time limits need explicit policies; they are not implicit ways to bypass pending verification.
+Once the final turn, bounded resolution process and verified-component award scope are committed, create one idempotent finalization event referencing the model/result and score breakdown. The approved scored preset declares joint winners within 0.01 points using unrounded scores. Do not secretly use raw share, seat order or animation timing as a tiebreak. Concessions, abandoned games, rematches and optional time limits need explicit policies; they are not implicit ways to bypass pending verification.
 
 Show current reaction estimates as **provisional load share**, not banked points. Clearly separate historic estimates, committed penalties, projected adjusted result and final outcome. Finalization and animations cannot consume cards or repeat score events. Save/reload must preserve the same outcome and tie decision.
 
 ## 5. Acceptance and open decisions
+
+The signed-uplift acceptance fixture uses two equal-section, perpendicular cantilevers sharing the main beam’s 75% port. With a 5 kN persistent tip load, the game solver gives approximately −2.23214 kN and +7.23214 kN at the two fixed player supports. The corresponding attraction shares are −44.64286% and +144.64286%. The reference follows from equal vertical displacement at the port. See [the scored game fixture](../../apps/web/src/game/foundationUplift.test.ts).
 
 | Scenario | Required result |
 | --- | --- |

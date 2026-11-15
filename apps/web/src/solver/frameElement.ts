@@ -1,10 +1,12 @@
 import type { VoxelMember, VoxelModel } from './voxelInput';
 import type { Element, ElementForce } from './voxelResults';
 import { ITEMS, type Section } from './voxelSections';
+import { connectorSlips, reduceConnections, recoverConnectorMotion, type FrameConnection } from './frameConnections';
 import {
   localAxes,
   frameK,
   trussK,
+  axialK,
   condense,
   toGlobal,
   vecToLocal,
@@ -25,14 +27,17 @@ export function makeElement(
   const ex = d.map((v) => v / L),
     R = localAxes(ex);
   const cable = it.kind === 'cable';
-  const rigidA = !cable && (m.endA ? m.endA === 'fixed' : !!model.attrs[m.a]?.joint),
-    rigidB = !cable && (m.endB ? m.endB === 'fixed' : !!model.attrs[m.b]?.joint);
+  const rigidA = it.kind === 'beam' && (m.endA ? m.endA === 'fixed' : !!model.attrs[m.a]?.joint),
+    rigidB = it.kind === 'beam' && (m.endB ? m.endB === 'fixed' : !!model.attrs[m.b]?.joint);
+  // Unused collars carry no external force. Combining their series segments
+  // gives k/fraction for the active piece, independently of its placed length.
+  const fraction = m.parentSpan ? (m.parentSpan.toQuarter - m.parentSpan.fromQuarter) / 4 : 1;
   const k =
-    it.kind === 'cable'
+    it.kind === 'spring' ? axialK(it.stiffnessNPerM / 1000 / fraction) : it.kind === 'cable'
       ? trussK(it.E, it.A, L)
       : frameK(it.E, it.G, it.A, it.Iy, it.Iz, it.J, L);
   const rel = [];
-  if (!cable) {
+  if (it.kind === 'beam') {
     // One end release eliminates the whole torsion spring. Releasing both in
     // recovery would introduce a redundant rigid-body rotation in its subsystem.
     if (m.endA === 'ball') rel.push(3);
@@ -40,11 +45,25 @@ export function makeElement(
     if (!rigidA) rel.push(4, 5);
     if (!rigidB) rel.push(10, 11);
   }
-  const kgl = toGlobal(condense(k, rel), R);
+  let connector: Element['connector'];
+  if (m.connectionA || m.connectionB) {
+    // Fixed and ball retain the legacy fast path when neither end needs a
+    // general law. Translate the opposite end exactly on a mixed-law frame.
+    const standard = (rigid: boolean): FrameConnection => ({
+      axes: [[1,0,0], [0,1,0], [0,0,1]],
+      laws: [{kind:'locked'}, {kind:'locked'}, {kind:'locked'},
+        {kind:rigid?'locked':'free'}, {kind:rigid?'locked':'free'}, {kind:rigid?'locked':'free'}],
+    });
+    const ends: [FrameConnection, FrameConnection] = [
+      m.connectionA ?? standard(rigidA), m.connectionB ?? standard(rigidB),
+    ];
+    connector = {ends, reduction: reduceConnections(k, connectorSlips(ends, R))};
+  }
+  const kgl = toGlobal(connector?.reduction.stiffness ?? condense(k, rel), R);
   const dofs = [];
   for (let q = 0; q < 6; q++) dofs.push(eq[a * 6 + q]);
   for (let q = 0; q < 6; q++) dofs.push(eq[b * 6 + q]);
-  return { m, it, L, R, ex, a, b, k, rel, kgl, dofs, cable, rigidA, rigidB };
+  return { m, it, L, R, ex, a, b, k, rel, kgl, dofs, cable, rigidA, rigidB, ...(connector && {connector}) };
 }
 export function recover(e: Element, u: Float64Array): ElementForce {
   const ug = new Float64Array(12);
@@ -52,8 +71,9 @@ export function recover(e: Element, u: Float64Array): ElementForce {
     ug[q] = u[e.a * 6 + q];
     ug[6 + q] = u[e.b * 6 + q];
   }
-  const ul = vecToLocal(ug, e.R);
-  if (e.rel.length) {
+  let ul = vecToLocal(ug, e.R);
+  if (e.connector) ul = recoverConnectorMotion(ul, e.connector.reduction.eliminations);
+  else if (e.rel.length) {
     const r = e.rel,
       M = [],
       rhs = [];

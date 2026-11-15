@@ -9,6 +9,10 @@ validated_against:
   - docs/kb/animation-criteria.md
   - apps/web/src/game/turns.ts
   - apps/web/src/game/turnAnalysis.ts
+  - apps/web/src/viewer/jointPermissions.ts
+  - apps/web/src/viewer/jointGlyphs.ts
+  - apps/web/src/components/JointPermissions.tsx
+  - docs/evidence/joint-permissions/check.mjs
   - packages/solver-contract/src/index.ts
 owner: project owner
 status: needs-review
@@ -18,7 +22,7 @@ status: needs-review
 
 ## 1. Status and confirmed decisions
 
-This is a criteria-only specification. No new overlay, control, joint rule enforcement or solver capability is implemented by this document. The visual recipes, sizes, timings and compatibility workflow below are proposals unless identified as confirmed.
+The owner decisions below are acceptance criteria. The static Grow Dusk implementation and its evidence are described in §10. Proposed motion and solver-result examples still require their own verification.
 
 The owner confirmed:
 
@@ -148,11 +152,17 @@ Recommended later implementation order: reconcile shared-joint schema/validation
 ## 10. Open decisions and current gaps
 
 - Elastic stiffness equality is not required; numerical tolerance for matching directions/freedom states, capacity treatment and any coupled connection laws still need definition.
-- Final canonical joint-frame initialization, profile establishment and compatibility tolerances; handling existing mixed-profile saves and setup joints.
+- Physical frames for connector families outside the versioned catalogues.
 - Visual approval of sizes, colours, labels, occlusion treatment and demonstration amplitudes after playtesting.
 - Solver support for valid component-scoped modes, transformed connection laws and reliable near-mechanism grading. Do not manufacture these from current limited results.
 
-Current Shared table stores connection profiles per end (`fixed`/`ball`) and does not enforce the newly confirmed uniform-profile rule at a shared joint. The preliminary shared contract likewise supports fixed/pinned ends, not arbitrary six-axis elastic laws or a canonical joint profile. Existing joint markers/result overlays are not evidence that this specification is implemented. See [3D viewer](3d-viewer.md), [structural solver](structural-solver.md) and the [gap analysis](solver-criteria-gap-analysis.md) for implementation context.
+Grow Dusk exposes **Build options → Joint permissions**. Selected joint is the first-use default. Selected / All / Off is a presentation preference stored in `dof.settings`. The list uses committed Shared-table joint IDs or editor lattice node IDs. Each glyph draws six external connection components in physical directions. A separate striped base and six-cell ground table identify a foundation, including an editor support with an explicit mask. Loose multiplayer ends, unopened quarter ports and internal numerical subdivisions do not become shared joints. The private handoff unmounts the scene and inspector.
+
+The first intentional attachment establishes the shared permissions. Fixed/ball and the versioned oriented and elastic definitions supply the physical laws. Incompatible incoming ends are rejected and replay uses the same rule. A mixed board passed directly to the read-only inspector yields a conflict with the individual ends identified. Oblique components that couple world axes are labelled **Coupled**. The local view reports the basis in global coordinates and retains the independent component states. Compatible elastic ends may have different printed stiffnesses. Expand **Attached ends** for each printing.
+
+The compact compass occupies approximately 40 CSS pixels, with a selected backing of approximately 95 CSS pixels. Leaders distinguish nearby projections. A keyboard/touch selector lists every identity, including coincident interfaces. Shared picks from a coordinate-only scene projection require an unambiguous attachment. Inspect ambiguous locations through the stable-ID list. Scene symbols are schematic and independent of the placement envelope, physical response and scoring. See the [projection and replay tests](../../apps/web/src/viewer/jointPermissions.test.ts) and [Grow Dusk browser fixture](../evidence/joint-permissions/check.mjs).
+
+Chrome 157 with SwiftShader exercised a 1366 × 900 desktop and 430 × 890 touch viewport. The matched [desktop before](../evidence/joint-permissions/before-desktop.png) and [All joints after](../evidence/joint-permissions/after-desktop.png), [touch before](../evidence/joint-permissions/before-touch.png) and [touch after](../evidence/joint-permissions/after-touch.png) use the same opening and camera. Keyboard inspection, six ground locks, saved Off after reload, concealed handoff and unchanged match data passed. The [ball](../evidence/joint-permissions/ball-port.png), [diagonal hinge after orbit](../evidence/joint-permissions/hinge-diagonal-port.png) and [elastic seat](../evidence/joint-permissions/seat-20-port.png) are committed external attachments to an original 25% port.
 
 ## 11. Quarter ports and common interface freedoms
 

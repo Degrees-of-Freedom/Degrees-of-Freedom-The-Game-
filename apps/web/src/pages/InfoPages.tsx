@@ -269,13 +269,13 @@ export function About() {
             <li>Five modes and five building environments</li>
             <li>Run simulation and Results, an experimental analysis</li>
             <li>A local two-player Shared table playtest</li>
+            <li>Final foundation load-share scoring and turn deductions for verified new or worsened issues</li>
             <li>Progress saved in this browser</li>
           </ul>
         </div>
         <div className="panel">
           <h2>Not implemented yet</h2>
           <ul className="ticks no">
-            <li>Scoring and the new-or-worsened-issue penalty</li>
             <li>Matches of three or four players, and player names</li>
             <li>Online play</li>
             <li>Verified results for engineering design</li>

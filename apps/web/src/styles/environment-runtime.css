@@ -138,6 +138,15 @@ body,
   justify-content: space-between;
   gap: 8px;
 }
+.environment[data-style="grow-dusk"] .env-card[data-foundation="true"] {
+  display: block;
+  left: auto;
+  top: 86px;
+  color: var(--cream);
+}
+.environment[data-style="grow-dusk"] .env-card[data-foundation="true"] .seg button:not(.on) {
+  color: var(--slate);
+}
 .environment .dc-title {
   font-size: 15px;
   font-weight: 700;

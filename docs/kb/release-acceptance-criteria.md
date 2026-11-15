@@ -17,6 +17,8 @@ status: needs-review
 
 ## 1. Status and release definition
 
+The owner selected **Grow Dusk** for release acceptance. The supported Shared table preset uses two seats, eight rounds and fixed starting foundations. Player-directed foundation placement belongs to Creative/editor. Apply the geometry, camera, controls and assistive-input checks below to Grow Dusk.
+
 Proposed release gate for an integrated game, not evidence that the current prototype passes. The owner confirmed local hot-seat first; online services are outside that release scope. A release must name its ruleset, supported cards/elements/solver subset, player/round presets, environments, browser/device matrix and versions. Mark omitted capabilities explicitly; a reduced playtest is not “full criteria compliance.”
 
 Before implementation acceptance, every policy affecting legal actions, points, privacy, physics or match completion must be resolved in a versioned ruleset, or the dependent feature explicitly unavailable. Proposed numeric defaults in criteria are not owner-confirmed rules. Review the [decision register](game-completion-criteria.md) before claiming readiness.

@@ -1,6 +1,7 @@
 import type { DetailedAnalysisResult } from '@dof/solver-contract';
 import { summarizeAnalysis, type Verdict } from '../game/structuralSummary';
 import type { StabilityCheck } from '../game/useStabilityCheck';
+import type { ComponentAnalysis } from '@dof/solver-contract';
 
 const pad = (count: number) => String(count);
 
@@ -33,6 +34,25 @@ const VERDICT_TEXT: Record<Verdict, string> = {
 
 /** Foundations listed before the rest are summarised in one line. */
 const MAX_REACTIONS = 8;
+
+function ComponentResponses({ scopes }: { scopes: ComponentAnalysis[] }) {
+  const solved = scopes.filter(s => s.result.status === 'success').length;
+  return <section aria-label="OpenSees component results">
+    <p>{solved} of {scopes.length} connected components returned a response.</p>
+    <ul>{scopes.map(({nodeIds, memberIds, result}) =>
+      <li key={nodeIds[0]}>
+        <b>{memberIds.length ? 'Members ' + memberIds.join(', ') : 'Node ' + nodeIds[0]}</b>
+        {result.status === 'success' ? <>
+          <span> · {result.nonlinear ? 'Nonlinear equilibrium' : 'Linear equilibrium'}</span>
+          {Object.entries(result.reactions ?? {}).map(([id, force]) =>
+            <div key={id}>Support {id} · Rz {Number(force[2].toPrecision(6))} N</div>)}
+          <span>Peak translation {Math.max(...Object.values(result.displacements)
+            .map(d => Math.hypot(d[0], d[1], d[2]))).toPrecision(3)} m</span>
+        </> : <span> · {result.status}. {result.message} Physical response unavailable.</span>}
+      </li>
+    )}</ul>
+  </section>;
+}
 
 /**
  * Result of the detailed contract: card sections, tension-only cables,
@@ -168,6 +188,10 @@ export function StabilityCheckPanel({
           )}
         </div>
       )}
+      {result.status === 'success' && result.nonlinear && (
+        <p>Normalized force residual {result.nonlinear.forceResidual.toExponential(2)} · moment residual {result.nonlinear.momentResidual.toExponential(2)}.</p>
+      )}
+      {result.components && <ComponentResponses scopes={result.components} />}
       {[...result.warnings, ...notes].map((text) => (
         <p className="warning" key={text}>
           {text}

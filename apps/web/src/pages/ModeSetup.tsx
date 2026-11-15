@@ -9,6 +9,7 @@ import type { LevelId } from "../game/model";
 import { savedLevel } from "../game/persistence";
 import { useGameStore } from "../game/store";
 import { KIT_PLAYTEST } from "../game/turns";
+import { isScoredCatalogue, JOINT_CATALOGUE, PLANAR_CATALOGUE, SCORED_CATALOGUE, TRUSS_CATALOGUE, SPRING_CATALOGUE, type ScoredCatalogue } from "../game/cardCatalogue";
 import { PLAYTEST_SETTINGS, TURN_RULES, TURN_RULES_NOTES } from "../menu/turnRules";
 import { hasSavedProgress } from "../menu/saved";
 import { runStart, type StartChoice } from "../menu/startPlan";
@@ -90,6 +91,7 @@ function Setup({ id }: { id: GameMode }) {
     return CHALLENGE_LEVELS.some(([key]) => key === start) ? start : "tower1";
   });
   const [pick, setPick] = useState<string | null>(null);
+  const [catalogue, setCatalogue] = useState<ScoredCatalogue>(SCORED_CATALOGUE);
   const [error, setError] = useState<string | null>(null);
   const saved = useMemo(() => hasSavedProgress(id, levelId), [id, levelId]);
   const turn = initial.turn;
@@ -172,7 +174,7 @@ function Setup({ id }: { id: GameMode }) {
       : id === "challenge"
         ? { mode: id, levelId, begin: begin === "fresh" ? "fresh" : "continue" }
         : id === "multiplayer"
-          ? { mode: id, begin: begin === "new" ? "new" : "continue" }
+          ? { mode: id, begin: begin === "new" ? "new" : "continue", catalogue }
           : { mode: id, begin: begin === "fresh" ? "fresh" : "continue" };
   const replaces = begin !== "continue" && options.length > 0 && (saved || id === "multiplayer");
   const startLabel =
@@ -276,9 +278,18 @@ function Setup({ id }: { id: GameMode }) {
               <dt>Rounds</dt>
               <dd>{KIT_PLAYTEST.rounds}</dd>
             </dl>
+            {(!turn || begin === "new") && <label>Physical catalogue
+              <select value={catalogue} onChange={e => { if (isScoredCatalogue(e.target.value)) setCatalogue(e.target.value); }}>
+                <option value={SCORED_CATALOGUE}>Frame members</option>
+                <option value={PLANAR_CATALOGUE}>Frame members and planar trusses</option>
+                <option value={TRUSS_CATALOGUE}>Frame members, planar and trichord trusses</option>
+                <option value={SPRING_CATALOGUE}>Frame members and axial springs</option>
+                <option value={JOINT_CATALOGUE}>Frame members and six-axis connectors</option>
+              </select>
+            </label>}
             <p className="quiet">
-              These are playtest settings, not confirmed rules. Player names and
-              counts are not configurable yet.
+              Each seat plays once per round. After the last turn, the table shows
+              each player’s verified gravity share minus historical penalties.
             </p>
           </div>
           <div className="panel">

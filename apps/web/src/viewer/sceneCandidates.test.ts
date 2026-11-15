@@ -128,6 +128,8 @@ describe("scene interaction candidates", () => {
     player.hand = [
       {
         kind: "element",
+        definitionId: "element/shs/axis-3",
+        definitionVersion: "playtest-1",
         id: "test-element",
         label: "Test",
         type: "shs",
@@ -135,6 +137,8 @@ describe("scene interaction candidates", () => {
       },
       {
         kind: "connection",
+        definitionId: "connection/fixed",
+        definitionVersion: "playtest-1",
         id: "test-connection",
         label: "Test",
         profile: "fixed",

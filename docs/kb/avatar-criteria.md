@@ -16,7 +16,7 @@ status: needs-review
 
 ## 1. Authority and scope
 
-**This is a criteria-first design specification, not a shipped avatar feature.** The owner corrected the work's direction to focus on criteria; implementation belongs to a later run. An unfinished implementation experiment is preserved separately in the [prototype handoff](../../prototypes/timburr-companion/README.md). It is not active in the app and must not be treated as an approved design or production-ready code.
+The specifications below originated in the criteria-first pass. The active playtest now uses the two owner-approved provisional assets from the [prototype handoff](../../prototypes/timburr-companion/README.md). Its compact companion, labelled preview and model-derived fallback are implemented in `apps/web/src/companion/`. Separate issue, reaction and accessibility gates are tracked in the [criteria ledger](criteria-ledger.md).
 
 Owner-confirmed direction:
 
@@ -159,6 +159,14 @@ Recommended order for a later implementation run:
 
 ## 10. Open decisions
 
+### Compact character evidence
+
+The launcher, setup, information pages, workspace and open drawers display Timburr. Activating his control opens a tip and lets the player inspect the Conkeldurr foreman preview. The private handoff and session recovery screens suppress the companion. The local loader draws the displayed GLB once and uses a matching PNG portrait during decoding or GPU failure; retry is available in the companion panel. Both source assets are unrigged static meshes with zero embedded clips. Their resting arms and detached props reflect the preserved authored poses. Articulated reaction poses and final art approval remain open.
+
+The [browser runner](../evidence/companion/check.mjs) also regenerates both fallback portraits and verifies the preserved GLBs' hashes. The models by nguyenlouis32 are licensed under CC BY 4.0. Their attribution and pinned sources are preserved in [the distributed credits](../../apps/web/public/companion/CREDITS.md).
+
+The owner authorized the two preserved, attributed GLBs for playtesting and a labelled Conkeldurr transformation preview. Automatic serious-event eligibility and final pose approval remain distinct from that asset decision. Use the recorded issue/repair event for explanations.
+
 - Final serious-issue categories/severity threshold and the compatible verified event source. This blocks automatic evolution, not the design specification.
 - Approval of the candidate models, needed rig/pose work and the final transformation look.
 - Exact timing, cooldown, companion placement and chatter frequency after playtesting.
@@ -170,6 +178,8 @@ Recommended order for a later implementation run:
 The later [completion criteria](game-completion-criteria.md) define fixed rounds, final-only adjusted load-share scoring and retained structures repaired through additions. Timburr may acknowledge verified repair and a real final outcome, but should not bank provisional load shares, infer a winner from missing reactions or trigger destructive behavior. Quarter-port/assembly interactions remain tied to actual public game events and cannot reveal hidden cards. Historical prototype behavior does not override these newer criteria.
 
 ## 12. Automatic repair explanation
+
+In the scored Grow Dusk playtest, ending a turn with recorded corrective work prompts Timburr after the next private reveal, or on the final results screen. The explanation reads the public repair receipt in order: the affected member and issue, originating deduction, installed prop and its contact, verified outcome or pending work, and the new neutral anchor's signed reaction when available. Closing it or changing the companion model only changes presentation. After reload or later turns, activating Timburr lets the player read the historical explanation again. Turn details keeps the complete evidence independently of the companion. [Browser walkthrough](../evidence/companion-repair/check.mjs).
 
 The owner confirmed game-owned automatic correction for both instability and overload while retaining the player move and historical penalty. Timburr explains the original issue, the specific recorded repair and its score/ownership effect; [repair criteria](failure-repair-criteria.md#6-automatic-correction-transaction) own the transaction and numerical verification. The avatar presents game events rather than modifying physics from an animation callback. Show “verified repaired”, “pending” or “could not verify” accurately, and expose the same explanation without sound/avatar motion. No repaired issue refunds its historical penalty.
 

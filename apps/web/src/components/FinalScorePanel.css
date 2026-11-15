@@ -1,0 +1,25 @@
+.final-score table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.final-score caption {
+  padding-block: .35rem;
+  text-align: start;
+}
+
+.final-score th,
+.final-score td {
+  padding: .4rem .25rem;
+  text-align: end;
+}
+
+.final-score th:first-child {
+  text-align: start;
+}
+
+.final-score thead,
+.final-score tbody tr + tr {
+  border-bottom: 1px solid currentColor;
+}

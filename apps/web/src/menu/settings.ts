@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { JointDisplay } from "../viewer/jointPermissions";
 
 /**
  * Menu preferences, kept in `localStorage["dof.settings"]`.
@@ -17,6 +18,7 @@ export interface Settings {
   sound: boolean;
   reducedMotion: boolean;
   showHelpOnStart: boolean;
+  jointDisplay: JointDisplay;
   solver: SolverChoice;
   openSeesUrl: string;
 }
@@ -58,6 +60,7 @@ export function defaultSettings(
     sound: false,
     reducedMotion: false,
     showHelpOnStart: false,
+    jointDisplay: "selected",
     solver: configured || env.VITE_SOLVER === "opensees" ? "opensees" : "rust",
     openSeesUrl: configured ?? LOCAL_OPENSEES_URL,
   };
@@ -95,6 +98,7 @@ export function parseSettings(raw: string | null): Settings {
     sound: pick("sound"),
     reducedMotion: pick("reducedMotion"),
     showHelpOnStart: pick("showHelpOnStart"),
+    jointDisplay: record.jointDisplay === "all" || record.jointDisplay === "off" ? record.jointDisplay : "selected",
     solver: solver ?? DEFAULT_SETTINGS.solver,
     openSeesUrl: openSeesUrl ?? DEFAULT_SETTINGS.openSeesUrl,
   };
@@ -158,3 +162,4 @@ function subscribe(listener: () => void) {
 export function useSettings(): Settings {
   return useSyncExternalStore(subscribe, getSettings, getSettings);
 }
+

@@ -1,0 +1,9 @@
+.joint-permissions { border-bottom: 1px solid currentColor; padding-block: 0 12px; margin-bottom: 14px; }
+.joint-permissions h3 { margin: 0 0 10px; }
+.joint-permissions label { display: grid; gap: 3px; margin-block: 8px; }
+.joint-permissions select { width: 100%; min-width: 0; font: inherit; min-height: 32px; }
+.joint-permissions p { margin: 6px 0; line-height: 1.35; }
+.joint-permissions table { width: 100%; border-collapse: collapse; margin-top: 9px; font-size: 12px; }
+.joint-permissions caption { text-align: left; font-weight: 700; }
+.joint-permissions th, .joint-permissions td { text-align: left; border-bottom: 1px solid #93978d55; padding: 4px 2px; }
+.joint-permissions .joint-legend { margin-top: 9px; font-size: 12px; }

@@ -22,6 +22,8 @@ Separate a versioned card definition from its unique dealt instance, the physica
 
 ## 2. Minimum definition contract
 
+In the current playtest, every printing has a definition ID and version, and every dealt card has a separate instance ID. New Shared tables default to four implemented frame families with card-gravity verification. The optional planar and triangular truss catalogues add the verified printings described below. Presetless version-one saves replay their historical five-family deck, including experimental cables. The frame sections retain the existing voxel properties and expose SI physical definitions and nominal geometry. Candidate definitions in `game/cardCatalogue.ts` retain their separate authoring IDs. See the [criteria ledger](criteria-ledger.md).
+
 | Record | Required authored data |
 | --- | --- |
 | All cards | Stable definition ID/version, family/category, name, description, allowed choices, required rules/solver capabilities, public preview and any instance-to-object mappings. |
@@ -67,6 +69,34 @@ Proposed deck-1 mix starts near equal element/load counts; define nonzero family
 
 Open: actual section/material numbers and trusted sources, spring law/limits, cable initial state, assembly templates, connection stiffness/capacity tiers, opening hand/retention/exhaustion, printed load magnitudes and deck frequencies. These should become a versioned reviewed catalogue, not developer-invented defaults hidden in renderer code.
 
+
+### Four-panel planar playtest printing
+
+The optional `shared-table-planar-1` catalogue adds `planar-welded-1` to the frame families. The default frame catalogue and its existing deals retain their versions. The printed parent is one element card. Each external tip needs its own connection card. Its 25%, 50% and 75% ports are physical lower-chord joints, reached through the same pointer and precise placement controls as frame ports.
+
+The printing has two SHS 100×6 chords separated by 0.5 m, five welded transverse posts, four pin-ended alternating diagonals and two short terminal pieces. The lower tips are 0.125 m beyond the end posts (limited to one sixteenth of the span). Welded posts restrain the upper chord outside the truss plane. The earlier fully pin-ended post concept remains an unvalidated candidate. Each of the 19 factory pieces has a stable identity for its geometry, stiffness and self-weight. The printed weld develops the section; the diagonal pin uses the printed ball connector force limit. Maximum member utilization identifies the governing piece. Only the two terminal pieces transmit actions into external tip connectors.
+
+The small-displacement verification checks use the full placed chord length for the conservative out-of-plane compression screen. Failed physical or numerical checks leave the component's response unverified. The [independent OpenSeesPy reference](../evidence/planar/reference.py) uses a 4 m cantilever with a 1 kN point force at each port, separately in and out of plane. The browser response, signed foundation force/moment, total physical weight, clash opening, end connections and replay are exercised by [the regression cases](../../apps/web/src/game/planar.test.ts). [Normal setup and real pointer walkthrough](../evidence/planar/check.mjs).
+
+The optional `shared-table-planar-1` deck retains the frame preset as a separate choice. Its `planar-welded-1` card uses the scored SHS material, a 0.5 m truss depth, four panels and welded posts for out-of-plane resistance. The earlier pin-post candidate did not supply that restraint. The two chords, five posts, four diagonals and two terminal pieces form one placed parent with a stable identity, including under replay. See [card and placement evidence](criteria-ledger.md#cards-placement-match-and-recovery).
+
+### Four-panel triangular playtest printing
+
+The optional `shared-table-trusses-1` catalogue adds `trichord-ring-1` alongside the planar printing. Its three SHS 100×6 chords follow the edges of a 0.5 m equilateral triangular prism. Five welded triangular rings span the section, with a pin-ended diagonal on each face of each panel. Two short terminal stubs on the first chord provide the external tip connectors. Only its first chord exposes the 25%, 50% and 75% ring joints for other cards. A player spends one element and a separate connector for each attached end. The same 41 physical pieces define rendering, solid interference, stiffness, self-weight and member capacity. Each piece and attachment retains its parent identity on replay.
+
+The linear verification uses the planar printing's section, factory-weld and diagonal-pin capacities, full-span chord slenderness screen and small-motion limits. The independent 4 m cantilever reference exercises lateral and vertical loads at all three joints and a pure 500 Nm torque at midspan. The regression checks compare signed reactions, point motion and twist, including a rotated, reordered assembly. [OpenSeesPy reference](../evidence/trichord/reference.py) · [regression cases](../../apps/web/src/game/trichord.test.ts).
+
+The Grow Dusk walkthrough deals the triangular printing in normal Shared table setup, selects each physical quarter joint in 3D, attaches a branch at midspan and reloads the committed 5 kN load. Matched seed/camera captures show the earlier planar deck and the new triangular deck. [Before](../evidence/trichord/before-board.png) · [after](../evidence/trichord/after-board.png) · [repeatable walkthrough](../evidence/planar/check.mjs).
+
+### Axial spring playtest printing
+
+The optional `shared-table-springs-1` deck contains the four frame sections and a two-terminal axial spring. It has four reach printings. The placed span is its unloaded reference length. The authored bilateral stiffness is 50 kN/m, its tension and compression force limit is 5 kN, and its game self-weight is zero. Eight schematic turns and five square fittings identify the two tips and three original sliding collars. The mean coil diameter is 160 mm and the wire diameter is 12 mm. The default readable symbol enlarges both transverse dimensions 1.8 times while keeping all five station coordinates. These display dimensions are independent of the printed stiffness.
+
+Each quarter is a 200 kN/m series segment. Unused intermediate collar coordinates condense to the equivalent stiffness `50 / fraction` kN/m between two active stations. A connected collar shares translations with the selected joint. The cartridge provides axial action only. The connected structure must supply transverse stability. Clearance uses the five square fittings and conservative square envelopes around individual wire segments. Open space inside the helix remains available between fittings.
+
+The linear verification envelope permits up to 120 mm whole-span axial stroke, scaled by each segment's fraction and limited to half its length. Relative transverse motion beyond 1% of a segment length requires separate nonlinear evidence. A free transverse translation, excessive stroke or a failed stability check withholds the affected component's attraction and capacity evidence. The Shared table solver enforces these rules. The separate OpenSees editor check explicitly reports that it cannot translate the spring printing.
+
+In the guided 8 m two-anchor fixture, a 5 kN force at the first collar produces 18.75 mm axial displacement. The signed support reactions oppose 3.75 and 1.25 kN. Reversing the force reverses both reactions. Midpoint and third-collar fixtures check the same law. In seed 1, actual frame members supply the midpoint restraint and an attached 5 kN gravity card generates a verified +0.043750059 kN governing spring section action. The [regressions](../../apps/web/src/game/spring.test.ts) and [browser walkthrough](../evidence/spring/check.mjs) cover all three original picks, section and connector checks, retained identity and reload.
 
 ## 6. System repair definitions are not player cards
 

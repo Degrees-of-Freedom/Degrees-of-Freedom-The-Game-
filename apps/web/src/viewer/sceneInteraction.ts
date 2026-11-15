@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { controlOwnsKey } from "./keyboardTarget";
 import { useGameStore } from "../game/store";
 import {
   nodeKey,
@@ -12,6 +13,7 @@ import type { SceneHover, SceneView } from "./sceneView";
 import type { BuildPlane } from "./sceneGeometry";
 import { createPicker } from "./scenePicking";
 import { selectedTurnCard } from "./turnPicking";
+import { targetCoordinate } from "../game/turnPorts";
 import { isGrowthStyle } from "./sceneStyle";
 export function bindSceneInteraction(
   canvas: HTMLCanvasElement,
@@ -29,7 +31,7 @@ export function bindSceneInteraction(
   // The build plane follows the current camera when a member is being chained.
   const buildPlane = (): BuildPlane => {
     const s = useGameStore.getState(),
-      start = s.chainStart ? parseNodeKey(s.chainStart) : null;
+      start = s.chainStart ? parseNodeKey(targetCoordinate(s.model.members, s.chainStart)) : null;
     if (s.style === "levels" || s.style === "blocks")
       return { axis: "z", value: s.workK };
     if (!start || shiftDown)
@@ -120,11 +122,12 @@ export function bindSceneInteraction(
         issue = s.playConnection(card.id, hit.memberId, hit.end, hit.key);
       else if (card && hit?.kind === "point") {
         issue = hit.issue;
-        if (!issue && card.kind === "load") issue = s.toggleAttr(hit.p, "load");
+        const target = hit.target ?? nodeKey(...hit.p);
+        if (!issue && card.kind === "load") issue = s.playLoad(card.id, target);
         else if (!issue && card.kind === "element") {
           if (s.chainStart)
-            issue = s.addMember(parseNodeKey(s.chainStart), hit.p, card.type);
-          else s.setChainStart(nodeKey(...hit.p));
+            issue = s.playElement(card.id, s.chainStart, target);
+          else s.setChainStart(target);
         }
       } else if (!card) {
         s.setSelected(
@@ -136,6 +139,11 @@ export function bindSceneInteraction(
         );
       }
       getView().onMessage?.(issue ?? "");
+    } else if (s.mode === "creative" && s.tool === "found") {
+      if (hit?.kind === "point") {
+        const issue = s.placeFoundation(hit.p);
+        getView().onMessage?.(issue ?? "");
+      } else getView().onMessage?.("Choose a solid ground point on the board.");
     } else if (s.tool === "inspect")
       s.setSelected(
         hit?.kind === "member"
@@ -246,16 +254,11 @@ export function bindSceneInteraction(
   };
   const context = (e: Event) => e.preventDefault();
   const keydown = (e: KeyboardEvent) => {
+    if (e.defaultPrevented || controlOwnsKey(e.target)) return;
     if (e.key === "Shift" && !shiftDown) {
       shiftDown = true;
       rebuild();
     }
-    if (
-      (e.target as HTMLElement)?.closest(
-        "input, select, textarea, button, [contenteditable]",
-      )
-    )
-      return;
     const s = useGameStore.getState();
     const key = e.key.toLowerCase();
     if (

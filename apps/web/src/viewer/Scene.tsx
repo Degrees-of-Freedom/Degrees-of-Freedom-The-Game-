@@ -16,6 +16,10 @@ import { addResultArrows, displayPoint } from "./sceneResults";
 import { createFlowParticles } from "./flowParticles";
 import { buildStructure } from "./structureMeshes";
 import { bindSceneInteraction } from "./sceneInteraction";
+import { selectedTurnCard } from "./turnPicking";
+import { poseSection, wideFlangeGeometry } from "./sectionGeometry";
+import { assemblyGeometry } from "./assemblyGeometry";
+import { springGeometry } from "./springGeometry";
 import { sceneLevel } from "./sceneLevel";
 import type { SceneHover, SceneView } from "./sceneView";
 import { createSky, isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
@@ -29,8 +33,10 @@ const FIXED: Restraint = [true, true, true, true, true, true];
 const ROLE_INDEX = { column: 0, beam: 1, brace: 2 } as const;
 const trimLength = (value: number) =>
   (Math.round(value * 100) / 100).toString();
+import { createJointGlyphs } from "./jointGlyphs";
 /** Three.js owns only presentation and picking; the game store owns the model and rules. */
 export function Scene({
+  jointLayer,
   result,
   combo,
   deformed,
@@ -43,6 +49,7 @@ export function Scene({
   baySize,
 }: SceneView) {
   const view = useRef<SceneView>({
+    jointLayer,
     result,
     combo,
     deformed,
@@ -55,6 +62,7 @@ export function Scene({
     baySize,
   });
   view.current = {
+    jointLayer,
     result,
     combo,
     deformed,
@@ -67,6 +75,10 @@ export function Scene({
     baySize,
   };
   const refresh = useRef<() => void>(() => {});
+  const refreshPermissions = useRef<() => void>(() => {});
+  useEffect(() => {
+    refreshPermissions.current();
+  }, [jointLayer, result, combo, deformed, scale]);
   useEffect(() => {
     refresh.current();
   }, [result, combo, deformed, scale, utilization, loads, loadPath]);
@@ -134,8 +146,12 @@ export function Scene({
       new THREE.BufferGeometry(),
       new THREE.LineBasicMaterial({ color: 0x31aa78, depthTest: false }),
     );
-    const stickGhost = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.055 * CELL_SIZE, 1, 6, 12),
+    const ordinaryGhost = new THREE.CapsuleGeometry(0.055 * CELL_SIZE, 1, 6, 12);
+    const profileGhosts = { ipe: wideFlangeGeometry("ipe"), heb: wideFlangeGeometry("heb") };
+    let assemblyGhost: THREE.BufferGeometry | undefined;
+    let lastGhostLine: THREE.BufferAttribute | THREE.InterleavedBufferAttribute | undefined;
+    const stickGhost = new THREE.Mesh<THREE.BufferGeometry, THREE.MeshLambertMaterial>(
+      ordinaryGhost,
       new THREE.MeshLambertMaterial({
         color: "#31aa78",
         transparent: true,
@@ -152,6 +168,10 @@ export function Scene({
     scene.add(preview, stickGhost);
     preview.visible = false;
     const point = (key: string) => displayPoint(key, view.current);
+    const glyphs = createJointGlyphs(scene);
+    refreshPermissions.current = () => glyphs.set(view.current.jointLayer, joint =>
+      point(view.current.result?.ctx?.idx.has(joint.id) ? joint.id : joint.point));
+    refreshPermissions.current();
     const particles = createFlowParticles(scene, point);
     let currentEnvironment = "";
     let orthoSpan = 20;
@@ -425,15 +445,36 @@ export function Scene({
         state.style !== "engineering" &&
         (ghost.visible || state.tool === "brace");
       if (stickGhost.visible) {
-        ghostStart.fromBufferAttribute(line, 0);
-        ghostEnd.fromBufferAttribute(line, 1);
-        ghostDelta.subVectors(ghostEnd, ghostStart);
-        stickGhost.scale.y = Math.max(
-          0.001,
-          ghostDelta.length() / (1 + 0.11 * CELL_SIZE),
-        );
-        stickGhost.position.copy(ghostStart).lerp(ghostEnd, 0.5);
-        stickGhost.quaternion.setFromUnitVectors(up, ghostDelta.normalize());
+        const card = selectedTurnCard(state);
+        const type = card?.kind === "element" ? card.type : state.tool;
+        const assembly = card?.kind === "element" && card.assembly;
+        const physicalGhost = !!assembly || type === "spring";
+        if (physicalGhost && (lastGhostLine !== line || stickGhost.geometry !== assemblyGhost)) {
+          const key = (i: number) => new THREE.Vector3().fromBufferAttribute(line, i).divideScalar(CELL_SIZE).toArray().join(",");
+          assemblyGhost?.dispose();
+          assemblyGhost = assembly ? assemblyGeometry({ id: 0, a: key(0), b: key(1), type: "shs", assembly })
+            : springGeometry({a: key(0), b: key(1)}, 1.8);
+        }
+        const geometry = physicalGhost && assemblyGhost ? assemblyGhost :
+          type === "ipe" || type === "heb" ? profileGhosts[type] : ordinaryGhost;
+        if (lastGhostLine !== line || stickGhost.geometry !== geometry) {
+          lastGhostLine = line;
+          stickGhost.geometry = geometry;
+          ghostStart.fromBufferAttribute(line, 0);
+          ghostEnd.fromBufferAttribute(line, 1);
+          ghostDelta.subVectors(ghostEnd, ghostStart);
+          if (physicalGhost) {
+            stickGhost.scale.setScalar(1);
+            stickGhost.position.set(0,0,0);
+            stickGhost.quaternion.identity();
+          } else if (geometry === ordinaryGhost) {
+            stickGhost.scale.set(1, Math.max(0.001, ghostDelta.length() / (1 + 0.11 * CELL_SIZE)), 1);
+            stickGhost.position.copy(ghostStart).lerp(ghostEnd, 0.5);
+            stickGhost.quaternion.setFromUnitVectors(up, ghostDelta.normalize());
+          } else {
+            poseSection(stickGhost, ghostStart, ghostEnd, ghostDelta);
+          }
+        }
         stickGhost.material.color.copy(preview.material.color);
       }
       for (const object of terrain.children) object.userData.animate?.(time);
@@ -640,6 +681,8 @@ export function Scene({
     }
     return () => {
       refresh.current = () => {};
+      refreshPermissions.current = () => {};
+      glyphs.dispose();
       unsubscribe();
       observer.disconnect();
       renderer.setAnimationLoop(null);
@@ -655,7 +698,10 @@ export function Scene({
       particles.dispose();
       sky.geometry.dispose();
       sky.material.dispose();
-      stickGhost.geometry.dispose();
+      ordinaryGhost.dispose();
+      assemblyGhost?.dispose();
+      profileGhosts.ipe.dispose();
+      profileGhosts.heb.dispose();
       stickGhost.material.dispose();
       ghost.geometry.dispose();
       ghost.material.dispose();
