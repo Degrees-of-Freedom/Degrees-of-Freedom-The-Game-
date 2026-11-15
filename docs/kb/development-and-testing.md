@@ -1,6 +1,6 @@
 ---
 title: "Development and Testing"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
   - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
@@ -140,3 +140,21 @@ Measured errors, the outcome counts of the random states and the limits of this 
 On the criteria integration branch, selecting OpenSees exposes **Run nonlinear check** in the editor structural analysis panel. It sends the editor model through the corotational service contract, with catalogue section laws and explicit point loads; self-weight and challenge load combinations are excluded. The selected Rust solver continues to use its detailed analysis path. Shared table scoring uses its separate verified linear frame analysis. Springs are not represented by this editor service translation and return an unavailable message.
 
 Focused verification on the integration worktree: 19 nonlinear and component service tests passed, and 24 web tests passed with a local OpenSees service, including a corotational editor request and support-reaction check. The panel was rendered in a component test; an interactive browser walkthrough remains outstanding.
+
+## Main after the solver restore — 2026-11-15
+
+On 15 November `main` was force-pushed while the criteria integration (#10) was merged, which dropped #8 (OpenSees v2 and the end-of-turn solve) and #9 (Rust worker, load cases, deflection, member loads) from its history, although GitHub still lists both as merged. Both were restored by merge, without rewriting history: #9 as #12, and #8 together with the alternative OpenSees engine that #10 had added as #15. The Rust adapter was then brought to the merged shared contract in #16, which replaces the closed #11. Avoid force-pushing `main`; restore lost work with a merge instead.
+
+Checked on `main` at `af45c30` (#16), Windows 11, Node 24.16.0, Rust 1.100.0:
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | Pass. |
+| `npm test` | Pass: 73 test files, 518 tests; 2 files and 9 tests are skipped without an OpenSees service. |
+| `VITE_OPENSEES_URL=http://127.0.0.1:8000 npm test` with `npm run dev:opensees` running | Pass: 75 test files, 527 tests. The Rust and OpenSees solvers agree on linear results within 2e-5, on a nonlinear space frame within 1 %, on the mechanism verdict, and on the three reference examples. |
+| `npm run build` | Pass. The existing chunk-size warning remains. |
+| `npm run test:solver` | Pass: 78 tests, 1 ignored timing harness. |
+| `npm run test:opensees` | Pass: 716 tests, 7 skipped. |
+| Documentation links | 464 relative links and anchors checked, none broken. |
+
+Not checked in this pass: the workspace panels in a browser, and the 10,000-state generated run of the OpenSees service, which runs only when `DOF_GENERATED_STATES` is set.
