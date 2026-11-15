@@ -12,7 +12,9 @@ export const CARD_STRENGTH = {
   torsion: { shs: 20, glulam: 7, ipe: 3.5, heb: 18 } satisfies Record<BeamType, number>,
   connections: { fixed: { force: 700, moment: 220 }, ball: { force: 350 },
     'hinge-diagonal': {force:400, moment:80}, 'guided-x': {force:400, moment:80},
-    'seat-20': {force:400, moment:80}, 'seat-80': {force:400, moment:80}, 'semi-rigid': {force:400, moment:80} },
+    'seat-20': {force:400, moment:80}, 'seat-80': {force:400, moment:80}, 'semi-rigid': {force:400, moment:80},
+    'lock-x': {force:400, moment:80}, 'lock-y': {force:400, moment:80}, 'lock-z': {force:400, moment:80},
+    'lock-xy': {force:400, moment:80}, 'lock-yz': {force:400, moment:80}, 'lock-xz': {force:400, moment:80} },
 } as const;
 
 type AttachedEnd = { memberId: number; end: 'a' | 'b'; profile: keyof typeof CARD_STRENGTH.connections };
@@ -109,12 +111,22 @@ export function assessCardCapacity(
     // In-plane panel joints alone do not externally brace the two chords out
     // of plane. Posts have zero station difference and a real physical length.
     const length = m.parentSpan?.unbracedLengthM ?? (part ? e.L : e.L/(to-from));
-    if (e.it.kind === 'beam') {
+    if (e.it.kind === 'beam' && scope.verification?.status !== 'verified-nonlinear') {
       const minI = Math.min(e.it.Iy, e.it.Iz);
       const euler = Math.PI**2 * e.it.E * minI / (2*length)**2;
       if (length/Math.sqrt(minI/e.it.A) > 300 || -forces.f[6] > euler/10) {
         uncertainScopes.set(scope, `Original span of member ${parent} requires slender-member verification.`);
         continue;
+      }
+    }
+    // Curved loaded members can govern at an interior mesh station. Both
+    // sides of every internal cut come from the nonlinear reference solve.
+    if (e.it.kind === 'beam') for (const cut of forces.stations ?? []) {
+      const [N,Vy,Vz,T,My,Mz] = cut.forces;
+      const check = memberCheck(m.type as BeamType, e.it, {N,Vy,Vz,T,My,Mz}, from + cut.fraction*(to-from));
+      const previous = report.members[parent];
+      if (check.status === 'verified' && (previous?.status !== 'verified' || check.utilization > previous.utilization)) {
+        report.members[parent] = part ? {...check, governing: part + ' · ' + check.governing} : check;
       }
     }
     for (const end of ['a', 'b'] as const) {

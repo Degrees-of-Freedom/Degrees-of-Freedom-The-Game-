@@ -107,13 +107,17 @@ function call(solver: SolverExports, request: string): string {
  * @param source Override for where the module bytes come from; tests read
  *   the file from disk.
  */
-export function createWasmSolver(source: WasmSource = bundledModule): SolverAdapter & DetailedSolver {
+export function createWasmSolver(source: WasmSource = bundledModule): SolverAdapter & DetailedSolver & {
+  prepare(): Promise<void>;
+  analyzePrepared(model: AnalysisModel, options?: AnalysisOptions): DetailedAnalysisResult;
+} {
   let loading: Promise<SolverExports> | undefined;
+  let ready: SolverExports | undefined;
 
   const load = (): Promise<SolverExports> => {
     loading ??= source()
       .then((bytes) => WebAssembly.instantiate(bytes, {}))
-      .then(({ instance }) => instance.exports as unknown as SolverExports);
+      .then(({ instance }) => ready = instance.exports as unknown as SolverExports);
     // A failed download can be retried on the next call.
     loading.catch(() => (loading = undefined));
     return loading;
@@ -125,24 +129,28 @@ export function createWasmSolver(source: WasmSource = bundledModule): SolverAdap
     signal?: AbortSignal,
   ): Promise<DetailedAnalysisResult> {
     signal?.throwIfAborted();
-    let solver: SolverExports;
     try {
-      solver = await load();
+      await load();
     } catch (error) {
       signal?.throwIfAborted();
       const reason = error instanceof Error ? error.message : 'unknown error';
       return failure('solverUnavailable', `The solver module could not be loaded: ${reason}`);
     }
     signal?.throwIfAborted();
+    return analyzePrepared(model, options);
+  }
 
+  function analyzePrepared(model: AnalysisModel, options: AnalysisOptions = {}): DetailedAnalysisResult {
+    if (!ready) throw new Error('The browser solver is not initialized.');
     const started = performance.now();
     let parsed: unknown;
     try {
-      parsed = JSON.parse(call(solver, JSON.stringify({ model, options })));
+      parsed = JSON.parse(call(ready, JSON.stringify({ model, options })));
     } catch {
       // A trap inside the module (a Rust panic) leaves its memory in an
       // unknown state, so the instance is dropped and reloaded next time.
       loading = undefined;
+      ready = undefined;
       return failure('internalError', 'The solver failed unexpectedly.');
     }
     if (!isDetailedResult(parsed)) return failure('internalError', 'The solver returned an unexpected result.');
@@ -153,6 +161,8 @@ export function createWasmSolver(source: WasmSource = bundledModule): SolverAdap
   return {
     id: 'dof-wasm',
     name: 'Rust solver (WebAssembly)',
+    async prepare() { await load(); },
+    analyzePrepared,
     analyzeDetailed,
     async analyze(model: StructuralModel, signal?: AbortSignal): Promise<AnalysisResult> {
       const translated = toAnalysisModel(model);

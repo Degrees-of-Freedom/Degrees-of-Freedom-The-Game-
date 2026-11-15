@@ -33,7 +33,7 @@ export function makeElement(
   // gives k/fraction for the active piece, independently of its placed length.
   const fraction = m.parentSpan ? (m.parentSpan.toQuarter - m.parentSpan.fromQuarter) / 4 : 1;
   const k =
-    it.kind === 'spring' ? axialK(it.stiffnessNPerM / 1000 / fraction) : it.kind === 'cable'
+    it.kind === 'spring' ? axialK((m.springStiffnessNPerM ?? it.stiffnessNPerM) / 1000 / fraction) : it.kind === 'cable'
       ? trussK(it.E, it.A, L)
       : frameK(it.E, it.G, it.A, it.Iy, it.Iz, it.J, L);
   const rel = [];

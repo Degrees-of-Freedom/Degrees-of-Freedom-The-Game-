@@ -43,6 +43,7 @@ export interface ComponentResponse {
   reason?: string;
   /** Absence means there is no verified response. This evidence only covers the declared linear formulation. */
   verification?: LinearVerification;
+  instabilityWitness?: { memberIds: number[]; nodes: string[]; reason: string };
 }
 export type Demand = {
   Nt: number;
@@ -63,6 +64,8 @@ export type ElementForce = {
   slack?: boolean;
   /** Magnitude along the actual deformed chord, in kN. End vectors remain in the reference frame. */
   cableTension?: number;
+  /** Positive-face section cuts from the nonlinear beam mesh, kN and kN m. */
+  stations?: { fraction: number; forces: number[] }[];
 };
 export type Solved = {
   u: Float64Array;
