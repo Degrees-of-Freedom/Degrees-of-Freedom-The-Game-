@@ -646,10 +646,18 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
     match path {
         Err((fraction, failure)) => {
             out.load_fraction_reached = fraction;
-            // The initial mechanism may engage a cable or gain geometric
-            // stiffness later. A failed iteration cannot witness instability
-            // of a final equilibrium that the solver has never reached.
-            if first_order_unstable { out.reasons.push("recoveryFailed"); }
+            // A first-order mechanism alone may still stabilize through
+            // finite deformation. A cut hinge supplies a stronger, purely
+            // kinematic proof if its exact rigid motions span the nullspace.
+            // Neither outcome supplies forces at a missing equilibrium.
+            if first_order_unstable {
+                if linear.factor.inertia.null.len() <= MAX_CLASSIFIED &&
+                    crate::hinge::spans_reference_modes(sys, &linear.nulls.translational) {
+                    out.status = Status::Unstable;
+                    out.reasons.push("finiteReferenceMechanism");
+                }
+                out.reasons.push("recoveryFailed");
+            }
             out.reasons.push(match failure {
                 Failure::Budget => "iterationLimit",
                 Failure::NoConvergence => "noConvergence",

@@ -37,10 +37,10 @@ The scored Grow Dusk release uses the nonlinear Rust 0.2.0 module for End Turn, 
 
 | Part | Location | State |
 | --- | --- | --- |
-| Solver | `crates/dof-solver` | 72 native tests passed. The crate has no third-party dependencies. |
+| Solver | `crates/dof-solver` | The native regression suites cover the detailed kernel. The crate has no third-party dependencies. |
 | Detailed contract types | `packages/solver-contract/src/analysis.ts` | `AnalysisModel`, `AnalysisOptions`, `DetailedAnalysisResult`, `DetailedSolver`. |
 | Browser adapter | `apps/web/src/solver/wasm/wasmSolver.ts`, `runner.ts`, `solverWorker.ts` | Serves the detailed contract, several load cases per call (`analyzeCases`), and the original `StructuralModel` contract. In a browser the module runs on a Web Worker, which is terminated on abort or after a wall-clock limit. See [Cancellation and time limit](#cancellation-and-time-limit). |
-| Compiled module | `apps/web/src/solver/wasm/dof_solver.wasm` | Checked-in 706 kB module. Rebuild with `npm run build:solver`. |
+| Compiled module | `apps/web/src/solver/wasm/dof_solver.wasm` | Checked-in 729 kB module. Rebuild with `npm run build:solver`. |
 | Game integration | `apps/web/src/solver/index.ts`, `apps/web/src/game/analysisModel.ts`, `apps/web/src/game/useStabilityCheck.ts` | Default solver for the workspace check, which sends the detailed model. See [Game integration](#game-integration). |
 
 The workspace now sends the detailed model: `game/analysisModel.ts` translates the game to it, and `game/useStabilityCheck.ts` uses the detailed contract whenever the selected solver implements it. The original-contract translation in `game/structuralModel.ts` remains for the OpenSees service.
@@ -51,7 +51,7 @@ The workspace now sends the detailed model: `game/analysisModel.ts` translates t
 
 `toTurnVoxelInput` expands physical cards into analytical spans. Free tips have independent node IDs even at coincident coordinates. A materialized quarter station retains its original parent and station number. HEB and HSS members continue through the station. Cable segment rest lengths divide in proportion to the undeformed length. The 12,500 and 25,000 N/m cartridge printings retain their whole-member stiffness for every allowed span. A segment occupying fraction `f` gets stiffness `k/f`. The explicit assembly graph supplies nodes, chords, posts and diagonals when the catalogue contains an assembly.
 
-`prepareReleaseSolver` initializes the checked-in WASM. The turn adapter sends the exact SI model from undeformed geometry with applied card gravity, two elements per beam and the printed connection freedoms. It checks each component's convergence, normalized residual, force and moment imbalance at `1e-5`. A single-entry cache requires an exact match of the serialized SI model. The result carries a model fingerprint and solver version. A failed numerical recovery yields unresolved evidence. Each independent verified component retains its own signed support reactions, cut forces and displacement samples.
+`prepareReleaseSolver` initializes the checked-in WASM. The turn adapter sends the exact SI model from undeformed geometry with applied card gravity, two elements per beam and the printed connection freedoms. It checks each component's convergence, normalized residual, force and moment imbalance at `1e-5`. A single-entry cache requires an exact match of the serialized SI model. The result carries a model fingerprint and solver version. A failed numerical recovery yields unresolved evidence unless independent kinematic evidence proves a placed mechanism. A hinged or pinned branch cut free of every restraint can rotate without straining any element. The reference diagnosis requires these exact motions to span all translational null modes. No reaction is issued for that state. Each independent verified component retains its own signed support reactions, cut forces and displacement samples.
 
 A large displacement can coexist with stable equilibrium. The release preserves a verified reaction under the kernel's excessive-displacement flag and discloses that flag. The spring card separately withholds its component's scoreable response past 10% axial stroke. In the 10 m seed-14 fixture, transverse sag exceeds the component displacement limit while axial stroke stays inside the card limit. Both supports carry 2.5 kN. The spring exceeds its printed force capacity. A separate overstroke fixture withholds the affected response and retains an independent frame's 5 kN reaction.
 
@@ -150,7 +150,7 @@ Run with `npm run test:solver`. The 15 November 2026 suites covered 72 tests on 
 | Slack and taut cable; pretension; large deflection | `nonlinear.rs` | No cable compression; slack take-up, pretensioned span and large-deflection span match the exact node equilibrium to `1e-6`. |
 | Overloaded connection or member; redundant member removal | `strength.rs` | Governing limit state and utilisation exact; removal order and redistribution repeatable. |
 | Symmetry, reordering, rigid rotation | `robustness.rs` | Reordering gives the identical result text; rotation and renaming agree to `1e-6` and `1e-9`. |
-| Preview, replay, random legal and invalid states | `robustness.rs`, `wasmSolver.test.ts`, `releaseAssessment.test.ts` | 10,000 seeded inputs yielded 2,938 stable, 123 marginal, 8,033 unstable and 1,532 unknown components, with 531 rejected input models. The test guards against panics, nonfinite output and valid results without verified equilibrium. Replay tests check immutable inputs and repeatable receipts. |
+| Preview, replay, random legal and invalid states | `robustness.rs`, `wasmSolver.test.ts`, `releaseAssessment.test.ts` | 10,000 seeded inputs yielded 2,938 stable, 123 marginal, 8,138 unstable and 1,427 unknown components, with 531 rejected input models. The test guards against panics, nonfinite output and valid results without verified equilibrium. Replay tests check immutable inputs and repeatable receipts. |
 
 Large-rotation references also pass at the 1 % gate: a cantilever rolled through 90° by an end moment, and the elastica tip-load case.
 

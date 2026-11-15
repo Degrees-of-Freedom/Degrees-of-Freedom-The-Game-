@@ -303,6 +303,20 @@ fn uncompleted_non_linear_recovery_cannot_witness_final_instability() {
     assert_eq!(result.component(0).get("resultsValid").unwrap().as_bool(), Some(false));
 }
 
+#[test]
+fn unbraced_hinge_has_a_finite_reference_motion_without_a_final_equilibrium() {
+    let mut b = Build::new();
+    b.node("pivot", [0.0; 3]).node("tip", [4.0, 0.0, 0.0]);
+    b.beam("arm", "pivot", "tip").start.laws[4] = Law::Free;
+    b.support("pivot", FIXED).load("tip", [0.0, 0.0, -5000.0]);
+    b.options.max_total_iterations = 1;
+    let r = b.run();
+    assert_eq!(r.status(0), "unstable");
+    assert!(r.reasons(0).contains(&"finiteReferenceMechanism"));
+    assert_eq!(r.component(0).get("resultsValid").unwrap().as_bool(), Some(false));
+    assert_eq!(r.component(0).get("unstableTangent"), Some(&dof_solver::json::Json::Null));
+}
+
 /// Pure bending rolls a cantilever into a circular arc of radius EI/M. An
 /// end moment of πEI/2L turns the tip through 90°.
 #[test]

@@ -49,7 +49,7 @@ Every outcome is a result. Bad input gives `analysis.status: "invalid"` with rea
 | Six-component vectors | Translations (or forces) X, Y, Z, then rotations (or moments) about X, Y, Z. |
 | Member local axes | `x` from start node to end node. `z` is the part of the member's `orientation` vector perpendicular to `x`; the default reference is global Z, or global X for a member parallel to Z. `y = z × x`. `Iy` and `Iz` are about local `y` and `z`. |
 | Connectivity | By node id only. Nodes at the same coordinates are separate unless a member names both. |
-| Beam connection laws | Six laws for translation x, y, z and rotation about x, y, z. Each is `"rigid"`, `"free"` or `{"elastic": k}`. The default basis is the undeformed member basis. Set `axes: "global"` to use the board axes at the undeformed node. Both bases follow the node as it rotates. |
+| Beam connection laws | Six laws for translation x, y, z and rotation about x, y, z. Each is `"rigid"`, `"free"` or `{"elastic": k}`. The default basis is the undeformed member basis. Set `axes: [[1,0,0],[0,1,0],[0,0,1]]` to use the board axes at the undeformed node. Both bases follow the node as it rotates. |
 | Member forces | Section forces `[N, Vy, Vz, T, My, Mz]` in the member's current local axes, as resultants on the face whose normal is local +x. `N` is positive in tension. `start` and `end` use the same convention. |
 | Reactions | What the foundation applies to the structure, global axes. Uplift is a reaction opposite to the supporting direction. |
 | Unavailable values | `null`. Never zero. |
