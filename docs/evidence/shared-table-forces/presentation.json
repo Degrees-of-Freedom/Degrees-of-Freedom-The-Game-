@@ -1,10 +1,10 @@
 {
   "build": {
-    "commit": "f2347a2a66ed4ac1dbbee4f6a0adeba01e38e2d5",
+    "commit": "ac2b7953c6008027b3aa7b92f55c39f13f1c215e",
     "dirtySource": false,
     "solverFile": "dof_solver-DW3m5Jgn.wasm",
     "solverSha256": "3c391970e1863f5752538224a5280927246344b4caa4eb104d5d43281acbce17",
-    "assetsSha256": "fda60587b470cb8142faf14ed7d57082002bfc93ce5db1ee894f852372251cc3"
+    "assetsSha256": "fd4bb6b7cf13af50e355f3f2fec3cca6bed45f4f6e726e4be28452c34676d812"
   },
   "seed": 0,
   "cases": [
@@ -31,6 +31,7 @@
           }
         ],
         "foremanVoices": 1,
+        "unloadedTransferKN": 0,
         "diagnostic": {
           "returnedModes": 30,
           "addedGhostPixels": 75,
@@ -59,6 +60,7 @@
           }
         ],
         "foremanVoices": 0,
+        "unloadedTransferKN": 0,
         "diagnostic": {
           "returnedModes": 30,
           "addedGhostPixels": 75,

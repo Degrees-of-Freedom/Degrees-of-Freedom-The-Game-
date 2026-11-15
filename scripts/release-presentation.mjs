@@ -289,6 +289,9 @@ try {
           companionResult.foremanVoices = notes.length;
           await activate(button("Dismiss"));
           await drawFour();
+          const legend = page.getByRole("complementary", {name:"Analysis legend"});
+          await legend.getByText(/Gravity transfer · peak 0 kN/).waitFor();
+          companionResult.unloadedTransferKN = 0;
           // Sample the structure itself, excluding the companion, HUD,
           // diagnostic controls and legend. The raw-model fixture puts its
           // five detached members in the middle of this fixed viewport.
