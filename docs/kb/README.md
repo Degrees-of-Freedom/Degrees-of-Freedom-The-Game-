@@ -64,6 +64,7 @@ This is the canonical entry point for durable project knowledge. The web prototy
 | [avatar-criteria.md](avatar-criteria.md) | Defining Timburr’s personality, compact presence, reactions, Conkeldurr transformation, model sources and deferred implementation handoff. |
 | [animation-criteria.md](animation-criteria.md) | Defining all-action animation and sound requirements, optional structural glow/pulse, accessibility, timing and acceptance scenarios. |
 | [joint-dof-criteria.md](joint-dof-criteria.md) | Defining translation/twist glyphs, global/local views, shared-joint freedoms, foundation defaults and the separate instability overlay. |
+| [Load-path implementation prompt](../implementation-prompts/load-path-primary-direction.md) | Implementing primary-direction load-transfer vectors, with independent tension/compression styling. |
 | [visualization-criteria.md](visualization-criteria.md) | Defining calculated deflected shape, load-path overlays, contours, force inspection and result validity. |
 | [3d-viewer.md](3d-viewer.md) | Working on the 3D grid, interaction, or visual feedback. |
 | [development-and-testing.md](development-and-testing.md) | Finding current setup, commands, and test coverage. |
