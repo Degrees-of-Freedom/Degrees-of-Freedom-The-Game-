@@ -19,7 +19,7 @@ try {
   browser = await chromium.launch(launch);
   evidence.browser = browser.version();
   await mkdir(output, { recursive: true });
-  for (const scenario of ["keyboard", "tablet-layout", "portrait-recovery", "narrow-layout", "device-failures", "native-zoom", "model-failure", "decoder-failure", "full-hand", "companion"]) {
+  for (const scenario of ["companion", "model-failure", "keyboard", "tablet-layout", "portrait-recovery", "narrow-layout", "device-failures", "native-zoom", "decoder-failure", "full-hand"]) {
     if (process.env.DOF_PRESENTATION_CASE && scenario !== process.env.DOF_PRESENTATION_CASE) continue;
     const viewport = scenario === "tablet-layout" ? { width: 1024, height: 768 }
       : scenario === "portrait-recovery" ? { width: 412, height: 915 }
@@ -338,6 +338,7 @@ try {
           const diagnosticImage = layout.reducedMotion === "reduce" ? "instability-diagnostic-still.png" : "instability-diagnostic.png";
           await page.screenshot({path:resolve(output, diagnosticImage)});
           companionResult.diagnostic = {returnedModes, addedGhostPixels, playback:layout.reducedMotion === "reduce" ? "disabled" : "played and paused"};
+          console.log(scenario, "solver mode visible:", JSON.stringify(companionResult.diagnostic));
           await page.reload(); await activate(ready);
           assert.equal(await page.getByRole("button", {name:"Talk to Conkeldurr"}).count(), 0);
         }
