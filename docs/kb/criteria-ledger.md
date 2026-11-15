@@ -8,6 +8,7 @@ validated_against:
   - docs/kb/cantilever-placement.md
   - docs/kb/voxel-retirement.md
   - docs/evidence/cantilevers/README.md
+  - docs/evidence/cantilevers/main-integration-results.json
   - "Read-only audits of cdd5c9a and independent integrated checks recorded below"
 status: partial
 ---
@@ -20,7 +21,7 @@ New `/match` games and the fresh **Shared table · cantilevers** setup use `grow
 
 Integration baselines are cantilever feature `fca92ab` and fetched main `cca5702`. The integration retains main's Rust-backed evaluator, versioned `rust-1` playtest engines, companion motion/islet, View modes, wiki, AI lab and structure-generator work. The feature evidence below predates that integration; it does not substitute for a check of the combined source or establish a new hardware/platform acceptance result.
 
-The combined source passed TypeScript checking, **869 tests with 12 skipped** (100 passed files, 3 skipped files), and shared-contract/web production builds. These results apply after the evaluator, solver and presenter conflict resolution; the original feature's browser and test evidence below remains separately versioned.
+The combined source, recorded on local main at `149efc4` after feature integration `458104c`, passed TypeScript checking, **869 tests with 12 skipped** (100 passed files, 3 skipped files), and shared-contract/web production builds. All six Chromium scenarios also passed on this integrated source, including draft reload, explicit connector consumption, a 5 kN load and assessed private handoff. [Integrated raw results and screenshot](../evidence/cantilevers/README.md) retain their own provenance; the original feature's browser and test evidence remains separately versioned. This records local integration and validation, not remote publication.
 
 | Scoped check | Recorded evidence |
 | --- | --- |

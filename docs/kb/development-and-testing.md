@@ -37,6 +37,7 @@ validated_against:
   - apps/web/src/solver/wasm/crossCheck.test.ts
   - docs/kb/cantilever-placement.md
   - docs/evidence/cantilevers/README.md
+  - docs/evidence/cantilevers/main-integration-results.json
   - scripts/cantilever-browser.mjs
 owner: unknown
 status: partial
@@ -70,7 +71,7 @@ Grow Dusk view modes have Vitest coverage in `viewModes.test.ts` (reducer, exclu
 
 The integration baselines are cantilever feature `fca92ab` and fetched main `cca5702`. Main's Rust-backed structure evaluator, new-playtest `rust-1` engine selection, legacy replay boundary, companion motion, View modes and other added work are preserved. The records below describe the original feature validation; their counts are not presented as a rerun against the combined source.
 
-On the combined source after resolving the evaluator, solver and presenter conflicts, `npm run typecheck` passed. The full suite passed **869 tests, with 12 skipped** (881 total), across **100 passed files and 3 skipped files**. Shared solver-contract and web production builds also passed. These integrated results are distinct from the earlier 608-test feature run below. The existing upstream physical-device and assistive-technology gates retain their separate acceptance status.
+On the combined source recorded on local main at `149efc4` (feature integration `458104c`), `npm run typecheck` passed. The full suite passed **869 tests, with 12 skipped** (881 total), across **100 passed files and 3 skipped files**. Shared solver-contract and web production builds also passed. The browser runner completed **6/6 scenarios** on this integrated tree, covering pointer controls, actual scene picks, precise endpoints, keyboard, touch emulation and unavailable-WebGL fallback, with explicit connector use, exact draft reload, a 5 kN load and assessed private handoff. [Integrated results and screenshot](../evidence/cantilevers/README.md) are separate from the earlier 608-test feature run below. The existing upstream physical-device and assistive-technology gates retain their separate acceptance status. This is a local integration record and does not claim a remote push.
 
 | Feature-source check | Result and scope |
 | --- | --- |

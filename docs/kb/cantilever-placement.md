@@ -24,6 +24,7 @@ validated_against:
   - apps/web/src/menu/startPlan.test.ts
   - docs/evidence/cantilever-evaluation/observations.json
   - docs/evidence/cantilevers/results.json
+  - docs/evidence/cantilevers/main-integration-results.json
   - scripts/cantilever-browser.mjs
 owner: unknown
 status: partial
@@ -99,7 +100,7 @@ The focused regression suites cover:
 - `cantileverRelease.test.ts`: a genuine dealt v2 quarter-supported 5 kN match through all 16 turns, one card per physical play, unchanged starting fittings, Rust final-score provenance, complete private draft/final replay and v1 private-save preservation.
 - `menu/startPlan.test.ts`: the v2 preset reaches the release board dimensions while Continue retains a historical match.
 
-The [2026-11-15 feature browser walkthrough](../evidence/cantilevers/README.md) passed **6/6 scenarios** in Chromium 156.0.8078.79 with genuine seed 6: pointer controls, actual scene picking, precise endpoint entry, keyboard input, touch emulation and unavailable-WebGL fallback. Each scenario staged one whole beam and one explicitly chosen `q1` fixed connector, reloaded the exact draft, placed a 5 kN tip load, completed assessment/private handoff, verified the committed geometry and checked horizontal overflow. The feature's final test suite passed **608 tests, with 9 skipped**. Shared-contract and web production builds passed. The feature host could not rebuild Rust because Cargo was absent; that feature changed no Rust source and used its checked-in WASM. These results predate integration with main `cca5702`, whose evaluator/solver changes retain their own evidence. See [recorded source revisions, results and reproduction](../evidence/cantilevers/README.md) and [integration validation](development-and-testing.md#cantilever-feature-and-main-integration--2026-11-15).
+The [2026-11-15 integrated browser walkthrough](../evidence/cantilevers/README.md) passed **6/6 scenarios** in Chromium 156.0.8078.79 with genuine seed 6: pointer controls, actual scene picking, precise endpoint entry, keyboard input, touch emulation and unavailable-WebGL fallback. Each scenario staged one whole beam and one explicitly chosen `q1` fixed connector, reloaded the exact draft, placed a 5 kN tip load, completed assessment/private handoff, verified the committed geometry and checked horizontal overflow. The combined source recorded on local main at `149efc4` passed TypeScript, **869 tests with 12 skipped**, and shared-contract/web production builds. It preserves main `cca5702`'s evaluator and solver changes. The older feature-only 608-test run and its Cargo limitation remain historical evidence. See [recorded source revisions, raw results and reproduction](../evidence/cantilevers/README.md) and [integration validation](development-and-testing.md#cantilever-feature-and-main-integration--2026-11-15).
 
 These browser results use Linux Chromium and touch emulation. Hardware touch, assistive technology and the broader release matrix remain governed by the [controls criteria](controls-camera-criteria.md) and [release ledger](criteria-ledger.md).
 
