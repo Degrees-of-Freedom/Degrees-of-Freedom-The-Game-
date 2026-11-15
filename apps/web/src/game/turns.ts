@@ -17,6 +17,9 @@ import { correctJointReleases } from './nodeRepair';
 import { assessTurnOutcome, matchesIssueEvidence, type IssueAssessment } from "./turnIssues";
 import { decidePenalty, type PenaltyDecision } from "./turnPenalty";
 import { awardFinalScore, finalReceipt, recoverFinalScore, type FinalScore } from "./finalScore";
+import { changeTurnCheckpointInterval, createTurnCheckpoints, queueTurnCheckpoint, resolveTurnCheckpoint,
+  type TurnCheckpoints, type TurnCheckpointReceipt } from './turnCheckpoints';
+export { checkpointDueForTurn, nextAnalysisInTurns } from './turnCheckpoints';
 export { turnJoints } from "./turnPorts";
 export { CONNECTION_PROFILES } from "./jointFreedom";
 
@@ -61,6 +64,7 @@ type Board = Placements & { joints: Joint[]; jointCorrections?: JointCorrection[
 type TurnPlayer = { id: string; score: number; hand: TurnCard[] };
 type Event =
   | { kind: "draw"; source: DrawSource; cardId: string }
+  | { kind: "interval"; interval: number }
   | { kind: "element"; cardId: string; a: string; b: string }
   | { kind: "load"; cardId: string; jointId: string }
   | {
@@ -71,12 +75,12 @@ type Event =
       jointId?: string;
       profile?: ConnectionProfile;
     }
-  | { kind: "end"; turn: number; status?: TurnReport["status"]; analysis?: StructuralAnalysisResult; final?: FinalScore; issues?: IssueAssessment; penaltyDecision?: PenaltyDecision; repairPolicy?: RepairPolicy; correction?: CorrectionReceipt; reason?: string };
+  | { kind: "end"; turn: number; status?: TurnReport["status"]; analysis?: StructuralAnalysisResult; final?: FinalScore; issues?: IssueAssessment; penaltyDecision?: PenaltyDecision; repairPolicy?: RepairPolicy; correction?: CorrectionReceipt; checkpoint?:TurnCheckpointReceipt; reason?: string };
 
 export type TurnReport = {
   turn: number;
   playerId: string;
-  status: "stable" | "unstable" | "partial" | "unresolved";
+  status: "pending" | "stable" | "unstable" | "partial" | "unresolved";
   reason: string;
   penalty: 0 | -1;
   analysis?: StructuralAnalysisResult;
@@ -103,6 +107,7 @@ export interface TurnState {
   events: Event[];
   finished: boolean;
   finalScore?: FinalScore;
+  checkpoints?: TurnCheckpoints;
 }
 
 export function boardLimits(state: Pick<TurnState, "catalogue">) {
@@ -210,7 +215,7 @@ export function createTurnGame(seed = 1, catalogue: CatalogueId = LEGACY_CATALOG
   const initial: TurnState = {
     version: KIT_PLAYTEST.version,
     catalogue,
-    ...(rulesRevision && {rulesRevision}),
+    ...(rulesRevision && {rulesRevision,checkpoints:createTurnCheckpoints()}),
     seed,
     turn: 1,
     playerIndex: 0,
@@ -231,6 +236,18 @@ export function createTurnGame(seed = 1, catalogue: CatalogueId = LEGACY_CATALOG
  * createTurnGame/replay callers retain their original unversioned printings. */
 export function createReleaseGame(seed = 1): TurnState {
   return createTurnGame(seed, RELEASE_CATALOGUE, PLAY_REVISION);
+}
+
+/** Persist an interval choice as an ordinary replayable settings event.
+ * Changing it does not assess a pending turn or alter original card actions. */
+export function changeCheckpointInterval(state: TurnState, interval: number): Transition {
+  if (state.rulesRevision !== PLAY_REVISION || !state.checkpoints || state.finished)
+    return fail('This match does not permit checkpoint interval changes.');
+  try {
+    const checkpoints = changeTurnCheckpointInterval(state.checkpoints,interval);
+    return checkpoints === state.checkpoints ? {ok:true,state} : {ok:true,state:{...state,checkpoints,
+      events:[...state.events,{kind:'interval',interval}]}};
+  } catch (error) { return fail(error instanceof Error ? error.message : 'Invalid analysis interval.'); }
 }
 
 export type DrawSource = 'members' | 'connections' | 'loads';
@@ -551,6 +568,24 @@ export function endTurn(
  * per-turn limits before any analysis can produce a receipt or spend a card. */
 function validateReleaseDraft(state: TurnState): string | null {
   const count = state.draft.members.length + state.draft.connections.length + state.draft.loads.length;
+  if (state.rulesRevision === PLAY_REVISION) {
+    const start = state.events.map(event => event.kind).lastIndexOf('end') + 1;
+    const current = state.events.slice(start);
+    const placements = current.filter(event => event.kind === 'element' || event.kind === 'connection' || event.kind === 'load');
+    const placementEvents = new Set<Event>(placements);
+    if (placements.length !== count) return 'The draft does not match this turn’s staged actions.';
+    // Draws and interval choices can be interleaved with placement. Their
+    // authoritative state is already present; reconstruct only spent actions.
+    let rebuilt = {...state,nextId:state.nextId-state.draft.members.length,draft:emptyDraft(),
+      events:[...state.events.slice(0,start),...current.filter(event => !placementEvents.has(event))]};
+    for (const event of placements) {
+      const checked = replayEvent(rebuilt,event);
+      if (!checked?.ok) return checked?.reason ?? 'Invalid staged action.';
+      rebuilt = checked.state;
+    }
+    return matchesIssueEvidence(rebuilt.draft,state.draft) && rebuilt.nextId === state.nextId ? null :
+      'The draft changed. Restore the last confirmed revision.';
+  }
   if (state.rulesRevision !== PLAY_REVISION && count > 4) return "The draft exceeds the turn's card allowances.";
   const boundary = state.events.length - count;
   if (boundary < 0 || (boundary > 0 && state.events[boundary-1].kind !== "end" &&
@@ -571,7 +606,7 @@ function commitTurn(
   state: TurnState,
   expectedTurn: number,
   status: TurnReport["status"] = "unresolved",
-  replay?: { final: unknown; issues: unknown; penaltyDecision: unknown; repairPolicy: unknown; correction: unknown },
+  replay?: { final: unknown; issues: unknown; penaltyDecision: unknown; repairPolicy: unknown; correction: unknown; checkpoint?:unknown },
   analysis?: StructuralAnalysisResult,
   /** Account of the turn to record and replay; a generic sentence for the status otherwise. */
   reason?: string,
@@ -596,6 +631,42 @@ function commitTurn(
   if (conflict) return fail(conflict);
   const player = activePlayer(state),
     spent = draftIds(state);
+  if (state.rulesRevision === PLAY_REVISION) {
+    if (analysis !== undefined || reason !== undefined) return fail('Checkpoint evidence must come from the recorded structure.');
+    const board = {members:[...state.board.members,...state.draft.members],connections,
+      loads:[...state.board.loads,...state.draft.loads],joints:turnJoints(state),
+      ...(state.board.jointCorrections && {jointCorrections:state.board.jointCorrections})};
+    const finished = state.turn === KIT_PLAYTEST.players * KIT_PLAYTEST.rounds;
+    const queued = queueTurnCheckpoint(state,board,state.checkpoints,finished);
+    const waiting: TurnState = {...state,board,draft:emptyDraft(),reports:[...state.reports,queued.report]};
+    const resolved = queued.due ? resolveTurnCheckpoint(waiting,queued.checkpoints,finished) :
+      {board,reports:waiting.reports,checkpoints:queued.checkpoints,receipt:undefined};
+    const report = resolved.reports.find(entry => entry.turn === state.turn)!;
+    const repairPolicy = report.issues ? NODE_REPAIR_POLICY : undefined;
+    if (replay && (status !== report.status || !matchesIssueEvidence(report.issues,replay.issues) ||
+      !matchesIssueEvidence(report.penaltyDecision,replay.penaltyDecision) || repairPolicy !== replay.repairPolicy ||
+      !matchesIssueEvidence(report.correction,replay.correction) || !matchesIssueEvidence(resolved.receipt,replay.checkpoint)))
+      return fail('The saved checkpoint attribution does not match its original turn window.');
+    const endEvent: Extract<Event,{kind:'end'}> = {kind:'end',turn:state.turn,status:report.status,
+      ...(report.issues && {issues:report.issues,penaltyDecision:report.penaltyDecision,repairPolicy}),
+      ...(report.correction && {correction:report.correction}),...(resolved.receipt && {checkpoint:resolved.receipt})};
+    let committed: TurnState = {...waiting,board:resolved.board,checkpoints:resolved.checkpoints,reports:resolved.reports,
+      finished,turn:finished ? state.turn : state.turn+1,
+      playerIndex:finished ? state.playerIndex : (state.playerIndex+1)%state.players.length,
+      players:state.players.map(entry => entry === player ? {...entry,hand:entry.hand.filter(({id}) => !spent.has(id))} : entry),
+      events:[...state.events,endEvent]};
+    if (finished) {
+      let result: ReturnType<typeof analyzeTurn> | null = null;
+      try { result = analyzeTurn(committed,'card-gravity'); } catch { /* Unknown reactions stay unavailable. */ }
+      const finalScore = awardFinalScore(committed,finalReceipt(committed,result));
+      if (replay && !matchesIssueEvidence(finalScore,replay.final)) return fail('The saved final award does not match its checkpoint.');
+      const scores = new Map(finalScore.awards.map(award => [award.playerId,award.finalScore]));
+      committed = {...committed,finalScore,players:committed.players.map(entry => ({...entry,score:scores.get(entry.id)!})),
+        events:[...state.events,{...endEvent,final:finalScore}]};
+    } else if (replay?.final !== undefined) return fail('Unexpected final score before match completion.');
+    return {ok:true,state:committed};
+  }
+  if (status === 'pending') return fail('This historical rules version requires an immediate assessed turn.');
   // Old scored receipts did not record an assessment. Keep their historical
   // evidence scope while replaying. A new assessed event must reproduce it.
   const previous = state.reports.at(-1);
@@ -621,9 +692,9 @@ function commitTurn(
   if (replay?.penaltyDecision !== undefined && !matchesIssueEvidence(penaltyDecision, replay.penaltyDecision))
     return fail("The saved penalty decision does not match the originating turn.");
   const frozen = { ...state, board: {
-    ...state.board,
     members: [...state.board.members, ...state.draft.members], connections,
     loads: [...state.board.loads, ...state.draft.loads], joints: turnJoints(state),
+    ...(state.board.jointCorrections && {jointCorrections:state.board.jointCorrections}),
   }, draft: emptyDraft() };
   const repairPolicy = replay ? replay.repairPolicy : penaltyDecision && expectedRepair;
   if (repairPolicy !== undefined && ((repairPolicy !== REPAIR_POLICY && repairPolicy !== LEGACY_REPAIR_POLICY && repairPolicy !== NODE_REPAIR_POLICY) || !penaltyDecision))
@@ -777,6 +848,7 @@ function record(value: unknown): value is Record<string, unknown> {
 
 function replayEvent(state: TurnState, event: unknown): Transition | null {
   if (!record(event)) return null;
+  if (event.kind === 'interval' && typeof event.interval === 'number') return changeCheckpointInterval(state,event.interval);
   if (event.kind === 'draw' && (event.source === 'members' || event.source === 'connections' || event.source === 'loads')) {
     const result = chooseTurnDraw(state, event.source);
     const drawn = result.ok ? result.state.events.at(-1) : undefined;
@@ -784,7 +856,7 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
     return result;
   }
   if (event.kind === "end" && typeof event.turn === "number") {
-    if (event.status !== undefined && event.status !== "stable" && event.status !== "unstable" &&
+    if (event.status !== undefined && !(event.status === 'pending' && state.rulesRevision === PLAY_REVISION) && event.status !== "stable" && event.status !== "unstable" &&
       event.status !== "partial" && event.status !== "unresolved") return null;
     // The structural cross-check's account replays with the turn, so a
     // restored match shows what the selected solver said.
@@ -812,6 +884,7 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
     return commitTurn(state, event.turn, event.status, {
       final: event.final, issues: event.issues, penaltyDecision: event.penaltyDecision,
       repairPolicy: event.repairPolicy, correction: event.correction,
+      checkpoint:event.checkpoint,
     }, analysis, reason);
   }
   if (typeof event.cardId !== "string") return null;

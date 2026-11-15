@@ -84,6 +84,10 @@ it('retains a floating beam and its historical penalty as unresolved, without in
   const beam = activeTurnHand(state).find(card => card.kind === 'element')!;
   state = accept(stageElement(state, beam.id, '2,2,1', '2,3,1'));
   state = accept(endTurn(state));
+  expect(state.reports[0].status).toBe('pending');
+  expect(state.reports[0].penalty).toBe(0);
+  state = accept(endTurn(drawFour(state)));
+  state = accept(endTurn(drawFour(state)));
   expect(state.reports[0].penalty).toBe(-1);
   expect(state.reports[0].correction?.policy).toBe('node-release-locks-1');
   expect(state.reports[0].correction?.pending.length).toBeGreaterThan(0);
