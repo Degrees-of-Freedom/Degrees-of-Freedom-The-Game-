@@ -8,6 +8,8 @@ import { addResultArrows, displayPoint } from "./sceneResults";
 import { createFlowParticles } from "./flowParticles";
 import { buildStructure } from "./structureMeshes";
 import { bindSceneInteraction } from "./sceneInteraction";
+import { selectedTurnCard } from "./turnPicking";
+import { poseSection, wideFlangeGeometry } from "./sectionGeometry";
 import { sceneLevel } from "./sceneLevel";
 import type { SceneView } from "./sceneView";
 import { createSky, SCENE_STYLES } from "./sceneStyle";
@@ -115,8 +117,11 @@ export function Scene({
       new THREE.BufferGeometry(),
       new THREE.LineBasicMaterial({ color: 0x31aa78, depthTest: false }),
     );
-    const stickGhost = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.055 * CELL_SIZE, 1, 6, 12),
+    const ordinaryGhost = new THREE.CapsuleGeometry(0.055 * CELL_SIZE, 1, 6, 12);
+    const profileGhosts = { ipe: wideFlangeGeometry("ipe"), heb: wideFlangeGeometry("heb") };
+    let lastGhostLine: THREE.BufferAttribute | THREE.InterleavedBufferAttribute | undefined;
+    const stickGhost = new THREE.Mesh<THREE.BufferGeometry, THREE.MeshLambertMaterial>(
+      ordinaryGhost,
       new THREE.MeshLambertMaterial({
         color: "#31aa78",
         transparent: true,
@@ -356,15 +361,23 @@ export function Scene({
         state.style !== "engineering" &&
         (ghost.visible || state.tool === "brace");
       if (stickGhost.visible) {
-        ghostStart.fromBufferAttribute(line, 0);
-        ghostEnd.fromBufferAttribute(line, 1);
-        ghostDelta.subVectors(ghostEnd, ghostStart);
-        stickGhost.scale.y = Math.max(
-          0.001,
-          ghostDelta.length() / (1 + 0.11 * CELL_SIZE),
-        );
-        stickGhost.position.copy(ghostStart).lerp(ghostEnd, 0.5);
-        stickGhost.quaternion.setFromUnitVectors(up, ghostDelta.normalize());
+        const card = selectedTurnCard(state);
+        const type = card?.kind === "element" ? card.type : state.tool;
+        const geometry = type === "ipe" || type === "heb" ? profileGhosts[type] : ordinaryGhost;
+        if (lastGhostLine !== line || stickGhost.geometry !== geometry) {
+          lastGhostLine = line;
+          stickGhost.geometry = geometry;
+          ghostStart.fromBufferAttribute(line, 0);
+          ghostEnd.fromBufferAttribute(line, 1);
+          ghostDelta.subVectors(ghostEnd, ghostStart);
+          if (geometry === ordinaryGhost) {
+            stickGhost.scale.set(1, Math.max(0.001, ghostDelta.length() / (1 + 0.11 * CELL_SIZE)), 1);
+            stickGhost.position.copy(ghostStart).lerp(ghostEnd, 0.5);
+            stickGhost.quaternion.setFromUnitVectors(up, ghostDelta.normalize());
+          } else {
+            poseSection(stickGhost, ghostStart, ghostEnd, ghostDelta);
+          }
+        }
         stickGhost.material.color.copy(preview.material.color);
       }
       for (const object of terrain.children) object.userData.animate?.(time);
@@ -409,7 +422,9 @@ export function Scene({
       particles.dispose();
       sky.geometry.dispose();
       sky.material.dispose();
-      stickGhost.geometry.dispose();
+      ordinaryGhost.dispose();
+      profileGhosts.ipe.dispose();
+      profileGhosts.heb.dispose();
       stickGhost.material.dispose();
       ghost.geometry.dispose();
       ghost.material.dispose();

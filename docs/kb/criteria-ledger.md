@@ -98,7 +98,7 @@ Sources and acceptance cases are [element representation](element-representation
 
 | ID | Authority | Status | Behavior | Baseline and owning module | Acceptance case |
 | --- | --- | --- | --- | --- | --- |
-| GEOM-01 | confirmed | missing | Wide flange | structureMeshes.ts uses a cylinder or solid box. | Web and two distinct flanges, correct roll and open silhouette. |
+| GEOM-01 | confirmed | meets | Wide flange | IPE/HEB render as open web-and-flange sections using catalogue dimensions and solver local axes in the five presenters and placement ghost. Nominal shapes omit unauthored root fillets. | Lead inspected the Grow Dusk comparison and repeated 14 shape/orientation tests. [Before](../evidence/wide-flange/before-grow-dusk.png) · [After](../evidence/wide-flange/after-grow-dusk.png) · [Five-presenter runner](../evidence/wide-flange/check.mjs). |
 | GEOM-02 | confirmed | missing | Square/rectangular hollow section | SHS drawn solid. | Visible bore/wall thickness, true vs readable dimensions. |
 | GEOM-03 | confirmed | missing | Round hollow section | No CHS section in active catalogue. | Circular opening, thickness, oblique and reversed orientation. |
 | GEOM-04 | confirmed | missing | Standalone axial helical spring | No spring member/geometry. | Terminal axis, bounded turns/wire, no implied torsional law. |

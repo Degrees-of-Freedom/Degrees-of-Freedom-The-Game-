@@ -10,6 +10,7 @@ import {
   visualLoadDirection,
 } from "./scenePieces";
 import { isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
+import { poseSection, wideFlangeGeometry, type WideFlange } from "./sectionGeometry";
 import {
   computeLoadPath,
   traceToGround,
@@ -27,6 +28,8 @@ export function buildStructure(
   const palette = SCENE_STYLES[s.style];
   const turn = s.mode === "multiplayer" ? s.turn : null;
   const playerColors = ["#e9806e", "#6a9bd8"];
+  // Each rebuilt structure owns its profiles; sliced pieces share the same unit prism.
+  const sections = new Map<WideFlange, THREE.BufferGeometry>();
   const turnOwners = new Map(
     turn
       ? [...turn.board.members, ...turn.draft.members].map((member) => [
@@ -123,8 +126,13 @@ export function buildStructure(
       const radius = v.loadPath
         ? width / 2
         : CELL_SIZE * (s.style === "kit" ? 0.1 : 0.072);
+      let profile: THREE.BufferGeometry | undefined;
+      if (member.type === "ipe" || member.type === "heb") {
+        profile = sections.get(member.type) ?? wideFlangeGeometry(member.type);
+        sections.set(member.type, profile);
+      }
       const mesh = new THREE.Mesh(
-        isRound
+        profile ?? (isRound
           ? new THREE.CapsuleGeometry(
               radius,
               Math.max(0.01, span - radius * 2),
@@ -135,7 +143,7 @@ export function buildStructure(
               s.style === "levels" ? CELL_SIZE * 0.17 : width,
               span,
               s.style === "levels" ? CELL_SIZE * 0.17 : width,
-            ),
+            )),
         new THREE.MeshStandardMaterial({
           color,
           transparent: isGhost,
@@ -148,11 +156,12 @@ export function buildStructure(
               : 0x000000,
         }),
       );
-      mesh.position.copy(start).add(end).multiplyScalar(0.5);
-      mesh.quaternion.setFromUnitVectors(
-        new THREE.Vector3(0, 1, 0),
-        delta.normalize(),
-      );
+      if (profile) {
+        poseSection(mesh, start, end, new THREE.Vector3(bx - ax, by - ay, bz - az));
+      } else {
+        mesh.position.copy(start).add(end).multiplyScalar(0.5);
+        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.normalize());
+      }
       mesh.castShadow = !isGhost && s.style !== "engineering";
       mesh.receiveShadow = s.style !== "engineering";
       structure.add(mesh);

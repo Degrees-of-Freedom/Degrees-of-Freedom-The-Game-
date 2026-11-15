@@ -81,6 +81,8 @@ Keep diameter and attachment identity distinct from load-path overlay width. Tau
 
 ## 5. Physical scale, readable scale and orientation
 
+The IPE and HEB viewer meshes use the nominal catalogue width, depth, web and flange dimensions with a 1.5× readable transverse scale. Their length and analytical properties retain their physical values. The 3D stick preview uses the same section orientation. [Five-presenter checks and scope](criteria-ledger.md)
+
 Default game view uses modest section enlargement, visibly identified as **Readable sections**. Proposed initial factor: 1.5× transverse section dimensions, subject to playtesting. It affects display only. Keep physical span, endpoints, joint positions, reference topology and assembly chord spacing/depth unchanged. Scale section thicknesses consistently so I/H and hollow proportions remain recognizable; spring wire/coil readability needs a separately documented symbol policy to avoid changing its apparent analytical attachment span. Cable readability enlargement must be included in the legend.
 
 Provide a **True scale** inspection mode restoring physical section dimensions, with numeric dimensions and an end-on section view. This should be a reversible inspection preference, not a model edit. Selection halos and generous invisible pick volumes may remain screen-scaled, but must not be presented as physical material. If a family uses schematic geometry because dimensions are missing, true-scale mode must say unavailable rather than certify its dimensions.
