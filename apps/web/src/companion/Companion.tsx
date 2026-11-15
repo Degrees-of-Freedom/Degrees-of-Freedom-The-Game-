@@ -167,7 +167,7 @@ export function Companion({ area, repairs, announceRepair = false, onPresented, 
       setForeman(eligible ? "reaction" : null);
       // Conkeldurr's entrance supersedes; otherwise relief or concern.
       if (!eligible && !final) react({ kind: latest.attempts.some(a => a.status === "verified") && !latest.pending.length
-        ? "repair" : latest.pending.length ? "issue" : "clean-turn" });
+        ? "repair" : "issue" });
       if (eligible && settings.sound) stopAccent.current = onForemanAccent?.() ?? null;
       setOpen(!final && settings.showCompanion);
       onPresented?.();

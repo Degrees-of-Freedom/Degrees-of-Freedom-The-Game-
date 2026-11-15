@@ -12,6 +12,7 @@ import { boardActions, boardDiagram, type SectionAction } from "../viewer/boardD
 import { FinalScorePanel } from "./FinalScorePanel";
 import { Companion, type CompanionProps } from "../companion/Companion";
 import type { CompanionCue, CompanionCueEvent } from "../companion/motion";
+import { sightTurn, turnTransitionCue, type TurnSighting } from "../companion/turnCues";
 import { jointAtSceneSelection, sharedJointPermissions } from "../viewer/jointPermissions";
 import type { CameraMemory } from "../viewer/sceneView";
 import "./releaseBoard.css";
@@ -21,6 +22,8 @@ const order = { element: 0, connection: 1, load: 2 };
 const symbols = { element: "Ι", connection: "⊕", load: "↓" };
 const kinds = { element: "Element", connection: "Connection", load: "Gravity" };
 const seat = (id: string) => id.replace("player-", "Player ");
+/** Last public turn the board showed in this page session (cosmetic only). */
+let lastSighting: TurnSighting | null = null;
 
 function Hand({ game, turn, choose, notify, onEnd, react }: {
   game: Game; turn: TurnState; choose(card: TurnCard): void; notify(message: string): void; onEnd(): void;
@@ -91,17 +94,13 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
     }
     prior.current = { draftSize, ...counts };
   }, [draftSize, counts.members, counts.connections, counts.loads, cue, notify, react]);
-  // Public turn transitions: a fresh seat perks up; a committed report earns
-  // concern when it carries a deduction, otherwise a small cheer. Repair and
-  // foreman reactions arrive separately through the companion's announcement.
-  const seen = useRef({ turn: turn.turn, reports: turn.reports.length });
+  // Public turn transitions. The board unmounts behind the private handoff
+  // cover, so the last sighting lives at module scope for this page session.
   useEffect(() => {
-    const latestReport = turn.reports.at(-1);
-    if (turn.reports.length > seen.current.reports && latestReport && !turn.finished)
-      react({ kind: latestReport.penalty ? "issue" : "clean-turn" });
-    else if (turn.turn !== seen.current.turn && !turn.finished) react({ kind: "turn-start" });
-    seen.current = { turn: turn.turn, reports: turn.reports.length };
-  }, [turn.turn, turn.reports, turn.finished, react]);
+    const next = turnTransitionCue(lastSighting, turn);
+    lastSighting = sightTurn(turn);
+    if (next) react(next);
+  }, [turn, turn.turn, turn.reports, turn.finished, react]);
   useEffect(() => { if (picked) setInspecting(true); }, [picked]);
   useEffect(() => { if (inspecting) heading.current?.focus({ preventScroll: true }); }, [inspecting]);
   useEffect(() => {

@@ -43,7 +43,7 @@ describe("companion motion clips", () => {
       expect(Math.abs(next - previous)).toBeLessThan(.03);
       previous = next;
     }
-    expect(sampleClip(clip, clip.duration * .25).bend).toBeCloseTo(.85);
+    expect(sampleClip(clip, clip.duration * .25).bend).toBeCloseTo(CLIPS.nod.tracks.bend[1][1]);
   });
 
   it("keeps release idle to subtle breathing and weight shift", () => {
