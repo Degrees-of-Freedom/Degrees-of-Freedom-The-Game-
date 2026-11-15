@@ -70,3 +70,21 @@ describe("evaluation", () => {
     expect(run()).toEqual(run());
   });
 });
+
+describe("imitate", () => {
+  it("fits the one-weight and staged planner solutions exactly", async () => {
+    const { imitate, demonstrationAccuracy } = await import("./trainer");
+    const { recordPlannerDemonstrations } = await import("./demonstrations");
+    const { GraphPlanner } = await import("./planning/graphPlanner");
+    for (const id of ["single", "staged"] as const) {
+      const { steps } = recordPlannerDemonstrations(new GoalEnv(GOAL_SCENARIOS[id]), new GraphPlanner(), [0]);
+      expect(steps.length).toBeGreaterThan(0);
+      expect(demonstrationAccuracy(imitate(steps), steps)).toBe(1);
+    }
+  }, 60_000);
+
+  it("scores an empty demonstration set as trivially matched", async () => {
+    const { demonstrationAccuracy } = await import("./trainer");
+    expect(demonstrationAccuracy(new LinearSoftmaxPolicy(), [])).toBe(1);
+  });
+});

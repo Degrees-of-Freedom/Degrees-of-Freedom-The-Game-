@@ -236,3 +236,36 @@ function scoreOf(
   });
   return Float64Array.from(rows[chosen], (v, k) => v - expected[k]);
 }
+
+/**
+ * Fit a policy to demonstrations alone by maximum likelihood (no environment,
+ * no reward). It shows what the feature set can express: if a policy trained
+ * only to copy a planner cannot reproduce the planner's decisions, no amount of
+ * reinforcement learning with those features will find them either.
+ */
+export function imitate(
+  demonstrations: readonly DemonstrationStep[],
+  { iterations = 3000, learningRate = 0.3 }: { iterations?: number; learningRate?: number } = {},
+): LinearSoftmaxPolicy {
+  const policy = new LinearSoftmaxPolicy();
+  for (let it = 0; it < iterations; it++) {
+    const gradient = new Float64Array(ACTION_FEATURE_COUNT);
+    for (const step of demonstrations) {
+      const score = scoreOf(policy, step.rows, step.prior, step.chosen);
+      for (let k = 0; k < gradient.length; k++) gradient[k] += score[k];
+    }
+    for (let k = 0; k < gradient.length; k++)
+      policy.weights[k] += (learningRate * gradient[k]) / Math.max(1, demonstrations.length);
+  }
+  return policy;
+}
+
+/** Share of demonstrated decisions the policy's greedy choice matches exactly. */
+export function demonstrationAccuracy(
+  policy: LinearSoftmaxPolicy,
+  demonstrations: readonly DemonstrationStep[],
+): number {
+  if (!demonstrations.length) return 1;
+  const hits = demonstrations.filter((s) => policy.greedy(s.rows, s.prior) === s.chosen).length;
+  return hits / demonstrations.length;
+}

@@ -44,7 +44,7 @@ The environment calls the same functions the editor uses: `memberIssue` and `nod
 | `agents.ts` | `RandomAgent`, `PolicyAgent`, `playEpisode`, `evaluate`. |
 | `schema.ts`, `bridge.ts` | zod-validated JSON-lines protocol for external agents. |
 | `zones.ts` | Keep-out zone geometry (scenario rule, not a game rule). |
-| `demonstrations.ts` | Scripted and planner demonstrations for the imitation term. |
+| `demonstrations.ts` | Scripted and planner demonstrations for the imitation term; `trainer.ts` also has `imitate` and `demonstrationAccuracy`, which test what the features can express. |
 | `planning/` | Planners that solve scenarios without learning: `graphPlanner.ts`, `erosionPlanner.ts`, shared `common.ts`, runner `run.ts`. |
 | `cli/train.ts`, `cli/serve.ts`, `cli/compare.ts` | `npm run train:goal`, `serve:goal`, `compare:goal`. |
 
@@ -158,7 +158,26 @@ Erosion is cheaper where it works but ignores the level's supply while eroding; 
 | `holdAvoid` | 0% (mean reward 1.23) | not run |
 | `zoned` | 0% (mean reward 0.41) | not run |
 
-So the multi-stage hold-wait-extend behaviour is learnable from one planner demonstration and not from reward alone, but as with `pickup1` this is imitation of one fixed layout, and the learner has not yet solved either zoned scenario with this budget (one seed each, 19 demonstration decisions). More seeds, longer training and a larger imitation weight are untried.
+So the multi-stage hold-wait-extend behaviour is learnable from one planner demonstration and not from reward alone, but as with `pickup1` this is imitation of one fixed layout.
+
+**Follow-up: more seeds, longer training, unseen layouts.** None of it solved the zoned scenarios.
+
+- `zoned` and `holdAvoid`: 2 seeds each, 1,000 episodes, imitation weight 4 (up from 2). All four runs solved 0%, the same as the single-seed runs; mean reward did not improve (`holdAvoid` 1.23, `zoned` 0.41, both unchanged).
+- Random layouts (`stagedR`: weights, later stage and zone drawn from the seed, both weights 3 cells up). The graph planner solves 16 of 16 held-out layouts, mean cost 3,303 (a first version that also varied height and load solved only 4 of 12, mostly because a weight 2 cells up has a much tighter movement limit, so it was replaced). Agents trained for 800 episodes on demonstrations from 24 planner-solved layouts (2 seeds), and one with no demonstrations, solved 0% of 20 held-out layouts (mean reward about 1.2 with demonstrations, 0.7 without). So generalisation to unseen layouts is **not** shown.
+
+**Why: the linear features cannot express these solutions.** `imitate` fits a policy by maximum likelihood to the planner's decisions alone, with no environment and no reward; `demonstrationAccuracy` then counts exact matches. With the current 24 features:
+
+| Scenario | Planner decisions reproduced |
+| --- | --- |
+| `single` | 3 of 3 |
+| `staged` | 8 of 8 (tested) |
+| `pickup1` | 8 of 9 |
+| `holdAvoid` | 12 of 19 |
+| `zoned` | 9 of 19 |
+
+If a policy trained only to copy the planner cannot reproduce it, more reinforcement learning with the same features cannot find it, which matches the 0% results. Some mismatches are harmless ties (which of two needed joints goes first), but the member choices are not: the planner's `holdAvoid` second stage is an irregular tripod of 2-cell columns and short diagonals around the zone, and the policy keeps choosing a single long diagonal. Adding geometric features aimed at it (a foundation one cell from a weight, a foundation mirrored through a weight from an existing one, horizontal/vertical member flags, a member level with a weight) did not change the picture (`zoned` 10 of 19) and was reverted.
+
+What would likely help, untested: a policy that scores whole proposals instead of single moves (for example, learn to choose among planner candidates and repairs); a non-linear scorer; or features that describe the design relative to the whole structure rather than one action.
 
 ## Limitations and open questions
 
