@@ -42,6 +42,7 @@ const ROLE_INDEX = { column: 0, beam: 1, brace: 2 } as const;
 const trimLength = (value: number) =>
   (Math.round(value * 100) / 100).toString();
 import { createJointGlyphs } from "./jointGlyphs";
+import { releaseContextWhenIdle } from "./releaseContext";
 /** Three.js owns only presentation and picking; the game store owns the model and rules. */
 export function Scene({
   diagrams,
@@ -885,7 +886,9 @@ export function Scene({
       preview.material.dispose();
       renderer.domElement.removeEventListener("webglcontextlost", lose);
       renderer.dispose();
-      if (!renderer.getContext().isContextLost()) renderer.forceContextLoss();
+      // Not forceContextLoss(): it blocks until the GPU drains queued frames,
+      // which stalled the unmounting click for seconds under software GL.
+      releaseContextWhenIdle(renderer.getContext());
       renderer.domElement.remove();
     };
   }, [style]);

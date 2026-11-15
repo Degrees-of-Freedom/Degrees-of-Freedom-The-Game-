@@ -1,10 +1,23 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
+/** Optional CPU throttling (`DOF_CPU_THROTTLE=4` slows each page's renderer
+ * fourfold through CDP) reproduces slow CI runners on a fast workstation. */
+async function throttle(context) {
+  const rate = Number(process.env.DOF_CPU_THROTTLE ?? 1);
+  if (!(rate > 1)) return;
+  const apply = async page => {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate });
+  };
+  context.on("page", page => { apply(page).catch(() => {}); });
+}
+
 /** These checks inject failures at the storage/worker boundary. Positive gameplay
  * always enters through the same controls a player uses. No synthetic match is dealt. */
 export async function testOperationalCases(browser, base, saved) {
   const context = await browser.newContext({ viewport:{width:1366,height:900}, reducedMotion:"reduce" });
+  await throttle(context);
   const page = await context.newPage();
   page.setDefaultTimeout(12000);
   const button = name => page.getByRole("button",{name,exact:true});
