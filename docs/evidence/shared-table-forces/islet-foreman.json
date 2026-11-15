@@ -1,0 +1,83 @@
+{
+  "build": {
+    "commit": "2f991411b5fcfc39fcbfe212ed57c5e03f6715b2",
+    "dirtySource": false,
+    "solverFile": "dof_solver-gaCMDH3i.wasm",
+    "solverSha256": "e144aa6c2805188f69924176ddafe19b9d91aafc3f9068f3b713437ef3ce9634",
+    "assetsSha256": "6fd72a530a679971da3eb7f717e7587ace29747f3d322e34e0396d1098a3c3d1"
+  },
+  "seed": 0,
+  "cases": [
+    {
+      "scenario": "companion",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 1366,
+      "companion": {
+        "checkpoint": 6,
+        "originatingTurn": 5,
+        "player": 1,
+        "chargedTurns": 3,
+        "phases": [
+          {
+            "phase": "shrink",
+            "clip": "foreman",
+            "sameStage": true,
+            "figure": "timburr.png"
+          },
+          {
+            "phase": "reaction",
+            "clip": "foreman",
+            "sameStage": true,
+            "figure": "conkeldurr.png"
+          }
+        ],
+        "sceneCharacter": "conkeldurr",
+        "foremanVoices": 1,
+        "unloadedTransferKN": 0,
+        "diagnostic": {
+          "returnedModes": 30,
+          "addedGhostPixels": 73,
+          "playback": "played and paused"
+        }
+      },
+      "input": "mouse",
+      "result": "pass"
+    },
+    {
+      "scenario": "model-failure",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 1366,
+      "companion": {
+        "checkpoint": 6,
+        "originatingTurn": 5,
+        "player": 1,
+        "chargedTurns": 3,
+        "phases": [
+          {
+            "phase": "reaction",
+            "clip": null,
+            "sameStage": true,
+            "figure": "conkeldurr.png"
+          }
+        ],
+        "sceneCharacter": "conkeldurr",
+        "foremanVoices": 0,
+        "unloadedTransferKN": 0,
+        "diagnostic": {
+          "returnedModes": 30,
+          "addedGhostPixels": 73,
+          "playback": "disabled"
+        }
+      },
+      "input": "mouse",
+      "result": "pass"
+    }
+  ],
+  "browser": "157.0.8103.51"
+}

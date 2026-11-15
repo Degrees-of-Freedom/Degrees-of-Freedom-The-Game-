@@ -9,6 +9,7 @@ import { preview } from "vite";
 const root = resolve("apps/web");
 const output = resolve(process.env.DOF_EVIDENCE_DIR || ".venv/release-evidence");
 const dist = resolve(process.env.DOF_TEST_DIST || "apps/web/dist");
+const selectedCases = process.env.DOF_PRESENTATION_CASE?.split(",");
 const host = await preview({ root, build: { outDir: dist },
   preview: { host: "127.0.0.1", port: 0 } });
 const evidence = { build: JSON.parse(await readFile(resolve(dist, "release-build.json"), "utf8")), seed: 0, cases: [] };
@@ -20,7 +21,7 @@ try {
   evidence.browser = browser.version();
   await mkdir(output, { recursive: true });
   for (const scenario of ["companion", "model-failure", "keyboard", "tablet-layout", "portrait-recovery", "narrow-layout", "device-failures", "native-zoom", "decoder-failure", "full-hand"]) {
-    if (process.env.DOF_PRESENTATION_CASE && scenario !== process.env.DOF_PRESENTATION_CASE) continue;
+    if (selectedCases && !selectedCases.includes(scenario)) continue;
     const viewport = scenario === "tablet-layout" ? { width: 1024, height: 768 }
       : scenario === "portrait-recovery" ? { width: 412, height: 915 }
       : scenario === "narrow-layout" ? { width: 683, height: 384 } : { width: 1366, height: 900 };

@@ -1,13 +1,12 @@
 {
   "command": "node scripts/physics/check-saved-solver.mjs 91d551b",
   "applicationSource": {
-    "head": "d8663ce65a282298cc69471257076d8591dcd234",
-    "incoming": "c41571db5d05d65e77b17b0f600ec098d9c55b9e",
-    "mergeInProgress": true,
-    "resolvedEvaluatorAndLocalReleaseConflicts": true
+    "head": "fc35da8c527863a15ef7447b206c76cab2ab2fa5",
+    "mergeInProgress": false,
+    "scope": "Actual replay rerun after rebuilding the integrated Rust source; final compact-card commit does not change the game replay modules."
   },
   "previous": "e238263e5b5c3518b73e3bf9af39be0542191f5f8e51a8fa537bccf68744e744",
-  "current": "c1eba5e686626aa402c0b1685312ed0af4be7ebf3e42af19b7a5947ea4b78a90",
+  "current": "e144aa6c2805188f69924176ddafe19b9d91aafc3f9068f3b713437ef3ce9634",
   "priorSuccessfulEvidence": {
     "applicationCommit": "ac2b7953c6008027b3aa7b92f55c39f13f1c215e",
     "solverSha256": "3c391970e1863f5752538224a5280927246344b4caa4eb104d5d43281acbce17",
@@ -18,5 +17,6 @@
   "priorBrowserMatchesCompared": 20,
   "confirmedRecordsReplayed": 660,
   "privateRecordsByteIdentical": true,
-  "exitCode": 0
+  "exitCode": 0,
+  "priorCompatibleIncomingKernel": "c1eba5e686626aa402c0b1685312ed0af4be7ebf3e42af19b7a5947ea4b78a90"
 }

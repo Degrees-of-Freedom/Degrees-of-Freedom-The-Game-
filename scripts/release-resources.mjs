@@ -74,7 +74,17 @@ try {
   page.on("worker", worker => { evidence.workersCreated++; worker.on("close", () => evidence.workersClosed++); });
   page.on("pageerror", error => evidence.errors.push(error.message));
   const button = name => page.getByRole("button", { name, exact: true });
-  const ready = button("Ready · Reveal my hand"), model = page.locator('.figure-stage[data-view="model"]');
+  const ready = button("Ready · Reveal my hand");
+  async function waitFigure() {
+    // The board actor now shares the scene canvas. Its HTML portrait is an
+    // intentionally hidden fallback while the matching islet model is visible.
+    await page.waitForFunction(() =>
+      !!document.querySelector('[data-islet-figure="timburr"], [data-islet-figure="conkeldurr"]') ||
+      [...document.querySelectorAll('.figure-stage[data-view="model"]')].some(stage => {
+        const rect = stage.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      }));
+  }
   async function sample(cycle, route) {
     // getDetachedDomNodes pins its returned native nodes in InspectorDOMAgent.
     // No inspector node map may span a navigation or the test retains the
@@ -82,7 +92,7 @@ try {
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("DOM.enable");
     try {
-      await model.waitFor();
+      await waitFigure();
       await page.evaluate(async () => { for (let i = 0; i < 4; i++) await new Promise(requestAnimationFrame); });
       // Audio render time is independent of animation frames. Sample retained
       // handles once short selection cues have actually disconnected their nodes.
@@ -102,6 +112,7 @@ try {
         // is marked disposed and must satisfy the same zero-orphan gate as GL.
         detachedCanvases:canvases.length-activeLabelCanvases,
         activeLabelCanvases,
+        sceneCharacter: await page.evaluate(() => document.querySelector('[data-islet-figure]')?.getAttribute('data-islet-figure') ?? null),
         workers: page.workers().length };
       evidence.snapshots.push(snapshot);
     } finally { await cdp.detach(); }
@@ -134,7 +145,7 @@ try {
       }
       await page.locator('[aria-label="Draw four cards"]').waitFor({state:"detached"});
     }
-    await model.waitFor();
+    await waitFigure();
     const first = page.locator("[data-card-id]").first();
     await first.click(); await first.click();
     await button("Inspect").click();
@@ -153,8 +164,11 @@ try {
   for (const route of ["match", "home"]) {
     const samples = evidence.snapshots.filter(s => s.route === route);
     for (const s of samples) {
-      assert.equal(s.canvases, route === "match" ? 2 : 1);
+      // The live board actor shares its board renderer; the title portrait
+      // has one renderer of its own. Neither route needs a second canvas.
+      assert.equal(s.canvases, 1);
       assert.equal(s.contexts, s.canvases);
+      assert.equal(s.sceneCharacter, route === "match" ? "timburr" : null);
       assert.equal(s.detachedCanvases, 0);
       assert.equal(s.activeLabelCanvases, route === "match" ? 2 : 0);
       assert.equal(s.documents, 1);

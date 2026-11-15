@@ -1,0 +1,51 @@
+{
+  "commit": "ac2b7953c6008027b3aa7b92f55c39f13f1c215e",
+  "dirtySource": false,
+  "solverFile": "dof_solver-DW3m5Jgn.wasm",
+  "solverSha256": "3c391970e1863f5752538224a5280927246344b4caa4eb104d5d43281acbce17",
+  "assetsSha256": "fd4bb6b7cf13af50e355f3f2fec3cca6bed45f4f6e726e4be28452c34676d812",
+  "browser": "157.0.8103.51",
+  "seed": 0,
+  "checks": [
+    "normal Play starts four deliberate three-deck choices",
+    "partial draw reload preserves match, cards and remaining choices",
+    "four member choices yield opening standard members",
+    "multiple members stage without a per-type allowance",
+    "provisional endpoint edit persists and Ctrl+Z undoes one placement",
+    "undo preserves original draws and undealt decks",
+    "a diagonal T junction can target an original quarter of an already staged member",
+    "a genuine interior crossing is rejected without card consumption or draft changes",
+    "four load choices and three staged loads are legal",
+    "draft cancel/reload restores all held loads without extra draws",
+    "genuine legacy private import preserves its original two-deck state",
+    "revised private export/import restores chosen draws and held cards",
+    "restart cancellation preserves the confirmed match"
+  ],
+  "structural": {
+    "checks": [
+      "numerical WASM is first requested at the due third-turn checkpoint",
+      "real member/connector/gravity plays become a checkpoint after three player turns",
+      "normal board exposes calculated deflection and load paths automatically",
+      "shear and bending overlays combine with calculated response",
+      "reaction labels support Off and Large",
+      "committed member is read-only and foundation six-component tables are inspectable",
+      "overlay and reaction settings preserve authoritative match state"
+    ],
+    "reactions": [
+      "Signed global support reactionAxisForce (kN)Moment (kN·m)X00Y00Z00",
+      "Signed global support reactionAxisForce (kN)Moment (kN·m)X0.0000000000044390Y0-5.001Z50"
+    ],
+    "wasmResponses": [
+      {
+        "url": "http://127.0.0.1:64243/assets/dof_solver-DW3m5Jgn.wasm",
+        "status": 200
+      },
+      {
+        "url": "http://127.0.0.1:64243/assets/dof_solver-DW3m5Jgn.wasm",
+        "status": 200
+      }
+    ],
+    "errors": []
+  },
+  "errors": []
+}
