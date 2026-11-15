@@ -20,7 +20,12 @@ const cantilever: StructuralModel = {
   members: [{ id: 'm', startNodeId: 'a', endNodeId: 'b' }],
   supports: [{ nodeId: 'a', restrained: FIXED }],
   loads: [{ nodeId: 'b', force: [0, 0, -1000], moment: [0, 0, 0] }],
+  // Closed-form answers are linear; the contract defaults to nonlinear.
+  analysis: { fidelity: 'linear' },
 };
+
+/** An unsymmetric section, so that mixing up local Y and Z shows. */
+const ipe = { elasticModulus: 210e9, shearModulus: 81e9, area: 5.38e-3, inertiaY: 8.356e-5, inertiaZ: 6.04e-6, torsionConstant: 2.01e-7 };
 
 describe('Rust WebAssembly solver, original contract', () => {
   it('matches the closed-form cantilever and the OpenSees reference value', async () => {
@@ -64,6 +69,150 @@ describe('Rust WebAssembly solver, original contract', () => {
   it('returns an error result for a model that cannot be analysed', async () => {
     const result = await solver.analyze({ ...cantilever, members: [{ id: 'm', startNodeId: 'a', endNodeId: 'nowhere' }] });
     expect(result).toEqual({ status: 'error', message: expect.stringContaining('does not exist') });
+  });
+
+  it('uses the member properties, with local Y following the orientation as the contract defines', async () => {
+    // Along X with local Y = global Z: a vertical load bends about local Z.
+    const result = await solver.analyze({
+      ...cantilever,
+      members: [{ id: 'm', startNodeId: 'a', endNodeId: 'b', properties: ipe, orientation: [0, 0, 1] }],
+    });
+    if (result.status !== 'success') throw new Error(JSON.stringify(result));
+    expect(result.displacements.b[2]).toBeCloseTo((-1000 * 27) / (3 * 210e9 * ipe.inertiaZ), 9);
+    // Turned so local Y = global Y: the same load now bends about local Y.
+    const turned = await solver.analyze({
+      ...cantilever,
+      members: [{ id: 'm', startNodeId: 'a', endNodeId: 'b', properties: ipe, orientation: [0, 1, 0] }],
+    });
+    if (turned.status !== 'success') throw new Error(JSON.stringify(turned));
+    expect(turned.displacements.b[2]).toBeCloseTo((-1000 * 27) / (3 * 210e9 * ipe.inertiaY), 10);
+  });
+
+  it('maps six-axis connections onto the right local axes, including springs', async () => {
+    // A rotational spring about local Z at the root adds P L^2 / k for a load along local Y.
+    const k = 2e6;
+    const spring = (axis: number) => {
+      const laws = ['locked', 'locked', 'locked', 'locked', 'locked', 'locked'] as const;
+      const stiffness = [0, 0, 0, 0, 0, 0] as [number, number, number, number, number, number];
+      stiffness[axis] = k;
+      return { laws: laws.map((law, i) => (i === axis ? 'elastic' : law)) as unknown as typeof laws, stiffness };
+    };
+    const rigid = (-1000 * 27) / (3 * 210e9 * ipe.inertiaZ);
+    for (const [axis, extra] of [[5, (-1000 * 9) / k], [4, 0]] as const) {
+      const result = await solver.analyze({
+        ...cantilever,
+        members: [{ id: 'm', startNodeId: 'a', endNodeId: 'b', properties: ipe, orientation: [0, 0, 1], startConnection: spring(axis) }],
+      });
+      if (result.status !== 'success') throw new Error(JSON.stringify(result));
+      expect(result.displacements.b[2]).toBeCloseTo(rigid + extra, 9);
+    }
+  });
+
+  it('applies self-weight from the weight per length, and the standard section weighs 577 N/m', async () => {
+    const result = await solver.analyze({ ...cantilever, loads: [], analysis: { fidelity: 'linear', selfWeight: true } });
+    if (result.status !== 'success') throw new Error(JSON.stringify(result));
+    expect(result.reactions.a[2]).toBeCloseTo(577 * 3, 6);
+    const light = await solver.analyze({
+      ...cantilever,
+      loads: [],
+      members: [{ id: 'm', startNodeId: 'a', endNodeId: 'b', properties: { ...ipe, weightPerLength: 422 } }],
+      analysis: { fidelity: 'linear', selfWeight: true },
+    });
+    if (light.status !== 'success') throw new Error(JSON.stringify(light));
+    expect(light.reactions.a[2]).toBeCloseTo(422 * 3, 6);
+  });
+
+  it('carries cables with pretension, reports slack ones, and flags a displacement limit', async () => {
+    const rod = { elasticModulus: 160e9, shearModulus: 0, area: 3.6e-4, inertiaY: 0, inertiaZ: 0, torsionConstant: 0 };
+    const pretension = 25e3 / (160e9 * 3.6e-4);
+    const model = {
+      units: 'SI' as const,
+      nodes: [{ id: 'w', position: [-3, 0, 0] as const }, { id: 'n', position: [0, 0, 0] as const }, { id: 'e', position: [3, 0, 0] as const }],
+      members: [
+        { id: 'left', kind: 'cable' as const, startNodeId: 'w', endNodeId: 'n', properties: rod, initialStrain: pretension },
+        { id: 'right', kind: 'cable' as const, startNodeId: 'n', endNodeId: 'e', properties: rod, initialStrain: pretension },
+      ],
+      supports: [
+        { nodeId: 'w', restrained: FIXED },
+        { nodeId: 'e', restrained: FIXED },
+        { nodeId: 'n', restrained: [false, true, true, true, true, true] as const },
+      ],
+      // 60 kN towards w is more than the 25 kN pretension can hold back.
+      loads: [{ nodeId: 'n', force: [-60e3, 0, 0] as const, moment: [0, 0, 0] as const }],
+    };
+    const result = await solver.analyze(model);
+    if (result.status !== 'success') throw new Error(JSON.stringify(result));
+    // The cable towards the load goes slack; the other carries all of it.
+    expect(result.memberForces.left).toMatchObject({ state: 'slack', axial: 0 });
+    expect(result.memberForces.right).toMatchObject({ state: 'active' });
+    expect(result.memberForces.right.axial).toBeCloseTo(60e3, 0);
+    expect(result.components[0].reasonCodes).toContain('cable_slack');
+    // Nonlinear is opt-in, so this request was analysed linearly.
+    expect(result.analysis.fidelity).toBe('linear');
+    expect(result.nonlinear).toBeUndefined();
+    const limited = await solver.analyze({ ...model, analysis: { displacementLimit: 1e-6 } });
+    if (limited.status !== 'success') throw new Error(JSON.stringify(limited));
+    expect(limited.components[0]).toMatchObject({ state: 'marginal', reasonCodes: expect.arrayContaining(['excessive_deformation']) });
+  });
+
+  it('takes nonlinear as opt-in, with the corotational alias, and reports how it solved', async () => {
+    const linear = await solver.analyze({ ...cantilever, analysis: undefined });
+    if (linear.status !== 'success') throw new Error(JSON.stringify(linear));
+    expect(linear.analysis.fidelity).toBe('linear');
+    expect(linear.nonlinear).toBeUndefined();
+
+    const corotational = await solver.analyze({ ...cantilever, analysis: { type: 'corotational', segmentsPerFrame: 4 } });
+    if (corotational.status !== 'success') throw new Error(JSON.stringify(corotational));
+    expect(corotational.analysis.fidelity).toBe('nonlinear');
+    expect(corotational.nonlinear).toMatchObject({ segmentsPerFrame: 4, cableState: {} });
+    expect(corotational.nonlinear!.steps).toBeGreaterThanOrEqual(1);
+    expect(corotational.nonlinear!.nodalResidual).toBeLessThan(1e-5);
+    expect(corotational.nonlinear!.forceResidual).toBeLessThan(1e-5);
+    // A small load: the nonlinear tip deflection is the linear one.
+    expect(corotational.displacements.b[2]).toBeCloseTo(linear.displacements.b[2], 7);
+
+    for (const segmentsPerFrame of [0, 33, 2.5])
+      expect(await solver.analyze({ ...cantilever, analysis: { type: 'corotational', segmentsPerFrame } })).toMatchObject({ status: 'error' });
+  });
+
+  it('maps frame and cable laws, with the cable force EA max(0, l/L0 - 1)', async () => {
+    // A frame law is the beam's section: same answer as the properties.
+    const framed = await solver.analyze({
+      ...cantilever,
+      members: [{ id: 'm', startNodeId: 'a', endNodeId: 'b', orientation: [0, 0, 1], law: { kind: 'frame', elasticModulus: 210e9, shearModulus: 81e9, area: ipe.area, iy: ipe.inertiaY, iz: ipe.inertiaZ, torsionConstant: ipe.torsionConstant } }],
+    });
+    if (framed.status !== 'success') throw new Error(JSON.stringify(framed));
+    expect(framed.displacements.b[2]).toBeCloseTo((-1000 * 27) / (3 * 210e9 * ipe.inertiaZ), 9);
+
+    // A 2 m vertical hanger with a 1.999 m rest length, carrying 10 kN.
+    const [E, A, rest] = [160e9, 3.6e-4, 1.999];
+    const loaded = await solver.analyze({
+      units: 'SI',
+      nodes: [{ id: 'top', position: [0, 0, 2] }, { id: 'n', position: [0, 0, 0] }, { id: 'spare', position: [9, 9, 9] }],
+      members: [{ id: 'c', kind: 'beam', startNodeId: 'top', endNodeId: 'n', law: { kind: 'cable', elasticModulus: E, area: A, restLength: rest } }],
+      supports: [{ nodeId: 'top', restrained: FIXED }, { nodeId: 'n', restrained: [true, true, false, true, true, true] }],
+      loads: [{ nodeId: 'n', force: [0, 0, -10e3], moment: [0, 0, 0] }],
+      analysis: { type: 'corotational' },
+    });
+    if (loaded.status !== 'success') throw new Error(JSON.stringify(loaded));
+    // The cable law decides the kind, and its force is EA (l / rest - 1).
+    expect(loaded.memberForces.c).toMatchObject({ state: 'active' });
+    expect(loaded.memberForces.c.axial).toBeCloseTo(10e3, 3);
+    const length = 2 - loaded.displacements.n[2];
+    expect(E * A * (length / rest - 1)).toBeCloseTo(10e3, 3);
+    expect(loaded.nonlinear!.cableState).toEqual({ c: 'taut' });
+    expect(loaded.inactiveNodeIds).toEqual(['spare']);
+  });
+
+  it('reports what the Rust solver cannot represent as unsupported', async () => {
+    const cases: StructuralModel['members'][] = [
+      [{ id: 'm', startNodeId: 'a', endNodeId: 'b', initialStrain: 1e-4 }],
+      [{ id: 'm', startNodeId: 'a', endNodeId: 'b', kind: 'brace', startFixity: 'free' }],
+      [{ id: 'm', startNodeId: 'a', endNodeId: 'b', startFixity: 'pinned', startConnection: { laws: ['locked', 'locked', 'locked', 'free', 'free', 'free'] } }],
+      [{ id: 'm', startNodeId: 'a', endNodeId: 'b', startConnection: { laws: ['locked', 'locked', 'locked', 'locked', 'locked', 'elastic'] } }],
+    ];
+    for (const members of cases)
+      expect(await solver.analyze({ ...cantilever, members })).toEqual({ status: 'unsupported', message: expect.any(String) });
   });
 
   it('analyses the reference examples through the game translation', async () => {
