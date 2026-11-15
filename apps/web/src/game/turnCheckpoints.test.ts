@@ -3,6 +3,7 @@ import {beforeAll, expect, it, vi} from "vitest";
 import {createReleaseGame, chooseTurnDraw, activeTurnHand, stageElement, endTurn, parseTurnState,
   changeCheckpointInterval, checkpointDueForTurn, nextAnalysisInTurns, type TurnState} from "./turns";
 import * as analysis from "./turnAnalysis";
+import * as issues from "./turnIssues";
 import {createTurnCheckpoints, queueTurnCheckpoint, resolveTurnCheckpoint, turnCheckpointFreshness} from "./turnCheckpoints";
 
 beforeAll(() => analysis.prepareReleaseSolver(() => readFile(new URL("../solver/wasm/dof_solver.wasm",import.meta.url))));
@@ -182,4 +183,22 @@ it("does not back-charge an unknown original turn when its overload becomes obse
   expect(known.reports[3].issues!.changes.some(change => change.category.includes("overload") && change.after.active)).toBe(true);
   expect(known.reports.every(report => report.penalty === 0)).toBe(true);
   expect(known.receipt!.penaltyIds).toEqual([]);
+  expect(known.checkpoints.lastVerifiedTurn).toBe(0);
+  expect(known.checkpoints.lastVerified).toBeUndefined();
+});
+
+it("retains a stable equilibrium display without claiming whole-model verification when capacity is unknown", () => {
+  const inspect = issues.inspectIssues;
+  const unavailableCapacity = vi.spyOn(issues,"inspectIssues").mockImplementation((...args) => {
+    const snapshot = inspect(...args);
+    return {...snapshot,findings:snapshot.findings.map(finding => finding.category === "instability" ? finding :
+      {...finding,validity:"unknown" as const,active:null,reason:"Fixture capacity data unavailable."})};
+  });
+  try {
+    let state = accept(changeCheckpointInterval(createReleaseGame(8),1));
+    state = accept(endTurn(drawFour(state)));
+    expect(state.checkpoints!.lastAnalysis!.status).toBe("stable");
+    expect(state.checkpoints!.lastVerifiedTurn).toBe(0);
+    expect(state.checkpoints!.lastVerified).toBeUndefined();
+  } finally { unavailableCapacity.mockRestore(); }
 });

@@ -1,6 +1,6 @@
 import { DEFAULT_SOLVE_EVERY_TURNS, SOLVE_EVERY_TURNS_RANGE } from "../multiplayer/checkpoints/types";
 import { correctJointReleases } from "./nodeRepair";
-import { assessTurnOutcome, type IssueMemory } from "./turnIssues";
+import { assessTurnOutcome, inspectIssues, type IssueMemory } from "./turnIssues";
 import { decidePenalty } from "./turnPenalty";
 import type { JointCorrection } from "./jointCorrections";
 import { NODE_REPAIR_POLICY } from "./turnRepair";
@@ -145,11 +145,16 @@ export function resolveTurnCheckpoint(state: TurnState, checkpoints: TurnCheckpo
       ...(repair && {correction:repair.receipt})};
     attributed.push(report);
     reports = [...reports.filter(previous => previous.turn !== origin.turn),report].sort((a,b) => a.turn-b.turn);
-    const stability = repair?.receipt.changes.filter(change => change.category === "instability").map(change => change.after.active);
+    // Change receipts intentionally omit quiet inactive findings. Inspect the
+    // complete accepted model before advancing a whole-model verified marker.
+    const accepted = inspectIssues(repair?.state ?? frozen);
+    const stability = accepted.findings.filter(finding => finding.category === "instability").map(finding => finding.active);
     const postStatus = correctedStatus(stability,outcome.status);
     lastAnalysis = {turn:origin.turn, board:withCorrections(origin.boardAfter,corrections),nextId:origin.nextId,
-      modelId:repair?.receipt.afterModelId ?? outcome.issues.afterModelId,status:postStatus};
-    if (postStatus === "stable") lastVerified = lastAnalysis;
+      modelId:accepted.modelId,status:postStatus};
+    const finalFindings = accepted.findings;
+    if (postStatus === "stable" && finalFindings.length > 0 &&
+      finalFindings.every(finding => finding.validity === "verified" && finding.active === false)) lastVerified = lastAnalysis;
   }
   const receipt: TurnCheckpointReceipt = {id,policy:TURN_CHECKPOINT_POLICY,repairPolicy:NODE_REPAIR_POLICY,
     afterTurn:checkpoints.lastAttemptTurn,throughTurn:checkpoints.completedTurns,interval:checkpoints.interval,
