@@ -275,6 +275,7 @@ fn parse_options(value: Option<&Json>) -> Parsed<Options> {
         excessive_displacement_ratio: f.num_or("excessiveDisplacementRatio", d.excessive_displacement_ratio)?,
         critical_load_search: f.flag_or("criticalLoadSearch", d.critical_load_search)?,
         stability_margin: f.num_or("stabilityMargin", d.stability_margin)?,
+        reserve_search: f.num_or("reserveSearch", d.reserve_search)?,
         failure: match f.text("failure")?.as_deref() {
             None | Some("report") => FailureMode::Report,
             Some("remove") => FailureMode::Remove,

@@ -165,6 +165,12 @@ export interface AnalysisOptions {
   criticalLoadSearch?: boolean;
   /** Load multiplier a stable state must survive not to be `marginal`. */
   stabilityMargin?: number;
+  /**
+   * Largest load multiplier tried by the stability reserve search, greater
+   * than 1 and at most 1e4. Zero or absent disables it. Nonlinear only: each
+   * verified stable or marginal component then reports `reserve`.
+   */
+  reserveSearch?: number;
   /** `remove` fails the most overloaded object and reanalyses. */
   failure?: 'report' | 'remove';
   maxFailureEvents?: number;
@@ -218,6 +224,12 @@ export interface AnalysisComponent {
   };
   /** Load multiplier at which a load-induced instability first occurs. */
   criticalLoadFactor: number | null;
+  /**
+   * Present only when `options.reserveSearch` was given; null when not
+   * searched (linear, unstable or unverified) or when the search ran out of
+   * iterations (`reserveSearchIncomplete`).
+   */
+  reserve?: StabilityReserve | null;
   /** Exact negative and translational-null counts at a verified full-load
    * tangent. Null means no comparable unstable tangent was established. */
   unstableTangent?: {negativePivots: number; mechanisms: number} | null;
@@ -229,6 +241,24 @@ export interface AnalysisComponent {
   reactionForce: Vector3 | null;
   unstableNodeIds: string[];
   modes: AnalysisMode[];
+}
+
+/**
+ * Load multiplier, relative to the applied load, at which the equilibrium
+ * path, continued from the verified state under proportionally increasing
+ * load, first stops being stable. Each continuation increment moves no node
+ * by more than 1 % of the component size, so a snap-through to a remote
+ * branch counts as the end of the path.
+ */
+export interface StabilityReserve {
+  /** Largest multiplier verified stable. */
+  lower: number;
+  /** Smallest multiplier found unstable or without equilibrium; null when
+   * the path stayed stable up to `reserveSearch`. */
+  upper: number | null;
+  /** `instability`: a bifurcation or new mechanism (tangent no longer
+   * positive definite). `noEquilibrium`: a limit point. */
+  cause: 'instability' | 'noEquilibrium' | null;
 }
 
 export interface ConnectionResult {

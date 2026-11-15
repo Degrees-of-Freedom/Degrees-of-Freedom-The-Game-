@@ -261,12 +261,18 @@ pub struct Options {
     /// A stable component that is no longer stable with its loads multiplied
     /// by this factor is reported as marginal. One disables the check.
     pub stability_margin: f64,
+    /// Largest load multiplier the stability reserve search tries. A value
+    /// of zero (the default) disables the search; otherwise it must exceed 1.
+    pub reserve_search: f64,
     pub failure: FailureMode,
     /// Failure events allowed before the analysis stops redistributing.
     pub max_failure_events: u32,
     /// Mode shapes returned per component; counts are never truncated.
     pub max_modes: u32,
 }
+
+/// Upper limit of `reserve_search`: beyond it a reserve is of no practical use.
+pub const MAX_RESERVE_SEARCH: f64 = 1e4;
 
 impl Default for Options {
     fn default() -> Self {
@@ -284,6 +290,7 @@ impl Default for Options {
             excessive_displacement_ratio: 0.1,
             critical_load_search: true,
             stability_margin: 1.25,
+            reserve_search: 0.0,
             failure: FailureMode::Report,
             max_failure_events: 8,
             max_modes: 12,
@@ -559,9 +566,12 @@ pub fn validate(model: &Model, options: &Options) -> Vec<Issue> {
     }
 
     let o = options;
-    let numbers = [o.load_factor, o.tolerance, o.residual_gate, o.excessive_displacement_ratio, o.stability_margin];
+    let numbers = [o.load_factor, o.tolerance, o.residual_gate, o.excessive_displacement_ratio, o.stability_margin, o.reserve_search];
     if !finite(&numbers) || o.tolerance <= 0.0 || o.residual_gate <= 0.0 || o.excessive_displacement_ratio <= 0.0 || o.gravity.is_some_and(|g| !finite(&g)) {
         issues.push(issue("invalidOptions", "Analysis options must be finite, with positive tolerances.".into(), &[]));
+    }
+    if o.reserve_search != 0.0 && !(o.reserve_search > 1.0 && o.reserve_search <= MAX_RESERVE_SEARCH) {
+        issues.push(issue("invalidOptions", format!("options.reserveSearch must be 0 or greater than 1 and at most {MAX_RESERVE_SEARCH}."), &[]));
     }
     if o.subdivisions == 0 || o.subdivisions > 64 || o.max_iterations == 0 || o.max_total_iterations == 0 || o.max_request_iterations == 0 {
         issues.push(issue("invalidOptions", "Subdivisions must be between 1 and 64 and iteration limits positive.".into(), &[]));
