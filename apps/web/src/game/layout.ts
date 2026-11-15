@@ -1,5 +1,6 @@
 import { nodeKey, type GameModel, type Level } from './model';
-function randomLoads(
+/** Draw the load set of a random pick-up level from an injectable generator. */
+export function randomLoads(
   level: Level,
   random: () => number = Math.random,
 ): [number, number, number, number][] {
@@ -20,7 +21,11 @@ function randomLoads(
   }
   return loads;
 }
-export function initialModel(level: Level): GameModel {
+/** `random` makes a random level reproducible; it defaults to `Math.random`. */
+export function initialModel(
+  level: Level,
+  random: () => number = Math.random,
+): GameModel {
   const model: GameModel = { members: [], attrs: {}, nextId: 1 };
   if (level.type === 'bridge')
     for (const y of level.ys!)
@@ -31,7 +36,7 @@ export function initialModel(level: Level): GameModel {
         };
   if (level.type === 'pickup')
     for (const [i, j, k, f] of level.random
-      ? randomLoads(level)
+      ? randomLoads(level, random)
       : (level.loads ?? []))
       model.attrs[nodeKey(i, j, k)] = { load: f, locked: true, target: true };
   return model;
