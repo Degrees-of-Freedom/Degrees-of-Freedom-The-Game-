@@ -93,7 +93,8 @@ export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card
   const capacity = loading === 'card-gravity'
     ? assessCardCapacity(input, response, [...turn.board.connections, ...turn.draft.connections])
     : undefined;
-  return { ...response, capacity };
+  const physicalParents = new Map(input.members.filter(m => m.parentSpan).map(m => [m.id, m.parentSpan!.memberId]));
+  return { ...response, capacity, physicalParents };
 }
 
 export function assessTurn(turn: TurnState): 'stable' | 'unstable' | 'partial' | 'unresolved' {

@@ -25,6 +25,16 @@ The existing viewer has an experimental force-weighted route display based on ap
 
 ## 2. Physics and interpretation
 
+### Grow Dusk deflected-shape playtest
+
+Running a scored Shared table simulation uses all committed and staged gravity cards in one card-gravity state. The panel identifies a draft preview. Creative's applied state also includes member self-weight. In Results, **Deformed shape** offers true displacement (1×), fixed amplification and an automatic multiplier. The board shows the multiplier while the overlay is active. **Undeformed reference** adds a dashed line along each verified analytical element. An unavailable member stays at reference geometry and its ID appears in the panel.
+
+Frame centrelines use the recovered local translations and rotations of the member ends, including released ends and connector slip. Axial displacement interpolates linearly. The two bending components use cubic Euler–Bernoulli shape functions; the drawing samples each analytical piece over 16 intervals. Original-quarter segments and assembly parts retain the physical parent identity. The multiplier scales the displayed motion alone. The spring and versioned cable use their supported station motions.
+
+For a 4 m HEB cantilever under a 1 kN downward tip load, the calculated midpoint and tip were −0.126126 and −0.403605 mm. A pure positive local-Y end moment of 1 kN·m produced −0.151352 mm at the tip. A simply supported beam of the same section and span under a 1 kN central load gave −0.025225 mm at midspan. [Analytical tests](../../apps/web/src/viewer/deformationField.test.ts)
+
+Chrome 157 on Windows at 1366 × 900 exercised a two-member column under simultaneous 1 and 4 kN horizontal loads beside an unsupported beam. The [browser fixture](../evidence/deflection/check.mjs) checks actual mesh vertices at 1× and 100×, reference visibility and retained model state. A separate Shared table seed-23 run checked a 5 kN staged gravity card and its +5 kN reaction. [Before](../evidence/deflection/before.png) · [After](../evidence/deflection/after.png) · [Inspector](../evidence/deflection/inspector.png)
+
 | ID | Proposed requirement |
 | --- | --- |
 | LP01 | Evaluate the complete connected structure under the selected analysis state. Forces and foundation reactions follow equilibrium, geometry, stiffness, connection behavior and loads, not ownership or graph distance. |

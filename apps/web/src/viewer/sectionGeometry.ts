@@ -7,7 +7,7 @@ export const READABLE_SECTION_SCALE = 1.5;
 
 /** Unit-length prism along mesh Z. The section dimensions are metres in the
  * solver's local Y/Z plane. Nominal rolled sections omit the root fillets. */
-export function wideFlangeGeometry(type: WideFlange): THREE.ExtrudeGeometry {
+export function wideFlangeGeometry(type: WideFlange, steps = 1): THREE.ExtrudeGeometry {
   const { width, depth, web, flange } = SECTION_GEOMETRY[type];
   const w = width / 2, d = depth / 2, t = web / 2, inner = d - flange;
   const outline = new THREE.Shape();
@@ -24,7 +24,7 @@ export function wideFlangeGeometry(type: WideFlange): THREE.ExtrudeGeometry {
   outline.lineTo(-t, -inner);
   outline.lineTo(-w, -inner);
   outline.closePath();
-  return new THREE.ExtrudeGeometry(outline, { depth: 1, bevelEnabled: false }).translate(0, 0, -0.5);
+  return new THREE.ExtrudeGeometry(outline, { depth: 1, steps, bevelEnabled: false }).translate(0, 0, -0.5);
 }
 
 /** Fit a unit prism to displayed endpoints. Carry the reference roll onto a

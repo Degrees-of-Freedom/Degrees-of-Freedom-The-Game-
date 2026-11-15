@@ -7,9 +7,7 @@ import { poseSection } from './sectionGeometry';
 
 const reference = (node: AssemblyNode) => new THREE.Vector3(...node.point).multiplyScalar(CELL_SIZE);
 
-/** One selectable mesh for the card. Each piece occupies its own physical
- * centerline. Section enlargement leaves the depth and port stations intact. */
-export function assemblyGeometry(member: Member, coordinate = reference) {
+export function assemblySectionGeometry(steps = 1) {
   const {width, depth, wall} = SECTION_GEOMETRY.shs;
   const w = width/2, d = depth/2;
   const face = new THREE.Shape();
@@ -18,7 +16,13 @@ export function assemblyGeometry(member: Member, coordinate = reference) {
   hole.moveTo(-w+wall, -d+wall); hole.lineTo(-w+wall, d-wall);
   hole.lineTo(w-wall, d-wall); hole.lineTo(w-wall, -d+wall); hole.closePath();
   face.holes.push(hole);
-  const profile = new THREE.ExtrudeGeometry(face, { depth: 1, bevelEnabled: false }).translate(0,0,-0.5);
+  return new THREE.ExtrudeGeometry(face, { depth: 1, steps, bevelEnabled: false }).translate(0,0,-0.5);
+}
+
+/** One selectable mesh for the card. Each piece occupies its own physical
+ * centerline. Section enlargement leaves the depth and port stations intact. */
+export function assemblyGeometry(member: Member, coordinate = reference) {
+  const profile = assemblySectionGeometry();
   const pose = new THREE.Mesh(profile);
   const pieces = assemblyParts(member).map(part => {
     poseSection(pose, coordinate(part.a), coordinate(part.b), reference(part.b).sub(reference(part.a)));

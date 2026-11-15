@@ -6,6 +6,8 @@ import { LEVELS } from "../game/levels";
 import { useGameStore } from "../game/store";
 import { analyzeGame } from "../game/analysis";
 import { analyzeTurn } from "../game/turnAnalysis";
+import { isScoredCatalogue } from "../game/cardCatalogue";
+import { deformationField } from "../viewer/deformationField";
 import { useStabilityCheck } from "../game/useStabilityCheck";
 import { StabilityCheckPanel } from "../components/StabilityCheckPanel";
 import { modeProgress } from "../game/modes";
@@ -95,7 +97,8 @@ export function Workspace() {
   const covered = game.sessionConflict || saveCovered || needsHandoff;
   const [combo, setCombo] = useState(0);
   const [deformed, setDeformed] = useState(false);
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(0); // zero selects automatic display amplification
+  const [reference, setReference] = useState(true);
   const [utilization, setUtilization] = useState(true);
   const [loads, setLoads] = useState(true);
   const [loadPath, setLoadPath] = useState(false);
@@ -103,6 +106,10 @@ export function Workspace() {
   const [libraryIndex, setLibraryIndex] = useState(0);
   const sound = useEditorSound(game.model);
   const result = analysis?.model === game.model ? analysis.result : null;
+  const field = useMemo(() => deformed && result ? deformationField(result, combo) : undefined, [result, combo, deformed]);
+  const autoScale = field?.peakM ? Math.max(1, Math.min(500, Math.round(1.2/field.peakM))) : 1;
+  const actualScale = scale || autoScale;
+  const scoredPreview = game.mode === "multiplayer" && game.turn && isScoredCatalogue(game.turn.catalogue);
   const style = game.style === "engineering" ? "levels" : game.style;
   const isKit = style === "kit";
   const isLevels = style === "levels";
@@ -157,7 +164,7 @@ export function Workspace() {
         model: game.model,
         result:
           game.mode === "multiplayer" && game.turn
-            ? analyzeTurn(game.turn)
+            ? analyzeTurn(game.turn, scoredPreview ? "card-gravity" : "with-self-weight")
             : analyzeGame(game.model, LEVELS[game.levelId]),
       });
       setDrawer("analysis");
@@ -332,7 +339,9 @@ export function Workspace() {
             result={result}
             combo={combo}
             deformed={deformed}
-            scale={scale}
+            scale={actualScale}
+            field={field}
+            reference={reference}
             utilization={utilization && result?.designChecksAvailable !== false}
             loads={loads}
             loadPath={loadPath}
@@ -391,6 +400,9 @@ export function Workspace() {
             </div>
             <div id="cornerleft">
               <EnvironmentStats />
+              {field && <span className="deformation-readout" role="status">
+                {field.spans.size ? `Displacement ×${actualScale}${reference ? " · dashed reference" : ""}` : "Displacement unavailable"}
+              </span>}
             </div>
           </>
         )}
@@ -553,6 +565,13 @@ export function Workspace() {
                     setDeformed={setDeformed}
                     scale={scale}
                     setScale={setScale}
+                    field={field}
+                    actualScale={actualScale}
+                    reference={reference}
+                    setReference={setReference}
+                    shared={game.mode === "multiplayer"}
+                    scored={!!scoredPreview}
+                    draft={!!game.turn && (game.turn.draft.members.length + game.turn.draft.loads.length + game.turn.draft.connections.length > 0)}
                     utilization={utilization}
                     setUtilization={setUtilization}
                     loads={loads}
