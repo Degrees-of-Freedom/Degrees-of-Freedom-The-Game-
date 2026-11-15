@@ -104,7 +104,7 @@ class Domain:
     temp_tag_base: int
     geometry: str
     #: Beam self-weight element loads: (element tag, start node, end node,
-    #: total force vector in global axes acting at the element's chord midpoint).
+    #: intended total force vector in global axes).
     distributed: list[tuple[int, int, int, np.ndarray]] = field(default_factory=list)
 
     def duplicates_of(self, joint_tag: int) -> list[Node]:
@@ -285,10 +285,12 @@ def _add_beam_weight(prepared: PreparedModel, component: Component, domain: Doma
     Verified in OpenSeesPy 3.8 (fixed-fixed, propped with a moment release,
     skew member; Linear and Corotational): end forces and reactions match the
     closed forms, and under Corotational geometry the element's load resultant
-    stays w L along global -Z, acting at the deformed chord midpoint (moment
-    balance to 1e-15 with a 0.94 m tip deflection), so it behaves as gravity
-    at any rotation. ``Domain.distributed`` records each element load so the
-    engine can include it in the equilibrium check.
+    stays w L along global -Z (a dead load, also for skew members with an
+    axial component), so it behaves as gravity at any rotation. Its line of
+    action on a bent element is not the chord midpoint in general (about
+    0.4 of the deflection off it on a skew cantilever), so the engine takes it
+    from the element's own end forces. ``Domain.distributed`` records each
+    element load so the engine can check it and include it in equilibrium.
     """
     for member_id in component.member_ids:
         member = prepared.members[member_id]

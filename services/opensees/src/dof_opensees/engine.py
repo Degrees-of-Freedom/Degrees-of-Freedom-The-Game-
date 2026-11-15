@@ -1100,8 +1100,9 @@ class _State:
     #: Largest member force and moment magnitudes, floors for the equilibrium scales.
     force_scale: float
     moment_scale: float = 0.0
-    #: Beam element loads: (start node, end node, total force in global axes).
-    distributed: list[tuple[int, int, np.ndarray]] = field(default_factory=list)
+    #: Beam element loads as OpenSees applies them: (intended total force,
+    #: applied force, applied moment about the global origin), global axes.
+    distributed: list[tuple[np.ndarray, np.ndarray, np.ndarray]] = field(default_factory=list)
     #: Largest unbalanced nodal force and moment over every DOF that is not a
     #: support restraint (free DOFs, and fixes that are not supports).
     nodal_force: float = 0.0
@@ -1200,6 +1201,18 @@ def _read(prepared: PreparedModel, component: Component, domain: builder.Domain,
     positions = {
         tag: node.position + (displacement[tag][:3] if deformed else 0.0) for tag, node in domain.nodes.items()
     }
+    distributed = []
+    for tag, start, end, intended in domain.distributed:
+        # The load an element carries is minus the sum of its own end forces
+        # (the element is in equilibrium with its load by construction). Under
+        # Corotational geometry the resultant of beamUniform stays along
+        # global -Z but does not act at the deformed chord midpoint, so its
+        # line of action is taken from the element rather than assumed; its
+        # direction and size are still checked against the intended dead load.
+        f = np.array(ops.eleResponse(tag, "globalForce"), dtype=float)
+        applied = -(f[0:3] + f[6:9])
+        moment = -(np.cross(positions[start], f[0:3]) + f[3:6] + np.cross(positions[end], f[6:9]) + f[9:12])
+        distributed.append((intended, applied, moment))
     return _State(
         displacements={node_id: displacement[tag] for node_id, tag in domain.joint_tags.items()},
         reactions=reactions,
@@ -1211,7 +1224,7 @@ def _read(prepared: PreparedModel, component: Component, domain: builder.Domain,
         violations=violations,
         force_scale=scale,
         moment_scale=moment_scale,
-        distributed=[(start, end, force) for _, start, end, force in domain.distributed],
+        distributed=distributed,
         nodal_force=nodal_force,
         nodal_moment=nodal_moment,
         force_floor=FORCE_FLOOR_STRAIN * min(
@@ -1333,13 +1346,16 @@ def _equilibrium_residual(state: _State) -> float:
         moment += np.cross(arm, reaction[:3]) + reaction[3:]
         reacted_force += float(np.linalg.norm(reaction[:3]))
         reacted_moment += float(np.linalg.norm(reaction[3:]))
-    for start, end, load in state.distributed:
-        # A uniform element load's resultant acts at the element's chord
-        # midpoint, deformed under nonlinear fidelity (verified, see builder).
-        arm = 0.5 * (positions[start] + positions[end]) - centre
+    load_error = 0.0
+    for intended, load, load_moment in state.distributed:
+        # Applied as OpenSees applies it (see _read); the moment is shifted
+        # from the origin to the centre.
         force += load
-        moment += np.cross(arm, load)
-        applied_force += float(np.linalg.norm(load))
+        moment += load_moment - np.cross(centre, load)
+        applied_force += float(np.linalg.norm(intended))
+        # Self-weight is a dead load: what the element carries must be the
+        # intended w L along global -Z, whatever the member has done.
+        load_error = max(load_error, float(np.linalg.norm(load - intended)))
     extent = np.ptp(np.array(list(positions.values())), axis=0) if positions else np.zeros(3)
     size = float(np.linalg.norm(extent)) or 1.0
     raw_moment_scale = max(applied_moment, reacted_moment, state.moment_scale)
@@ -1350,7 +1366,8 @@ def _equilibrium_residual(state: _State) -> float:
     moment_scale = max(force_scale * size, raw_moment_scale)
     residuals = []
     for value, scale in ((np.linalg.norm(force), force_scale), (np.linalg.norm(moment), moment_scale),
-                         (state.nodal_force, force_scale), (state.nodal_moment, moment_scale)):
+                         (state.nodal_force, force_scale), (state.nodal_moment, moment_scale),
+                         (load_error, force_scale)):
         if scale > 0.0:
             residuals.append(float(value) / scale)
         else:
