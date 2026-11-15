@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { assemblyParts, type AssemblyNode } from '../game/assembly';
 import { CELL_SIZE, type Member } from '../game/model';
-import { SECTION_GEOMETRY } from '../solver/voxelSections';
+import { SECTION_GEOMETRY } from '../evaluator/sections';
 import { poseSection } from './sectionGeometry';
 
 const reference = (node: AssemblyNode) => new THREE.Vector3(...node.point).multiplyScalar(CELL_SIZE);

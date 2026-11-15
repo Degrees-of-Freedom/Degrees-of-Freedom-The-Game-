@@ -1,5 +1,5 @@
 import type { StructuralSnapshot, Vector3 } from "@dof/solver-contract";
-import type { FrameConnection } from "../solver/frameConnections";
+import type { FrameConnection } from "../evaluator/connections";
 
 type ComponentLaw = StructuralSnapshot["connections"][number]["laws"][number];
 type Freedom = ComponentLaw["kind"] | ComponentLaw;

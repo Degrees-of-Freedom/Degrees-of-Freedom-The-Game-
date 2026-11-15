@@ -172,7 +172,7 @@ function DetailedCheck({ result, notes, solverName }: { result: DetailedAnalysis
 }
 
 /**
- * The contract-solver check, beside the voxel analysis and independent of it.
+ * The contract-solver check, beside the structure evaluation and independent of it.
  *
  * A solver for the detailed contract gives the structural check above. Any
  * other solver gives kinematic stability and determinacy only: whether the

@@ -5,6 +5,8 @@ validated_against:
   - crates/dof-solver/README.md
   - crates/dof-solver/src
   - crates/dof-solver/tests
+  - crates/dof-solver/tests/reserve.rs
+  - apps/web/src/evaluator/engine/rustDesign.ts
   - packages/solver-contract/src/analysis.ts
   - apps/web/src/solver/wasm
   - apps/web/src/solver/index.ts
@@ -20,7 +22,8 @@ validated_against:
   - apps/web/src/game/useStabilityCheck.ts
   - apps/web/src/components/StabilityCheckPanel.tsx
   - apps/web/src/game/analysisModel.test.ts
-  - apps/web/src/solver/voxelSections.ts
+  - apps/web/src/evaluator/sections.ts
+  - apps/web/src/evaluator/engine/siSections.ts
   - scripts/build-solver-wasm.mjs
   - scripts/bench-solver.mjs
   - docs/kb/solver-criteria.md
@@ -34,7 +37,7 @@ status: partial
 
 The crate [README](../../crates/dof-solver/README.md) is the reference for building, calling, conventions, the algorithm and tolerances. This page records how the solver stands against the criteria, the evidence, and the choices that still need an owner decision.
 
-The scored Grow Dusk release uses the nonlinear Rust 0.2.0 module for End Turn, replay, card strength and signed support attraction. The workspace editor also uses the module for its detailed stability check. Independent OpenSeesPy tests exercise matched nonlinear buckling, sway and cable models. The tests and timings below describe measured behavior. Owner acceptance is tracked in the release ledger.
+The scored Grow Dusk release uses the nonlinear Rust 0.2.0 module for End Turn, replay, card strength and signed support attraction. The workspace editor also uses the module for its detailed stability check. Since 2026-11-15 it also runs the structure evaluation behind the editor, levels, auto-design and structure library (see [Stability reserve and the structure evaluator](#stability-reserve-and-the-structure-evaluator)). Independent OpenSeesPy tests exercise matched nonlinear buckling, sway and cable models. The tests and timings below describe measured behavior. Owner acceptance is tracked in the release ledger.
 
 ## What exists
 
@@ -64,9 +67,9 @@ The revision integrating the v2 shared contract records accepted load increments
 
 ### Workspace editor
 
-With the Rust solver, Run analysis in the workspace runs a geometrically nonlinear analysis of the detailed model, in addition to the voxel analysis. `toAnalysisModel(game, level)` makes the model as follows.
+With the Rust solver, Run analysis in the workspace runs this structural check, a geometrically nonlinear analysis of the detailed model, in addition to the structure evaluation. `toAnalysisModel(game, level)` makes the model as follows.
 
-- **Sections.** Each member type in use gets its own section from the card data in `apps/web/src/solver/voxelSections.ts`, converted to SI. Capacities are axial from area times strength, bending from section modulus times strength, shear from the smaller shear area times shear strength, and, for a cable, its design resistance `NRd`. Density is derived from the card's self-weight per metre, so the solver's self-weight reproduces the card weight.
+- **Sections.** Each member type in use gets its own section from the card data in `apps/web/src/evaluator/sections.ts`, converted to SI by `sectionFor` in `evaluator/engine/siSections.ts`. Capacities are axial from area times strength, bending from section modulus times strength, shear from the smaller shear area times shear strength, and, for a cable, its design resistance `NRd`. Density is derived from the card's self-weight per metre, so the solver's self-weight reproduces the card weight.
 - **Cables** are tension-only members with the card pretension `P0` as initial strain.
 - **Beam ends** are rigid at a node with a moment connection ("joint"). Elsewhere they are released in bending (local rotations y and z free, torsion held).
 - **Foundations** restrain the DOFs in their restraint mask, or all six when they have none. Gravity is 9.81 m/s² along -Z, so self-weight is included.
@@ -74,7 +77,7 @@ With the Rust solver, Run analysis in the workspace runs a geometrically nonline
 - **Loads.** A tower level puts the payload on its highest nodes. A bridge level spreads traffic times span over the deck nodes between the cliffs. Other levels use the point loads placed on nodes, each along its chosen axis. As in the voxel analysis, only nodes joined to a foundation through members are considered, so a loose member cannot attract the payload.
 - **Unconnected things.** Every member is sent, so a part with no foundation is reported as unsupported, under its own weight only. Nodes with no member are not sent: a foundation nothing stands on, or a weight nothing is attached to, does not appear, and a note counts the placed loads left out.
 
-What the translation leaves out: loads are unfactored, there is no wind, and there are no load combinations. The solver can now analyse several load cases in one call and reports deflection along members, but the workspace uses neither yet. The voxel analysis uses four ultimate and serviceability combinations with wind and notional loads, and this check does not reproduce them, so its numbers are not comparable one to one with the voxel analysis. Utilisation is section strength only: there is no buckling reduction factor (buckling shows as instability in the nonlinear analysis instead), no deflection limit, and no joint or foundation capacity, all of which the voxel analysis checks. Shear is checked as the resultant against the smaller shear area, which is conservative. The translation returns notes saying what is left out.
+What the translation leaves out: loads are unfactored, there is no wind, and there are no load combinations. The structural check does not use load cases or member deflection; the structure evaluation, shown in the results panel, uses both (see [Stability reserve and the structure evaluator](#stability-reserve-and-the-structure-evaluator)). The voxel analysis uses four ultimate and serviceability combinations with wind and notional loads, and this check does not reproduce them, so its numbers are not comparable one to one with the voxel analysis. Utilisation is section strength only: there is no buckling reduction factor (buckling shows as instability in the nonlinear analysis instead), no deflection limit, and no joint or foundation capacity, all of which the voxel analysis checks. Shear is checked as the resultant against the smaller shear area, which is conservative. The translation returns notes saying what is left out.
 
 The workspace's Structural check panel shows the worst component status and any strength exceedance, with the reason codes, separate parts, free DOFs, mechanisms, redundancy, largest movement, governing utilisation, slack cables and signed foundation reactions. Unverified values show as unavailable. With OpenSees selected, the panel lists the verified components' support reactions and explains any unavailable components.
 
@@ -181,6 +184,29 @@ Two things support the linear results beyond the closed-form cases. A unit test 
 The independent nonlinear suite runs the shipped binary and OpenSeesPy on the same geometries, material constants, boundary conditions and loading paths. The sway fixture gives 0.0054120214 m and 0.0054067377 m respectively (0.098% difference). The perfect-column critical multiplier is 1.00004883 times the analytical Euler load in WASM. OpenSees brackets loss of positive tangent stiffness at 1.00078125 to 1.00156250 on the same straight column. The symmetric sagging cable gives 379632.4530 N and 379632.4526 N in tension. Run `uv run --project services/opensees pytest -qs services/opensees/tests/test_release_wasm_reference.py`.
 
 The independent service's v2 driver identifies the above-critical column as unstable, locates the mode at the tip, reports the limiting load factor and withholds reactions. The matched release test asserts all four properties as well as the 2% critical-load gate. On 15 November 2026 the full integrated `npm run test:opensees` gate passed 719 of 726 collected tests. Six optional-service skew-axis cases were skipped because the specified releases cannot be represented on those members. One skipped case was the opt-in single-seed diagnosis. The run includes the service's separate 10,000-state historical matrix and 300 newer generated states. The 20-fixture `compare:solvers` script records editor verdict disagreements and compute/wall time. Its results describe the voxel and optional linear/nonlinear HTTP paths. Shared table's authoritative numerical checks use the release WASM.
+
+## Stability reserve and the structure evaluator
+
+`options.reserveSearch` (a limit in (1, 1e4]) adds `reserve: {lower, upper, cause}` to each verified stable or marginal nonlinear component. It is the load multiplier, relative to the applied load, at which the equilibrium stops being stable. The field is absent unless requested, so existing responses, including the release's, are unchanged. There are two methods (`options.reserveMethod`):
+
+- **`path`** (default) continues the verified equilibrium under increasing load: doubling, then six geometric bisections. It finds bifurcations (`cause: "instability"`) and limit points (`"noEquilibrium"`). Each continuation increment may move no node more than 1 % of the component size, so an energy-descent step cannot jump across a snap-through to a remote branch. Probes are limited to 12 Newton iterations and 1/32 of the probed interval.
+- **`linearized`** extrapolates the verified tangent along the path, `Kt + (t − 1) dK/dt`, with a 1 % forward difference along `du = Kt⁻¹ λf`. Each probe costs one factorisation and no Newton iterations; it finds bifurcations only.
+
+`tests/reserve.rs` covers both methods:
+
+- an Euler column (path and linearised within the 2 % mesh gate);
+- agreement with direct analyses at both bounds;
+- a tie, stable to the limit;
+- a shallow two-bar arch, whose limit point is within 10 % of the shallow-arch formula;
+- a fixed-base sway portal, where the two methods agree;
+- budget exhaustion, which reports `reserveSearchIncomplete` and keeps the verified result;
+- absence of the field unless requested, and rejection of invalid options.
+
+The structure evaluator (`apps/web/src/evaluator/engine/rustDesign.ts`) sends its four design combinations through `analyzeCases`, with nonlinear fidelity, member fields and two elements per beam. The ultimate combinations add `reserveSearch: 128, reserveMethod: "linearized", stabilityMargin: 1`. On the game's bridge reference this took about 70 ms against 4.9 s for the path method. Measured against the path method on the structure library, the linearised reserve agrees within about 1 % on four specimens and is lower on five (up to 10× on the flexible roof grid). It is higher on the guyed mast (110 against 75). See [voxel retirement](voxel-retirement.md) for the evaluator's comparison with the voxel results.
+
+The rebuilt module keeps the release's results: `node scripts/physics/check-saved-solver.mjs 39508f0` reproduced all 20 archived browser matches and 660 confirmed records. The checked-in binary was rebuilt with rustc 1.97.0; a WASM build varies by toolchain, and production builds compile from source.
+
+The option `maxRequestIterations`, which the Rust parser already accepted, is now declared in the TypeScript contract.
 
 ## Cross-check with OpenSees — 2026-11-15
 

@@ -4,7 +4,7 @@ The engine is the same ``dof_opensees.engine.analyze`` that backs the game's
 OpenSees check, so a structure judged stable here is judged by the project's
 own reference solver rather than a re-implementation. To keep that verdict
 meaningful for the game, the section is the game's own ``shs`` card
-(SHS 100x6, S355: ``apps/web/src/solver/voxelSections.ts``), members have rigid
+(SHS 100x6, S355: ``apps/web/src/evaluator/sections.ts``), members have rigid
 ends and every supported node is a fully fixed foundation, which matches the
 game's ``joint`` voxel semantics. Self-weight is added as nodal loads. Loads
 carry the game's ULS partial factors (1.35 dead, 1.5 applied). Utilisation is
@@ -22,7 +22,7 @@ from dof_opensees.schema import StructuralModel
 
 from .lattice import CELL_METRES, Structure
 
-# Game card ``shs`` (kN/m units converted to SI): see voxelSections.ts. The engine takes
+# Game card ``shs`` (kN/m units converted to SI): see evaluator/sections.ts. The engine takes
 # per-member properties in the contract; self-weight is added here as factored nodal loads, so the
 # engine's own ``selfWeight`` option stays off.
 ELASTIC_MODULUS_PA = 210e9
@@ -53,7 +53,7 @@ class LoadCase:
     applied inside :func:`build_model`.
 
     ``max_utilization`` is deliberately well below 1. The game's own design
-    check (``apps/web/src/solver/voxelDesignChecks.ts``) is stricter than this
+    check (``apps/web/src/evaluator/designChecks.ts``) is stricter than this
     module's elastic screen. On 114 oracle-passing seeds the two utilisations
     correlated at 0.84; with a limit of 0.5, 41 of 42 passing structures stayed
     at or below 1 in the game, and 0.45 is used for margin. The Node test

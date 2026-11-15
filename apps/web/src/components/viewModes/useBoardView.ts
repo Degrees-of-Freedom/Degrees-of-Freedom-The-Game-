@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import type { TurnState } from "../../game/turns";
 import { updateSettings, useSettings } from "../../menu/settings";
-import { computeLoadPath } from "../../solver/loadPath";
+import { computeLoadPath } from "../../evaluator/loadPath";
 import { boardDiagram } from "../../viewer/boardDiagrams";
 import { deformationField } from "../../viewer/deformationField";
 import { useReleaseInspection } from "../../viewer/useReleaseInspection";

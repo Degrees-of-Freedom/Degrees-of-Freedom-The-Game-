@@ -55,21 +55,20 @@ export function EngineeringOptions({
       {(game.mode === "creative" || game.mode === "challenge") && (
         <button
           onClick={() => {
-            try {
-              const source = game.model,
-                design = autoDesignGame(source, LEVELS[game.levelId]);
-              onMessage(
+            // The store applies the result only if the model is still the
+            // one that was sized, so edits made meanwhile are never lost.
+            const source = game.model;
+            onMessage("Sizing beams…");
+            autoDesignGame(source, LEVELS[game.levelId]).then(
+              (design) => onMessage(
                 design.changed && game.applyAutoDesign(design.model, source)
                   ? "Beam sections updated. Run feedback for the revised model."
                   : (design.analysis.error ?? "No beam sections changed."),
-              );
-            } catch (error) {
-              onMessage(
-                error instanceof Error
-                  ? error.message
-                  : "Auto-design unavailable",
-              );
-            }
+              ),
+              (error: unknown) => onMessage(
+                error instanceof Error ? error.message : "Auto-design unavailable",
+              ),
+            );
           }}
         >
           Auto-design beams

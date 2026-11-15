@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { type GameModel, type LevelId } from "./model";
-import { type VoxelLevel, type VoxelModel } from "../solver/voxelInput";
-import { ITEMS, S } from "../solver/voxelSections";
-import { COMBOS, GAMMA } from "../solver/voxelLoads";
+import { type EvaluatorLevel, type EvaluatorModel } from "../evaluator/model";
+import { ITEMS, S } from "../evaluator/sections";
+import { COMBOS, GAMMA } from "../evaluator/loads";
 
 // This format captures the existing voxel solver, not the proposed general FEA model.
 const gridKey = z.string().regex(/^(0|[1-9]\d*),(0|[1-9]\d*),(0|[1-9]\d*)$/);
@@ -167,7 +167,7 @@ export function readGameSave(
 
 // The current voxel solver reads these constants directly. Record them and reject
 // replay if they change; increment the algorithm version when its semantics change.
-function currentProfile(model: VoxelModel): string {
+function currentProfile(model: EvaluatorModel): string {
   // The optional round-tube printing cannot invalidate older editor snapshots.
   const {chs, ...earlierSections} = ITEMS;
   return JSON.stringify({
@@ -181,8 +181,8 @@ function currentProfile(model: VoxelModel): string {
 
 /** Freeze the actual inputs and solver profile required by the experimental solver. */
 export function createVoxelAnalysisSnapshot(
-  model: VoxelModel,
-  level: VoxelLevel,
+  model: EvaluatorModel,
+  level: EvaluatorLevel,
 ): VoxelAnalysisSnapshot {
   return analysisSchema.parse({
     format: "dof-voxel-analysis",
@@ -198,8 +198,8 @@ export function createVoxelAnalysisSnapshot(
 
 /** Validate and detach a snapshot before passing it to the matching solver. */
 export function recomposeVoxelAnalysis(value: unknown): {
-  model: VoxelModel;
-  level: VoxelLevel;
+  model: EvaluatorModel;
+  level: EvaluatorLevel;
 } {
   const snapshot = analysisSchema.parse(value);
   if (snapshot.solverProfile !== currentProfile(snapshot.model))

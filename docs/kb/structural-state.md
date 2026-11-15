@@ -12,9 +12,9 @@ validated_against:
   - apps/web/src/game/persistence.ts
   - apps/web/src/game/store.ts
   - apps/web/src/game/analysis.ts
-  - apps/web/src/solver/voxelInput.ts
-  - apps/web/src/solver/voxelSections.ts
-  - apps/web/src/solver/voxelLoads.ts
+  - apps/web/src/evaluator/model.ts
+  - apps/web/src/evaluator/sections.ts
+  - apps/web/src/evaluator/loads.ts
   - docs/kb/solver-criteria.md
   - docs/kb/turn-criteria.md
   - docs/kb/structural-solver.md

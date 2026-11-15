@@ -3,12 +3,12 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { PLANAR, TRICHORD } from '../../game/assembly';
 import { HOLLOW_CATALOGUE, PLANAR_CATALOGUE, RELEASE_CATALOGUE, SCORED_CATALOGUE, TRUSS_CATALOGUE, type CatalogueId } from '../../game/cardCatalogue';
 import type { Member } from '../../game/model';
-import { toTurnVoxelInput } from '../../game/turnAnalysis';
+import { toTurnEvaluatorInput } from '../../game/turnAnalysis';
 import { findPort } from '../../game/turnPorts';
 import { createTurnGame } from '../../game/turns';
-import { displacementAt } from '../voxelResults';
-import { ITEMS } from '../voxelSections';
-import { createTurnSolver } from './turnSolver';
+import { displacementAt } from '../../evaluator/results';
+import { ITEMS } from '../../evaluator/sections';
+import { createTurnSolver } from '../../evaluator/engine/releaseTurn';
 
 const solver = createTurnSolver(async () => Uint8Array.from(await readFile(new URL('./dof_solver.wasm', import.meta.url))).buffer);
 beforeAll(solver.prepare);
@@ -26,7 +26,7 @@ function cantilever(catalogue: CatalogueId, type: Member['type'], quarter: numbe
     connections: [{memberId:3, end:'a', jointId:parent.a, profile:'fixed', owner:'player-1'}],
     loads: [{cardId:'test-load', jointId:port, magnitude:1, owner:'player-1'}],
   };
-  const model = toTurnVoxelInput(state);
+  const model = toTurnEvaluatorInput(state);
   const result = solver.analyze(model, catalogue), combo = result.combos[0], ctx = result.ctx!;
   expect(combo.components?.[0].verification?.status).toBe('verified-nonlinear');
   expect(model.members.every(m => m.parentSpan?.memberId === parent.id)).toBe(true);
@@ -57,7 +57,7 @@ describe('expanded match cards with the release WASM reference', () => {
       connections:[{memberId:3,end:'a',jointId:a,owner:'player-1',profile:'fixed'},
         {memberId:3,end:'b',jointId:b,owner:'player-1',profile:'fixed'}],
       loads:[{owner:'player-1',cardId:'test-load',magnitude:5,jointId:port}]};
-    const model = toTurnVoxelInput(state);
+    const model = toTurnEvaluatorInput(state);
     expect(model.members.map(m=>m.restLengthM)).toEqual([2*q,2*(4-q)]);
     const result = solver.analyze(model, RELEASE_CATALOGUE), ctx=result.ctx!, combo=result.combos[0];
     expect(combo.components?.[0].verification?.status).toBe('verified-nonlinear');

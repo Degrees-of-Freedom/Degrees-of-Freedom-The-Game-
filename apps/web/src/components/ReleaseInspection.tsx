@@ -12,7 +12,7 @@ import { CardDefinitionDetails } from "./CardDefinitionDetails";
 import { JointPermissions } from "./JointPermissions";
 import { RepairHistory } from "./RepairHistory";
 import { MemberDiagram } from "./MemberDiagram";
-import { computeLoadPath } from "../solver/loadPath";
+import { computeLoadPath } from "../evaluator/loadPath";
 import { DISPLACEMENT_SCALES, OVERLAY_LAYERS, type OverlayLayer as Layer } from "../viewer/viewModes";
 
 type Game = ReturnType<typeof useGameStore.getState>;

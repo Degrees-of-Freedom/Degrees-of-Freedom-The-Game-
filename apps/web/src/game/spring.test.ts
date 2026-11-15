@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { LEGACY_CATALOGUE, PLANAR_CATALOGUE, SCORED_CATALOGUE, SPRING_CATALOGUE, TRUSS_CATALOGUE, printedCards } from './cardCatalogue';
 import { findMaterialClash } from './materialClashes';
-import { analyzeTurn, toTurnVoxelInput } from './turnAnalysis';
+import { analyzeTurn, toTurnEvaluatorInput } from './turnAnalysis';
 import { activeTurnHand, createTurnGame, endTurn, parseTurnState, stageConnection, stageElement, stageLoad, type TurnState } from './turns';
-import { analyzeVoxel } from '../solver/voxel';
-import { assessCardCapacity } from '../solver/voxelCapacity';
-import { displacementAt } from '../solver/voxelResults';
+import { analyzeVoxel } from '../solver/voxel/analyze';
+import { assessCardCapacity } from '../evaluator/capacity';
+import { displacementAt } from '../evaluator/results';
 import { springParts } from './springParts';
 import { springGeometry } from '../viewer/springGeometry';
 
@@ -21,7 +21,7 @@ function sample(quarter: number, magnitude: number, both = true, guide = true) {
     loads:[{cardId:'applied',magnitude:Math.abs(magnitude),jointId:port,owner}],
   };
   if (quarter !== 4) state.board.joints.push({id:port,point:[1,3,quarter].join(',')});
-  const model = toTurnVoxelInput(state);
+  const model = toTurnEvaluatorInput(state);
   // Explicit laboratory lateral guide. The actual game fixture below instead
   // supplies this restraint with a second anchored frame and real cards.
   if (guide) model.attrs[port].restraint = [true,true,false,false,false,false];
@@ -116,7 +116,10 @@ describe('two-way axial spring and its original three collars', () => {
     const r=analyzeTurn(s,'card-gravity');
     const check = r.capacity!.members[4];
     expect(check.status,JSON.stringify(check)).toBe('verified');
-    if (check.status === 'verified') expect(check.actions.N).toBeCloseTo(0.043750059,8);
+    // Observed on the Rust turn solver, not an independent reference. In this
+    // statically indeterminate frame the spring's share depends on the HEB's
+    // shear flexibility, which the legacy kernel ignored (it gave 0.04375 kN).
+    if (check.status === 'verified') expect(check.actions.N).toBeCloseTo(0.0451911957,8);
     expect(s.board.members).toHaveLength(5);
     expect(s.board.connections.filter(c=>c.memberId===4)).toHaveLength(2);
     expect(parseTurnState(s)).toEqual(s);

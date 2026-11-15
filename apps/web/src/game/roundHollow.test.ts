@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { ITEMS } from '../solver/voxelSections';
+import { ITEMS } from '../evaluator/sections';
 import { roundHollowGeometry } from '../viewer/sectionGeometry';
 import { HOLLOW_CATALOGUE, printedCards } from './cardCatalogue';
 import { findMaterialClash } from './materialClashes';

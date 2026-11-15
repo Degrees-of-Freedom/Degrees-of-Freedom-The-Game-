@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { activeTurnHand, cancelTurnDraft, createTurnGame, endTurn, parseTurnState,
   projectTurnModel, stageConnection, stageElement, stageLoad } from "./turns";
-import { analyzeTurn, toTurnVoxelInput } from "./turnAnalysis";
+import { analyzeTurn, toTurnEvaluatorInput } from "./turnAnalysis";
 import { analyzeConnectivity } from "./connectivity";
 import { publicTurnModel } from "./publicTurnModel";
 import { findPort, originalPorts } from "./turnPorts";
@@ -30,7 +30,7 @@ describe("original reference quarter interfaces", () => {
     const placed = accepted(stageElement(turn, "element-7", port, other));
     expect(placed.draft.members[0].a).toBe(`1,3,${quarter / 4}`);
     expect(stageLoad(placed, "load-4", port).ok).toBe(false);
-    expect(toTurnVoxelInput(placed).members).toHaveLength(3);
+    expect(toTurnEvaluatorInput(placed).members).toHaveLength(3);
     expect(analyzeConnectivity(projectTurnModel(placed), placed).unsupportedMembers).toContain(3);
     const attached = accepted(stageConnection(placed, "connection-6", 3, "a"));
     expect(attached.draft.connections).toHaveLength(1);
@@ -45,7 +45,7 @@ describe("original reference quarter interfaces", () => {
     expect(projection.members).toHaveLength(3);
     expect(projection.attrs[`1,3,${quarter / 4}`].load).toBe(5);
     expect(analyzeConnectivity(projection, committed).groundedMembers.has(3)).toBe(true);
-    const input = toTurnVoxelInput(committed);
+    const input = toTurnEvaluatorInput(committed);
     const segments = input.members.filter(e => e.parentSpan?.memberId === 1);
     expect(segments.map(e => [e.parentSpan!.fromQuarter, e.parentSpan!.toQuarter])).toEqual([[0, quarter], [quarter, 4]]);
     expect(segments[0].b).toBe(port);

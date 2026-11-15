@@ -10,8 +10,8 @@ validated_against:
   - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
   - "Project owner shared-joint freedoms revision, 2026-11-14"
-  - apps/web/src/solver/voxelInput.ts
-  - apps/web/src/solver/voxelSections.ts
+  - apps/web/src/evaluator/model.ts
+  - apps/web/src/evaluator/sections.ts
   - apps/web/src/game/store.ts
   - packages/solver-contract/src/index.ts
 owner: project owner
@@ -86,7 +86,7 @@ This covers free, rigid and elastic behavior for every DOF without putting every
 
 The optional `shared-table-joints-1` frame catalogue deals seven printings. The diagonal hinge releases rotation about horizontal (+X,+Y)/√2. The X guide releases global X translation. The two elastic seats allow global Z translation with 20 or 80 MN/m stiffness. The yaw fitting allows global Z rotation with 8 MN·m/rad stiffness. Each of those five fittings locks its remaining components and has a provisional elliptical capacity interaction with intercepts of 400 kN resultant force and 80 kN·m resultant moment. Their directions are fixed on the printing. The original fixed and ball values and previous seeded decks are preserved.
 
-In the small-displacement browser frame solver, each flexible component has its own relative end motion. The solver eliminates these internal coordinates from the stiffness matrix, recovers them for the signed end actions and independently checks every connector law on its physical axes. Compression screening uses the internal connector tangent at the trial load factor. A free translation or a moment applied along a free rotational axis can leave the structure unstable. An unloaded pure joint spin contributes zero stiffness and zero reaction. OpenSees HTTP continues to expose the connection types its own request contract supports. [Analytical fixtures](../../apps/web/src/solver/frameConnections.test.ts)
+In the small-displacement browser frame solver, each flexible component has its own relative end motion. The solver eliminates these internal coordinates from the stiffness matrix, recovers them for the signed end actions and independently checks every connector law on its physical axes. Compression screening uses the internal connector tangent at the trial load factor. A free translation or a moment applied along a free rotational axis can leave the structure unstable. An unloaded pure joint spin contributes zero stiffness and zero reaction. OpenSees HTTP continues to expose the connection types its own request contract supports. [Analytical fixtures](../../apps/web/src/solver/voxel/frameConnections.test.ts)
 
 The seed-1 playthrough applied a 10 kN gravity card to Player 2's 20 MN/m seat on turn six, then reloaded the committed turn. Relative vertical movement measured −0.500 mm, the supported foundation received +10 kN and the seat used 0.025 of its printed capacity. The replay test adds an 80 MN/m connector at that same joint and exercises an incompatible hinge. [Browser runner](../evidence/elastic-joints/check.mjs) · [Earlier printing](../evidence/elastic-joints/before-printing.png) · [New printing](../evidence/elastic-joints/after-printing.png) · [Replay test](../../apps/web/src/game/jointCatalogue.test.ts)
 

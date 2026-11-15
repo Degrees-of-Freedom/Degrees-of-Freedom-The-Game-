@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { analyzeVoxel } from "../solver/voxel";
-import type { VoxelLevel, VoxelModel } from "../solver/voxelInput";
+import { analyzeVoxel } from "../solver/voxel/analyze";
+import type { EvaluatorLevel, EvaluatorModel } from "../evaluator/model";
 import { deformationField, spanPoint } from "./deformationField";
 import { buildDisplacementShadow, peakDisplacement, SHADOW_OPACITY } from "./displacementShadow";
 import { basePoint } from "./sceneResults";
 import { disposeGroup } from "./sceneGeometry";
 
-const level: VoxelLevel = { type: "sandbox", loadCase: "applied", appliedSelfWeight: false, q0: 0, budget: Infinity, inv: null };
-const cantilever: VoxelModel = {
+const level: EvaluatorLevel = { type: "sandbox", loadCase: "applied", appliedSelfWeight: false, q0: 0, budget: Infinity, inv: null };
+const cantilever: EvaluatorModel = {
   members: [{ id: 1, type: "heb", a: "0,0,0", b: "2,0,0", endA: "fixed", endB: "ball" }],
   attrs: { "0,0,0": { found: true }, "2,0,0": { load: 1 } }, nextId: 2,
 };
