@@ -30,10 +30,10 @@ const measurements: Measurement[] = [];
 const reference: Measurement[] = update ? [] : JSON.parse(readFileSync(baselineFile, 'utf8')).measurements;
 
 describe('structure library', () => {
-  it('ships 20 consistent, bounded, distinct records with real PNG assets', () => {
-    expect(records).toHaveLength(20);
+  it('ships 30 consistent, bounded, distinct records with real PNG assets', () => {
+    expect(records).toHaveLength(30);
     if (!update) expect(JSON.parse(readFileSync(baselineFile, 'utf8')).catalogSha256).toBe(catalogHash);
-    expect(new Set(records.map(r => JSON.stringify(r.save.model))).size).toBe(20);
+    expect(new Set(records.map(r => JSON.stringify(r.save.model))).size).toBe(30);
     for (const record of records) {
       const model = record.save.model;
       expect(model.members).toHaveLength(record.memberCount);
@@ -51,10 +51,27 @@ describe('structure library', () => {
       expect(contract.nodes).toHaveLength(record.nodeCount);
     }
   });
+  it('keeps sculptural specimens connected to ground foundations', () => {
+    const sculptures = records.slice(20);
+    expect(sculptures.map(r => r.foundationCount)).toEqual([4, 3, 2, 2, 3, 4, 3, 3, 4, 3]);
+    for (const { save: { model }, nodeCount } of sculptures) {
+      const reached = new Set(Object.keys(model.attrs).filter(k => model.attrs[k].found));
+      for (const key of reached) expect(parseNodeKey(key)[2]).toBe(0);
+      let previous = -1;
+      while (previous !== reached.size) {
+        previous = reached.size;
+        for (const member of model.members) if (reached.has(member.a) || reached.has(member.b)) {
+          reached.add(member.a); reached.add(member.b);
+        }
+      }
+      expect(reached.size).toBe(nodeCount);
+    }
+  });
   it('rejects malformed versions, duplicate IDs and invalid model endpoints', () => {
     const value = JSON.parse(catalogText);
     expect(() => parseStructureLibrary({ ...value, version: 2 })).toThrow();
     expect(() => parseStructureLibrary({ ...value, records: [value.records[0], value.records[0]] })).toThrow();
+    expect(() => parseStructureLibrary({ ...value, records: [{ ...value.records[0], foundationCount: 100 }] })).toThrow();
     value.records[0].save.model.members[0].a = '-1,0,0';
     expect(() => parseStructureLibrary(value)).toThrow();
   });

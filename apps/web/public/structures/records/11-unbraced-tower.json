@@ -13,6 +13,7 @@
     4,
     20
   ],
+  "foundationCount": 4,
   "expectation": {
     "stability": "stable",
     "basis": "Qualitative design intent; not a verified numerical reference."
