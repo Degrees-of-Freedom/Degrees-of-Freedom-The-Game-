@@ -57,7 +57,7 @@ export function Home() {
         </h1>
         <p className="tagline">Build it. Load it. See what moves.</p>
         <nav className="menu" aria-label="Main menu" ref={nav}>
-          <Link className="btn primary" to="/modes" data-menu-focus>
+          <Link className="btn primary" to={"/match" + window.location.search} data-menu-focus>
             Play {ARROW}
           </Link>
           <Link className="btn" to="/how">
@@ -71,7 +71,7 @@ export function Home() {
           </Link>
         </nav>
         <p className="continue">
-          <Link to="/play">Continue where you left off</Link>
+          <Link to="/modes">More modes</Link>
         </p>
       </div>
       <div className="keys">
