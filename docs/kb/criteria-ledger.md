@@ -12,6 +12,20 @@ status: partial
 
 The three domain audits used local commit `cdd5c9a`, also the tip of main and the criteria branch. The implementation branch is `codex/criteria-implementation`. This ledger tracks the normal game, service or renderer entry point specified in each row. An isolated helper passing its tests does not establish game integration. Section numbers identify the acceptance cases in the linked specifications.
 
+## Paused for playtest review
+
+The owner requested a break after implementation commit `c3f6831`. The 100 tracked entries comprise 69 meets, 19 partially meets, 11 missing and one unverified deferred proposal (SURROGATE). Each entry counts once, regardless of effort. All implementation workers were stopped. The three workstreams below remain in the working tree for review.
+
+The preserved production build at `e31231d` passed typecheck, all 293 committed Vitest cases with the local service, and production bundling. The OpenSees suite passed all 84 cases, including the 10,000 generated structural states. The only following implementation commit added two cable-capacity regressions and ledger evidence; all 35 focused checks passed. The [Creative foundation scenario](../evidence/foundations/check.mjs) exercised placement, six-axis inspection, undo, redo and reload. The [seeded Shared table walkthrough](../evidence/match/check.mjs) exercised all eight rounds, scoring, private handoffs, an original quarter attachment, a real neutral repair and recovery.
+
+| Uncommitted work | Evidence available at pause | Next check before accepting |
+| --- | --- | --- |
+| Displacement contours (VIS-02) | The lead independently reproduced a 6.155 mm midpoint magnitude and its signed components in Chrome, unchanged colors at 1×/100× display scale, and an unavailable region. [Runner](../evidence/contour/check.mjs). | Review the final files and coverage on assemblies, cables and springs, then rerun the integrated suite. |
+| Large connected-frame preview (PERF-STRESS) | Sparse factorization reduced the lead's observed p95 from 617.9 ms to 24.0 ms on the 500-member/2,016-equation fixture. Its normalized force residual was 3.93e−15. | Confirm signed parity, threshold behavior and cache invalidation after load/topology edits on the final implementation. |
+| Match-file exchange (SAVE-EXPORT) | Private import/export and a public summary were added to Turn details. The worker reported 14 writer, recovery-fault and conflict tests plus typecheck passing. | Independently check browser file handling, disclosure boundaries and interrupted/repeated imports through a complete saved match. |
+
+Other open areas include historical save provenance, remaining solver classifications and terrain clearance, hollow stock sections and true-scale inspection, force diagrams and load paths, camera/targeting and feedback controls, and physical-device accessibility. Seed 8 exposed one concrete obstruction: by turn 10, a full hand can cover the desktop Fit button. [Captured board](../evidence/cable/after-board.png).
+
 ## Rules decisions for this run
 
 The owner narrowed the supported release presenter to **Grow Dusk**. Earlier captures of all five presenters remain historical visual baselines. Cross-presenter feature parity is outside the release gate. Foundation placement is required in Creative/editor. Shared table continues to use one preset fully fixed foundation per player and the explicit neutral repair exception.
