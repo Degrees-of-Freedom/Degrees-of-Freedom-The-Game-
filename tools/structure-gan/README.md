@@ -61,6 +61,15 @@ uv run dof-structure-gan calibrate-export --out /tmp/seeds.json --count 600
 uv run dof-structure-gan calibrate-report --export /tmp/seeds.json --game /tmp/game.json
 ```
 
+To enforce the game's verdict on the stored database (the oracle's utilisation limit is only a pre-filter):
+
+```bash
+uv run dof-structure-gan export-db --out /tmp/db.json
+(cd ../.. && DOF_CALIBRATION_IN=/tmp/db.json DOF_CALIBRATION_OUT=/tmp/db-game.json \\
+  npx vitest run apps/web/src/game/calibration.test.ts)
+uv run dof-structure-gan prune-db --export /tmp/db.json --game /tmp/db-game.json
+```
+
 The report gives mechanism agreement, the utilisation correlation and the largest limit at which at least
 98% of structures also satisfy the game's check.
 

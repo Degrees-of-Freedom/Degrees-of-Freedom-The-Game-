@@ -22,6 +22,8 @@ describe.skipIf(!input || !output)('structure-gan calibration', () => {
       return {
         mechanism: result.mechanism, floating: result.floating.length,
         error: result.error ?? null, maxU: result.maxU ?? null,
+        // Which part of the game's design check governs; see voxelDesignChecks.ts.
+        connMax: result.connMax ?? null, foundMax: result.foundMax ?? null, failing: result.failing ?? null,
       };
     });
     writeFileSync(output!, JSON.stringify(rows));

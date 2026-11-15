@@ -28,6 +28,8 @@ from .seeding import random_seed_structure
 from .store import voxel_save, with_loads
 
 REQUIRED_AGREEMENT = 0.98
+MIN_SAMPLE = 15
+"""Smallest number of structures a recommended limit may rest on."""
 
 
 def export_seeds(path: Path, count: int, seed: int, case: LoadCase | None = None) -> int:
@@ -50,36 +52,87 @@ def export_seeds(path: Path, count: int, seed: int, case: LoadCase | None = None
     return len(items)
 
 
-def report(export: Path, game: Path) -> str:
-    """Human-readable agreement between oracle and game results (same order as the export)."""
+def report(export: Path, game: Path, max_displacement_ratio: float = LoadCase().max_displacement_ratio) -> str:
+    """Human-readable agreement between oracle and game results (same order as the export).
+
+    Only structures inside the oracle's displacement limit are compared: the
+    utilisation limit is calibrated *given* the stiffness gate, and a game
+    mechanism or error counts as disagreement, never as missing data.
+    """
     oracle = json.loads(export.read_text())
     results = json.loads(game.read_text())
     if len(oracle) != len(results):
         raise ValueError(f"Export has {len(oracle)} structures but the game file has {len(results)}.")
-    stable = [(o, g) for o, g in zip(oracle, results) if o["stable"] and o["utilization"] is not None]
-    unstable = [(o, g) for o, g in zip(oracle, results) if not o["stable"]]
-    usable = [(o, g) for o, g in stable if g["maxU"] is not None and not g["error"]]
+    pairs = list(zip(oracle, results))
+    stable = [(o, g) for o, g in pairs if o["stable"] and o["utilization"] is not None]
+    unstable = [(o, g) for o, g in pairs if not o["stable"]]
+    stiff = [(o, g) for o, g in stable if o["displacement_ratio"] <= max_displacement_ratio]
     lines = [
-        f"{len(oracle)} structures: {len(stable)} oracle-stable, {len(unstable)} oracle-unstable",
-        f"game mechanisms among oracle-stable: {sum(g['mechanism'] for _, g in stable)}",
+        f"{len(oracle)} structures: {len(stable)} oracle-stable, {len(unstable)} oracle-unstable, "
+        f"{len(stiff)} within the displacement limit {max_displacement_ratio:.4f}",
+        f"game mechanisms among stiff oracle-stable: {sum(g['mechanism'] for _, g in stiff)} of {len(stiff)}",
+        f"game mechanisms among too-flexible oracle-stable: "
+        f"{sum(g['mechanism'] for o, g in stable if o['displacement_ratio'] > max_displacement_ratio)} of {len(stable) - len(stiff)}",
         f"game mechanisms among oracle-unstable: {sum(g['mechanism'] for _, g in unstable)} of {len(unstable)}",
     ]
-    if len(usable) < 5:
-        return "\n".join(lines + ["Too few comparable structures for a recommendation."])
-    u = np.array([o["utilization"] for o, _ in usable])
-    g = np.array([x["maxU"] for _, x in usable])
-    lines.append(f"utilisation correlation (oracle vs game): {np.corrcoef(u, g)[0, 1]:.2f}")
+    if len(stiff) < 5:
+        return "\n".join(lines + ["Too few stiff structures for a recommendation."])
+    u = np.array([o["utilization"] for o, _ in stiff])
+    ok = np.array([(not g["mechanism"]) and (not g["error"]) and g["maxU"] is not None and g["maxU"] <= 1.0 for _, g in stiff])
+    comparable = [(o["utilization"], g["maxU"]) for o, g in stiff if g["maxU"] is not None and not g["error"]]
+    if len(comparable) >= 3:
+        lines.append(
+            "utilisation correlation (oracle vs game, where the game gave a value): "
+            f"{np.corrcoef(*zip(*comparable))[0, 1]:.2f}"
+        )
     best = None
+    lines.append("limit  n  agreement")
     for limit in (round(0.9 - 0.05 * i, 2) for i in range(17)):
-        # Tiny epsilon: utilisations that equal a grid value must count as within it.
-        chosen = u <= limit + 1e-9
-        if chosen.sum() >= 5 and (g[chosen] <= 1.0).mean() >= REQUIRED_AGREEMENT:
-            best = (round(float(limit), 2), int(chosen.sum()), float((g[chosen] <= 1.0).mean()))
-            break
+        chosen = u <= limit + 1e-9  # utilisations equal to a grid value count as within it
+        if chosen.sum() == 0:
+            continue
+        agreement = float(ok[chosen].mean())
+        lines.append(f"{limit:.2f}  {int(chosen.sum())}  {agreement:.0%}")
+        if best is None and chosen.sum() >= MIN_SAMPLE and agreement >= REQUIRED_AGREEMENT:
+            best = (limit, int(chosen.sum()), agreement)
     if best is None:
-        lines.append("No utilisation limit reaches the required agreement; revisit the oracle.")
+        lines.append(f"No utilisation limit with at least {MIN_SAMPLE} structures reaches {REQUIRED_AGREEMENT:.0%} agreement; export more seeds or revisit the oracle.")
     else:
         lines.append(
-            f"recommended max_utilization <= {best[0]:.2f} ({best[1]} structures, {best[2]:.0%} game utilisation <= 1)"
+            f"recommended max_utilization <= {best[0]:.2f} "
+            f"({best[1]} structures, {best[2]:.0%} with no game mechanism and game utilisation <= 1)"
         )
     return "\n".join(lines)
+
+
+def export_database(db_path: Path, out: Path) -> int:
+    """Export every stored row's game save (with its id) for re-checking in the game."""
+    import sqlite3
+
+    with sqlite3.connect(db_path) as db:
+        rows = db.execute("SELECT id, save_json FROM evolved_structures ORDER BY id").fetchall()
+    out.write_text(json.dumps([{"id": ident, "save": json.loads(save)} for ident, save in rows]))
+    return len(rows)
+
+
+def failing_ids(export: Path, game: Path) -> list[str]:
+    """Ids whose game verdict shows a mechanism, floating body, error or utilisation above 1."""
+    items = json.loads(export.read_text())
+    results = json.loads(game.read_text())
+    if len(items) != len(results):
+        raise ValueError(f"Export has {len(items)} structures but the game file has {len(results)}.")
+    return [
+        item["id"]
+        for item, g in zip(items, results)
+        if g["mechanism"] or g["floating"] or g["error"] or g["maxU"] is None or g["maxU"] > 1.0
+    ]
+
+
+def prune_database(db_path: Path, export: Path, game: Path) -> int:
+    """Delete rows the game rejects; returns how many were removed."""
+    import sqlite3
+
+    ids = failing_ids(export, game)
+    with sqlite3.connect(db_path) as db:
+        db.executemany("DELETE FROM evolved_structures WHERE id = ?", [(i,) for i in ids])
+    return len(ids)

@@ -31,6 +31,13 @@ def main(argv: list[str] | None = None) -> int:
     cal.add_argument("--out", type=Path, required=True)
     cal.add_argument("--count", type=int, default=600)
     cal.add_argument("--seed", type=int, default=0)
+    exp = sub.add_parser("export-db", help="Export stored structures for the game's solver to re-check.")
+    exp.add_argument("--db", type=Path, default=DEFAULT_DB)
+    exp.add_argument("--out", type=Path, required=True)
+    prune = sub.add_parser("prune-db", help="Delete stored structures the game's solver rejects.")
+    prune.add_argument("--db", type=Path, default=DEFAULT_DB)
+    prune.add_argument("--export", type=Path, required=True)
+    prune.add_argument("--game", type=Path, required=True)
     rep = sub.add_parser("calibrate-report", help="Compare oracle numbers with the game's results.")
     rep.add_argument("--export", type=Path, required=True)
     rep.add_argument("--game", type=Path, required=True)
@@ -44,6 +51,16 @@ def main(argv: list[str] | None = None) -> int:
         from .calibration import export_seeds
 
         print(f"exported {export_seeds(args.out, args.count, args.seed)} structures to {args.out}")
+        return 0
+    if args.command == "export-db":
+        from .calibration import export_database
+
+        print(f"exported {export_database(args.db, args.out)} structures to {args.out}")
+        return 0
+    if args.command == "prune-db":
+        from .calibration import prune_database
+
+        print(f"removed {prune_database(args.db, args.export, args.game)} rejected structures from {args.db}")
         return 0
     if args.command == "calibrate-report":
         from .calibration import report

@@ -21,7 +21,7 @@ from dof_opensees.engine import analyze
 from dof_opensees.properties import MemberProperties
 from dof_opensees.schema import StructuralModel
 
-from .lattice import Structure
+from .lattice import CELL_METRES, Structure
 
 # Game card ``shs`` (kN/m units converted to SI): see voxelSections.ts.
 SHS = MemberProperties(
@@ -32,6 +32,8 @@ SECTION_MODULUS_M3 = 6.4e-5
 SELF_WEIGHT_N_PER_M = 176.0
 AXIAL_CAPACITY_N = YIELD_STRESS_PA * SHS.area
 MOMENT_CAPACITY_NM = YIELD_STRESS_PA * SECTION_MODULUS_M3
+EULER_COEFFICIENT = math.pi**2 * SHS.elastic_modulus * SHS.second_moment
+"""pi^2 E I: divide by the member length squared for the pinned-pinned Euler load."""
 DEAD_FACTOR = 1.35
 LIVE_FACTOR = 1.5
 
@@ -84,8 +86,6 @@ class PhysicsResult:
 
 def _applied_forces(structure: Structure, case: LoadCase, wind: float = 1.0) -> tuple[dict, float]:
     """Factored nodal forces (N) by lattice node, and their total vertical magnitude."""
-    from .lattice import CELL_METRES
-
     forces: dict = {n: [0.0, 0.0, 0.0] for n in structure.nodes}
     for a, b in structure.edges:
         length = CELL_METRES * math.dist(a, b)
@@ -149,11 +149,15 @@ def _analyse_once(structure: Structure, case: LoadCase, wind: float) -> PhysicsR
     displacement = max(
         math.sqrt(sum(v * v for v in result["displacements"][f"n{i}"][:3])) for i in range(len(ordered))
     )
-    utilization = max(
-        abs(f["axial"]) / AXIAL_CAPACITY_N
-        + max(abs(f["momentStart"]), abs(f["momentEnd"])) / MOMENT_CAPACITY_NM
-        for f in result["memberForces"].values()
-    )
+    lengths = [CELL_METRES * math.dist(a, b) for a, b in sorted(structure.edges)]
+
+    def member_utilization(index: int, forces: dict) -> float:
+        axial = forces["axial"]
+        # Compression is limited by pinned-pinned Euler buckling when that is lower than yield.
+        capacity = min(AXIAL_CAPACITY_N, EULER_COEFFICIENT / lengths[index] ** 2) if axial < 0 else AXIAL_CAPACITY_N
+        return abs(axial) / capacity + max(abs(forces["momentStart"]), abs(forces["momentEnd"])) / MOMENT_CAPACITY_NM
+
+    utilization = max(member_utilization(i, result["memberForces"][f"m{i}"]) for i in range(len(lengths)))
     applied = _applied_forces(structure, case, wind)[1]
     reacted = sum(r[2] for r in result["reactions"].values())
     residual = abs(reacted - applied) / applied

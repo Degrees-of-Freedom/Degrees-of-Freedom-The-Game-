@@ -53,9 +53,13 @@ All numbers below are from one run (`--steps 700 --workers 3`, seed 0, CPU, abou
 - Runs can be checkpointed and resumed (`--checkpoint`, `--resume`); without a checkpoint the networks and archive restart each run and only the database accumulates. Parallel workers use one OpenSees instance per process.
 - CI (`.github/workflows/structure-gan.yml`) was written but not run. The default PyPI torch wheel bundles CUDA libraries; a CPU-only index would shorten CI.
 
+## Calibration finding (fresh sample) and the game gate
+
+Re-running the comparison with the new tooling on 500 fresh seeds (52 within the displacement limit) found 0 game mechanisms among those 52 (versus 147 of 448 for the too-flexible ones), but the utilisation agreement was weaker than the first calibration suggested: correlation 0.50, and only 86-91% of structures at oracle limits of 0.45-0.55 had game utilisation ≤ 1 (samples of 11-21). The earlier "41 of 42" figure does not generalise. A pinned-pinned Euler buckling term was added to the oracle's compression capacity; it did not materially change the agreement, and some outliers remain (for example oracle 0.42 against game 3.46 with 22 failing members, cause not identified). Therefore the oracle's utilisation limit is a pre-filter, not a guarantee. The guarantee is the game gate: `export-db`, the Vitest calibration harness and `prune-db` remove any stored row the game rejects, and `evolvedStructures.test.ts` fails if one remains.
+
 ## Recalibration
 
-`calibration.py`, `calibration.test.ts` and two CLI commands make the oracle-versus-game comparison repeatable (steps in the tool README). They are tested on synthetic data (`tests/test_calibration.py`); the numbers in the Evidence section came from an earlier ad-hoc harness with the same method and have not been regenerated with this tooling yet.
+`calibration.py`, `calibration.test.ts` and two CLI commands make the oracle-versus-game comparison repeatable (steps in the tool README). They are tested on synthetic data (`tests/test_calibration.py`) and were run once on real seeds (above). `export-db` / `prune-db` apply the same harness to the stored database.
 
 ## Commands
 
