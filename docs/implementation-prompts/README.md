@@ -1,6 +1,6 @@
 # Four concurrent Codex/Claude implementation sessions
 
-Start all four from the **same baseline containing criteria commit `17415db`**, each in its own worktree and feature branch. Read the [parallel ownership/port contract](parallel-contract.md). The prompts authorize implementation when pasted into separate sessions; creating these documents does not execute them.
+Start all four from the **same baseline containing parallel-prompt commit `bbe4c44`**, each in its own worktree and feature branch. Read the [parallel ownership/port contract](parallel-contract.md). The prompts authorize implementation when pasted into separate sessions; creating these documents does not execute them.
 
 1. [Rules and domain](01-multiplayer-rules-and-model.md).
 2. [Physics checkpoints and minimum correction](02-checkpoints-and-minimal-correction.md).

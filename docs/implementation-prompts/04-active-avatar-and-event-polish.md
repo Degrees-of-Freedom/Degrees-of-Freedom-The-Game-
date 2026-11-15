@@ -3,7 +3,7 @@
 Runnable concurrently from the shared baseline, in a separate worktree.
 
 ```text
-Work concurrently with three other sessions, in your own Git worktree and unique feature branch from the SAME baseline containing criteria commit 17415db. Never share a working directory, edit another session’s owned files, cherry-pick peers mid-development, or push/merge main. Read AGENTS.md, docs/kb/README.md, docs/kb/multiplayer-refresh-criteria.md and docs/implementation-prompts/parallel-contract.md. MR01–MR19 override older rules. This is an implementation task, not deployment.
+Work concurrently with three other sessions, in your own Git worktree and unique feature branch from the SAME baseline containing parallel-prompt commit bbe4c44. Never share a working directory, edit another session’s owned files, cherry-pick peers mid-development, or push/merge main. Read AGENTS.md, docs/kb/README.md, docs/kb/multiplayer-refresh-criteria.md and docs/implementation-prompts/parallel-contract.md. MR01–MR19 override older rules. This is an implementation task, not deployment.
 
 Build independently against fixtures and injected adapters; do not wait for another session to finish or import symbols that exist only on an unmerged peer branch. Preserve existing compatibility exports until final integration. Never fabricate physics/results. Write tests, small commits and your own docs/implementation-handoffs/session-N.md, including commit SHA, owned files, exported interfaces, integration steps, checks and known gaps. Only session 4 updates shared KB pages during final integration.
 

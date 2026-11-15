@@ -1,6 +1,6 @@
 # Parallel-session contract
 
-Use four independent worktrees/branches from the same baseline containing criteria commit `17415db`. No shared working directory, peer edits/cherry-picks mid-development, automatic main merges or deployment. Sessions 1–3 finish independent features; session 4 starts its own work immediately and integrates finished outputs last.
+Use four independent worktrees/branches from the same baseline containing parallel-prompt commit `bbe4c44`. No shared working directory, peer edits/cherry-picks mid-development, automatic main merges or deployment. Sessions 1–3 finish independent features; session 4 starts its own work immediately and integrates finished outputs last.
 
 | Boundary | Owner | Interface / invariant |
 | --- | --- | --- |
