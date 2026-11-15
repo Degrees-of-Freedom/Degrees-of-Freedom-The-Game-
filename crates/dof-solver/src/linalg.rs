@@ -29,6 +29,18 @@ pub use crate::sparse::Inertia;
 /// Multiply-adds of a skyline factorisation up to which a system keeps it.
 pub const SMALL_WORK: f64 = 4.0e6;
 
+thread_local! {
+    static FORCED: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
+}
+
+/// For tests: make every system built on this thread use the sparse
+/// factorisation (`Some(true)`) or the skyline (`Some(false)`) whatever its
+/// size, or restore the choice by size (`None`).
+#[doc(hidden)]
+pub fn force_sparse(choice: Option<bool>) {
+    FORCED.with(|f| f.set(choice));
+}
+
 /// The factorisation chosen for one system, with its precomputed structure.
 pub enum Pattern {
     /// An empty matrix on the skyline profile, cloned for each stiffness.
@@ -41,7 +53,8 @@ impl Pattern {
     /// together in one of `groups` (one group per element) may be nonzero.
     pub fn new(n: usize, groups: &[Vec<usize>]) -> Self {
         let adjacency = adjacency(n, groups);
-        if envelope_work(&adjacency) <= SMALL_WORK {
+        let sparse = FORCED.with(|f| f.get()).unwrap_or_else(|| envelope_work(&adjacency) > SMALL_WORK);
+        if !sparse {
             Pattern::Profile(Skyline::with_profile(n, groups))
         } else {
             Pattern::Sparse(Rc::new(Symbolic::from_adjacency(&adjacency)))

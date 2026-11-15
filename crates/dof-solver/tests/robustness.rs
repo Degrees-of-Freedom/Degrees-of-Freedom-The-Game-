@@ -410,12 +410,24 @@ fn check_document(result: &Json, options: &Options) -> Vec<String> {
 /// its own fixed seed, so the set of states is the same on every run.
 #[test]
 fn ten_thousand_seeded_states_never_fail_unhandled() {
+    seeded_sweep(1_250, None);
+}
+
+/// The same states with every system on the sparse factorisation, which
+/// otherwise only large structures use: the result-document guarantees must
+/// hold for both.
+#[test]
+fn seeded_states_through_the_sparse_factorisation_never_fail_unhandled() {
+    seeded_sweep(500, Some(true));
+}
+
+fn seeded_sweep(cases_per_thread: usize, sparse: Option<bool>) {
     const THREADS: u64 = 8;
-    const CASES_PER_THREAD: usize = 1_250;
     let sweep = |seed: u64| {
+        dof_solver::linalg::force_sparse(sparse);
         let mut rng = Random(seed);
         let mut tally = std::collections::BTreeMap::new();
-        for case in 0..CASES_PER_THREAD {
+        for case in 0..cases_per_thread {
             let state = random_state(&mut rng);
             let result = state.run().0;
             let status = result.get("analysis").unwrap().get("status").unwrap().as_str().unwrap().to_string();
@@ -442,9 +454,11 @@ fn ten_thousand_seeded_states_never_fail_unhandled() {
             }
         }
     });
-    println!("component outcomes over 10,000 seeded states: {tally:?}");
+    let total = cases_per_thread * THREADS as usize;
+    println!("component outcomes over {total} seeded states: {tally:?}");
+    // Each outcome must make up more than 3 % of the states (300 of 10,000).
     for outcome in ["stable", "unstable", "invalid input"] {
-        assert!(tally.get(outcome).copied().unwrap_or(0) > 300, "the generator produced too few '{outcome}' cases");
+        assert!(tally.get(outcome).copied().unwrap_or(0) > total * 3 / 100, "the generator produced too few '{outcome}' cases");
     }
 }
 

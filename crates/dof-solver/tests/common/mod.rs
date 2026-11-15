@@ -151,3 +151,49 @@ pub fn close(actual: f64, expected: f64, relative: f64) {
 pub fn zero(actual: f64, scale: f64) {
     assert!(actual.abs() <= 1e-9 * scale.abs(), "expected zero (scale {scale}), got {actual}");
 }
+
+/// The braced multi-storey frame used by `scripts/bench-solver.mjs`.
+pub fn frame(bays_x: usize, bays_y: usize, storeys: usize) -> Build {
+    let mut b = Build::new();
+    b.model.sections[0].density = 7850.0;
+    let mut rod = steel("rod");
+    rod.a = 3.0e-4;
+    rod.density = 7850.0;
+    b.model.sections.push(rod);
+    b.options.gravity = Some([0.0, 0.0, -9.81]);
+    let id = |i: usize, j: usize, k: usize| format!("{i}-{j}-{k}");
+    let mut count = 0;
+    let mut name = || {
+        count += 1;
+        format!("m{count}")
+    };
+    for k in 0..=storeys {
+        for j in 0..=bays_y {
+            for i in 0..=bays_x {
+                b.node(&id(i, j, k), [4.0 * i as f64, 4.0 * j as f64, 3.0 * k as f64]);
+                if k == 0 {
+                    b.support(&id(i, j, 0), FIXED);
+                    continue;
+                }
+                b.beam(&name(), &id(i, j, k - 1), &id(i, j, k));
+                b.load(&id(i, j, k), [if k == storeys { 2.0e3 } else { 0.0 }, 5.0e2, -2.0e4]);
+                if i > 0 {
+                    let hinged = (i + j + k) % 3 == 0;
+                    let beam = b.beam(&name(), &id(i - 1, j, k), &id(i, j, k));
+                    if hinged {
+                        beam.start.laws = HINGE;
+                        beam.end.laws = HINGE;
+                    }
+                }
+                if j > 0 {
+                    b.beam(&name(), &id(i, j - 1, k), &id(i, j, k));
+                }
+                if i > 0 && j == 0 {
+                    let kind = if i % 2 == 1 { MemberKind::Cable } else { MemberKind::Brace };
+                    b.member(&name(), kind, &id(i - 1, j, k - 1), &id(i, j, k)).section_id = "rod".into();
+                }
+            }
+        }
+    }
+    b
+}
