@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { useGameStore } from "../game/store";
 import { activeTurnHand, type TurnState } from "../game/turns";
 import { parseNodeKey } from "../game/model";
@@ -5,7 +6,7 @@ import { originalPorts, portLabel } from "../game/turnPorts";
 import { connectionLabel } from "../game/jointFreedom";
 import { publicTurnReport } from "../game/publicTurnModel";
 import { repairReaction } from "../game/publicRepairReport";
-import { useSettings } from "../menu/settings";
+import { useSettings, updateSettings } from "../menu/settings";
 import type { JointPermission } from "../viewer/jointPermissions";
 import type { useReleaseInspection } from "../viewer/useReleaseInspection";
 import { CardDefinitionDetails } from "./CardDefinitionDetails";
@@ -13,16 +14,34 @@ import { JointPermissions } from "./JointPermissions";
 import { RepairHistory } from "./RepairHistory";
 import { MemberDiagram } from "./MemberDiagram";
 import { computeLoadPath } from "../solver/loadPath";
+import { SectionProfile } from "./SectionProfile";
+import { effectiveJointConnections, jointCorrectionMask } from "../game/jointCorrections";
+import { memberName } from "../game/cardCatalogue";
 
 type Layer = "reference" | "shape" | "path" | "combined";
 type Game = ReturnType<typeof useGameStore.getState>;
 const units = (n: number) => Number(n.toPrecision(4)).toLocaleString("en", { maximumSignificantDigits: 4 });
 const owner = (id: string) => id === "neutral" ? "Neutral repair" : id.replace("player-", "Player ");
 
-export function ReleaseInspection({ game, turn, joints, joint, selectJoint, responseOpen, onResponse, draft,
+function DraftMemberEdit({ member, save }: { member: { id: number; a: string; b: string }; save(id: number, a: string, b: string): string | null }) {
+  const [a, setA] = useState(member.a);
+  const [b, setB] = useState(member.b);
+  const [message, setMessage] = useState("");
+  return <form className="release-draft-edit" onSubmit={event => {
+    event.preventDefault(); setMessage(save(member.id, a, b) ?? "Draft position updated.");
+  }}>
+    <label>Draft start x,y,z<input value={a} onChange={event => setA(event.target.value)} /></label>
+    <label>Draft end x,y,z<input value={b} onChange={event => setB(event.target.value)} /></label>
+    <button type="submit">Update draft member</button>
+    {message && <p role="status">{message}</p>}
+  </form>;
+}
+
+export function ReleaseInspection({ game, turn, joints, joint, selectJoint, draft, awaitingCheckpoint, calculatedTurn,
   reading, layer, peakM, setLayer, scale, amplification, setAmplification }: {
   game: Game; turn: TurnState; joints: JointPermission[]; joint?: JointPermission; selectJoint(id: string): void;
-  responseOpen: boolean; onResponse(): void; draft: boolean; reading: ReturnType<typeof useReleaseInspection>;
+  draft: boolean; reading: ReturnType<typeof useReleaseInspection>;
+  awaitingCheckpoint: boolean; calculatedTurn?: number;
   layer: Layer; peakM?: number; setLayer(layer: Layer): void; scale: number; amplification: number; setAmplification(n: number): void;
 }) {
   const members = [...turn.board.members, ...turn.draft.members];
@@ -30,7 +49,7 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, resp
   const member = selection?.type === "member" ? members.find(m => m.id === selection.id) : null;
   const card = activeTurnHand(turn).find(c => c.id === game.selectedCardId);
   const settings = useSettings();
-  const response = draft ? undefined : reading?.response;
+  const response = draft || awaitingCheckpoint ? undefined : reading?.response;
   const last = turn.reports.at(-1);
   const gravity = turn.board.loads.reduce((sum, load) => sum + load.magnitude, 0);
   const shares = response?.receipt.components.flatMap(scope => scope.foundations);
@@ -43,15 +62,21 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, resp
     <label>Inspect member<select value={member?.id ?? ""} onChange={event =>
       game.setSelected(event.target.value ? { type: "member", id: Number(event.target.value) } : null)}>
       <option value="">Choose a member</option>{members.map(m => <option key={m.id} value={m.id}>
-        Member {m.id} · {m.assembly ?? m.type.toUpperCase()} · {owner(m.owner)}
+        Member {m.id} · {m.assembly ?? memberName(m.type)} · {owner(m.owner)}
       </option>)}
     </select></label>
     {member && <section aria-label="Member properties"><h3>Member {member.id}</h3>
-      <p>{owner(member.owner)} · {turn.draft.members.includes(member) ? "Staged" : "Committed"} · {member.assembly ?? member.type.toUpperCase()}</p>
+      <p>{owner(member.owner)} · {turn.draft.members.includes(member) ? "Staged" : "Committed"} · {member.assembly ?? memberName(member.type)}</p>
+      <SectionProfile type={member.type} assembled={!!member.assembly} />
+      {turn.draft.members.includes(member) ? <DraftMemberEdit key={member.id} member={member} save={game.editPlacement} /> : <p>Committed member · read only</p>}
       <p>{units(2 * Math.hypot(...parseNodeKey(member.a).map((n, i) => n - parseNodeKey(member.b)[i])))} m · ({member.a}) → ({member.b})</p>
       <dl>{(["a", "b"] as const).map(end => {
         const conn = [...turn.board.connections, ...turn.draft.connections].find(c => c.memberId === member.id && c.end === end);
-        return <div key={end}><dt>End {end.toUpperCase()}</dt><dd>{conn ? `${connectionLabel(conn.profile)} · ${conn.jointId}` : "Unattached"}</dd></div>;
+        const effective = conn && effectiveJointConnections(turn.board).find(c => c.memberId === conn.memberId && c.end === end);
+        return <div key={end}><dt>End {end.toUpperCase()}</dt><dd>{conn ? <>
+          Original · {connectionLabel(conn.profile)} · {conn.jointId}
+          {jointCorrectionMask(turn.board, conn.jointId) > 0 && <p>System fitting · effective {connectionLabel(effective?.profile ?? conn.profile)}. Original card retained.</p>}
+        </> : "Unattached"}</dd></div>;
       })}</dl>
       <details><summary>Original ports</summary>{originalPorts(member).map(p => <p key={p.id}>{portLabel(p)} · ({p.point.join(", ")})</p>)}</details>
       {response && <MemberDiagram key={member.id} result={response.result} parent={member.id} />}
@@ -68,14 +93,14 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, resp
       </details>}
     </section>}
     <details open={!!joint || undefined}><summary>Joint freedoms</summary>
-      <JointPermissions joints={joints} selected={joint} mode={settings.jointDisplay} select={selectJoint} />
+      <JointPermissions joints={joints} selected={joint} mode={settings.releaseJointDisplay} select={selectJoint}
+        onModeChange={releaseJointDisplay => updateSettings({ releaseJointDisplay })} />
     </details>
     <section><h3>Structural response</h3>
-      {draft ? <p>Finish or cancel the draft to inspect committed response.</p>
-        : !responseOpen ? <button onClick={onResponse}>Inspect committed response</button>
+      {draft || awaitingCheckpoint ? <p>{calculatedTurn ? `Last calculated turn ${calculatedTurn}. ` : "The structure has not been calculated yet. "}Current changes are assessed at the next scheduled checkpoint.</p>
         : !response ? <p role="status">{reading?.error ?? "Checking the committed structure…"}</p>
         : <>
-          <p>Browser solver · committed board after {last ? `turn ${last.turn}` : "setup"} · card gravity {units(gravity)} kN</p>
+          <p>Browser solver · committed board after {calculatedTurn ? `turn ${calculatedTurn}` : last ? `turn ${last.turn}` : "setup"} · card gravity {units(gravity)} kN</p>
           <label>Board overlay<select value={layer} onChange={event => setLayer(event.target.value as Layer)}>
             <option value="reference">Reference geometry</option><option value="shape">Deflected shape</option><option value="path">Load transfer</option>
             <option value="combined">Deflected shape and load transfer</option>

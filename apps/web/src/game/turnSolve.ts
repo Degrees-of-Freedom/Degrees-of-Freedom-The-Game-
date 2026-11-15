@@ -16,6 +16,7 @@ export interface TurnAssessment {
 }
 
 const VOXEL_REASONS: Record<TurnStatus, string> = {
+  pending: 'This turn is waiting for the scheduled structural checkpoint.',
   stable: 'The structure carries its loads.',
   unstable: 'The structure has a mechanism or deforms excessively.',
   partial: 'The supported structure carries its loads; some parts are not connected to a foundation.',

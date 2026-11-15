@@ -22,6 +22,27 @@ status: partial
 
 # Criteria ledger
 
+## Shared table play 2
+
+The owner's later implementation instructions supersede the earlier release-1 draw limits, catalogue mix, repair and assessment cadence for **new** Shared table matches. The implementation branch is `codex/shared-table-forces`, with `rulesRevision: grow-dusk-play-2`. Earlier private saves replay their own version. This section tracks the active work; earlier release evidence below remains scoped to its original build.
+
+| Owner requirement | Implementation and acceptance |
+| --- | --- |
+| Three decks on the board each turn, with any four independent choices. | `chooseTurnDraw`, versioned draw events/receipts, releaseSession and the visible Members/Connections/Loads rack. Partial draws persist. Source and focused replay tests pass; final packaged browser matrix pending below. |
+| Any held members, connections and loads may be played; pass/cancel/retry preserve draws. | Revised staging removes 1/1/2 caps. `undoLastPlacement` and `editDraftMember` replay provisional actions. Tests cover four held members/connectors, multiple loads, edits, cancellation, undo and partial-draw restore. |
+| Exactly four member variants, fewer springs and an ordinary opening member. | Eighteen standard beam-columns, four tension-only cables and one quarter/half spring each. First eight member cards are ordinary. Existing authored k₀ = 50,000 N/m gives 12,500/25,000 N/m; [card criteria](card-definition-criteria.md) identify provenance and physical assumptions. No extra member family is added to this deck. |
+| Maximum lengths only 5/7/10, shorter Euclidean spans and original quarters. | Revised printings/staging use those maxima and 2 m per unit. Original port identity survives diagonal placement, typed exact-quarter selection and subdivision. Deliberate angle-dependent member junction contact is permitted; true material overlap remains checked. |
+| Exactly three rotational connector types; connected translations compatible. | One-, two- and three-axis locks. Axes are chosen within the printing. New player decks exclude zero-restraint and translation/elastic connector cards. Broader historical solver profiles remain available for their recorded models. |
+| Immutable default foundation/column per player, 15×15 cells and explicit vertical bound. | X/Y nodes 0–15 inclusive, Z 0–12, 2 m units. Existing setup mutation and extra-ground restrictions remain. Revised correction changes a separate recorded joint-fitting layer. |
+| Editable provisional choices; committed/setup pieces read-only. | Inspector endpoint edits, Undo/Ctrl+Z, precise port selection including newly staged parents, and domain dependency/legality checks. Committed properties are inspectable. |
+| Versioned origin/draw/window/interval/system layers and resumable phase. | Private envelope retains match/revision/phase. `rulesRevision`, draw actions, replayable interval events and `checkpoints` retain pending physical snapshots and origin actors. Default interval three completed player turns, configurable 1–12, with forced final flush. Last attempted/verified states are distinct. Reports stay pending until assessed. |
+
+The visible educational response is required through normal Play. Direct overlay controls and automatic checkpoint-result display address VIS-R01–09/FLOW-R01–07 below. All-joint release controls, signed local force tables, shear/moment plots, the separate normalized solver-mode view and hollow section previews address JOINT-R01–04, historical GEOM-02/03 and VIS-01/03/04/05/07. Each normal/reduced/muted/fallback acceptance case remains tied to actual browser evidence. Per-player third verified mistake triggers the companion evolution, as specified in the latest avatar/animation notes. New instability corrections use verified moment fittings on existing released joints, preserving separate original/effective laws.
+
+### Revised build verification
+
+Verification is in progress. Focused domain, geometry, solver-mode, flow, checkpoint and settings tests have passed. The preliminary production UI completed one purposeful 16-turn game and a separate all-pass tie. Independent UI checks covered arbitrary deck mixtures, partial-draw reload, unlimited held plays, endpoint editing, Undo and legacy private import. The archived 20-match/660-record replay comparison remains byte-identical. Final build provenance, matrix, presentation and recovery results will be recorded after freezing the combined package. Physical device/assistive-technology and hardware stress gates remain open as documented below.
+
 ## Grow Dusk release 1
 
 On 2026-11-15 the owner clarified that all release criteria apply to **Shared table**. Grow Dusk is its release presentation. Existing secondary modes retain their navigation and historical saves.

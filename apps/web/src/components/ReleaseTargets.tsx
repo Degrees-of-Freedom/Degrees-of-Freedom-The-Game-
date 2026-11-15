@@ -11,7 +11,8 @@ type Game = ReturnType<typeof useGameStore.getState>;
 function ElementCoordinates({ turn, stage }: { turn: TurnState; stage(a: string, b: string): void }) {
   const [a, setA] = useState("");
   const [b, setB] = useState("");
-  const ports = turn.board.members.filter(m => !m.system).flatMap(originalPorts)
+  const members = [...turn.board.members, ...turn.draft.members];
+  const ports = members.filter(m => !m.system).flatMap(originalPorts)
     .filter(port => port.available && !systemTarget(turn, port.id));
   return <details className="release-precision">
     <summary>Precise placement</summary>
@@ -19,12 +20,12 @@ function ElementCoordinates({ turn, stage }: { turn: TurnState; stage(a: string,
       {([{ name: "A", value: a, change: setA }, { name: "B", value: b, change: setB }]).map(end =>
         <fieldset key={end.name}>
           <legend>End {end.name}</legend>
-          <select aria-label={`End ${end.name} port`} value={findPort(turn.board.members, end.value) ? end.value : ""}
+          <select aria-label={`End ${end.name} port`} value={findPort(members, end.value) ? end.value : ""}
             onChange={event => end.change(event.target.value)}>
             <option value="">Grid point</option>
             {ports.map(port => <option key={port.id} value={port.id}>{portLabel(port)}</option>)}
           </select>
-          {!findPort(turn.board.members, end.value) && <input aria-label={`End ${end.name} grid x,y,z`}
+          {!findPort(members, end.value) && <input aria-label={`End ${end.name} grid x,y,z`}
             placeholder="x,y,z" value={end.value} required autoComplete="off" onChange={event => end.change(event.target.value)} />}
         </fieldset>)}
       <button type="submit" disabled={!a.trim() || !b.trim()}>Stage element</button>

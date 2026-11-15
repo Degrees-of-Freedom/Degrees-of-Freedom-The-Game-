@@ -77,7 +77,10 @@ export function addResultArrows(
           0.22,
         ),
       );
-      if (labelForces) addSceneLabel(structure, p.clone().addScaledVector(dir, 0.75 * length), 'R · ' + forceLabel(value), 'reaction');
+      if (labelForces && v.reactionLabels !== 'off') {
+        const size = v.reactionLabels === 'small' ? 0.7 : v.reactionLabels === 'large' ? 1.4 : 1;
+        addSceneLabel(structure, p.clone().addScaledVector(dir, 0.75 * length), 'R · ' + forceLabel(value), 'reaction', size);
+      }
     }
   }
 }

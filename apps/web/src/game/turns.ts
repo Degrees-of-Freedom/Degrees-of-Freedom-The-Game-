@@ -8,7 +8,7 @@ import {
 import { LEGACY_CATALOGUE, RELEASE_CATALOGUE, PLAY_REVISION, RELEASE_MANIFEST, connectionChoices, createReleaseDecks, isScoredCatalogue, printedCards, type CardDefinition, type CatalogueId } from "./cardCatalogue";
 import { conflictingJointAxes, connectionFrame, CONNECTION_PROFILES, type ConnectionProfile } from "./jointFreedom";
 import { findMaterialClash } from "./materialClashes";
-import { analysisLoadJoint, findPort, loadTargets, systemTarget, targetCoordinate, turnJoints } from "./turnPorts";
+import { analysisLoadJoint, findPort, originalPorts, loadTargets, systemTarget, targetCoordinate, turnJoints } from "./turnPorts";
 import { analyzeTurn } from "./turnAnalysis";
 import { resolveMemberLaw, S } from "../solver/voxelSections";
 import { correctTurnIssues, LEGACY_REPAIR_POLICY, NODE_REPAIR_POLICY, REPAIR_POLICY, type CorrectionReceipt, type RepairPolicy, type SystemProvenance } from "./turnRepair";
@@ -342,7 +342,12 @@ export function stageElement(
     return fail("One element may be played per turn.");
   const parents = state.rulesRevision === PLAY_REVISION ? [...state.board.members, ...state.draft.members] : state.board.members;
   if (systemTarget(state, a) || systemTarget(state, b)) return fail("Neutral repair objects are inspection-only.");
-  const portA = findPort(parents, a), portB = findPort(parents, b);
+  const matchingPorts = (target: string) => state.rulesRevision === PLAY_REVISION && !target.startsWith("port:")
+    ? parents.filter(parent => !parent.system).flatMap(originalPorts).filter(port => port.available && nodeKey(...port.point) === target) : [];
+  const candidatesA = matchingPorts(a), candidatesB = matchingPorts(b);
+  if (candidatesA.length > 1 || candidatesB.length > 1)
+    return fail("Several original member ports meet here. Choose the intended parent port explicitly.");
+  const portA = findPort(parents, a) ?? candidatesA[0], portB = findPort(parents, b) ?? candidatesB[0];
   if (portA?.available === false || portB?.available === false)
     return fail("This family’s interior attachment law is unavailable.");
   const pointA = portA ? nodeKey(...portA.point) : a;
@@ -373,7 +378,7 @@ export function stageElement(
     id: state.nextId,
     a: pointA,
     b: pointB,
-    ...(portA || portB ? { endTargets: { ...(portA && { a }), ...(portB && { b }) } } : {}),
+    ...(portA || portB ? { endTargets: { ...(portA && { a: portA.id }), ...(portB && { b: portB.id }) } } : {}),
     type: card.type,
     ...(card.springStiffnessNPerM !== undefined && {springStiffnessNPerM: card.springStiffnessNPerM}),
     ...(state.catalogue === RELEASE_CATALOGUE && card.type === "cable" && {restLengthM: S * length}),
@@ -385,7 +390,7 @@ export function stageElement(
     cardId,
   };
   if (isScoredCatalogue(state.catalogue)) {
-    const clash = findMaterialClash(member, parents);
+    const clash = findMaterialClash(member, parents, undefined, state.rulesRevision === PLAY_REVISION);
     if (clash) return fail(clash);
   }
   return stage(
@@ -621,7 +626,7 @@ function commitTurn(
   if (isScoredCatalogue(state.catalogue)) {
     const occupied = [...state.board.members];
     for (const member of state.draft.members) {
-      const clash = findMaterialClash(member, occupied);
+      const clash = findMaterialClash(member, occupied, undefined, state.rulesRevision === PLAY_REVISION);
       if (clash) return fail(clash);
       occupied.push(member);
     }

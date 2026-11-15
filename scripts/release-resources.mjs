@@ -103,11 +103,26 @@ try {
       await page.keyboard.press("Escape"); await page.keyboard.press("Escape");
       await ready.click();
     }
+    if (cycle === 1) {
+      await page.getByLabel("Calculate every", {exact:true}).selectOption("1");
+      for (let draw = 0; draw < 4; draw++) {
+        await page.locator('[data-deck="members"]').click();
+        if (draw < 3) await page.getByText(`${draw + 1} of 4 drawn · any mix of decks`, {exact:true}).waitFor();
+      }
+      await page.locator('[aria-label="Draw four cards"]').waitFor({state:"detached"});
+      await button("Pass").click(); await ready.click();
+    }
+    if (await page.locator('[data-deck]').count()) {
+      for (let draw = 0; draw < 4; draw++) {
+        await page.locator('[data-deck="members"]').click();
+        if (draw < 3) await page.getByText(`${draw + 1} of 4 drawn · any mix of decks`, {exact:true}).waitFor();
+      }
+      await page.locator('[aria-label="Draw four cards"]').waitFor({state:"detached"});
+    }
     await model.waitFor();
     const first = page.locator("[data-card-id]").first();
     await first.click(); await first.click();
     await button("Inspect").click();
-    await button("Inspect committed response").click();
     await page.getByLabel("Board overlay").waitFor();
     await button("Close inspection").click();
     await sample(cycle, "match");

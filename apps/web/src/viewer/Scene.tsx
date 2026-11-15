@@ -15,6 +15,7 @@ import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
 import { addResultArrows, displayPoint } from "./sceneResults";
 import { createFlowParticles } from "./flowParticles";
 import { buildReleaseFlow, markInstability } from "./releaseFlow";
+import { drawInstabilityMode } from "./instabilityModes";
 import { drawBoardDiagram } from "./boardDiagrams";
 import { buildStructure } from "./structureMeshes";
 import { bindSceneInteraction } from "./sceneInteraction";
@@ -43,6 +44,9 @@ export function Scene({
   still,
   trueScale,
   showInstability,
+  instabilityMode,
+  playInstability,
+  reactionLabels,
   jointLayer,
   field, reference,
   result,
@@ -62,6 +66,9 @@ export function Scene({
     still,
     trueScale,
     showInstability,
+    instabilityMode,
+    playInstability,
+    reactionLabels,
     jointLayer,
     field, reference,
     result,
@@ -81,6 +88,9 @@ export function Scene({
     still,
     trueScale,
     showInstability,
+    instabilityMode,
+    playInstability,
+    reactionLabels,
     jointLayer,
     field, reference,
     result,
@@ -102,7 +112,7 @@ export function Scene({
   }, [jointLayer, result, combo, deformed, scale, field]);
   useEffect(() => {
     refresh.current();
-  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath, trueScale, showInstability, diagrams]);
+  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath, trueScale, showInstability, instabilityMode, playInstability, reactionLabels, diagrams]);
   const workK = useGameStore((state) => state.workK);
   const style = useGameStore((state) => state.style);
   const host = useRef<HTMLDivElement>(null);
@@ -112,6 +122,7 @@ export function Scene({
     fit: () => {},
     focus: () => {},
     orbit: (_step: number) => {},
+    pitch: (_step: number) => {},
     tilt: () => {},
   });
   // OrbitControls removes key listeners from the canvas's root. Dispose it
@@ -349,6 +360,7 @@ export function Scene({
       previousTurn = turnIndex;
       interaction.clearPreview();
       disposeGroup(structure);
+      delete structure.userData.animateInstability;
       disposeGroup(guides);
       particles.reset();
       const releaseFlow = !!view.current.cameraMemory && view.current.loadPath;
@@ -357,7 +369,11 @@ export function Scene({
       for (const diagram of view.current.diagrams ?? []) {
         drawBoardDiagram(structure, diagram, point, view.current.field, view.current.scale);
       }
-      if (view.current.showInstability && view.current.result) markInstability(structure, view.current.result, point);
+      if (view.current.showInstability && view.current.result) {
+        markInstability(structure, view.current.result, point);
+        drawInstabilityMode(structure, view.current.result, view.current.instabilityMode ?? 0,
+          !!view.current.playInstability && !view.current.still && !getSettings().reducedMotion);
+      }
       addResultArrows(structure, view.current, point, state.style !== 'engineering');
       buildGuides(
         guides,
@@ -466,6 +482,18 @@ export function Scene({
         controls.update();
         rebuild();
       },
+      pitch(step) {
+        const offset = camera.position.clone().sub(controls.target);
+        const horizontal = Math.hypot(offset.x, offset.y);
+        const radius = offset.length();
+        if (!horizontal || !radius) return;
+        const angle = Math.max(0.1, Math.min(1.4, Math.atan2(offset.z, horizontal) + step * Math.PI / 12));
+        const ratio = radius * Math.cos(angle) / horizontal;
+        offset.set(offset.x * ratio, offset.y * ratio, radius * Math.sin(angle));
+        camera.position.copy(controls.target).add(offset);
+        controls.update();
+        rebuild();
+      },
     };
     const observer = new ResizeObserver(resize);
     observer.observe(element);
@@ -490,6 +518,7 @@ export function Scene({
       }
       controls.update();
       particles.tick(time, prefersStill || getSettings().reducedMotion || view.current.still);
+      structure.userData.animateInstability?.(time);
       const state = useGameStore.getState();
       const line = preview.geometry.getAttribute("position");
       stickGhost.visible =
@@ -776,6 +805,7 @@ export function Scene({
     <div className="scene">
       <div
         ref={host}
+        tabIndex={0}
         style={{
           position: "absolute",
           inset: 0,
@@ -783,7 +813,7 @@ export function Scene({
           height: "100%",
           pointerEvents: "auto",
         }}
-        aria-label="3D workspace. Drag to orbit, scroll to zoom, and click to build."
+        aria-label="3D workspace. Drag or use arrow keys to orbit, Q and E to rotate, F to fit, scroll to zoom, and click to build."
       />
       {isGrowthStyle(style) && (
         <>

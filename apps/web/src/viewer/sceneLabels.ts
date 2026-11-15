@@ -8,7 +8,7 @@ const PAINT: Record<LabelPaint, [string, string, string]> = {
   selection: ['#233442', '#fff6e4', '#ae9c81'],
 };
 
-export function addSceneLabel(group: THREE.Group, position: THREE.Vector3, text: string, style: LabelPaint) {
+export function addSceneLabel(group: THREE.Group, position: THREE.Vector3, text: string, style: LabelPaint, size = 1) {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
   if (!context) return;
@@ -36,7 +36,7 @@ export function addSceneLabel(group: THREE.Group, position: THREE.Vector3, text:
     map: texture, depthTest: false, depthWrite: false, sizeAttenuation: false,
   }));
   label.position.copy(position);
-  label.scale.set((canvas.width / canvas.height) * 0.032, 0.032, 1);
+  label.scale.set((canvas.width / canvas.height) * 0.032 * size, 0.032 * size, 1);
   label.center.set(-0.06, 0.22);
   label.renderOrder = 80;
   group.add(label);

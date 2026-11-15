@@ -43,6 +43,10 @@ import { openSessionWriter, sessionLocks, SESSION_CONFLICT, SESSION_KEY, SESSION
 import {
   activeTurnHand,
   cancelTurnDraft,
+  undoLastPlacement,
+  chooseTurnDraw,
+  editDraftMember,
+  changeCheckpointInterval,
   createTurnGame,
   endTurn,
   projectTurnModel,
@@ -89,6 +93,10 @@ interface GameState {
     profile?: ConnectionProfile,
   ) => string | null;
   cancelDraft: () => string | null;
+  undoPlacement: () => string | null;
+  drawCard: (source: "members" | "connections" | "loads") => string | null;
+  editPlacement: (memberId: number, a: string, b: string) => string | null;
+  setAnalysisInterval: (interval: number) => string | null;
   /**
    * Commit the staged turn. The verified in-browser analysis decides issues,
    * penalties, repair and score; the structural solver chosen in Settings
@@ -407,6 +415,24 @@ export const useGameStore = create<GameState>((set, get) => {
         ? turnTransition(cancelTurnDraft(s.turn))
         : "No multiplayer game is active";
     },
+    undoPlacement: () => {
+      const s = get();
+      return s.mode === "multiplayer" && s.turn
+        ? turnTransition(undoLastPlacement(s.turn))
+        : "No multiplayer game is active";
+    },
+    drawCard: source => {
+      const s = get();
+      return s.turn ? turnTransition(chooseTurnDraw(s.turn, source)) : "No multiplayer game is active";
+    },
+    editPlacement: (memberId, a, b) => {
+      const s = get();
+      return s.turn ? turnTransition(editDraftMember(s.turn, memberId, a, b)) : "No multiplayer game is active";
+    },
+    setAnalysisInterval: interval => {
+      const s = get();
+      return s.turn ? turnTransition(changeCheckpointInterval(s.turn, interval)) : "No multiplayer game is active";
+    },
     turnAnalysing: false,
     turnSolver: null,
     endTurn: async () => {
@@ -697,7 +723,7 @@ export const useGameStore = create<GameState>((set, get) => {
       commit(clone(model));
       return true;
     },
-    undo: () =>
+    undo: () => get().mode === "multiplayer" ? void get().undoPlacement() :
       set((s) => {
         if (s.mode === "multiplayer" || !s.history.length) return {};
         const model = s.history[s.history.length - 1];
