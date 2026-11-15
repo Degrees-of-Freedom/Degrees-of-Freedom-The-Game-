@@ -60,6 +60,7 @@ export function Home() {
           <Link className="btn primary" to={"/match" + window.location.search} data-menu-focus>
             Play {ARROW}
           </Link>
+<Link className="btn" to="/ai-lab">AI turn lab</Link>
           <Link className="btn" to="/how">
             How to play
           </Link>
@@ -81,3 +82,5 @@ export function Home() {
     </MenuShell>
   );
 }
+
+

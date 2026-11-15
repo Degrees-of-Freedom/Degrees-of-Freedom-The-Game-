@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Link, Route, Routes } from "react-router-dom";
+import { AiLab } from "./pages/AiLab";
 import { Home } from "./pages/Home";
 import { Companion } from "./companion/Companion";
 import { ModeSelect } from "./pages/ModeSelect";
@@ -23,6 +24,7 @@ export function App() {
     >
       <Routes>
         <Route path="/" element={<Home />} />
+<Route path="/ai-lab" element={<AiLab />} />
         <Route path="/modes" element={<ModeSelect />} />
         <Route path="/setup/:mode" element={<ModeSetup />} />
         <Route path="/how" element={<HowToPlay />} />
@@ -48,3 +50,5 @@ export function App() {
     </Suspense>
   );
 }
+
+
