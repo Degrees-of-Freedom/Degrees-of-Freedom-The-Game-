@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeVoxel } from './voxel';
-import { componentSystems, findComponents, solveComponents } from './voxelComponents';
-import { connectionDefinition } from '../game/jointFreedom';
-import type { VoxelModel, VoxelLevel } from './voxelInput';
+import { analyzeVoxel } from './analyze';
+import { componentSystems, solveComponents } from './components';
+import { findComponents } from '../../evaluator/geometry';
+import { connectionDefinition } from '../../game/jointFreedom';
+import type { VoxelModel, VoxelLevel } from '../../evaluator/model';
 import { vecToGlobal } from './frameMath';
-import { verifyLinearResponse } from './voxelVerification';
-import { ITEMS, S } from './voxelSections';
+import { verifyLinearResponse } from './linearVerification';
+import { ITEMS, S } from '../../evaluator/sections';
 import type { FrameConnection } from './frameConnections';
 import { solveCombo } from './frameSolve';
 import { alphaCr } from './frameStability';

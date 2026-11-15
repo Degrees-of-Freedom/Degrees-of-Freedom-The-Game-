@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { RELEASE_CATALOGUE } from "./cardCatalogue";
 import { SCORE_POLICY } from "./finalScore";
-import { RELEASE_SOLVER } from "../solver/voxelVerification";
+import { RELEASE_SOLVER } from "../solver/voxel/linearVerification";
 import { matchesIssueEvidence } from "./turnIssues";
 import { replayTurnState, type TurnState } from "./turns";
 

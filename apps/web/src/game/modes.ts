@@ -18,7 +18,7 @@ import { initialModel } from "./layout";
 import { environmentExample } from "./environmentExamples";
 import { LEVELS } from "./levels";
 import type { GameModel, LevelId } from "./model";
-import type { VoxelAnalysis } from "../solver/voxel";
+import type { VoxelAnalysis } from "../evaluator/results";
 
 /** Starting layouts are experiments, not verified engineering exercises. */
 export function modeSetup(mode: GameMode): {

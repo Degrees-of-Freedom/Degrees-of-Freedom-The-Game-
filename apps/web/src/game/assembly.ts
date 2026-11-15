@@ -1,5 +1,5 @@
 import { CELL_SIZE, parseNodeKey, type GridPoint, type Member } from './model';
-import { localAxes } from '../solver/frameMath';
+import { localAxes } from '../solver/voxel/frameMath';
 
 /** A factory-welded four-panel planar truss. Terminal stubs isolate each
  * external connector from the welded cluster. A ball at the tip releases the

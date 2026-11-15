@@ -4,10 +4,10 @@ import { assemblyParts, type AssemblyNode } from './assembly';
 import type { TurnState } from './turns';
 import { analysisLoadJoint, originalPorts, turnJoints } from './turnPorts';
 import { connectionDefinition } from './jointFreedom';
-import { analyzeVoxel } from '../solver/voxel';
-import { assessCardCapacity } from '../solver/voxelCapacity';
-import type { VoxelLevel, VoxelModel } from '../solver/voxelInput';
-import { createTurnSolver } from '../solver/wasm/turnSolver';
+import { analyzeVoxel } from '../solver/voxel/analyze';
+import { assessCardCapacity } from '../evaluator/capacity';
+import type { VoxelLevel, VoxelModel } from '../evaluator/model';
+import { createTurnSolver } from '../evaluator/engine/releaseTurn';
 import type { WasmSource } from '../solver/wasm/wasmSolver';
 
 let releaseSolver = createTurnSolver();

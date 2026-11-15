@@ -1,15 +1,15 @@
-import { GAMMA } from './voxelLoads';
-import { dot } from './frameMath';
-import type { VoxelModel } from './voxelInput';
+import { GAMMA } from './loads';
+import { dot } from './vector';
+import type { VoxelModel } from './model';
 import type {
   Context,
   Demand,
   Element,
   ElementForce,
   VoxelAnalysis,
-} from './voxelResults';
-import type { Section } from './voxelSections';
-import { CARD_STRENGTH } from './voxelCapacity';
+} from './results';
+import type { Section } from './sections';
+import { CARD_STRENGTH } from './capacity';
 const FOUND_CAP = { Nc: 1500, Nt: 250, H: 350, M: 300 }; // kN, kNm
 function memberDemandULS(e: Element, r: ElementForce, amp: number) {
   const { f, ul } = r,

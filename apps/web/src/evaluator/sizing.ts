@@ -1,12 +1,19 @@
-import type { VoxelLevel, VoxelModel } from './voxelInput';
-import type { VoxelAnalysis } from './voxelResults';
-import { analyzeVoxel } from './voxel';
-import { ITEMS, type BeamType } from './voxelSections';
-import { checkMember, govern } from './voxelDesignChecks';
-/** Resize beam sections from available supply and reanalyse, without mutating the input. */
-export function autoDesignVoxel(
+import type { VoxelLevel, VoxelModel } from './model';
+import type { VoxelAnalysis } from './results';
+import { ITEMS, type BeamType } from './sections';
+import { checkMember, govern } from './designChecks';
+/** Analyse a model under a level: the engine the sizing loop calls. */
+export type Evaluate = (model: VoxelModel, level: VoxelLevel) => VoxelAnalysis;
+
+/** Resize beam sections from available supply and reanalyse with `evaluate`,
+ * without mutating the input. Up to four rounds; each round visits members
+ * from the most to the least utilised and picks the cheapest available
+ * section whose design checks, under the member's current demand, stay at
+ * or below 95 %, else the least utilised one. */
+export function autoDesign(
   input: VoxelModel,
   LV: VoxelLevel,
+  evaluate: Evaluate,
 ): { model: VoxelModel; analysis: VoxelAnalysis; changed: boolean } {
   // Work on a copy so callers can commit the complete operation as one undo step.
   const model = {
@@ -16,7 +23,7 @@ export function autoDesignVoxel(
       Object.entries(input.attrs).map(([k, a]) => [k, { ...a }]),
     ),
   };
-  let analysis = analyzeVoxel(model, LV),
+  let analysis = evaluate(model, LV),
     changedAny = false;
   if (!analysis.error && !analysis.mechanism && !analysis.unresolved) {
     const order: BeamType[] = (
@@ -64,7 +71,7 @@ export function autoDesignVoxel(
       }
       if (!changed) break;
       changedAny = true;
-      analysis = analyzeVoxel(model, LV);
+      analysis = evaluate(model, LV);
     }
   }
   return { model, analysis, changed: changedAny };

@@ -3,10 +3,10 @@ import { Vector3 } from 'three';
 import { CABLE_CATALOGUE } from './cardCatalogue';
 import { analyzeTurn, toTurnVoxelInput } from './turnAnalysis';
 import { createTurnGame, activeTurnHand, endTurn, stageConnection, stageElement, stageLoad, parseTurnState, type TurnState } from './turns';
-import { analyzeVoxel } from '../solver/voxel';
-import { cableState } from '../solver/cableEquilibrium';
+import { analyzeVoxel } from '../solver/voxel/analyze';
+import { cableState } from '../solver/voxel/cableEquilibrium';
 import { cableGeometry } from '../viewer/cableGeometry';
-import { displacementAt } from '../solver/voxelResults';
+import { displacementAt } from '../evaluator/results';
 import { awardFinalScore, finalReceipt } from './finalScore';
 
 const loadCase = {type:'sandbox',q0:0,inv:null,budget:Infinity,loadCase:'applied',appliedSelfWeight:false} as const;

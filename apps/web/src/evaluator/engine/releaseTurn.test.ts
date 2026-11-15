@@ -1,12 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { VoxelModel } from '../voxelInput';
-import { createTurnSolver } from './turnSolver';
+import type { VoxelModel } from '../model';
+import { createTurnSolver } from './releaseTurn';
 import { computeLoadPath } from '../loadPath';
 import { connectionDefinition } from '../../game/jointFreedom';
 
 const solver = createTurnSolver(async () => {
-  const bytes = await readFile(new URL('./dof_solver.wasm', import.meta.url));
+  const bytes = await readFile(new URL('../../solver/wasm/dof_solver.wasm', import.meta.url));
   return Uint8Array.from(bytes).buffer;
 });
 beforeAll(solver.prepare);

@@ -1,7 +1,7 @@
-import type { VoxelLevel, VoxelModel } from './voxelInput';
-import type { Context, VoxelAnalysis } from './voxelResults';
-import { ITEMS, S } from './voxelSections';
-import { key, parse } from './voxelCoordinates';
+import type { VoxelLevel, VoxelModel } from './model';
+import type { Context, VoxelAnalysis } from './results';
+import { ITEMS, S } from './sections';
+import { key, parse } from './coordinates';
 function deckContinuous(model: VoxelModel, LV: VoxelLevel) {
   const dk = LV.cliffH!,
     starts = LV.ys!.map((y) => key(LV.cliffL!, y, dk)),

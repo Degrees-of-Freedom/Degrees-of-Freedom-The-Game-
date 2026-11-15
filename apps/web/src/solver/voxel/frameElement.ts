@@ -1,9 +1,8 @@
-import type { VoxelMember, VoxelModel } from './voxelInput';
-import type { Element, ElementForce } from './voxelResults';
-import { ITEMS, type Section } from './voxelSections';
+import type { VoxelMember, VoxelModel } from '../../evaluator/model';
+import type { Element, ElementForce } from './types';
+import { memberGeometry } from '../../evaluator/geometry';
 import { connectorSlips, reduceConnections, recoverConnectorMotion, type FrameConnection } from './frameConnections';
 import {
-  localAxes,
   frameK,
   trussK,
   axialK,
@@ -21,14 +20,7 @@ export function makeElement(
   b: number,
   eq: Int32Array,
 ): Element {
-  const it: Section = ITEMS[m.type];
-  const d = [pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]],
-    L = Math.hypot(...d);
-  const ex = d.map((v) => v / L),
-    R = localAxes(ex);
-  const cable = it.kind === 'cable';
-  const rigidA = it.kind === 'beam' && (m.endA ? m.endA === 'fixed' : !!model.attrs[m.a]?.joint),
-    rigidB = it.kind === 'beam' && (m.endB ? m.endB === 'fixed' : !!model.attrs[m.b]?.joint);
+  const { it, L, R, rigidA, rigidB } = memberGeometry(model, m, pa, pb, a, b);
   // Unused collars carry no external force. Combining their series segments
   // gives k/fraction for the active piece, independently of its placed length.
   const fraction = m.parentSpan ? (m.parentSpan.toQuarter - m.parentSpan.fromQuarter) / 4 : 1;
@@ -63,7 +55,7 @@ export function makeElement(
   const dofs = [];
   for (let q = 0; q < 6; q++) dofs.push(eq[a * 6 + q]);
   for (let q = 0; q < 6; q++) dofs.push(eq[b * 6 + q]);
-  return { m, it, L, R, ex, a, b, k, rel, kgl, dofs, cable, rigidA, rigidB, ...(connector && {connector}) };
+  return { ...memberGeometry(model, m, pa, pb, a, b), k, rel, kgl, dofs, ...(connector && {connector}) };
 }
 export function recover(e: Element, u: Float64Array): ElementForce {
   const ug = new Float64Array(12);

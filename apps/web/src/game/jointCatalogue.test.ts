@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { JOINT_CATALOGUE, SCORED_CATALOGUE, printedCards } from './cardCatalogue';
 import { activeTurnHand, createTurnGame, endTurn, parseTurnState, stageConnection, stageElement, stageLoad, type TurnState } from './turns';
 import { analyzeTurn } from './turnAnalysis';
-import { vecToGlobal } from '../solver/frameMath';
+import { vecToGlobal } from '../solver/voxel/frameMath';
 
 function accepted(transition: ReturnType<typeof endTurn>) {
   if (!transition.ok) throw Error(transition.reason);

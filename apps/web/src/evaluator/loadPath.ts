@@ -1,5 +1,5 @@
-import type { VoxelAnalysis } from './voxel';
-import { RELEASE_SOLVER } from './voxelVerification';
+import type { VoxelAnalysis } from './results';
+import { RELEASE_SOLVER } from './evidence';
 
 /** A visual interpretation of member forces, not a separate structural analysis. */
 export interface LoadPathMember {

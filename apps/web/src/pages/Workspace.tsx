@@ -11,7 +11,7 @@ import { ReleaseBoard } from "../components/ReleaseBoard";
 import type { CameraMemory } from "../viewer/sceneView";
 import { deformationField } from "../viewer/deformationField";
 import { useStabilityCheck } from "../game/useStabilityCheck";
-import type { VoxelAnalysis } from "../solver/voxel";
+import type { VoxelAnalysis } from "../evaluator/results";
 import { StabilityCheckPanel } from "../components/StabilityCheckPanel";
 import { modeProgress } from "../game/modes";
 import { environmentExample } from "../game/environmentExamples";

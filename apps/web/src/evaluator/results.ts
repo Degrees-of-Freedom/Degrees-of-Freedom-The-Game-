@@ -1,38 +1,34 @@
-import type { VoxelMember } from './voxelInput';
-import type { Section } from './voxelSections';
-import type { LinearVerification } from './voxelVerification';
-import type { ConnectionReduction, FrameConnection } from './frameConnections';
+import type { VoxelMember } from './model';
+import type { Section } from './sections';
+import type { ResponseVerification } from './evidence';
+/** One analysed member: its axes and end fixity, in the active-node
+ * numbering of its `Context`. Engines attach responses to these objects. */
 export type Element = {
   m: VoxelMember;
   it: Section;
+  /** Undeformed length, m. */
   L: number;
+  /** Rows are the local x, y and z axes in global coordinates. */
   R: number[][];
   ex: number[];
   a: number;
   b: number;
-  k: Float64Array;
-  rel: number[];
-  kgl: Float64Array;
-  dofs: number[];
   cable: boolean;
   rigidA: boolean;
   rigidB: boolean;
-  connector?: { ends: [FrameConnection, FrameConnection]; reduction: ConnectionReduction };
 };
+/** Shared analytical numbering (see `geometry.ts`). `act` lists the node
+ * index of each active (supported) node; `aid` is the inverse. */
 export type Context = {
   keys: string[];
   pos: number[][];
   act: number[];
   NA: number;
-  eq: Int32Array;
-  nf: number;
   els: Element[];
-  bw: number;
   isF: boolean[];
   idx: Map<string, number>;
   aid: Int32Array;
 };
-export type FrameSystem = Pick<Context, 'nf' | 'NA' | 'eq' | 'els' | 'bw'>;
 export interface ComponentResponse {
   /** Analytical identities. Coincident loose ends can belong to different components. */
   nodes: string[];
@@ -42,7 +38,7 @@ export interface ComponentResponse {
   status: 'computed' | 'unsupported' | 'mechanism' | 'unresolved' | 'excessive-displacement';
   reason?: string;
   /** Absence means there is no verified response. This evidence only covers the declared linear formulation. */
-  verification?: LinearVerification;
+  verification?: ResponseVerification;
   instabilityWitness?: { memberIds: number[]; nodes: string[]; reason: string;
     comparison?: {topology: string; negativePivots: number; mechanisms: number} };
   /** A converged large displacement is independent of tangent instability. */
@@ -73,13 +69,6 @@ export type ElementForce = {
   motionSamples?: { fraction: number; motion: readonly number[] }[];
   /** Signed vertical transfer toward the segment end, under joint gravity. */
   verticalTransferKN?: number;
-};
-export type Solved = {
-  u: Float64Array;
-  K0: Float64Array;
-  activeDofs: number[];
-  active: Map<Element, boolean>;
-  ef: Map<Element, ElementForce>;
 };
 export type LoadCombo = {
   name: string;

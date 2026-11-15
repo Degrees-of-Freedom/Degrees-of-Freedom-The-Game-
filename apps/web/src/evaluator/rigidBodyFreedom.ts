@@ -1,5 +1,5 @@
-import { parse } from './voxelCoordinates';
-import type { VoxelModel } from './voxelInput';
+import { parse } from './coordinates';
+import type { VoxelModel } from './model';
 
 /** An exact zero-strain rigid displacement of one or more parent members.
  * A rotation about a line through stationary ball contacts preserves each

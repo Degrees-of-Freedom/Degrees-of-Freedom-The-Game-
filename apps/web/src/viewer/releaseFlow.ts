@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { computeLoadPath, type LoadPathMember } from "../solver/loadPath";
-import type { VoxelAnalysis } from "../solver/voxelResults";
+import { computeLoadPath, type LoadPathMember } from "../evaluator/loadPath";
+import type { VoxelAnalysis } from "../evaluator/results";
 
 /** Each verified gravity transfer has its own direction and scale. Preserve
  * the underlying section geometry and exact solver segment endpoints. */

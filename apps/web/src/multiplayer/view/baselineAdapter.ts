@@ -1,6 +1,6 @@
 import { CELL_SIZE } from '../../game/model';
 import type { GameModel, MemberType } from '../../game/model';
-import type { Combo, Context, VoxelAnalysis } from '../../solver/voxelResults';
+import type { Combo, Context, VoxelAnalysis } from '../../evaluator/results';
 import type { FlowSegmentEvidence } from './flow';
 import type {
   CheckpointView, JointView, MaximumLength, MemberView, MultiplayerViewData,

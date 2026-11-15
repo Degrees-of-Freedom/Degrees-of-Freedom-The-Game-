@@ -1,5 +1,5 @@
-import type { VoxelAnalysis } from "../solver/voxelResults";
-import { verifiedResponse } from "../solver/voxelVerification";
+import type { VoxelAnalysis } from "../evaluator/results";
+import { verifiedResponse } from "../solver/voxel/linearVerification";
 
 export const cutActions = ["Axial N", "Shear Vy", "Shear Vz", "Torsion T", "Moment My", "Moment Mz"] as const;
 export interface CutSeries {

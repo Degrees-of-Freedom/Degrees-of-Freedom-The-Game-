@@ -3,7 +3,7 @@ import { LEVELS } from './levels';
 import { toVoxelInput } from './analysis';
 import { createStateService } from './persistence';
 import { createVoxelAnalysisSnapshot, recomposeVoxelAnalysis } from './structuralState';
-import { analyzeVoxel } from '../solver/voxel';
+import { analyzeVoxel } from '../solver/voxel/analyze';
 import type { GameModel } from './model';
 
 const model: GameModel = { members: [{ id: 1, a: '0,0,0', b: '0,0,1', type: 'shs' }], attrs: { '0,0,0': { found: true }, '0,0,1': { load: 50 } }, nextId: 2 };

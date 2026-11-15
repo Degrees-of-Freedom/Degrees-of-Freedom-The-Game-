@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { type GameModel, type LevelId } from "./model";
-import { type VoxelLevel, type VoxelModel } from "../solver/voxelInput";
-import { ITEMS, S } from "../solver/voxelSections";
-import { COMBOS, GAMMA } from "../solver/voxelLoads";
+import { type VoxelLevel, type VoxelModel } from "../evaluator/model";
+import { ITEMS, S } from "../evaluator/sections";
+import { COMBOS, GAMMA } from "../evaluator/loads";
 
 // This format captures the existing voxel solver, not the proposed general FEA model.
 const gridKey = z.string().regex(/^(0|[1-9]\d*),(0|[1-9]\d*),(0|[1-9]\d*)$/);

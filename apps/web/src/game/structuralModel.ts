@@ -6,7 +6,7 @@ import type {
   StructuralModel,
   Vector3,
 } from '@dof/solver-contract';
-import { ITEMS, resolveMemberLaw, type BeamSection } from '../solver/voxelSections';
+import { ITEMS, resolveMemberLaw, type BeamSection } from '../evaluator/sections';
 import { allNodeKeys, CELL_SIZE, parseNodeKey, type GameModel, type LoadDirection, type Member } from './model';
 
 /** Game point loads are stored in kN; the contract uses newtons. */

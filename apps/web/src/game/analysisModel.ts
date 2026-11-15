@@ -5,7 +5,7 @@ import type {
   AnalysisSection,
   ConnectionLaws,
 } from '@dof/solver-contract';
-import { ITEMS } from '../solver/voxelSections';
+import { ITEMS } from '../evaluator/sections';
 import {
   CELL_SIZE,
   parseNodeKey,

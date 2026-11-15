@@ -3,9 +3,9 @@ import { LEGACY_CATALOGUE, PLANAR_CATALOGUE, SCORED_CATALOGUE, SPRING_CATALOGUE,
 import { findMaterialClash } from './materialClashes';
 import { analyzeTurn, toTurnVoxelInput } from './turnAnalysis';
 import { activeTurnHand, createTurnGame, endTurn, parseTurnState, stageConnection, stageElement, stageLoad, type TurnState } from './turns';
-import { analyzeVoxel } from '../solver/voxel';
-import { assessCardCapacity } from '../solver/voxelCapacity';
-import { displacementAt } from '../solver/voxelResults';
+import { analyzeVoxel } from '../solver/voxel/analyze';
+import { assessCardCapacity } from '../evaluator/capacity';
+import { displacementAt } from '../evaluator/results';
 import { springParts } from './springParts';
 import { springGeometry } from '../viewer/springGeometry';
 

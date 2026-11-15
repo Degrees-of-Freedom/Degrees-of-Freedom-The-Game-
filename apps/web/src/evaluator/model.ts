@@ -1,4 +1,4 @@
-import type { FrameConnection } from './frameConnections';
+import type { FrameConnection } from './connections';
 /** Input for the experimental voxel analysis. Grid keys contain integer x,y,z coordinates. */
 export type VoxelMemberType = 'shs' | 'chs' | 'glulam' | 'ipe' | 'heb' | 'cable' | 'spring';
 export interface VoxelMember {

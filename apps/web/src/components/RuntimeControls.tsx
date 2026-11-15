@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useGameStore } from "../game/store";
 import { type GridPoint, type MemberType } from "../game/model";
 import { modeProgress } from "../game/modes";
-import type { VoxelAnalysis } from "../solver/voxel";
+import type { VoxelAnalysis } from "../evaluator/results";
 import { MODE_CATALOG, STYLE_CATALOG } from "./runtimeCatalog";
 import { MEMBER_TYPES } from "../game/inventory";
 

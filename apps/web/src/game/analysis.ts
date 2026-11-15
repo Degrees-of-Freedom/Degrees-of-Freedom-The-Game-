@@ -1,8 +1,8 @@
 import { groundK } from "./terrain";
 import { parseNodeKey, type GameModel, type Level } from "./model";
-import type { VoxelLevel, VoxelModel } from "../solver/voxelInput";
-import { analyzeVoxel } from "../solver/voxel";
-import { autoDesignVoxel } from "../solver/voxelSizing";
+import type { VoxelLevel, VoxelModel } from "../evaluator/model";
+import { analyzeVoxel } from "../solver/voxel/analyze";
+import { autoDesign } from "../evaluator/sizing";
 import {
   createVoxelAnalysisSnapshot,
   recomposeVoxelAnalysis,
@@ -57,5 +57,5 @@ export function autoDesignGame(model: GameModel, level: Level) {
   const input = recomposeVoxelAnalysis(
     createVoxelAnalysisSnapshot(source.model, source.level),
   );
-  return autoDesignVoxel(input.model, input.level);
+  return autoDesign(input.model, input.level, analyzeVoxel);
 }

@@ -1,6 +1,6 @@
 import { cholesky, cholSolve, vecToLocal } from './frameMath';
 import { recover } from './frameElement';
-import type { Element, ElementForce, FrameSystem, Solved } from './voxelResults';
+import type { Element, ElementForce, FrameSystem, Solved } from './types';
 
 /** Engineering strain is measured from the immutable unstressed material length.
  * The tangent includes the direction change of a taut segment. A slack segment

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { TurnState } from "./turns";
-import type { VoxelAnalysis } from "../solver/voxelResults";
-import { CABLE_FORMULATION, RELEASE_SOLVER, verifiedResponse } from "../solver/voxelVerification";
+import type { VoxelAnalysis } from "../evaluator/results";
+import { CABLE_FORMULATION, RELEASE_SOLVER, verifiedResponse } from "../solver/voxel/linearVerification";
 import { analysisLoadJoint } from "./turnPorts";
 
 export const SCORE_POLICY = "signed-card-gravity-v1";

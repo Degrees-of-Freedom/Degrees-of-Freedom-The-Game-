@@ -6,9 +6,9 @@ import type { Member } from '../../game/model';
 import { toTurnVoxelInput } from '../../game/turnAnalysis';
 import { findPort } from '../../game/turnPorts';
 import { createTurnGame } from '../../game/turns';
-import { displacementAt } from '../voxelResults';
-import { ITEMS } from '../voxelSections';
-import { createTurnSolver } from './turnSolver';
+import { displacementAt } from '../../evaluator/results';
+import { ITEMS } from '../../evaluator/sections';
+import { createTurnSolver } from '../../evaluator/engine/releaseTurn';
 
 const solver = createTurnSolver(async () => Uint8Array.from(await readFile(new URL('./dof_solver.wasm', import.meta.url))).buffer);
 beforeAll(solver.prepare);

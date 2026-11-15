@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { analyzeTurn } from './turnAnalysis';
 import { createTurnGame, type TurnState } from './turns';
 import type { MemberType } from './model';
-import type { CapacityCheck } from '../solver/voxelCapacity';
+import type { CapacityCheck } from '../evaluator/capacity';
 
 function verified(check: CapacityCheck) {
   expect(check.status).toBe('verified');

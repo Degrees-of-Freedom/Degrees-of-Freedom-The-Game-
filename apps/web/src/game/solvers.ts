@@ -3,7 +3,7 @@ import type {
   AnalysisResult,
   SolverAdapter,
 } from '@dof/solver-contract';
-import type { VoxelAnalysis } from '../solver/voxel';
+import type { VoxelAnalysis } from '../evaluator/results';
 import { unavailableSolver } from '../solver/unavailable';
 import type { GameModel, Level } from './model';
 import { toStructuralModel } from './structuralModel';

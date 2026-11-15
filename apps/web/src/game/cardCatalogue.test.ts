@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ITEMS, resolveMemberLaw, SECTION_GEOMETRY } from '../solver/voxelSections';
+import { ITEMS, resolveMemberLaw, SECTION_GEOMETRY } from '../evaluator/sections';
 import { activeTurnHand, createTurnGame, parseTurnState, stageElement } from './turns';
 import {
   CARD_DEFINITION_VERSION, CANDIDATE_FAMILIES, describePrinting, LEGACY_CATALOGUE,

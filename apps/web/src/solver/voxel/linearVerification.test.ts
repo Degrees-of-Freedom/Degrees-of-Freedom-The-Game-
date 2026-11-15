@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeVoxel } from './voxel';
-import { solveComponents, findComponents, componentSystems } from './voxelComponents';
-import { verifyLinearResponse } from './voxelVerification';
+import { analyzeVoxel } from './analyze';
+import { solveComponents, componentSystems } from './components';
+import { findComponents } from '../../evaluator/geometry';
+import { verifyLinearResponse } from './linearVerification';
 import { solveCombo } from './frameSolve';
 import { alphaCr } from './frameStability';
-import type { VoxelLevel, VoxelModel } from './voxelInput';
-import { analyzeTurn } from '../game/turnAnalysis';
-import { createTurnGame } from '../game/turns';
+import type { VoxelLevel, VoxelModel } from '../../evaluator/model';
+import { analyzeTurn } from '../../game/turnAnalysis';
+import { createTurnGame } from '../../game/turns';
 
 const appliedOnly: VoxelLevel = {
   type: 'sandbox', loadCase: 'applied', appliedSelfWeight: false, q0: 0, budget: Infinity, inv: null,

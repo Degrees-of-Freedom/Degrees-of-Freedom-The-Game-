@@ -1,47 +1,11 @@
 import { vecToGlobal } from './frameMath';
 import { solveCombo } from './frameSolve';
 import { alphaCr } from './frameStability';
-import type { Combo, ComponentResponse, Context, Element, ElementForce, FrameSystem, LoadCombo } from './voxelResults';
-import type { VoxelMember } from './voxelInput';
-import { minimumBucklingFactor, verifyLinearResponse } from './voxelVerification';
+import type { Combo, ComponentResponse, Context, Element, ElementForce, FrameSystem, LoadCombo } from './types';
+import type { Component } from '../../evaluator/geometry';
+import { minimumBucklingFactor, verifyLinearResponse } from './linearVerification';
 
-export interface Component {
-  nodes: string[];
-  memberIds: number[];
-  supported: boolean;
-}
-
-/** Traverse analytical endpoints, including isolated loads and unused foundations. */
-export function findComponents(keys: string[], idx: Map<string, number>, members: VoxelMember[], isF: boolean[]) {
-  const neighbours: number[][] = keys.map(() => []);
-  for (const member of members) {
-    const a = idx.get(member.a)!, b = idx.get(member.b)!;
-    neighbours[a].push(b);
-    neighbours[b].push(a);
-  }
-  const components: Component[] = [];
-  const labels = new Int32Array(keys.length).fill(-1);
-  for (let start = 0; start < keys.length; start++) {
-    if (labels[start] >= 0) continue;
-    const label = components.length;
-    const component: Component = { nodes: [], memberIds: [], supported: false };
-    components.push(component);
-    const stack = [start];
-    labels[start] = label;
-    while (stack.length) {
-      const node = stack.pop()!;
-      component.nodes.push(keys[node]);
-      if (isF[node]) component.supported = true;
-      for (const next of neighbours[node]) {
-        if (labels[next] >= 0) continue;
-        labels[next] = label;
-        stack.push(next);
-      }
-    }
-  }
-  for (const member of members) components[labels[idx.get(member.a)!]].memberIds.push(member.id);
-  return { components, labels };
-}
+export type { Component } from '../../evaluator/geometry';
 
 interface ComponentSystem {
   component: Component;

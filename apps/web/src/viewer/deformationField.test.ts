@@ -1,8 +1,9 @@
 import { expect, it } from "vitest";
-import { analyzeVoxel } from "../solver/voxel";
-import { componentSystems, findComponents, solveComponents } from "../solver/voxelComponents";
-import type { VoxelModel, VoxelLevel } from "../solver/voxelInput";
-import { ITEMS } from "../solver/voxelSections";
+import { analyzeVoxel } from "../solver/voxel/analyze";
+import { componentSystems, solveComponents } from "../solver/voxel/components";
+import { findComponents } from "../evaluator/geometry";
+import type { VoxelModel, VoxelLevel } from "../evaluator/model";
+import { ITEMS } from "../evaluator/sections";
 import { deflectedFrameGeometry } from "./deflectedGeometry";
 import { deformationField, spanDisplacement, spanPoint } from "./deformationField";
 import { createTurnGame } from "../game/turns";

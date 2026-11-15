@@ -1,5 +1,5 @@
-import type { VoxelAnalysis } from "../solver/voxel";
-import { computeLoadPath } from "../solver/loadPath";
+import type { VoxelAnalysis } from "../evaluator/results";
+import { computeLoadPath } from "../evaluator/loadPath";
 import type { DeformationField } from "../viewer/deformationField";
 interface AnalysisPanelProps {
   result: VoxelAnalysis | null;

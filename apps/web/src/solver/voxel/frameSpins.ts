@@ -1,4 +1,4 @@
-import type { Element, FrameSystem } from './voxelResults';
+import type { Element, FrameSystem } from './types';
 
 /** A hinge's unresisted spin may be oblique in global coordinates. Every beam
  * touching this joint must release that same direction and the external moment

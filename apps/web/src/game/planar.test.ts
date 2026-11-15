@@ -3,11 +3,11 @@ import { PLANAR, assemblyParts } from './assembly';
 import { PLANAR_CATALOGUE, SCORED_CATALOGUE, printedCards } from './cardCatalogue';
 import { createTurnGame, endTurn, parseTurnState, stageConnection, stageElement, type TurnState } from './turns';
 import { analyzeTurn, toTurnVoxelInput } from './turnAnalysis';
-import { analyzeVoxel } from '../solver/voxel';
+import { analyzeVoxel } from '../solver/voxel/analyze';
 import { findMaterialClash } from './materialClashes';
 import { findPort } from './turnPorts';
-import { displacementAt } from '../solver/voxelResults';
-import { ITEMS } from '../solver/voxelSections';
+import { displacementAt } from '../evaluator/results';
+import { ITEMS } from '../evaluator/sections';
 
 const parent = { id: 3, type: 'shs', assembly: PLANAR.id, a: '1,3,0', b: '3,3,0', owner: 'player-1' } as const;
 function fixture(quarter: number, load = 1) {

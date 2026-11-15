@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from "react";
-import type { VoxelAnalysis } from "../solver/voxelResults";
+import type { VoxelAnalysis } from "../evaluator/results";
 import { cutActions, sectionCuts } from "../viewer/sectionCuts";
 
 const short = new Intl.NumberFormat("en", { maximumSignificantDigits: 4 });

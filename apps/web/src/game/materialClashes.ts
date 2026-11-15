@@ -1,7 +1,7 @@
 import { CELL_SIZE, parseNodeKey, type Member } from "./model";
 import { originalPorts } from "./turnPorts";
-import { dot, localAxes } from "../solver/frameMath";
-import { CHS, SECTION_GEOMETRY } from "../solver/voxelSections";
+import { dot, localAxes } from "../solver/voxel/frameMath";
+import { CHS, SECTION_GEOMETRY } from "../evaluator/sections";
 import { assemblyParts } from "./assembly";
 import { springParts } from "./springParts";
 

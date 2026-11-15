@@ -1,7 +1,7 @@
-import type { VoxelModel } from './voxelInput';
-import type { ComponentResponse, VoxelAnalysis } from './voxelResults';
-import { ITEMS, type BeamSection, type BeamType } from './voxelSections';
-import { verifiedResponse } from './voxelVerification';
+import type { VoxelModel } from './model';
+import type { ComponentResponse, VoxelAnalysis } from './results';
+import { ITEMS, type BeamSection, type BeamType } from './sections';
+import { verifiedResponse } from './evidence';
 
 /** Printed playtest limit states. Values are kN and kN·m. Section axial,
  * bending and shear strengths come from the same section used for analysis.

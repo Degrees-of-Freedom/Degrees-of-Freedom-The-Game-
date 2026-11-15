@@ -1,5 +1,5 @@
 import type { GridPoint } from "../game/model";
-import type { VoxelAnalysis } from "../solver/voxel";
+import type { VoxelAnalysis } from "../evaluator/results";
 /** What the pointer is over, published by the picker for scene labels and guides. */
 export interface SceneHover {
   p: GridPoint;

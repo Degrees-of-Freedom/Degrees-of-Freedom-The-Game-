@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeTurn, assessTurn, toTurnVoxelInput } from './turnAnalysis';
-import { displacementAt } from '../solver/voxelResults';
+import { displacementAt } from '../evaluator/results';
 import { activeTurnHand, createTurnGame, stageElement, stageLoad } from './turns';
 
 describe('Shared table structural simulation', () => {

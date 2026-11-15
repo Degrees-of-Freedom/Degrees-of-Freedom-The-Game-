@@ -1,4 +1,4 @@
-import type { VoxelMemberType } from './voxelInput';
+import type { VoxelMemberType } from './model';
 export type BeamType = Exclude<VoxelMemberType, 'cable' | 'spring'>;
 export type Section = (typeof ITEMS)[VoxelMemberType];
 export type BeamSection = (typeof ITEMS)[BeamType];

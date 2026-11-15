@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { analyzeTurn } from "./turnAnalysis";
 import { createTurnGame } from "./turns";
-import { displacementAt } from "../solver/voxelResults";
-import { ITEMS } from "../solver/voxelSections";
+import { displacementAt } from "../evaluator/results";
+import { ITEMS } from "../evaluator/sections";
 
 describe.each(["shs", "chs", "ipe", "heb", "glulam"] as const)("continuous %s frame quarter-port force transfer", type => {
   it.each([1, 2, 3])("matches cantilever bending and reactions at original quarter %i", q => {

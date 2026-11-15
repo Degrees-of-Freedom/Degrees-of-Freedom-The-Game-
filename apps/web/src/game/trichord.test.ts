@@ -5,9 +5,9 @@ import { findMaterialClash } from './materialClashes';
 import { CELL_SIZE, type Member } from './model';
 import { analyzeTurn, toTurnVoxelInput } from './turnAnalysis';
 import { createTurnGame } from './turns';
-import { analyzeVoxel } from '../solver/voxel';
-import { displacementAt } from '../solver/voxelResults';
-import { ITEMS } from '../solver/voxelSections';
+import { analyzeVoxel } from '../solver/voxel/analyze';
+import { displacementAt } from '../evaluator/results';
+import { ITEMS } from '../evaluator/sections';
 
 const parent = {id: 3, assembly: TRICHORD.id, type: 'shs', owner: 'player-1', a: '1,3,0', b: '3,3,0'} as const;
 function fixture(quarter: number, magnitude = 1, rotated = false) {

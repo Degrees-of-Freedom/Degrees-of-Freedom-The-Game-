@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { LEVELS } from '../game/levels';
-import { type GameModel } from '../game/model';
-import { analyzeVoxel } from './voxel';
-import { autoDesignVoxel } from './voxelSizing';
-import { exampleModel } from '../game/examples';
-import type { VoxelModel } from './voxelInput';
+import { LEVELS } from '../../game/levels';
+import { type GameModel } from '../../game/model';
+import { analyzeVoxel } from './analyze';
+import { autoDesign } from '../../evaluator/sizing';
+import { exampleModel } from '../../game/examples';
+import type { VoxelModel } from '../../evaluator/model';
 
 describe('prototype voxel analysis', () => {
   it('isolates a component above the browser equation limit without dropping a small supported frame', () => {
@@ -74,7 +74,7 @@ describe('reference structures and auto-design', () => {
   it('resizes without mutating the input and honours supply', () => {
     const input = exampleModel('tower1')!;
     const before = structuredClone(input);
-    const result = autoDesignVoxel(input, LEVELS.tower1);
+    const result = autoDesign(input, LEVELS.tower1, analyzeVoxel);
     expect(input).toEqual(before);
     expect(result.changed).toBe(true);
     expect(result.analysis.error).toBeUndefined();
@@ -86,7 +86,7 @@ describe('reference structures and auto-design', () => {
   });
   it('leaves an invalid model unchanged', () => {
     const input: GameModel = { members: [], attrs: {}, nextId: 1 };
-    const result = autoDesignVoxel(input, LEVELS.sandbox);
+    const result = autoDesign(input, LEVELS.sandbox, analyzeVoxel);
     expect(result.changed).toBe(false);
     expect(result.model).toEqual(input);
     expect(result.analysis.error).toBe('Nothing built yet.');

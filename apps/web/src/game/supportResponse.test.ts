@@ -1,3 +1,4 @@
+import type { Context as KernelContext } from '../solver/voxel/types';
 import { expect, it } from "vitest";
 import { SCORED_CATALOGUE } from "./cardCatalogue";
 import { awardFinalScore, finalReceipt } from "./finalScore";
@@ -22,7 +23,7 @@ function cantilever(owner: string) {
 it.each(["player-1", "neutral"])("returns six signed ground reactions traced to %s", owner => {
   const { turn, base, tip } = cantilever(owner);
   const analysis = analyzeTurn(turn, "card-gravity");
-  const ctx = analysis.ctx!;
+  const ctx = analysis.ctx as KernelContext;
   const node = (id: string) => ctx.aid[ctx.idx.get(id)!];
   const combo = analysis.combos[0];
   expect(combo.components![0].verification?.status).toBe("verified-linear");
@@ -42,7 +43,7 @@ it("distinguishes inactive end spins from a genuine unloaded sway mechanism", ()
   turn.board.loads = [];
   const response = (state: TurnState) => analyzeTurn(state, "card-gravity");
   const stable = response(turn);
-  const ctx = stable.ctx!;
+  const ctx = stable.ctx as KernelContext;
   const start = 6 * ctx.aid[ctx.idx.get(tip)!];
   expect(Array.from(ctx.eq.slice(start, start + 3)).every(i => i >= 0)).toBe(true);
   expect(Array.from(ctx.eq.slice(start + 3, start + 6))).toEqual([-1, -1, -1]);

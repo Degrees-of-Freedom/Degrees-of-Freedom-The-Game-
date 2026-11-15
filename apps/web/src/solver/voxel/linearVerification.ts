@@ -1,40 +1,15 @@
 import { dot, vecToGlobal, vecToLocal } from './frameMath';
-import { displacementAt, type Combo, type Context, type Element } from './voxelResults';
+import { CABLE_FORMULATION, LINEAR_FORMULATION as formulation, minimumBucklingFactor, type ResponseVerification } from '../../evaluator/evidence';
+import { displacementAt, type Combo, type Context, type Element } from './types';
 
-/** Evidence for the small-displacement, linear-elastic Euler–Bernoulli frame only.
- * This does not certify capacity, nonlinear stability, or post-buckling response.
- * Force, length, moment and rotation units are kN, m, kN·m and radians.
- */
-export interface LinearVerification {
-  formulation: 'voxel-linear-frame-v1' | 'voxel-cable-frame-v1' | typeof RELEASE_SOLVER;
-  status: 'verified-linear' | 'verified-cable' | 'verified-nonlinear' | 'unverified';
-  nonlinear?: { force: number; moment: number; residual: number };
-  reason?: string;
-  residuals?: {
-    force: number;
-    moment: number;
-    nodalBalance: number;
-    memberLaw: number;
-    compatibility: number;
-    releasedAction: number;
-  };
-}
-
-const formulation = 'voxel-linear-frame-v1';
-export const CABLE_FORMULATION = 'voxel-cable-frame-v1';
-export const RELEASE_SOLVER = 'dof-rust-0.2.0-nonlinear-1';
-export function verifiedResponse(v?: LinearVerification) {
-  return v?.status === 'verified-linear' || v?.status === 'verified-cable' || v?.status === 'verified-nonlinear';
-}
 const residualLimit = 1e-5;
 const compatibilityLimit = 1e-9;
 // Provisional analysis envelope. Beyond it, reaction-based decisions must await
 // nonlinear verification. The modal screen uses the same amplification boundary
 // as the browser design solver. It is not a critical-load acceptance test.
 const smallMotion = 0.01;
-export const minimumBucklingFactor = 10;
 
-function unknown(reason: string): LinearVerification {
+function unknown(reason: string): ResponseVerification {
   return { formulation, status: 'unverified', reason };
 }
 
@@ -45,7 +20,7 @@ function unknown(reason: string): LinearVerification {
  */
 export function verifyLinearResponse(
   ctx: Context, combo: Combo, active: number[], elements: Element[], bucklingFactor: number | null,
-): LinearVerification {
+): ResponseVerification {
   if (!active.length || !combo.ef || !combo.reac) return unknown('Response unavailable.');
   if (elements.some(e => e.cable && e.m.restLengthM === undefined)) return unknown('Cable active-state and nonlinear equilibrium are outside this verification.');
   const cableComponent = elements.some(e => e.cable);
@@ -196,3 +171,5 @@ export function verifyLinearResponse(
   return cableComponent ? { formulation:CABLE_FORMULATION, status:'verified-cable', residuals }
     : { formulation, status:'verified-linear', residuals };
 }
+
+export { CABLE_FORMULATION, RELEASE_SOLVER, minimumBucklingFactor, verifiedResponse, type ResponseVerification } from '../../evaluator/evidence';

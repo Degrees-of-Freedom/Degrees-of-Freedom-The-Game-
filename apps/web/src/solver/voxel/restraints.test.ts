@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeGame } from '../game/analysis';
-import { LEVELS } from '../game/levels';
-import type { GameModel, LoadDirection } from '../game/model';
-import { ITEMS } from './voxelSections';
+import { analyzeGame } from '../../game/analysis';
+import { LEVELS } from '../../game/levels';
+import type { GameModel, LoadDirection } from '../../game/model';
+import { ITEMS } from '../../evaluator/sections';
 
 const level = { ...LEVELS.environment, q0: 0 };
 function cantilever(direction: LoadDirection): GameModel {

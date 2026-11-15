@@ -1,8 +1,8 @@
-import type { VoxelLevel, VoxelModel } from './voxelInput';
-import type { Context, LoadCombo } from './voxelResults';
-import { dot } from './frameMath';
-import { S } from './voxelSections';
-import { parse } from './voxelCoordinates';
+import type { VoxelLevel, VoxelModel } from './model';
+import type { Context, LoadCombo } from './results';
+import { dot } from './vector';
+import { S } from './sections';
+import { parse } from './coordinates';
 export const GAMMA = {
   ULS: { G: 1.35, Q: 1.5, W: 0.9, notional: true },
   SLS: { G: 1, Q: 1, W: 0.6, notional: false },

@@ -1,12 +1,12 @@
 import type { AnalysisComponent, AnalysisModel, AnalysisSection, ConnectionLaws, DetailedAnalysisResult, MemberConnection, Vector3 } from '@dof/solver-contract';
 import { sectionFor } from '../../game/analysisModel';
-import type { FrameConnection } from '../frameConnections';
-import { localAxes, vecToLocal } from '../frameMath';
-import { prepareTurnGeometry } from '../voxel';
-import type { VoxelMember, VoxelModel } from '../voxelInput';
-import type { Combo, ComponentResponse, Context, Element, VoxelAnalysis } from '../voxelResults';
-import { RELEASE_SOLVER } from '../voxelVerification';
-import { createPreparedWasmSolver, type WasmSource } from './wasmSolver';
+import type { FrameConnection } from '../connections';
+import { localAxes, vecToLocal } from '../vector';
+import { prepareGeometry } from '../geometry';
+import type { VoxelMember, VoxelModel } from '../model';
+import type { Combo, ComponentResponse, Context, Element, VoxelAnalysis } from '../results';
+import { RELEASE_SOLVER } from '../evidence';
+import { createPreparedWasmSolver, type WasmSource } from '../../solver/wasm/wasmSolver';
 
 const fixed = [true, true, true, true, true, true] as const;
 const ball = ['rigid', 'rigid', 'rigid', 'free', 'free', 'free'] as const;
@@ -158,7 +158,7 @@ export function createTurnSolver(source?: WasmSource) {
   return {
     prepare: solver.prepare,
     analyze(input: VoxelModel, version: string) {
-      const {ctx} = prepareTurnGeometry(input);
+      const {ctx} = prepareGeometry(input);
       const model = turnReferenceModel(input, ctx, version);
       const key = JSON.stringify(model);
       if (previous?.key === key) return project(input, ctx, previous.result, model);

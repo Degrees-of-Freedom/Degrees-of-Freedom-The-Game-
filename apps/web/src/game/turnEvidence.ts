@@ -4,9 +4,9 @@ import {
   type StructuralAnalysisRequest,
   type StructuralAnalysisResult,
 } from '@dof/solver-contract';
-import { localAxes } from '../solver/frameMath';
-import { ITEMS, S } from '../solver/voxelSections';
-import type { VoxelAnalysis } from '../solver/voxelResults';
+import { localAxes } from '../solver/voxel/frameMath';
+import { ITEMS, S } from '../evaluator/sections';
+import type { VoxelAnalysis } from '../evaluator/results';
 import { parseNodeKey } from './model';
 import { CONNECTION_PROFILES, turnJoints, type TurnReport, type TurnState } from './turns';
 

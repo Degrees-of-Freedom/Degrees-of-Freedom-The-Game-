@@ -1,45 +1,18 @@
-import type { VoxelLevel, VoxelModel } from './voxelInput';
-import type { VoxelAnalysis } from './voxelResults';
-import { S } from './voxelSections';
-import { parse } from './voxelCoordinates';
+import type { VoxelLevel, VoxelModel } from '../../evaluator/model';
+import { allNodeKeys, prepareGeometry } from '../../evaluator/geometry';
+import type { Context, VoxelAnalysis } from './types';
 import { makeElement } from './frameElement';
-import { componentSystems, findComponents, solveComponents } from './voxelComponents';
-import { buildLoads, COMBOS } from './voxelLoads';
-import { checkDesign } from './voxelDesignChecks';
-import { evaluateObjectives } from './voxelObjectives';
-export type { VoxelAnalysis } from './voxelResults';
-function allNodeKeys(model: VoxelModel) {
-  const keys = new Set<string>();
-  for (const m of model.members) {
-    keys.add(m.a);
-    keys.add(m.b);
-  }
-  for (const k in model.attrs) {
-    const a = model.attrs[k];
-    if (a.found || a.joint || a.load) keys.add(k);
-  }
-  return [...keys];
-}
+import { componentSystems, solveComponents } from './components';
+import { buildLoads, COMBOS } from '../../evaluator/loads';
+import { checkDesign } from '../../evaluator/designChecks';
+import { evaluateObjectives } from '../../evaluator/objectives';
+export type { VoxelAnalysis } from './types';
+/** Legacy kernel numbering on top of the shared geometry: one equation per
+ * unrestrained DOF of each supported node, and element stiffness. */
 export function prepareTurnGeometry(model: VoxelModel, keys = allNodeKeys(model)) {
-  const idx = new Map(keys.map((k, n) => [k, n]));
-  const pos = keys.map((k) => (model.positions?.[k] ?? parse(k)).map((v) => v * S));
-  const isF = keys.map((k) => !!model.attrs[k]?.found);
-  const { components, labels } = findComponents(keys, idx, model.members, isF);
-  const sup = keys.map((_, n) => components[labels[n]].supported);
-  const floating = keys.filter((_, n) => !sup[n]);
-  const act: number[] = [],
-    aid = new Int32Array(keys.length).fill(-1);
-  keys.forEach((k, n) => {
-    if (sup[n]) act.push(n);
-  });
-  // order nodes spatially (z, x, y) to keep the stiffness matrix bandwidth small
-  act.sort(
-    (p, q) =>
-      pos[p][2] - pos[q][2] || pos[p][0] - pos[q][0] || pos[p][1] - pos[q][1],
-  );
-  act.forEach((n, a) => (aid[n] = a));
-  const NA = act.length,
-    eq = new Int32Array(NA * 6);
+  const { ctx: geometry, components, labels, floating } = prepareGeometry(model, keys);
+  const { NA, act } = geometry;
+  const eq = new Int32Array(NA * 6);
   let nf = 0;
   for (let a = 0; a < NA; a++) {
     const attrs = model.attrs[keys[act[a]]];
@@ -47,13 +20,7 @@ export function prepareTurnGeometry(model: VoxelModel, keys = allNodeKeys(model)
     for (let q = 0; q < 6; q++)
       eq[a * 6 + q] = restraint[q] || (q >= 3 && model.inactiveRotations?.has(keys[act[a]])) ? -1 : nf++;
   }
-  const els = [];
-  for (const m of model.members) {
-    const na = idx.get(m.a)!,
-      nb = idx.get(m.b)!;
-    if (!sup[na]) continue;
-    els.push(makeElement(model, m, pos[na], pos[nb], aid[na], aid[nb], eq));
-  }
+  const els = geometry.els.map((e) => makeElement(model, e.m, geometry.pos[act[e.a]], geometry.pos[act[e.b]], e.a, e.b, eq));
   let bw = 0;
   for (const e of els) {
     let lo = Infinity,
@@ -65,8 +32,8 @@ export function prepareTurnGeometry(model: VoxelModel, keys = allNodeKeys(model)
       }
     if (hi >= 0) bw = Math.max(bw, hi - lo);
   }
-  const ctx = { keys, idx, pos, act, aid, NA, eq, nf, els, isF, bw };
-  return {ctx, components, labels, floating};
+  const ctx: Context = { ...geometry, eq, nf, els, bw };
+  return { ctx, components, labels, floating };
 }
 /** Coordinate the game-specific prototype analysis. */
 export function analyzeVoxel(

@@ -10,7 +10,7 @@ import { conflictingJointAxes, connectionFrame, CONNECTION_PROFILES, type Connec
 import { findMaterialClash } from "./materialClashes";
 import { analysisLoadJoint, findPort, loadTargets, systemTarget, targetCoordinate, turnJoints } from "./turnPorts";
 import { analyzeTurn } from "./turnAnalysis";
-import { resolveMemberLaw, S } from "../solver/voxelSections";
+import { resolveMemberLaw, S } from "../evaluator/sections";
 import { correctTurnIssues, LEGACY_REPAIR_POLICY, REPAIR_POLICY, type CorrectionReceipt, type RepairPolicy, type SystemProvenance } from "./turnRepair";
 import { assessTurnOutcome, matchesIssueEvidence, type IssueAssessment } from "./turnIssues";
 import { decidePenalty, type PenaltyDecision } from "./turnPenalty";

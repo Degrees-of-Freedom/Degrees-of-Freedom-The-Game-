@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { beforeAll, expect, it } from "vitest";
-import { createTurnSolver } from "../solver/wasm/turnSolver";
-import type { VoxelModel } from "../solver/voxelInput";
+import { createTurnSolver } from "../evaluator/engine/releaseTurn";
+import type { VoxelModel } from "../evaluator/model";
 import { sectionCuts } from "./sectionCuts";
 import { boardDiagram } from "./boardDiagrams";
 

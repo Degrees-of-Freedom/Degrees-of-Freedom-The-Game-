@@ -1,4 +1,4 @@
-import type { Element, FrameSystem, Solved } from './voxelResults';
+import type { Element, FrameSystem, Solved } from './types';
 import { toGlobal, cholesky } from './frameMath';
 import { connectorSlips, reduceConnections } from './frameConnections';
 

@@ -1,5 +1,5 @@
-import { localAxes } from '../solver/frameMath';
-import { SPRING } from '../solver/voxelSections';
+import { localAxes } from '../solver/voxel/frameMath';
+import { SPRING } from '../evaluator/sections';
 import { CELL_SIZE, parseNodeKey, type GridPoint, type Member } from './model';
 
 /** The eight turns join five solid square collars on the original line. The

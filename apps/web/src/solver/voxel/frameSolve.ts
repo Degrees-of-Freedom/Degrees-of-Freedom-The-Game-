@@ -1,4 +1,4 @@
-import type { FrameSystem, Element, ElementForce, Solved } from './voxelResults';
+import type { FrameSystem, Element, ElementForce, Solved } from './types';
 import { recover } from './frameElement';
 import { cholesky, cholSolve } from './frameMath';
 import { inactiveConnectorSpins } from './frameSpins';
