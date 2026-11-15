@@ -53,6 +53,7 @@ export type Selection =
   | null;
 interface GameState {
   importPrivateMatch?: (bytes: string) => Promise<string | null>;
+  pendingPrivateBytes?: () => string | null;
   levelId: LevelId;
   model: GameModel;
   persistenceError: string | null;

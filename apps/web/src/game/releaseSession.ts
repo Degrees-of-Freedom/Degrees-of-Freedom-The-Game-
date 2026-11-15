@@ -88,10 +88,15 @@ class ReleaseSession {
         return null;
       },
       retrySessionSave: () => { if (!this.busy && !state().sessionConflict) void this.flush(); },
-      privateRecoveryBytes: () => this.pending?.bytes ?? this.head,
+      privateRecoveryBytes: () => this.damaged ? this.head : this.pending?.bytes ?? this.head,
+      pendingPrivateBytes: () => this.pending?.bytes ?? null,
       recoverSession: async (choice, copied = false) => {
         if (this.busy || !this.damaged || state().sessionConflict) return "failed";
         if (!copied) return "needs-copy";
+        if (this.pending) {
+          await this.flush();
+          return this.damaged ? "failed" : "saved";
+        }
         const previous = this.recovery;
         if (choice === "backup" && !previous) return "failed";
         this.record = previous;

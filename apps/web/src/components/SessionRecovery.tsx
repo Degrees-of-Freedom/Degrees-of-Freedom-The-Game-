@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { useGameStore } from "../game/store";
+import { downloadMatch } from "./MatchFiles";
 
 /** This screen mounts without the board, final receipt, or private tray. */
 export function SessionRecovery() {
@@ -47,8 +48,16 @@ export function SessionRecovery() {
       </>}
       {(failed || invalid) && release && <a className="btn mbtn" href="/">Exit to title</a>}
       {invalid && <>
-        {game.hasSessionBackup && <button className="btn mbtn primary" disabled={busy} onClick={() => void recover("backup")}>Restore previous save</button>}
-        <button className="btn mbtn" disabled={busy} onClick={() => void recover("restart")}>{release ? "Replace with a new match" : "Keep damaged save and start new match"}</button>
+        {game.pendingPrivateBytes?.() ? <>
+          <button className="btn mbtn primary" disabled={busy} onClick={() => void recover("backup",downloaded)}>Retry recovery save</button>
+          <button className="btn mbtn" onClick={() => {
+            const raw = game.pendingPrivateBytes?.();
+            if (raw) downloadMatch(new Blob([raw], {type:"application/json"}), "grow-dusk-pending-private.json");
+          }}>Download pending private match</button>
+        </> : <>
+          {game.hasSessionBackup && <button className="btn mbtn primary" disabled={busy} onClick={() => void recover("backup")}>Restore previous save</button>}
+          <button className="btn mbtn" disabled={busy} onClick={() => void recover("restart")}>{release ? "Replace with a new match" : "Keep damaged save and start new match"}</button>
+        </>}
         {needsCopy && !downloaded && <p role="status">Download the original private save before replacing it.</p>}
         {needsCopy && downloaded && <button className="btn mbtn" disabled={busy}
           onClick={() => void recover(needsCopy, true)}>I saved a copy · {needsCopy === "backup" ? "restore previous save" : "start new match"}</button>}

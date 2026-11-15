@@ -165,6 +165,7 @@ async function match(seed, passOnly) {
         await activate(ready);
       }
       const end = tray.getByRole("button",{name:/^(End turn|Pass)$/});
+      if (process.env.DOF_CAPTURE_TURNS) await capture("turn-"+String(turnNo).padStart(2,"0"));
       const start = performance.now();
       await activate(end);
       if (turnNo<16) await ready.waitFor(); else await page.getByRole("region",{name:"Final score"}).waitFor();

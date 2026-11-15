@@ -86,6 +86,18 @@ describe('scored whole-structure issue comparison', () => {
     expect(compareIssues(unknownPrior, after).changes.find(c => c.id === 'instability:4')?.change).toBe('unknown');
   });
 
+  it('compares independent unstable dimensions only for matching verified tangents', () => {
+    const snapshot = (negativePivots:number, mechanisms:number, topology='same members, restraints and laws') => ({
+      policy: ISSUE_POLICY, modelId: String(negativePivots), findings: [{
+        id:'instability:7',category:'instability' as const,memberId:7,memberIds:[7],
+        validity:'verified' as const,active:true,reason:'Converged tangent',comparison:{topology,negativePivots,mechanisms},
+      }],
+    });
+    expect(compareIssues(snapshot(1,0),snapshot(1,1)).changes[0].change).toBe('worsened');
+    expect(compareIssues(snapshot(1,1),snapshot(2,0)).changes[0].eligible).toBe(false);
+    expect(compareIssues(snapshot(1,0),snapshot(2,1,'different restraints')).changes[0].eligible).toBe(false);
+  });
+
   it('preserves hysteresis, last charged level and uncertain intervals', () => {
     const finding = (u: number | null): IssueFinding => ({
       id: 'member-overload:8', category: 'member-overload', memberId: 8, memberIds: [8],

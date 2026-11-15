@@ -45,7 +45,7 @@ export async function testOperationalCases(browser, base, saved) {
     assert.equal((await saved(page)).commitId,prior.commitId);
     await button("Restart").click();
     // Throw from the same IndexedDB boundary used by disabled/quota-limited browsers.
-    await page.evaluate(() => {
+    const failNextWrite = () => page.evaluate(() => {
       const transaction = IDBDatabase.prototype.transaction;
       IDBDatabase.prototype.transaction = function(...args) {
         if (this.name==="dof-grow-dusk" && args[1]==="readwrite") {
@@ -55,6 +55,7 @@ export async function testOperationalCases(browser, base, saved) {
         return transaction.apply(this,args);
       };
     });
+    await failNextWrite();
     await button("Restart").click();
     await page.getByRole("heading",{name:"Save interrupted"}).waitFor();
     assert.equal((await saved(page)).commitId,prior.commitId);
@@ -120,11 +121,17 @@ export async function testOperationalCases(browser, base, saved) {
     const source=await download(()=>button("Download original private save").click());
     assert.equal(source.toString(),"{bad");
     await button("Restore previous save").click();
+    await failNextWrite();
     await page.getByRole("button",{name:/I saved a copy/}).click();
+    await button("Retry recovery save").waitFor();
+    assert.equal((await download(()=>button("Download original private save").click())).toString(),"{bad");
+    const recovering=JSON.parse(await download(()=>button("Download pending private match").click()));
+    assert.equal(recovering.phase,"assessing");
+    await button("Retry recovery save").click();
     await ready.waitFor();
     const restored=await saved(page);
     assert.deepEqual(restored.turn,committed.turn);
-    checks.push("damaged head recovers previous validated intent and identical state after exact-byte export");
+    checks.push("failed recovery preserves both damaged source and pending replacement, then restores identical state");
     return checks;
   } finally { await context.close(); }
 }
