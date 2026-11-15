@@ -8,7 +8,8 @@ import os from "node:os";
 import assert from "node:assert/strict";
 
 const root=resolve("apps/web");
-const server=await preview({root,preview:{host:"127.0.0.1",port:0}});
+const server=await preview({root,build:{outDir:resolve(process.env.DOF_TEST_DIST || "apps/web/dist")},
+  preview:{host:"127.0.0.1",port:0}});
 const base=server.resolvedUrls.local[0];
 let browser;
 try {
@@ -78,6 +79,8 @@ try {
   assert.ok(feedback);
   for(let i=0;i<12;i++) {await hand.locator("[data-card-id]").first().click();await button("Cancel targeting").click();}
   const acknowledgementMs=await page.evaluate(()=>window.__dofFeedback);
+  assert.equal(acknowledgementMs.length,12,"Expected a next-frame acknowledgement for every card selection");
+  assert.ok(acknowledgementMs.every(ms=>Number.isFinite(ms) && ms >= 0));
   const after=await memory();
   const sorted=xs=>[...xs].sort((a,b)=>a-b);
   const p95=xs=>sorted(xs)[Math.ceil(xs.length*.95)-1];

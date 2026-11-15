@@ -19,10 +19,11 @@ try {
   browser = await chromium.launch(launch);
   evidence.browser = browser.version();
   await mkdir(output, { recursive: true });
-  for (const scenario of ["keyboard", "tablet-layout", "narrow-layout", "device-failures", "native-zoom", "model-failure", "decoder-failure", "full-hand"]) {
+  for (const scenario of ["keyboard", "tablet-layout", "portrait-recovery", "narrow-layout", "device-failures", "native-zoom", "model-failure", "decoder-failure", "full-hand"]) {
     const viewport = scenario === "tablet-layout" ? { width: 1024, height: 768 }
+      : scenario === "portrait-recovery" ? { width: 412, height: 915 }
       : scenario === "narrow-layout" ? { width: 683, height: 384 } : { width: 1366, height: 900 };
-    const layout = { viewport, hasTouch: scenario === "tablet-layout", reducedMotion: "reduce" };
+    const layout = { viewport, hasTouch: scenario === "tablet-layout" || scenario === "portrait-recovery", reducedMotion: "reduce" };
     // The browser's own zoom preference is profile-scoped. Playwright creates
     // and removes an isolated temporary profile for this single test.
     const context = scenario === "native-zoom" ? await chromium.launchPersistentContext("", { ...launch, ...layout })
@@ -62,7 +63,7 @@ try {
       }
       async function activate(control) {
         if (scenario === "keyboard") { await tabTo(control); await page.keyboard.press("Enter"); }
-        else if (scenario === "tablet-layout") await control.tap();
+        else if (layout.hasTouch) await control.tap();
         else await control.click();
       }
       async function choose(control, index) {
@@ -86,6 +87,18 @@ try {
           `200% zoom did not halve the layout width (${width.viewport})`);
       }
       assert.ok(width.body <= width.viewport + 1, "Controls overflow horizontally");
+      if (scenario === "portrait-recovery") {
+        await page.getByText(/For a larger building surface/).waitFor();
+        await activate(button("Menu"));
+        await activate(button("Save files"));
+        const downloaded = page.waitForEvent("download");
+        await activate(button("Export private match"));
+        assert.match((await downloaded).suggestedFilename(), /private.*\.json$/);
+        await page.reload();
+        await ready.waitFor();
+        assert.equal(await page.locator("[data-card-id]").count(), 0);
+        await activate(ready);
+      }
       if (blocked) {
         await activate(button("Talk to Timburr"));
         const retry = button("Retry 3D model");
@@ -175,7 +188,7 @@ try {
       }
       assert.deepEqual(errors, []);
       evidence.cases.push({ scenario, viewport, cssWidth: width.viewport,
-        input: scenario === "keyboard" ? "keyboard only" : scenario === "tablet-layout" ? "emulated touch" : "mouse", result: "pass" });
+        input: scenario === "keyboard" ? "keyboard only" : layout.hasTouch ? "emulated touch" : "mouse", result: "pass" });
     } finally { await context.close(); }
   }
   await writeFile(resolve(output, "presentation.json"), JSON.stringify(evidence, null, 2));
