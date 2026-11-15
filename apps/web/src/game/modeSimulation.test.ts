@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { analyzeGame } from "./analysis";
 import { environmentExample } from "./environmentExamples";
 import { exampleModel } from "./examples";
@@ -7,6 +7,14 @@ import { modeSetup, type GameMode } from "./modes";
 import { useGameStore } from "./store";
 import { analyzeTurn } from "./turnAnalysis";
 import { createTurnGame } from "./turns";
+
+// The multiplayer store now waits for a real write acknowledgement.
+vi.hoisted(() => {
+  const values = new Map<string, string>();
+  vi.stubGlobal("localStorage", { getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value) });
+});
+afterAll(() => vi.unstubAllGlobals());
 
 describe("simulation across game modes", () => {
   it.each(["creative", "challenge", "forensics", "load-space", "multiplayer"] as const)(

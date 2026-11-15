@@ -18,6 +18,7 @@ import { ConnectivityPanel } from "../components/ConnectivityPanel";
 import { CoordinateEditor, ModelIO } from "../components/RuntimeControls";
 import { TurnPanel } from "../components/TurnPanel";
 import { SharedTableHandoff } from "../components/SharedTableHandoff";
+import { SessionRecovery } from "../components/SessionRecovery";
 import {
   EnvironmentTools,
   EnvironmentTray,
@@ -59,7 +60,10 @@ export function Workspace() {
   const [readyBoard, setReadyBoard] = useState<NonNullable<typeof game.turn>["board"] | null>(null);
   const privateTurn = game.mode === "multiplayer" && !game.turn?.finished ? game.turn : null;
   const privateMatchActive = privateTurn !== null;
-  const covered = game.sessionConflict || (!!privateTurn && readyBoard !== privateTurn.board);
+  const needsHandoff = !!privateTurn && readyBoard !== privateTurn.board;
+  const saveCovered = game.sessionSave === "invalid" || game.sessionSave === "failed" ||
+    game.sessionSave === "committing" || (game.sessionSave === "writing" && needsHandoff);
+  const covered = game.sessionConflict || saveCovered || needsHandoff;
   const [combo, setCombo] = useState(0);
   const [deformed, setDeformed] = useState(false);
   const [scale, setScale] = useState(1);
@@ -84,13 +88,19 @@ export function Workspace() {
     const error = current.endTurn();
     if (error) { setMessage(error); return; }
     setReadyBoard(null);
-    setDrawer(useGameStore.getState().turn?.finalScore ? "turn" : null);
+    setDrawer(null);
     setMessage("");
   }
   function pause() {
     setReadyBoard(null);
     setPaused(true);
   }
+  useLayoutEffect(() => {
+    if (game.mode === "multiplayer" && game.turn?.finalScore) setDrawer("turn");
+  }, [game.mode, game.turn?.finalScore]);
+  useLayoutEffect(() => {
+    if (game.sessionSave === "failed") setReadyBoard(null);
+  }, [game.sessionSave]);
   useLayoutEffect(() => {
     if (!privateMatchActive) return;
     // Conceal before the browser snapshots a backgrounded page. The turn and
@@ -273,6 +283,7 @@ export function Workspace() {
       escapeBusy={!covered && drawer !== null} onMessage={setMessage} />
   );
   if (game.sessionConflict) return <SharedTableHandoff player={1} conflict onReady={() => window.location.reload()} />;
+  if (saveCovered) return <SessionRecovery />;
   if (covered && privateTurn) return (
     <>
       <SharedTableHandoff player={privateTurn.playerIndex + 1} onReady={() => {
@@ -604,7 +615,11 @@ export function Workspace() {
                 </>
               )}
               {drawer === "turn" && (
-                <TurnPanel game={game} onMessage={setMessage} onEndTurn={endPrivateTurn} />
+                <>
+                  <TurnPanel game={game} onMessage={setMessage} onEndTurn={endPrivateTurn} />
+                  <p role="status">{game.sessionSave === "writing" ? "Saving draft. " : ""}{game.savedRevision === null
+                    ? "No confirmed save yet." : `Last confirmed save revision ${game.savedRevision}`}</p>
+                </>
               )}
             </div>
           </aside>

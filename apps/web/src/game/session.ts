@@ -3,6 +3,10 @@ import { replayTurnState, type TurnState } from "./turns";
 import type { GameMode, PresentationStyle } from "./modes";
 
 export const SESSION_KEY = "dof-runtime:session";
+export const BACKUP_KEY = SESSION_KEY + ":previous";
+const DAMAGED_KEY = SESSION_KEY + ":damaged";
+// UTF-16 code units. Check the limit before parsing or replaying an import.
+export const MAX_SESSION_CHARS = 2_000_000;
 const fields = {
   mode: z.enum([
     "challenge",
@@ -52,7 +56,11 @@ export function readSession(storage: Storage): SessionRead {
 function decodeSession(raw: string | null): SessionRead {
   try {
     if (raw === null) return { status: "missing" };
-    const parsed = envelope.safeParse(JSON.parse(raw));
+    if (raw.length > MAX_SESSION_CHARS) return { status: "invalid", reason: "Saved session exceeds the supported size." };
+    const value = JSON.parse(raw);
+    if (Number.isSafeInteger(value?.version) && value.version > 2)
+      return { status: "invalid", reason: `Save format version ${value.version} is newer than this game supports.` };
+    const parsed = envelope.safeParse(value);
     if (!parsed.success || (parsed.data.version === 2 && parsed.data.parent !== parsed.data.revision - 1)) {
       return { status: "invalid" };
     }
@@ -67,7 +75,7 @@ function decodeSession(raw: string | null): SessionRead {
 }
 
 export const SESSION_CONFLICT = "Another tab changed the saved session. Reload the saved game to continue.";
-export const SESSION_UNSAVED = "This session is in memory only. The previous saved revision was preserved.";
+export const SESSION_UNSAVED = "This change could not be saved. The previous saved revision was preserved.";
 type WriteResult = "saved" | "queued" | "conflict" | "failed";
 export type SessionLocks = { exclusive: (work: () => void) => Promise<void> };
 
@@ -75,7 +83,7 @@ export type SessionLocks = { exclusive: (work: () => void) => Promise<void> };
  * external revision as their new parent without restoring its game state. */
 export function openSessionWriter(
   storage: Storage, locks: SessionLocks | undefined,
-  feedback: (result: WriteResult, lastSaved: Session | null) => void = () => {},
+  feedback: (result: WriteResult, lastSaved: Session | null, attempted?: Session) => void = () => {},
 ) {
   const source = storage.getItem(SESSION_KEY);
   const initial = decodeSession(source);
@@ -96,11 +104,9 @@ export function openSessionWriter(
     feedback("conflict", lastSaved);
     return false;
   }
-  function commit(session: Session): WriteResult {
-    if (!current()) return "conflict";
-    if (initial.status === "invalid" || revision >= Number.MAX_SAFE_INTEGER) return "failed";
-    const serialized = JSON.stringify({
-      version: 2, parent: revision, revision: revision + 1, legacySource,
+  function serialize(session: Session, parent = revision, legacy = legacySource) {
+    return JSON.stringify({
+      version: 2, parent, revision: parent + 1, legacySource: legacy,
       mode: session.mode,
       style: session.style,
       turn: session.turn && {
@@ -110,9 +116,20 @@ export function openSessionWriter(
         events: session.turn.events,
       },
     });
+  }
+  function commit(session: Session, recovering = false, parent = revision, legacy = legacySource): WriteResult {
+    if (!current()) return "conflict";
+    if ((initial.status === "invalid" && !recovering) || parent >= Number.MAX_SAFE_INTEGER) return "failed";
+    const serialized = serialize(session, parent, legacy);
+    if (serialized.length > MAX_SESSION_CHARS) return "failed";
+    // Replace the entire head before spending any remaining quota on a
+    // backup. A crash at either boundary leaves a complete primary revision.
     storage.setItem(SESSION_KEY, serialized);
+    if (head !== null && !recovering) {
+      try { storage.setItem(BACKUP_KEY, head); } catch { /* older backup is retained */ }
+    }
     head = serialized;
-    revision++;
+    revision = parent + 1;
     lastSaved = session;
     return "saved";
   }
@@ -134,14 +151,46 @@ export function openSessionWriter(
       // lock across both the comparison and the single atomic replacement.
       pending = pending.then(() => locks.exclusive(() => {
         const result = commit(session);
-        if (result !== "conflict") feedback(result, lastSaved);
-      })).catch(() => { feedback("failed", lastSaved); });
+        if (result !== "conflict") feedback(result, lastSaved, session);
+      })).catch(() => { feedback("failed", lastSaved, session); });
       return "queued";
     } catch {
       return "failed";
     }
   }
-  return { initial, save, current, settled: () => pending };
+  /** Explicit recovery preserves the exact unreadable bytes and compares
+   * the original head under the same lock used for normal writers. */
+  async function recover(replacement: Session | "backup", hasExternalCopy = false): Promise<WriteResult | "needs-copy"> {
+    if (initial.status !== "invalid" || source === null) return "failed";
+    let outcome: WriteResult | "needs-copy" = "failed";
+    const repair = () => {
+      if (!current()) { outcome = "conflict"; return; }
+      const rawBackup = replacement === "backup" ? storage.getItem(BACKUP_KEY) : null;
+      const backup = rawBackup === null ? null : decodeSession(rawBackup);
+      const target = replacement === "backup" ? (backup?.status === "found" ? backup.session : null) : replacement;
+      if (!target) return;
+      // Only read revision metadata after validating the size, schema and
+      // replay. The restored history descends from the known-good revision.
+      const info = rawBackup !== null ? JSON.parse(rawBackup) : null;
+      try { storage.setItem(DAMAGED_KEY, source); }
+      catch {
+        if (!hasExternalCopy) { outcome = "needs-copy"; return; }
+      }
+      outcome = commit(target, true, info?.revision ?? 0, info?.version === 1 ? rawBackup! : info?.legacySource);
+    };
+    try {
+      if (locks) await locks.exclusive(repair);
+      else repair();
+    } catch { return "failed"; }
+    return outcome;
+  }
+  function hasBackup() {
+    try { return decodeSession(storage.getItem(BACKUP_KEY)).status === "found"; }
+    catch { return false; }
+  }
+  return { initial, save, current, recover, serialize, revision: () => lastSaved ? revision : null,
+    original: () => source, hasBackup,
+    settled: () => pending };
 }
 
 export function sessionLocks(): SessionLocks | undefined {
