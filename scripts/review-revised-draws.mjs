@@ -50,7 +50,8 @@ try {
   const stageMember = async (a, b) => {
     await page.locator('[data-kind="element"]').first().click();
     await page.getByText('Precise placement', {exact: true}).click();
-    await page.getByLabel('End A grid x,y,z').fill(a);
+    if (a.startsWith('port:')) await page.getByLabel('End A port').selectOption(a);
+    else await page.getByLabel('End A grid x,y,z').fill(a);
     await page.getByLabel('End B grid x,y,z').fill(b);
     await button('Stage element').click();
   };
@@ -86,6 +87,14 @@ try {
   await expect.poll(async () => (await head()).turn.draft.members.length).toBe(1);
   await stageMember('2,4,1', '3,4,1');
   await expect.poll(async () => (await head()).turn.draft.members.length).toBe(2);
+  await stageMember('port:3:2', '4,3,1');
+  await expect.poll(async () => (await head()).turn.draft.members.length).toBe(3);
+  assert.deepEqual((await head()).turn.draft.members[2].endTargets, {a: 'port:3:2'});
+  const beforeCrossing = await head();
+  await stageMember('3,1,1', '3,5,1');
+  await expect(page.getByRole('status').filter({hasText: /intersect material/})).toBeVisible();
+  assert.deepEqual((await head()).turn, beforeCrossing.turn);
+  await button('Cancel targeting').click();
   const staged = await head();
   assert.deepEqual(staged.turn.draws, fullDraw.turn.draws);
   assert.deepEqual(staged.turn.decks, fullDraw.turn.decks);
@@ -138,6 +147,8 @@ try {
     'multiple members stage without a per-type allowance',
     'provisional endpoint edit persists and Ctrl+Z undoes one placement',
     'undo preserves original draws and undealt decks',
+    'a diagonal T junction can target an original quarter of an already staged member',
+    'a genuine interior crossing is rejected without card consumption or draft changes',
     'four load choices and three staged loads are legal',
     'draft cancel/reload restores all held loads without extra draws',
     'genuine legacy private import preserves its original two-deck state',
