@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { controlOwnsKey } from "./keyboardTarget";
 import { useGameStore } from "../game/store";
 import {
   nodeKey,
@@ -234,16 +235,11 @@ export function bindSceneInteraction(
   };
   const context = (e: Event) => e.preventDefault();
   const keydown = (e: KeyboardEvent) => {
+    if (e.defaultPrevented || controlOwnsKey(e.target)) return;
     if (e.key === "Shift" && !shiftDown) {
       shiftDown = true;
       rebuild();
     }
-    if (
-      (e.target as HTMLElement)?.closest(
-        "input, select, textarea, button, [contenteditable]",
-      )
-    )
-      return;
     const s = useGameStore.getState();
     const key = e.key.toLowerCase();
     if (

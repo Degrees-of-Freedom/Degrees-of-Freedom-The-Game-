@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { Scene } from "../viewer/Scene";
+import { controlOwnsKey } from "../viewer/keyboardTarget";
 import { LEVELS } from "../game/levels";
 import { useGameStore } from "../game/store";
 import { analyzeGame } from "../game/analysis";
@@ -172,9 +173,7 @@ export function Workspace() {
     const keys = (event: KeyboardEvent) => {
       if (
         covered || paused || event.defaultPrevented ||
-        (event.target as HTMLElement)?.matches(
-          "input, textarea, select, button",
-        ) ||
+        controlOwnsKey(event.target) ||
         event.ctrlKey ||
         event.metaKey ||
         event.altKey

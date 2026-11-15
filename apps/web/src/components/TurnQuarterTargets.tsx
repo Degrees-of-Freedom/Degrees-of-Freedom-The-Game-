@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { useGameStore } from "../game/store";
 import type { TurnCard } from "../game/turns";
-import { originalPorts, portLabel, findPort, systemTarget } from "../game/turnPorts";
+import { originalPorts, portLabel, findPort, systemTarget, turnJoints } from "../game/turnPorts";
 
 type Game = ReturnType<typeof useGameStore.getState>;
 
@@ -15,15 +15,17 @@ export function TurnQuarterTargets({ game, card, onMessage }: {
   const members = turn.board.members.filter(m => !m.system);
   const ports = members.flatMap(originalPorts).filter(p => !systemTarget(turn, p.id));
   if (card.kind === "load") {
-    const joints = [...game.turn.board.connections, ...game.turn.draft.connections];
-    const active = ports.filter(port => joints.some(j => j.jointId === port.id));
-    if (!active.length) return null;
-    return <label>Load at quarter joint
+    const joints = turnJoints(turn).filter(joint => !systemTarget(turn, joint.id));
+    return <label>Load at joint
       <select value="" onChange={e => {
         if (e.target.value) onMessage(game.playLoad(card.id, e.target.value) ?? "Gravity load staged.");
       }}>
-        <option value="">Choose an activated port</option>
-        {active.map(port => <option key={port.id} value={port.id}>{portLabel(port)}</option>)}
+        <option value="">Choose a shared joint</option>
+        {joints.map(joint => {
+          const port = findPort(members, joint.id);
+          const label = port ? portLabel(port) : `Joint ${joint.id}${joint.foundationOwner ? " · foundation" : ""}`;
+          return <option key={joint.id} value={joint.id}>{label}</option>;
+        })}
       </select>
     </label>;
   }

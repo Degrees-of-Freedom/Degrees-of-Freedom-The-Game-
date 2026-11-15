@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { controlOwnsKey } from "./keyboardTarget";
 import { useGameStore } from "../game/store";
 import {
   allNodeKeys,
@@ -459,6 +460,7 @@ export function createPicker(
     }
     if (
       (e.key !== "[" && e.key !== "]") ||
+      e.defaultPrevented || controlOwnsKey(e.target) ||
       e.ctrlKey ||
       e.metaKey ||
       e.altKey ||

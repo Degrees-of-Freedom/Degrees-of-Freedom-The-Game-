@@ -2,6 +2,7 @@
 // A fresh browser starts the normal two-seat preset at seed 1. All mutations
 // below are player controls. Read-only snapshots verify draws, identity and replay.
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
@@ -176,7 +177,9 @@ try {
   for (const key of ["finalScore", "board", "reports", "events", "hands"]) assert.deepEqual(resumed[key], complete[key]);
   assert.deepEqual(errors, []);
   await page.screenshot({ path: resolve(output, variant + "-" + method + "-final.png") });
+  const playableState = JSON.stringify([complete.board, complete.hands, complete.events]);
   console.log(JSON.stringify({ browser: browser.version(), seed: complete.seed, variant, method, viewport,
+    replaySha256: createHash("sha256").update(playableState).digest("hex"),
     players: complete.finalScore.awards, reactionsPartial: complete.finalScore.partial,
     gravityKN: complete.finalScore.totalGravityKN, reports: complete.reports.length,
     turn3: { penalty: third.penalty, issues: third.penaltyDecision.event.issueIds,
