@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { useGameStore } from "../game/store";
@@ -114,7 +114,9 @@ export function Scene({
     orbit: (_step: number) => {},
     tilt: () => {},
   });
-  useEffect(() => {
+  // OrbitControls removes key listeners from the canvas's root. Dispose it
+  // while the canvas is still attached to the same document it registered on.
+  useLayoutEffect(() => {
     const element = host.current;
     if (!element) return;
     const scene = new THREE.Scene();
