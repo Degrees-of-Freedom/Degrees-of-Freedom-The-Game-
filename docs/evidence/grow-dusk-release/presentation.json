@@ -1,0 +1,103 @@
+{
+  "build": {
+    "commit": "ab93648cc39f7a1ce7160c8e91096f608bd8adad",
+    "dirtySource": false,
+    "solverFile": "dof_solver-DYky43XO.wasm",
+    "solverSha256": "e238263e5b5c3518b73e3bf9af39be0542191f5f8e51a8fa537bccf68744e744",
+    "assetsSha256": "ad712b19face490f6c4fc6fe78dffff484e63c065b9297a6d73995f9379fea0f"
+  },
+  "seed": 0,
+  "cases": [
+    {
+      "scenario": "keyboard",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 1366,
+      "input": "keyboard only",
+      "result": "pass"
+    },
+    {
+      "scenario": "tablet-layout",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "cssWidth": 1024,
+      "input": "emulated touch",
+      "result": "pass"
+    },
+    {
+      "scenario": "portrait-recovery",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "cssWidth": 412,
+      "input": "emulated touch",
+      "result": "pass"
+    },
+    {
+      "scenario": "narrow-layout",
+      "viewport": {
+        "width": 683,
+        "height": 384
+      },
+      "cssWidth": 683,
+      "input": "mouse",
+      "result": "pass"
+    },
+    {
+      "scenario": "device-failures",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 1366,
+      "input": "mouse",
+      "result": "pass"
+    },
+    {
+      "scenario": "native-zoom",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 683,
+      "input": "mouse",
+      "result": "pass"
+    },
+    {
+      "scenario": "model-failure",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 1366,
+      "input": "mouse",
+      "result": "pass"
+    },
+    {
+      "scenario": "decoder-failure",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 1366,
+      "input": "mouse",
+      "result": "pass"
+    },
+    {
+      "scenario": "full-hand",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 1366,
+      "input": "mouse",
+      "result": "pass"
+    }
+  ],
+  "browser": "157.0.8103.51"
+}
