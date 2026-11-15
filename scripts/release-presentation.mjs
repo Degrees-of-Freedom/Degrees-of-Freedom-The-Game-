@@ -101,6 +101,7 @@ try {
       }
       async function drawFour() {
         for (const deck of ["members", "members", "connections", "loads"]) {
+          await page.locator("[data-deck]:enabled").first().waitFor();
           const preferred = page.locator('[data-deck="' + deck + '"]');
           const before = await page.locator("[data-card-id]").count();
           await activate(await preferred.isEnabled() ? preferred : page.locator("[data-deck]:enabled").first());
@@ -288,6 +289,33 @@ try {
           companionResult.foremanVoices = notes.length;
           await activate(button("Dismiss"));
           await drawFour();
+          // Sample the structure itself, excluding the companion, HUD,
+          // diagnostic controls and legend. The raw-model fixture puts its
+          // five detached members in the middle of this fixed viewport.
+          const stage = await page.locator(".release-stage").boundingBox();
+          const clip = {x:Math.round(stage.x + stage.width * .25), y:Math.round(stage.y + stage.height * .12),
+            width:Math.round(stage.width * .50), height:Math.round(stage.height * .58)};
+          async function ghostPixels() {
+            const frame = await page.screenshot({clip});
+            return page.evaluate(async png => {
+              const image = new Image();
+              image.src = "data:image/png;base64," + png;
+              await image.decode();
+              const canvas = document.createElement("canvas");
+              canvas.width = image.width;
+              canvas.height = image.height;
+              const ctx = canvas.getContext("2d");
+              ctx.drawImage(image, 0, 0);
+              const pixels = ctx.getImageData(0, 0, image.width, image.height).data;
+              let count = 0;
+              for (let i = 0; i < pixels.length; i += 4) {
+                const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+                if (r > 145 && r - g > 23 && b - g > 13) count++;
+              }
+              return count;
+            }, frame.toString("base64"));
+          }
+          const baseline = await ghostPixels();
           await activate(button("Instability"));
           const diagnostic = page.getByRole("complementary", {name:"Instability diagnostic"});
           const modePicker = diagnostic.getByRole("combobox");
@@ -302,11 +330,14 @@ try {
             await activate(playback);
             const pause = diagnostic.getByRole("button", {name:"Pause mode"});
             assert.equal(await pause.getAttribute("aria-pressed"), "true");
-            await page.screenshot({path:resolve(output, "instability-diagnostic.png")});
             await activate(pause);
             assert.equal(await playback.getAttribute("aria-pressed"), "false");
           }
-          companionResult.diagnostic = {returnedModes, playback:layout.reducedMotion === "reduce" ? "disabled" : "played and paused"};
+          const addedGhostPixels = (await ghostPixels()) - baseline;
+          assert.ok(addedGhostPixels >= 10, `No visible pink mode geometry across the structure (${addedGhostPixels} added pixels)`);
+          const diagnosticImage = layout.reducedMotion === "reduce" ? "instability-diagnostic-still.png" : "instability-diagnostic.png";
+          await page.screenshot({path:resolve(output, diagnosticImage)});
+          companionResult.diagnostic = {returnedModes, addedGhostPixels, playback:layout.reducedMotion === "reduce" ? "disabled" : "played and paused"};
           await page.reload(); await activate(ready);
           assert.equal(await page.getByRole("button", {name:"Talk to Conkeldurr"}).count(), 0);
         }
