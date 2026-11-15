@@ -10,8 +10,11 @@
 use crate::element::*;
 use crate::math::*;
 use crate::model::*;
-use crate::skyline::{reverse_cuthill_mckee, Skyline};
+use crate::skyline::reverse_cuthill_mckee;
+use crate::sparse::{SparseMatrix, Symbolic};
+use std::cell::OnceCell;
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 /// Equation marker of a DOF held by a foundation.
 pub const RESTRAINED: i32 = -1;
@@ -113,6 +116,9 @@ pub struct System {
     /// Bounding-box diagonal of the component.
     pub size: f64,
     groups: Vec<Vec<usize>>,
+    /// Fill-reducing ordering and factor structure of the stiffness, built
+    /// on first use and shared by every stiffness matrix of this system.
+    symbolic: OnceCell<Rc<Symbolic>>,
     /// Rotations left out of the system because nothing uses them.
     pub unused_dofs: usize,
     /// Independent internal force unknowns, for the determinacy count.
@@ -330,7 +336,9 @@ impl System {
         }
 
         // Equation numbering in reverse Cuthill–McKee node order, with each
-        // connection variable numbered next to the node it belongs to.
+        // connection variable numbered next to the node it belongs to. The
+        // factorisation reorders the equations again for sparsity (see
+        // `sparse`); this numbering is the one results and modes use.
         let mut adjacency: Vec<Vec<usize>> = vec![Vec::new(); anodes.len()];
         let mut ends_at: Vec<Vec<(usize, usize)>> = vec![Vec::new(); anodes.len()];
         for (s, seg) in segs.iter().enumerate() {
@@ -389,6 +397,7 @@ impl System {
             lc: 1.0,
             size: 0.0,
             groups: Vec::new(),
+            symbolic: OnceCell::new(),
             unused_dofs,
             force_unknowns,
             moment_on_unused,
@@ -431,8 +440,14 @@ impl System {
         system
     }
 
-    pub fn stiffness(&self) -> Skyline {
-        Skyline::with_profile(self.neq, &self.groups)
+    /// An empty stiffness matrix on this system's sparsity pattern.
+    pub fn stiffness(&self) -> SparseMatrix {
+        SparseMatrix::new(self.symbolic().clone())
+    }
+
+    /// The ordering and factor structure of the stiffness; see [`Symbolic`].
+    pub fn symbolic(&self) -> &Rc<Symbolic> {
+        self.symbolic.get_or_init(|| Rc::new(Symbolic::new(self.neq, &self.groups)))
     }
 
     /// Equations of a beam element's 24 variables.
@@ -528,7 +543,7 @@ impl System {
     }
 
     /// Internal forces, and optionally the tangent stiffness, at `config`.
-    pub fn evaluate(&self, config: &Config, mut stiffness: Option<&mut Skyline>) -> Eval {
+    pub fn evaluate(&self, config: &Config, mut stiffness: Option<&mut SparseMatrix>) -> Eval {
         let mut eval = Eval {
             energy: 0.0,
             g: vec![[0.0; 6]; self.anodes.len()],

@@ -22,6 +22,7 @@ pub mod model;
 pub mod report;
 pub mod request;
 pub mod skyline;
+pub mod sparse;
 pub mod solve;
 pub mod system;
 

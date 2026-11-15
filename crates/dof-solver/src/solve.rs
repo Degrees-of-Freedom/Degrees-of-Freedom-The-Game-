@@ -19,7 +19,7 @@
 
 use crate::math::*;
 use crate::model::*;
-use crate::skyline::{Factor, Skyline};
+use crate::sparse::{Factor, SparseMatrix};
 use crate::system::*;
 
 /// A positive pivot below this marks a near-mechanism.
@@ -317,7 +317,7 @@ struct Newton<'a> {
     f: &'a [f64],
     gauge: &'a [usize],
     options: &'a Options,
-    stiffness: Skyline,
+    stiffness: SparseMatrix,
     /// A factorised tangent from an earlier, nearby state, to start from.
     carry: Option<Factor>,
     iterations: u32,
