@@ -139,7 +139,7 @@ export function bindSceneInteraction(
         );
       }
       getView().onMessage?.(issue ?? "");
-    } else if (s.mode === "creative" && s.tool === "found") {
+    } else if ((s.mode === "creative" || s.mode === "challenge") && s.tool === "found") {
       if (hit?.kind === "point") {
         const issue = s.placeFoundation(hit.p);
         getView().onMessage?.(issue ?? "");

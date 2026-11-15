@@ -251,7 +251,7 @@ export function createPicker(
               h.face.normal.z > 0.5 &&
               h.object.userData.pickTerrain === true,
           );
-        if (s.mode === "creative" && tool === "found") {
+        if ((s.mode === "creative" || s.mode === "challenge") && tool === "found") {
           // The diorama surface sits slightly below the physical grid.
           // Require a land hit and snap at its structural elevation, even
           // when the active member-construction plane is several levels up.

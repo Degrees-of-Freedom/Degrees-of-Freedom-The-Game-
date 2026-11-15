@@ -599,7 +599,7 @@ export function Workspace() {
         )}
         <div id="dock">
           <div id="hint" role="status">
-            {game.mode === "creative" && game.tool === "found"
+            {(game.mode === "creative" || game.mode === "challenge") && game.tool === "found"
               ? "Click solid ground to place a fixed foundation or select an existing support"
               : game.mode === "forensics"
               ? progress === "complete"

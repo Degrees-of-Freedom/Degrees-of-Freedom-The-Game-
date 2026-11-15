@@ -659,7 +659,7 @@ export const useGameStore = create<GameState>((set, get) => {
     setTool: (tool) => set({ tool, chainStart: null }),
     placeFoundation: (point) => {
       const state = get();
-      if (state.mode !== "creative") return "Foundation placement is available in Creative.";
+      if (state.mode !== "creative" && state.mode !== "challenge") return "Foundation placement is available in Creative and Engineering challenges.";
       const key = nodeKey(...point);
       if (!state.model.attrs[key]?.found) {
         const issue = state.toggleAttr(point, "found");

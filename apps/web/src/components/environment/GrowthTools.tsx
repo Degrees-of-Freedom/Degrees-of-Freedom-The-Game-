@@ -183,7 +183,7 @@ export function GrowthTools({
   }
 
   const tools = [
-    ...(creative && game.style === "grow-dusk" ? [{ id: "foundation", label: "Foundation", shortcut: "0", active: game.tool === "found", icon: <ConnectionIcon />, action: () => choose("found") }] : []),
+    ...((creative || game.mode === "challenge") && game.style === "grow-dusk" ? [{ id: "foundation", label: "Foundation", shortcut: "0", active: game.tool === "found", icon: <ConnectionIcon />, action: () => choose("found") }] : []),
     {
       id: "member",
       label: "Member",
