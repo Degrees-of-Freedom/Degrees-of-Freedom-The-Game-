@@ -1,0 +1,30 @@
+{
+  "repository": "https://github.com/Pokemon-3D-api/assets",
+  "revision": "429de1288cea0d43f5b4f56305d2276e94239d65",
+  "models": [
+    {
+      "file": "conkeldurr.glb",
+      "sha256": "8ce2bfcc3e39f3647c49a824a8a710ab6fc6e322e443fc3a753290c87e65fff6",
+      "bytes": 26100,
+      "source": {
+        "author": "nguyenlouis32 (https://sketchfab.com/nguyenlouis32)",
+        "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+        "source": "https://sketchfab.com/3d-models/conkeldurr-e3fa0c6e58e34eb5aed4fbcf7047f80f",
+        "title": "Conkeldurr"
+      },
+      "embeddedAnimations": 0
+    },
+    {
+      "file": "timburr.glb",
+      "sha256": "9cfa32cc5400776735bb8be1723029e1578f1910bdb63fb6ef3a2ee766476d32",
+      "bytes": 22088,
+      "source": {
+        "author": "nguyenlouis32 (https://sketchfab.com/nguyenlouis32)",
+        "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+        "source": "https://sketchfab.com/3d-models/timburr-656b3a3464724f49905b23738de8e5d2",
+        "title": "Timburr"
+      },
+      "embeddedAnimations": 0
+    }
+  ]
+}

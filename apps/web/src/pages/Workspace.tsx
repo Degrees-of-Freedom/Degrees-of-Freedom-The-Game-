@@ -20,6 +20,7 @@ import { CoordinateEditor, ModelIO } from "../components/RuntimeControls";
 import { TurnPanel } from "../components/TurnPanel";
 import { SharedTableHandoff } from "../components/SharedTableHandoff";
 import { SessionRecovery } from "../components/SessionRecovery";
+import { Companion } from "../companion/Companion";
 import {
   EnvironmentTools,
   EnvironmentTray,
@@ -496,6 +497,7 @@ export function Workspace() {
                       ? "Shared table"
                       : "Build options"}
               </h2>
+              {!paused && <Companion area="drawer" />}
               <button
                 className="btn icon"
                 aria-label="Close drawer"
@@ -624,6 +626,7 @@ export function Workspace() {
           </aside>
         )}
       </div>
+      {!paused && !drawer && !help && <Companion area="board" />}
     </main>
   );
 }

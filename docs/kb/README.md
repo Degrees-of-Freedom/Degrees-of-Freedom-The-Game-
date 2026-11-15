@@ -76,9 +76,9 @@ The [completion decision register](game-completion-criteria.md#2-owner-confirmed
 
 [Animation and sound criteria](animation-criteria.md) record the owner-confirmed magical arena style: fast, subtle routine feedback with rare dramatic failure, major lead-change and victory moments. They cover all game actions, coordinated sound, optional structural glow/pulse and truthful structural visualization. Timing budgets, settings defaults and rollout details are proposals; this specification does not claim implementation.
 
-## Avatar direction and deferred prototype
+## Avatar and preserved prototype
 
-[Timburr avatar criteria](avatar-criteria.md) are the source of truth for the owner’s criteria-first avatar work: a small companion across screens, expanding for important reactions, with a proposed temporary Conkeldurr foreman mode. The avatar is not implemented in the active app. [Prototype handoff](../../prototypes/timburr-companion/README.md) preserves an unapplied code/asset patch and its known gaps for a future Codex/Claude run. Review the criteria before reusing it; experimental analysis must not trigger a verified-failure reaction.
+[Timburr avatar criteria](avatar-criteria.md) describe the compact companion and reactions. The active Grow Dusk playtest uses the two original attributed models preserved in the [prototype handoff](../../prototypes/timburr-companion/README.md), including a deliberately activated Conkeldurr preview and static portrait fallback. The models have no embedded animation clips. See [presentation acceptance](criteria-ledger.md#viewer-controls-and-presentation) for verified controls and remaining reactions.
 
 ## Joint freedoms and graphical representation
 
@@ -90,7 +90,7 @@ The [completion decision register](game-completion-criteria.md#2-owner-confirmed
 
 ## Automatic correction and final fallback
 
-Later owner decisions confirm historical penalties remain after repair, matching freedom states/physical axes may have different elastic stiffnesses, and final attraction awards use verified components against total applied gravity with zero award for unknown contributions. Player moves are retained while the program applies recorded game-owned repairs for instability and overload, explained by Timburr. See [issue correction](failure-repair-criteria.md#6-automatic-correction-transaction) and the [decision register](game-completion-criteria.md#2-owner-confirmed-decision-register). The owner confirmed permanent neutral scaffolding/ground anchors with no player attraction award and local direct intervention; whole-structure effects are still reanalyzed. See the [local repair policy](failure-repair-criteria.md#7-permanent-neutral-repairs-with-local-intervention). These are requirements, not implemented correction or a promise of stable equilibrium for every arbitrary input.
+In the scored frame preset, the game retains the player move and any originating deduction. It tries physical local reinforcement for verified instability and overload. Accepted props and neutral ground anchors persist, participate in equilibrium and earn no player attraction. Turn details identifies the local contact, checks, signed support redistribution and any pending issue after bounded attempts. The final award uses verified reactions divided by all applied card gravity. See the [repair policy](failure-repair-criteria.md#7-permanent-neutral-repairs-with-local-intervention), [decision register](game-completion-criteria.md#2-owner-confirmed-decision-register) and [tested match and remaining scope](criteria-ledger.md).
 
 ## Maintenance
 

@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Link, Route, Routes } from "react-router-dom";
 import { Home } from "./pages/Home";
+import { Companion } from "./companion/Companion";
 import { ModeSelect } from "./pages/ModeSelect";
 import { ModeSetup } from "./pages/ModeSetup";
 import { About, HowToPlay, SettingsPage } from "./pages/InfoPages";
@@ -33,6 +34,7 @@ export function App() {
             <main className="launcher">
               <h1>Page not found</h1>
               <Link to="/">Return to the main menu</Link>
+              <Companion area="menu" />
             </main>
           }
         />

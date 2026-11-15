@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { SCENE_ART } from "../menu/art";
 import { useSettings } from "../menu/settings";
+import { Companion } from "../companion/Companion";
 import "../pages/menu.css";
 
 const ARROW_BACK = (
@@ -112,6 +113,7 @@ export function MenuShell({
                   {back.label}
                 </Link>
                 {crumb && <span className="crumb">{crumb}</span>}
+                <Companion area="menu" />
               </div>
             )}
             {title && (
@@ -123,6 +125,7 @@ export function MenuShell({
           </div>
         )}
       </main>
+      {home && <Companion area="home" />}
     </div>
   );
 }

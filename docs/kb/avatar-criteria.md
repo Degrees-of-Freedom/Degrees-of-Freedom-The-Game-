@@ -16,7 +16,7 @@ status: needs-review
 
 ## 1. Authority and scope
 
-**This is a criteria-first design specification, not a shipped avatar feature.** The owner corrected the work's direction to focus on criteria; implementation belongs to a later run. An unfinished implementation experiment is preserved separately in the [prototype handoff](../../prototypes/timburr-companion/README.md). It is not active in the app and must not be treated as an approved design or production-ready code.
+The specifications below originated in the criteria-first pass. The active playtest now uses the two owner-approved provisional assets from the [prototype handoff](../../prototypes/timburr-companion/README.md). Its compact companion, labelled preview and model-derived fallback are implemented in `apps/web/src/companion/`. Separate issue, reaction and accessibility gates are tracked in the [criteria ledger](criteria-ledger.md).
 
 Owner-confirmed direction:
 
@@ -158,6 +158,12 @@ Recommended order for a later implementation run:
 5. Validate layout, sound, interruption, privacy, performance and event correctness; update KB status with evidence.
 
 ## 10. Open decisions
+
+### Compact character evidence
+
+The launcher, setup, information pages, workspace and open drawers display Timburr. Activating his control opens a tip and lets the player inspect the Conkeldurr foreman preview. The private handoff and session recovery screens suppress the companion. The local loader draws the displayed GLB once and uses a matching PNG portrait during decoding or GPU failure; retry is available in the companion panel. Both source assets are unrigged static meshes with zero embedded clips. Their resting arms and detached props reflect the preserved authored poses. Articulated reaction poses and final art approval remain open.
+
+The [browser runner](../evidence/companion/check.mjs) also regenerates both fallback portraits and verifies the preserved GLBs' hashes. The models by nguyenlouis32 are licensed under CC BY 4.0. Their attribution and pinned sources are preserved in [the distributed credits](../../apps/web/public/companion/CREDITS.md).
 
 The owner authorized the two preserved, attributed GLBs for playtesting and a labelled Conkeldurr transformation preview. Automatic serious-event eligibility and final pose approval remain distinct from that asset decision. Use the recorded issue/repair event for explanations.
 
