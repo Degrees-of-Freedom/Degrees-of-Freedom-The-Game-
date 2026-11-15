@@ -9,7 +9,7 @@ import type { LevelId } from "../game/model";
 import { savedLevel } from "../game/persistence";
 import { useGameStore } from "../game/store";
 import { KIT_PLAYTEST } from "../game/turns";
-import { isScoredCatalogue, PLANAR_CATALOGUE, SCORED_CATALOGUE, TRUSS_CATALOGUE, SPRING_CATALOGUE, type ScoredCatalogue } from "../game/cardCatalogue";
+import { isScoredCatalogue, JOINT_CATALOGUE, PLANAR_CATALOGUE, SCORED_CATALOGUE, TRUSS_CATALOGUE, SPRING_CATALOGUE, type ScoredCatalogue } from "../game/cardCatalogue";
 import { PLAYTEST_SETTINGS, TURN_RULES, TURN_RULES_NOTES } from "../menu/turnRules";
 import { hasSavedProgress } from "../menu/saved";
 import { runStart, type StartChoice } from "../menu/startPlan";
@@ -284,6 +284,7 @@ function Setup({ id }: { id: GameMode }) {
                 <option value={PLANAR_CATALOGUE}>Frame members and planar trusses</option>
                 <option value={TRUSS_CATALOGUE}>Frame members, planar and trichord trusses</option>
                 <option value={SPRING_CATALOGUE}>Frame members and axial springs</option>
+                <option value={JOINT_CATALOGUE}>Frame members and six-axis connectors</option>
               </select>
             </label>}
             <p className="quiet">

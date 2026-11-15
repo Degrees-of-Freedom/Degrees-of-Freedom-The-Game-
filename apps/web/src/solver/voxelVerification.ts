@@ -109,6 +109,27 @@ export function verifyLinearResponse(
         return unknown('Spring stroke or lateral motion exceeds the printed verification envelope.');
     } else if (Math.max(translation / e.L, rotation) > smallMotion) return unknown('Member motion exceeds the linear verification envelope.');
     const global = vecToGlobal(end.f, e.R);
+    if (e.connector) {
+      const actual = vecToGlobal(end.ul, e.R);
+      for (const [side, connector] of e.connector.ends.entries()) {
+        for (const [q, law] of connector.laws.entries()) {
+          const axis = connector.axes[q % 3];
+          const start = side * 6 + (q < 3 ? 0 : 3);
+          const slip = axis.reduce((sum, v, i) => sum + v * (actual[start+i] - ug[start+i]), 0);
+          const action = axis.reduce((sum, v, i) => sum + v * global[start+i], 0);
+          if (law.kind === 'locked') {
+            compatibility = Math.max(compatibility, Math.abs(slip) / (q < 3 ? lengthScale : 1));
+          } else if (law.kind === 'free') {
+            releasedAction = Math.max(releasedAction, Math.abs(action) / scale(q));
+          } else {
+            if (Math.abs(slip) > smallMotion * (q < 3 ? e.L : 1)) {
+              return unknown('Connector motion exceeds the linear verification envelope.');
+            }
+            memberLaw = Math.max(memberLaw, Math.abs(action + law.stiffness/1000 * slip) / scale(q));
+          }
+        }
+      }
+    }
     for (let i = 0; i < 12; i++) {
       const q = i % 6;
       const node = i < 6 ? e.a : e.b;
@@ -117,6 +138,7 @@ export function verifyLinearResponse(
       let expected = 0;
       for (let j = 0; j < 12; j++) expected += e.k[12 * i + j] * end.ul[j];
       memberLaw = Math.max(memberLaw, Math.abs(end.f[i] - expected) / scale(q));
+      if (e.connector) continue; // All six connector laws were checked in their physical frame above.
       if (e.rel.includes(i)) {
         releasedAction = Math.max(releasedAction, Math.abs(end.f[i]) / scale(q));
       } else {

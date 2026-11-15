@@ -23,7 +23,7 @@ export const PLAYTEST_SETTINGS = [
   `${KIT_PLAYTEST.players} players, ${KIT_PLAYTEST.rounds} rounds.`,
   "Each player starts with one foundation and a connected column.",
   "Unplayed cards stay in hand.",
-  "Connection cards are fixed or ball.",
+  "The six-axis connector catalogue adds a hinge, a sliding guide and elastic seats and yaw fittings to the fixed and ball cards.",
   "The frame deck deals SHS, glulam, IPE and HEB members. Additional catalogues deal four-panel planar or triangular trusses. Each assembly uses one element play and requires a connector at each attached end.",
 ];
 

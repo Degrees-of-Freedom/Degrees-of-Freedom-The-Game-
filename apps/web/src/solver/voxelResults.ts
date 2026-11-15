@@ -1,6 +1,7 @@
 import type { VoxelMember } from './voxelInput';
 import type { Section } from './voxelSections';
 import type { LinearVerification } from './voxelVerification';
+import type { ConnectionReduction, FrameConnection } from './frameConnections';
 export type Element = {
   m: VoxelMember;
   it: Section;
@@ -16,6 +17,7 @@ export type Element = {
   cable: boolean;
   rigidA: boolean;
   rigidB: boolean;
+  connector?: { ends: [FrameConnection, FrameConnection]; reduction: ConnectionReduction };
 };
 export type Context = {
   keys: string[];

@@ -9,7 +9,9 @@ import type { BeamSection, BeamType } from './voxelSections';
 export const CARD_STRENGTH = {
   version: 'card-strength-1',
   torsion: { shs: 20, glulam: 7, ipe: 3.5, heb: 18 } satisfies Record<BeamType, number>,
-  connections: { fixed: { force: 700, moment: 220 }, ball: { force: 350 } },
+  connections: { fixed: { force: 700, moment: 220 }, ball: { force: 350 },
+    'hinge-diagonal': {force:400, moment:80}, 'guided-x': {force:400, moment:80},
+    'seat-20': {force:400, moment:80}, 'seat-80': {force:400, moment:80}, 'semi-rigid': {force:400, moment:80} },
 } as const;
 
 type AttachedEnd = { memberId: number; end: 'a' | 'b'; profile: keyof typeof CARD_STRENGTH.connections };
@@ -60,16 +62,17 @@ function memberCheck(type: BeamType, s: BeamSection, actions: LocalActions, stat
 function connectorCheck(attachment: AttachedEnd, actions: LocalActions, station: number): CapacityCheck {
   const { N, Vy, Vz, T, My, Mz } = actions;
   const force = Math.hypot(N, Vy, Vz);
-  const { fixed, ball } = CARD_STRENGTH.connections;
-  if (attachment.profile !== 'fixed' && attachment.profile !== 'ball') {
+  const rating = CARD_STRENGTH.connections[attachment.profile];
+  if (!rating) {
     return unavailable('This connector has no printed strength law in card-strength-1.');
   }
   // A07 has already checked that released local moments vanish. There is
   // no ball moment capacity or interior continuity connector to manufacture.
-  const utilization = attachment.profile === 'ball' ? force/ball.force :
-    Math.hypot(force/fixed.force, Math.hypot(T, My, Mz)/fixed.moment);
+  const utilization = 'moment' in rating ?
+    Math.hypot(force/rating.force, Math.hypot(T, My, Mz)/rating.moment) : force/rating.force;
   return { status: 'verified', utilization, governing: attachment.profile === 'ball'
-    ? 'Ball connector resultant force' : 'Fixed connector force and moment', station, actions };
+    ? 'Ball connector resultant force' : attachment.profile === 'fixed' ? 'Fixed connector force and moment' :
+      'Printed connector force and moment', station, actions };
 }
 
 /** For the simultaneous nodal card-gravity case only. Between physical load

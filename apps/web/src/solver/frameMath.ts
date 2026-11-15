@@ -12,7 +12,11 @@ const norm = (a: number[]) => {
 };
 
 export function localAxes(ex: number[]) {
-  let ey = Math.abs(ex[2]) > 0.999 ? [0, 1, 0] : norm(cross([0, 0, 1], ex));
+  // Near vertical, project the preferred world-Y reference onto the member's
+  // normal plane. A literal Y would cease to be orthogonal on a slight incline.
+  let ey = [0, 1, 0];
+  if (Math.abs(ex[2]) <= 0.999) ey = norm(cross([0, 0, 1], ex));
+  else if (ex[1] !== 0) ey = norm([-ex[0]*ex[1], 1-ex[1]*ex[1], -ex[2]*ex[1]]);
   const ez = cross(ex, ey);
   return [ex, ey, ez];
 }

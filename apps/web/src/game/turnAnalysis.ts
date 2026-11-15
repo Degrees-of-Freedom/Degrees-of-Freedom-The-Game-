@@ -2,6 +2,7 @@ import { CELL_SIZE, parseNodeKey } from './model';
 import { assemblyParts, type AssemblyNode } from './assembly';
 import type { TurnState } from './turns';
 import { originalPorts, turnJoints } from './turnPorts';
+import { connectionDefinition } from './jointFreedom';
 import { analyzeVoxel } from '../solver/voxel';
 import { assessCardCapacity } from '../solver/voxelCapacity';
 import type { VoxelLevel, VoxelModel } from '../solver/voxelInput';
@@ -33,9 +34,11 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
       if (!connection) positions[key] = parseNodeKey(point);
       const profile = connection?.profile ?? 'fixed';
       const axial = type === 'cable' || type === 'spring';
-      if (!axial && profile === 'fixed') inactiveRotations.delete(key);
+      if (!axial && profile !== 'ball') inactiveRotations.delete(key);
       if (axial && !connection) inactiveRotations.add(key);
-      return { key, profile };
+      const simple = profile === 'ball' ? 'ball' as const : 'fixed' as const;
+      const law = profile === 'fixed' || profile === 'ball' ? undefined : connectionDefinition(profile);
+      return { key, profile: simple, law };
     }
     const start = end('a', a), finish = end('b', b);
     if (member.assembly) {
@@ -59,7 +62,8 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
       }));
     }
     const ports = originalPorts(member).filter(port => port.available && attrs[port.id]);
-    if (!ports.length) return [{ id, a: start.key, b: finish.key, type, endA: start.profile, endB: finish.profile }];
+    if (!ports.length) return [{ id, a: start.key, b: finish.key, type, endA: start.profile, endB: finish.profile,
+      ...(start.law && {connectionA:start.law}), ...(finish.law && {connectionB:finish.law}) }];
     // Parent continuity passes all six DOFs across internal stations, even if
     // a new external connector releases moment at that same location.
     if (type !== 'spring') for (const port of ports) inactiveRotations.delete(port.id);
@@ -71,6 +75,8 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
         id: -(id * 4 + from.quarter), type, a: from.id, b: to.id,
         endA: i === 0 ? start.profile : 'fixed',
         endB: to.quarter === 4 ? finish.profile : 'fixed',
+        ...(i === 0 && start.law && {connectionA:start.law}),
+        ...(to.quarter === 4 && finish.law && {connectionB:finish.law}),
         parentSpan: { memberId: id, fromQuarter: from.quarter, toQuarter: to.quarter },
       };
     });

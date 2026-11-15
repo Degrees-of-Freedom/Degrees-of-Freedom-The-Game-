@@ -1,6 +1,8 @@
 import type { FrameSystem, Element, ElementForce, Solved } from './voxelResults';
 import { recover } from './frameElement';
 import { cholesky, cholSolve } from './frameMath';
+import { inactiveConnectorSpins } from './frameSpins';
+import { validFrameConnection } from './frameConnections';
 function assemble(ctx: FrameSystem, active: Map<Element, boolean>) {
   const { nf, els } = ctx,
     K = new Float64Array(nf * nf);
@@ -24,6 +26,12 @@ export function solveCombo(
   F: Float64Array,
 ): { fail: true; reason?: string } | Solved {
   const { nf, eq, els, NA } = ctx;
+  if (els.some(e => e.connector && !e.connector.ends.every(validFrameConnection))) {
+    return { fail:true, reason:'Invalid connector axes or elastic stiffness.' };
+  }
+  if (els.some(e => e.connector && !e.connector.reduction.stable)) return { fail: true };
+  const inactiveSpins = inactiveConnectorSpins(ctx, F);
+  if (!inactiveSpins) return { fail: true };
   const cables = els.filter((e) => e.cable);
   const active = new Map(cables.map((e) => [e, true]));
   let u = new Float64Array(NA * 6),
@@ -55,6 +63,7 @@ export function solveCombo(
     const tolerance = maxDiagonal * 1e-14;
     const activeDofs: number[] = [];
     for (let i = 0; i < nf; i++) {
+      if (inactiveSpins.has(i)) continue;
       if (Math.abs(K[i * nf + i]) <= tolerance) {
         if (originalDof[i] % 6 < 3 || Math.abs(Ff[i]) > 1e-10) return { fail: true };
       } else activeDofs.push(i);

@@ -5,7 +5,7 @@ import {
   type Member,
 } from "./model";
 import { LEGACY_CATALOGUE, isScoredCatalogue, printedCards, type CardDefinition, type CatalogueId } from "./cardCatalogue";
-import { conflictingJointAxes, CONNECTION_PROFILES } from "./jointFreedom";
+import { conflictingJointAxes, connectionFrame, CONNECTION_PROFILES, type ConnectionProfile } from "./jointFreedom";
 import { findMaterialClash } from "./materialClashes";
 import { findPort, systemTarget, targetCoordinate, turnJoints } from "./turnPorts";
 import { analyzeTurn } from "./turnAnalysis";
@@ -45,7 +45,7 @@ type Connection = {
   memberId: number;
   end: "a" | "b";
   jointId: string;
-  profile: "fixed" | "ball";
+  profile: ConnectionProfile;
   owner: string;
 };
 type Placements = {
@@ -331,6 +331,8 @@ function jointProfileConflict(connections: readonly Connection[]): string | null
     const axes = conflictingJointAxes(
       CONNECTION_PROFILES[first.profile],
       CONNECTION_PROFILES[candidate.profile],
+      connectionFrame(first.profile),
+      connectionFrame(candidate.profile),
     );
     if (axes.length) return (
       `Incompatible joint profiles at ${candidate.jointId}. Member ${first.memberId} end ${first.end.toUpperCase()} uses ${first.profile}. ` +

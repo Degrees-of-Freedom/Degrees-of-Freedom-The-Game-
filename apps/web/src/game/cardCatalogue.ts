@@ -1,4 +1,4 @@
-import { CONNECTION_PROFILES } from './jointFreedom';
+import { CONNECTION_PROFILES, connectionLabel, type ConnectionProfile } from './jointFreedom';
 import type { MemberType } from './model';
 import { ITEMS, S, SECTION_GEOMETRY, SPRING } from '../solver/voxelSections';
 import { PLANAR, TRICHORD, type AssemblyId } from './assembly';
@@ -12,10 +12,11 @@ export const SCORED_CATALOGUE = 'shared-table-frame-1' as const;
 export const PLANAR_CATALOGUE = 'shared-table-planar-1' as const;
 export const TRUSS_CATALOGUE = 'shared-table-trusses-1' as const;
 export const SPRING_CATALOGUE = 'shared-table-springs-1' as const;
-export type ScoredCatalogue = typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE | typeof TRUSS_CATALOGUE | typeof SPRING_CATALOGUE;
+export const JOINT_CATALOGUE = 'shared-table-joints-1' as const;
+export type ScoredCatalogue = typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE | typeof TRUSS_CATALOGUE | typeof SPRING_CATALOGUE | typeof JOINT_CATALOGUE;
 export type CatalogueId = typeof LEGACY_CATALOGUE | ScoredCatalogue;
 export function isScoredCatalogue(catalogue: unknown): catalogue is ScoredCatalogue {
-  return catalogue === SCORED_CATALOGUE || catalogue === PLANAR_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === SPRING_CATALOGUE;
+  return catalogue === SCORED_CATALOGUE || catalogue === PLANAR_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === SPRING_CATALOGUE || catalogue === JOINT_CATALOGUE;
 }
 
 const legacyTypes = ['shs', 'glulam', 'ipe', 'heb', 'cable'] as const;
@@ -25,7 +26,7 @@ export function memberDeckTypes(catalogue: CatalogueId): readonly (MemberType | 
   if (catalogue === SPRING_CATALOGUE) return [...scoredTypes, 'spring'];
   if (catalogue === TRUSS_CATALOGUE) return [...scoredTypes, PLANAR.id, TRICHORD.id];
   if (catalogue === PLANAR_CATALOGUE) return [...scoredTypes, PLANAR.id];
-  return catalogue === SCORED_CATALOGUE ? scoredTypes : legacyTypes;
+  return catalogue === LEGACY_CATALOGUE ? legacyTypes : scoredTypes;
 }
 
 interface Printing {
@@ -61,10 +62,11 @@ for (const magnitude of GRAVITY_CARDS_KN) {
     kind: 'load', magnitude, label: `${magnitude} kN down`,
   });
 }
-for (const profile of ['fixed', 'ball'] as const) {
+const jointPrintings: ConnectionProfile[] = ['fixed', 'ball', 'hinge-diagonal', 'guided-x', 'seat-20', 'seat-80', 'semi-rigid'];
+for (const profile of jointPrintings) {
   printings.push({
     definitionId: `connection/${profile}`, definitionVersion: CARD_DEFINITION_VERSION,
-    kind: 'connection', profile, label: profile === 'fixed' ? 'Fixed / moment' : 'Ball joint',
+    kind: 'connection', profile, label: connectionLabel(profile),
   });
 }
 const definitions = new Map(printings.map(card => [card.definitionId, Object.freeze(card)] as const));
@@ -83,11 +85,11 @@ export function printedCards(index: number, catalogue: CatalogueId) {
   const type = types[index % types.length];
   // Even-sized catalogues shift the reach after each pass through the families
   // so each family can draw all four reaches. Five-family deals already cycle.
-  const rotateReach = catalogue === SCORED_CATALOGUE || catalogue === TRUSS_CATALOGUE;
+  const rotateReach = catalogue === SCORED_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === JOINT_CATALOGUE;
   const reachIndex = rotateReach ? index + Math.floor(index / types.length) : index;
   const maxSteps = 1 + reachIndex % 4;
   const load = GRAVITY_CARDS_KN[index % GRAVITY_CARDS_KN.length];
-  const profile = index % 2 === 0 ? 'fixed' : 'ball';
+  const profile = catalogue === JOINT_CATALOGUE ? jointPrintings[index % jointPrintings.length] : index % 2 === 0 ? 'fixed' : 'ball';
   return {
     element: { id: 'element-' + index, ...resolveCardDefinition(`element/${type}/axis-${maxSteps}`, CARD_DEFINITION_VERSION) },
     load: { id: 'load-' + index, ...resolveCardDefinition(`gravity/${load}kN`, CARD_DEFINITION_VERSION) },
@@ -102,6 +104,10 @@ export function describePrinting(card: CardDefinition): string {
     return `One persistent ${card.magnitude} kN force in global −Z at the selected joint.`;
   }
   if (card.kind === 'connection') {
+    if (card.profile === 'hinge-diagonal') return 'Allows rotation about the horizontal 45° axis pointing equally along global +X and +Y. All other motions are locked.';
+    if (card.profile === 'guided-x') return 'Slides along global X with zero transferred X force. Locks the other five motions.';
+    if (card.profile === 'seat-20' || card.profile === 'seat-80') return `Global vertical stiffness is ${card.profile === 'seat-20' ? 20 : 80} MN/m in tension and compression. The other five motions are locked.`;
+    if (card.profile === 'semi-rigid') return 'Relative rotation about global Z transfers 8 MN·m per radian. The other five motions are locked.';
     return card.profile === 'ball'
       ? 'Locks three translations and releases three rotations at one end. Existing joint permissions must match.'
       : 'Locks all three translations and rotations at one end. Existing joint permissions must match.';

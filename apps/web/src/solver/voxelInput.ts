@@ -1,8 +1,11 @@
+import type { FrameConnection } from './frameConnections';
 /** Input for the experimental voxel analysis. Grid keys contain integer x,y,z coordinates. */
 export type VoxelMemberType = 'shs' | 'glulam' | 'ipe' | 'heb' | 'cable' | 'spring';
 export interface VoxelMember {
   id: number; a: string; b: string; type: VoxelMemberType;
   endA?: 'fixed' | 'ball'; endB?: 'fixed' | 'ball';
+  /** Physical six-axis interface, when supplied by a printed frame connector. */
+  connectionA?: FrameConnection; connectionB?: FrameConnection;
   /** Internal continuous piece of a dealt frame, with stations measured in original quarters. */
   parentSpan?: { memberId: number; fromQuarter: number; toQuarter: number; assemblyPart?: string; unbracedLengthM?: number };
 }

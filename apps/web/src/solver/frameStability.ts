@@ -1,5 +1,6 @@
-import type { FrameSystem, Solved } from './voxelResults';
+import type { Element, FrameSystem, Solved } from './voxelResults';
 import { toGlobal, cholesky } from './frameMath';
+import { connectorSlips, reduceConnections } from './frameConnections';
 
 const logRefinements = 6;
 
@@ -27,15 +28,16 @@ function reportableFactor(threshold: number) {
  */
 export function alphaCr(ctx: FrameSystem, sol: Solved, minimumFactor?: number) {
   const { nf, els } = ctx;
-  if (nf === 0) return Infinity;
+  if (nf === 0 && !els.some(e => e.connector)) return Infinity;
   if (nf > 2400) return null;
   const Kg = new Float64Array(nf * nf);
+  const flexible: { element: Element; kg: Float64Array; slips: ReturnType<typeof connectorSlips> }[] = [];
   let comp = false;
   for (const e of els) {
     if (e.cable && !sol.active.get(e)) continue;
     const N = sol.ef.get(e)!.f[6];
     if (N < -1e-6) comp = true;
-    if (e.rigidA && e.rigidB) {
+    if ((e.rigidA && e.rigidB) || e.connector) {
       // consistent beam geometric stiffness (captures member bending in sway/buckling)
       const L = e.L,
         kg = new Float64Array(144),
@@ -58,6 +60,10 @@ export function alphaCr(ctx: FrameSystem, sol: Solved, minimumFactor?: number) {
         s(b, b, (c * 2 * L * L) / 15);
         s(d, d, (c * 2 * L * L) / 15);
         s(b, d, (-c * L * L) / 30);
+      }
+      if (e.connector) {
+        flexible.push({element:e, kg, slips: connectorSlips(e.connector.ends, e.R)});
+        continue;
       }
       const g = toGlobal(kg, e.R);
       for (let i = 0; i < 12; i++) {
@@ -97,6 +103,7 @@ export function alphaCr(ctx: FrameSystem, sol: Solved, minimumFactor?: number) {
   // element. Deleting inactive DOFs preserves that bandwidth upper bound.
   const bw = Math.min(ctx.bw, Math.max(0, n - 1));
   const W = new Float64Array(n * n);
+  const activeIndex = new Map(flexible.length ? active.map((d, i) => [d, i] as const) : []);
   const pd = (lam: number) => {
     for (let i = 0; i < n; i++) {
       const sourceRow = active[i] * nf;
@@ -104,6 +111,23 @@ export function alphaCr(ctx: FrameSystem, sol: Solved, minimumFactor?: number) {
       for (let j = Math.max(i - bw, 0); j <= i; j++) {
         const source = sourceRow + active[j];
         W[row + j] = sol.K0[source] + lam * Kg[source];
+      }
+    }
+    // Condensing member-end slips and then adding a fixed geometric matrix
+    // would use the wrong connector tangent under compression. Re-condense the
+    // actual trial member tangent and test its internal pivots at each factor.
+    for (const {element, kg, slips} of flexible) {
+      const tangent = element.k.map((value, i) => value + lam * kg[i]);
+      const reduced = reduceConnections(tangent, slips);
+      if (!reduced.stable) return false;
+      const global = toGlobal(reduced.stiffness, element.R);
+      for (let i=0; i<12; i++) {
+        const row = activeIndex.get(element.dofs[i]);
+        if (row === undefined) continue;
+        for (let j=0; j<12; j++) {
+          const col = activeIndex.get(element.dofs[j]);
+          if (col !== undefined && col <= row) W[row*n+col] += global[i*12+j] - element.kgl[i*12+j];
+        }
       }
     }
     return cholesky(W, n, bw);
