@@ -45,7 +45,7 @@ export function ViewLegends({ legends }: { legends: readonly ViewLegend[] }) {
       {collapsed ? `Legends (${legends.length})` : "Hide legends"}
     </button>
     {!collapsed && <div className="view-legend-list" aria-live="polite">
-      {legends.map(legend => <article key={legend.id} className="view-legend" data-mode={legend.id} aria-label={legend.title}>
+      {legends.map(legend => <article key={legend.id} className="view-legend" data-mode={legend.id}>
         <h3><ViewModeIcon mode={legend.id} />{legend.title}</h3>
         {legend.status ? <p className="view-legend-status" role="status">{legend.status}</p> : <>
           {legend.ramp && <div className="view-ramp">

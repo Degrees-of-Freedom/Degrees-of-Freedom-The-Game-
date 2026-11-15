@@ -71,7 +71,7 @@ export function ViewModesPanel({ modes, jointsShown, open, scale, onOpenChange, 
               <span><strong>{mode.title}</strong><small>{mode.hint}</small></span>
               <i className="view-tile-pip" aria-hidden="true" />
             </button>
-            {axes && on && <div className="view-axes" role="group" aria-label={`${mode.title} component`}>
+            {axes && on && <div className="view-axes" role="group" aria-label={mode.id === "shear" ? "Shear component" : "Bending component"}>
               {axes.map(axis => <button key={axis} aria-pressed={axis === current} onClick={() =>
                 dispatch(mode.id === "shear" ? { type: "shearAxis", axis: axis as ShearAction } : { type: "momentAxis", axis: axis as MomentAction })}>
                 {axisName[axis]}</button>)}
@@ -85,7 +85,7 @@ export function ViewModesPanel({ modes, jointsShown, open, scale, onOpenChange, 
           <span aria-hidden="true" /><strong>Labels</strong>
         </label>
         <label className="view-scale">Sag ×
-          <select aria-label="Displacement scale" value={modes.amplification} onChange={event => dispatch({ type: "amplification", value: Number(event.target.value) })}>
+          <select aria-label="Sag exaggeration" value={modes.amplification} onChange={event => dispatch({ type: "amplification", value: Number(event.target.value) })}>
             <option value={0}>Auto (×{scale})</option>
             {DISPLACEMENT_SCALES.map(n => <option key={n} value={n}>×{n}</option>)}
           </select>

@@ -26,9 +26,9 @@ describe("view modes panel", () => {
   });
 
   it("offers diagram components only while that diagram is shown", () => {
-    expect(panel(true)).not.toContain("Shear diagram component");
+    expect(panel(true)).not.toContain("Shear component");
     const html = panel(true, { ...DEFAULT_VIEW_MODES, shear: true, shearAxis: 2 });
-    expect(html).toContain('aria-label="Shear diagram component"');
+    expect(html).toContain('aria-label="Shear component"');
     expect(html).toMatch(/aria-pressed="true">Vz</);
   });
 
