@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { addSceneLabel, forceLabel } from './sceneLabels';
+import { addSceneLabel, chipLabel, forceLabel } from './sceneLabels';
 import { CELL_SIZE, type NodeAttributes } from "../game/model";
 import type { SceneStyle } from "./sceneStyle";
 
@@ -97,6 +97,8 @@ export function paintedLoad(
   style: SceneStyle,
   memberDirections: THREE.Vector3[],
   gravityNodeCanHang: boolean,
+  /** The selected load shows its full label, with direction, at full size. */
+  selected = false,
 ) {
   if (!attrs.load) return;
   const direction = visualLoadDirection(attrs.loadDirection);
@@ -146,7 +148,8 @@ export function paintedLoad(
     group.add(new THREE.ArrowHelper(direction, origin, length, color, 0.25 * size * scale, 0.22 * size * scale));
     labelPoint.copy(origin).addScaledVector(direction, 0.35 * length);
   }
-  addSceneLabel(group, labelPoint, forceLabel(direction.multiplyScalar(attrs.load)), 'load');
+  const force = direction.multiplyScalar(attrs.load);
+  addSceneLabel(group, labelPoint, selected ? forceLabel(force) : chipLabel(force), 'load', { emphasis: selected });
 }
 
 export function paintedJoint(

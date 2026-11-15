@@ -13,6 +13,7 @@ import {
 import { getSettings } from "../menu/settings";
 import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
 import { addResultArrows, displayPoint } from "./sceneResults";
+import { updateChipFocus } from "./sceneLabels";
 import { createFlowParticles } from "./flowParticles";
 import { buildStructure } from "./structureMeshes";
 import { bindSceneInteraction } from "./sceneInteraction";
@@ -514,6 +515,7 @@ export function Scene({
           ? Math.atan2(Math.max(0, camera.position.z + CELL_SIZE), 145)
           : 0;
       updateGrowthOverlays(state, time);
+      updateChipFocus(structure, camera, pointer, renderer.domElement.clientWidth, renderer.domElement.clientHeight);
       draw();
     });
     /**

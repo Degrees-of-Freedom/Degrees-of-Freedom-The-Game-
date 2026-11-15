@@ -263,7 +263,8 @@ export function buildStructure(
           if (!other) return [];
           return [point(other).sub(p).normalize()];
         });
-        paintedLoad(structure, p, attrs, s.style, directions, parseNodeKey(key)[2] >= 1);
+        paintedLoad(structure, p, attrs, s.style, directions, parseNodeKey(key)[2] >= 1,
+          s.selected?.type === "node" && s.selected.key === key);
       }
       continue;
     }

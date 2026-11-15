@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CELL_SIZE, parseNodeKey, type GridPoint } from '../game/model';
-import { addSceneLabel, forceLabel } from './sceneLabels';
+import { addSceneLabel, chipLabel } from './sceneLabels';
 import type { SceneView } from './sceneView';
 export const basePoint = (key: string) =>
   new THREE.Vector3(
@@ -57,7 +57,7 @@ export function addResultArrows(
           0.22,
         ),
       );
-      if (labelForces && load.kind === 'Q') addSceneLabel(structure, p.clone().addScaledVector(dir, -length), forceLabel(value), 'load');
+      if (labelForces && load.kind === 'Q') addSceneLabel(structure, p.clone().addScaledVector(dir, -length), chipLabel(value), 'load');
     }
     for (const [a, reaction] of Object.entries(resultCombo.reac || {})) {
       const key = ctx.keys[ctx.act[Number(a)]],
@@ -77,7 +77,7 @@ export function addResultArrows(
           0.22,
         ),
       );
-      if (labelForces) addSceneLabel(structure, p.clone().addScaledVector(dir, 0.75 * length), 'R · ' + forceLabel(value), 'reaction');
+      if (labelForces) addSceneLabel(structure, p.clone().addScaledVector(dir, 0.75 * length), 'R · ' + chipLabel(value), 'reaction');
     }
   }
 }
