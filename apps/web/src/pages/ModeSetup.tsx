@@ -277,8 +277,8 @@ function Setup({ id }: { id: GameMode }) {
               <dd>{KIT_PLAYTEST.rounds}</dd>
             </dl>
             <p className="quiet">
-              These are playtest settings, not confirmed rules. Player names and
-              counts are not configurable yet.
+              Each seat plays once per round. After the last turn, the table shows
+              each player’s verified gravity share minus historical penalties.
             </p>
           </div>
           <div className="panel">

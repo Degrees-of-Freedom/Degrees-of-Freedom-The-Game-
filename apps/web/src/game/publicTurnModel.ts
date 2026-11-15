@@ -13,7 +13,21 @@ interface PublicTurnModel {
     loads: Pick<Board["loads"][number], "jointId" | "magnitude" | "owner">[];
     connections: Pick<Board["connections"][number], "memberId" | "end" | "jointId" | "profile" | "owner">[];
   };
-  reports: Pick<TurnReport, "turn" | "playerId" | "status" | "penalty">[];
+  reports: ReturnType<typeof publicTurnReport>[];
+}
+
+/** Publish physical reasons, keeping the match seed, model signatures and saved
+ * receipt outside the public view. Historical comparisons can predate scoring.
+ */
+export function publicTurnReport(report: TurnReport) {
+  const { turn, playerId, status, penalty } = report;
+  const chargedIds = new Set(report.penaltyDecision?.event?.issueIds);
+  const penaltyReasons = (report.issues?.changes ?? [])
+    .filter(change => chargedIds.has(change.id))
+    .map(({ id, memberId, end, category, change, after }) => ({
+      id, memberId, end, category, change, reason: after.reason, utilization: after.utilization,
+    }));
+  return { turn, playerId, status, penalty, penaltyReasons };
 }
 
 /** Project committed, public fields individually so new save fields stay private by default. */
@@ -32,8 +46,6 @@ export function publicTurnModel(state: TurnState): PublicTurnModel {
         memberId, end, jointId, profile, owner,
       })),
     },
-    reports: state.reports.map(({ turn, playerId, status, penalty }) => ({
-      turn, playerId, status, penalty,
-    })),
+    reports: state.reports.map(publicTurnReport),
   };
 }

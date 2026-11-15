@@ -158,6 +158,7 @@ export function TurnBanner({ onEndTurn }: { onEndTurn: () => void }) {
   const game = useGameStore(),
     turn = game.turn;
   if (game.mode !== "multiplayer" || !turn) return null;
+  const lastReport = turn.reports.at(-1);
   return (
     <div id={game.style === "kit" ? "banner" : "turn"} className="chip panel">
       <div id="who">
@@ -165,6 +166,9 @@ export function TurnBanner({ onEndTurn }: { onEndTurn: () => void }) {
         <span>
           Turn {turn.turn} · round {Math.ceil(turn.turn / 2)}
         </span>
+        {lastReport?.penalty === -1 && (
+          <span role="status">Turn {lastReport.turn} · −1 point</span>
+        )}
       </div>
       <div className="turn-pips" aria-label="Turn allowances">
         <span className={turn.draft.members.length ? "spent" : ""}>

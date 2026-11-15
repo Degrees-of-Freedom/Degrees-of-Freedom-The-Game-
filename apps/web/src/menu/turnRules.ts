@@ -18,7 +18,7 @@ export const TURN_RULES = [
   "The first connection establishes a joint’s freedoms. Every later end attached there must match. An incompatible card stays in your hand.",
 ];
 
-/** Values chosen for this local playtest; not confirmed rules. */
+/** Approved match format and current deck configuration. */
 export const PLAYTEST_SETTINGS = [
   `${KIT_PLAYTEST.players} players, ${KIT_PLAYTEST.rounds} rounds.`,
   "Each player starts with one foundation and a connected column.",
@@ -27,7 +27,7 @@ export const PLAYTEST_SETTINGS = [
   "New matches deal SHS, glulam, IPE and HEB members. Cables remain available in older playtests. Springs, round HSS and truss assemblies are candidate definitions awaiting validation.",
 ];
 
-/** What the current playtest does not enforce yet, stated next to the rules. */
+/** Scored-play feedback shown beside the rules and settings. */
 export const TURN_RULES_NOTES = [
-  "At turn end the structure is simulated. The one-point penalty for a new or worsened issue is confirmed but not applied yet.",
+  "A scored turn deducts one point if it introduces or worsens verified instability or overload. Turn details lists every reason for the deduction.",
 ];

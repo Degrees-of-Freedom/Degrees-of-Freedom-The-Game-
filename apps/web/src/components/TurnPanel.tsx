@@ -2,6 +2,7 @@ import { useGameStore } from "../game/store";
 import { activeTurnHand, KIT_PLAYTEST } from "../game/turns";
 import { TurnQuarterTargets } from "./TurnQuarterTargets";
 import { FinalScorePanel } from "./FinalScorePanel";
+import { publicTurnReport } from "../game/publicTurnModel";
 import { CardDefinitionDetails } from "./CardDefinitionDetails";
 import { connectionLocations, findPort, portLabel } from "../game/turnPorts";
 
@@ -23,6 +24,7 @@ export function TurnPanel({
   const members = [...turn.board.members, ...turn.draft.members];
   const connections = [...turn.board.connections, ...turn.draft.connections];
   const report = turn.reports.at(-1);
+  const deductions = turn.reports.filter(entry => entry.penalty < 0).map(publicTurnReport);
   return (
     <section className="turn-panel" aria-label="Shared-table turn">
       <h2>
@@ -33,6 +35,25 @@ export function TurnPanel({
       {turn.finished && (turn.finalScore
         ? <FinalScorePanel score={turn.finalScore} />
         : <p>This legacy playtest ended before final scoring was available.</p>)}
+      {deductions.length > 0 && (
+        <details>
+          <summary>Turn deductions ({deductions.length})</summary>
+          {deductions.map(entry => (
+            <div key={entry.turn}>
+              <strong>Turn {entry.turn} · Player {turn.players.findIndex(p => p.id === entry.playerId) + 1} · −1 point</strong>
+              <ul>
+                {entry.penaltyReasons.map(item => (
+                  <li key={item.id}>
+                    Member {item.memberId}{item.end && ` end ${item.end.toUpperCase()}`} · {item.change}{" "}
+                    {item.category.replace("-", " ")}. {item.reason}
+                    {item.utilization !== undefined && ` · utilization ${item.utilization.toFixed(3)}`}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </details>
+      )}
       {!turn.finished && <p>
         {KIT_PLAYTEST.description} Draw two cards from each deck. Play up to one
         member, one gravity load and two end connections, or pass. This is an
@@ -140,7 +161,7 @@ export function TurnPanel({
       )}
       <p className="runtime-status">
         {report?.reason ??
-          "Run simulation to inspect loads, reactions and stability with individual end connections. End turn records an experimental analysis status; scoring penalties are not yet applied."}
+          "Run simulation to inspect loads, reactions and stability with individual end connections."}
       </p>
       <details>
         <summary>Placed connections</summary>

@@ -10,6 +10,7 @@ import { findMaterialClash } from "./materialClashes";
 import { findPort, targetCoordinate, turnJoints } from "./turnPorts";
 import { analyzeTurn } from "./turnAnalysis";
 import { assessTurnIssues, matchesIssueEvidence, type IssueAssessment } from "./turnIssues";
+import { decidePenalty, type PenaltyDecision } from "./turnPenalty";
 import { awardFinalScore, finalReceipt, recoverFinalScore, type FinalScore } from "./finalScore";
 export { turnJoints } from "./turnPorts";
 export { CONNECTION_PROFILES } from "./jointFreedom";
@@ -61,7 +62,7 @@ type Event =
       end: "a" | "b";
       jointId?: string;
     }
-  | { kind: "end"; turn: number; status?: TurnReport["status"]; final?: FinalScore; issues?: IssueAssessment };
+  | { kind: "end"; turn: number; status?: TurnReport["status"]; final?: FinalScore; issues?: IssueAssessment; penaltyDecision?: PenaltyDecision };
 
 export type TurnReport = {
   turn: number;
@@ -70,6 +71,7 @@ export type TurnReport = {
   reason: string;
   penalty: 0 | -1;
   issues?: IssueAssessment;
+  penaltyDecision?: PenaltyDecision;
 };
 
 export interface TurnState {
@@ -404,7 +406,7 @@ function commitTurn(
   state: TurnState,
   expectedTurn: number,
   status: TurnReport["status"] = "unresolved",
-  replay?: { final: unknown; issues: unknown },
+  replay?: { final: unknown; issues: unknown; penaltyDecision: unknown },
 ): Transition {
   if (state.finished || expectedTurn !== state.turn)
     return fail("This turn has already ended.");
@@ -427,6 +429,16 @@ function commitTurn(
     ? assessTurnIssues(state, state.reports.at(-1)?.issues?.memory) : undefined;
   if (replay?.issues !== undefined && !matchesIssueEvidence(issues, replay.issues))
     return fail("The saved issue assessment does not match the replayed structure.");
+  // Earlier matches recorded issue comparisons before penalties were in force.
+  // Keep their original awards even if those comparisons contain eligible changes.
+  const penaltyDecision = issues && (!replay || replay.penaltyDecision !== undefined)
+    ? decidePenalty(state, issues) : undefined;
+  if (replay?.penaltyDecision !== undefined && !matchesIssueEvidence(penaltyDecision, replay.penaltyDecision))
+    return fail("The saved penalty decision does not match the originating turn.");
+  const endEvent: Extract<Event, { kind: "end" }> = {
+    kind: "end", turn: state.turn, status,
+    ...(issues && { issues }), ...(penaltyDecision && { penaltyDecision }),
+  };
   const report: TurnReport = {
     turn: state.turn,
     playerId: player.id,
@@ -437,8 +449,9 @@ function commitTurn(
       partial: "Supported geometry was analyzed. Floating components are excluded from the numerical solve.",
       unresolved: "The experimental solve did not produce a result for this turn.",
     }[status],
-    penalty: 0,
+    penalty: penaltyDecision?.event?.amount ?? 0,
     ...(issues && { issues }),
+    ...(penaltyDecision && { penaltyDecision }),
   };
   const finished = state.turn === KIT_PLAYTEST.players * KIT_PLAYTEST.rounds;
   const committed: TurnState = {
@@ -461,7 +474,7 @@ function commitTurn(
     },
     draft: emptyDraft(),
     reports: [...state.reports, report],
-    events: [...state.events, { kind: "end", turn: state.turn, status, ...(issues && { issues }) }],
+    events: [...state.events, endEvent],
   };
   if (finished && state.catalogue === SCORED_CATALOGUE) {
     let finalScore: FinalScore | null;
@@ -480,7 +493,7 @@ function commitTurn(
     const scores = new Map(finalScore.awards.map(a => [a.playerId, a.finalScore]));
     return { ok: true, state: { ...committed, finalScore,
       players: committed.players.map(p => ({ ...p, score: scores.get(p.id)! })),
-      events: [...state.events, { kind: "end", turn: state.turn, status, final: finalScore, ...(issues && { issues }) }],
+      events: [...state.events, { ...endEvent, final: finalScore }],
     } };
   }
   if (replay?.final !== undefined) return fail("Unexpected final score before scored-match completion.");
@@ -554,7 +567,9 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
   if (event.kind === "end" && typeof event.turn === "number") {
     if (event.status !== undefined && event.status !== "stable" && event.status !== "unstable" &&
       event.status !== "partial" && event.status !== "unresolved") return null;
-    return commitTurn(state, event.turn, event.status, { final: event.final, issues: event.issues });
+    return commitTurn(state, event.turn, event.status, {
+      final: event.final, issues: event.issues, penaltyDecision: event.penaltyDecision,
+    });
   }
   if (typeof event.cardId !== "string") return null;
   if (
