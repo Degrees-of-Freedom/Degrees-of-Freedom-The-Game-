@@ -1,9 +1,9 @@
-import type { VoxelLevel, VoxelModel } from './model';
-import type { VoxelAnalysis } from './results';
+import type { EvaluatorLevel, EvaluatorModel } from './model';
+import type { StructureEvaluation } from './results';
 import { ITEMS, type BeamType } from './sections';
 import { checkMember, govern } from './designChecks';
 /** Analyse a model under a level: the engine the sizing loop calls. */
-export type Evaluate = (model: VoxelModel, level: VoxelLevel) => VoxelAnalysis;
+export type Evaluate = (model: EvaluatorModel, level: EvaluatorLevel) => StructureEvaluation;
 
 /** Resize beam sections from available supply and reanalyse with `evaluate`,
  * without mutating the input. Up to four rounds; each round visits members
@@ -11,10 +11,10 @@ export type Evaluate = (model: VoxelModel, level: VoxelLevel) => VoxelAnalysis;
  * section whose design checks, under the member's current demand, stay at
  * or below 95 %, else the least utilised one. */
 export function autoDesign(
-  input: VoxelModel,
-  LV: VoxelLevel,
+  input: EvaluatorModel,
+  LV: EvaluatorLevel,
   evaluate: Evaluate,
-): { model: VoxelModel; analysis: VoxelAnalysis; changed: boolean } {
+): { model: EvaluatorModel; analysis: StructureEvaluation; changed: boolean } {
   // Work on a copy so callers can commit the complete operation as one undo step.
   const model = {
     ...input,

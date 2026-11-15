@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeTurn, assessTurn, toTurnVoxelInput } from './turnAnalysis';
+import { analyzeTurn, assessTurn, toTurnEvaluatorInput } from './turnAnalysis';
 import { displacementAt } from '../evaluator/results';
 import { activeTurnHand, createTurnGame, stageElement, stageLoad } from './turns';
 
@@ -30,7 +30,7 @@ describe('Shared table structural simulation', () => {
     const placed = stageElement(turn, card.id, '1,3,1', '1,3,2');
     if (!placed.ok) throw new Error(placed.reason);
     const memberId = placed.state.draft.members[0].id;
-    const input = toTurnVoxelInput(placed.state);
+    const input = toTurnEvaluatorInput(placed.state);
     const end = `endpoint:${memberId}:a`;
     expect(input.positions?.[end]).toEqual([1, 3, 1]);
     expect(input.members.at(-1)?.a).toBe(end);

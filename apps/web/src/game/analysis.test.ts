@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from './levels';
 import { exampleModel } from './examples';
-import { analyzeGame, autoDesignGame, toVoxelInput } from './analysis';
+import { analyzeGame, autoDesignGame, toEvaluatorInput } from './analysis';
 
 describe('game analysis boundary', () => {
   it('copies game input and preserves the reference analysis', () => {
     const model = exampleModel('tower1')!;
-    const input = toVoxelInput(model, LEVELS.tower1);
+    const input = toEvaluatorInput(model, LEVELS.tower1);
     expect(input.model).toEqual(model);
     expect(input.model).not.toBe(model);
     expect(input.model.members[0]).not.toBe(model.members[0]);

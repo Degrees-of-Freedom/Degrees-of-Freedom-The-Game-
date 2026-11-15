@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from './levels';
-import { toVoxelInput } from './analysis';
+import { toEvaluatorInput } from './analysis';
 import { createStateService } from './persistence';
 import { createVoxelAnalysisSnapshot, recomposeVoxelAnalysis } from './structuralState';
 import { analyzeVoxel } from '../solver/voxel/analyze';
@@ -34,7 +34,7 @@ describe('structural state', () => {
     }
   });
   it('round trips solver input and rejects changed profiles or invalid data', () => {
-    const input = toVoxelInput(model, LEVELS.sandbox);
+    const input = toEvaluatorInput(model, LEVELS.sandbox);
     const snapshot = createVoxelAnalysisSnapshot(input.model, input.level);
     const decoded = JSON.parse(JSON.stringify(snapshot));
     const restored = recomposeVoxelAnalysis(decoded);

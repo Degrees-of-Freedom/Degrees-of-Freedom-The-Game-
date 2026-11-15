@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { TurnState } from "./turns";
-import type { VoxelAnalysis } from "../evaluator/results";
+import type { StructureEvaluation } from "../evaluator/results";
 import { CABLE_FORMULATION, RELEASE_SOLVER, verifiedResponse } from "../solver/voxel/linearVerification";
 import { analysisLoadJoint } from "./turnPorts";
 
@@ -62,7 +62,7 @@ function solverFor(turn: TurnState) {
     turn.board.members.some(m => m.restLengthM !== undefined) ? CABLE_FORMULATION : "voxel-linear-frame-v1";
 }
 
-export function finalReceipt(turn: TurnState, analysis: VoxelAnalysis | null): ScoreReceipt {
+export function finalReceipt(turn: TurnState, analysis: StructureEvaluation | null): ScoreReceipt {
   const combo = analysis?.combos[0];
   const ctx = analysis?.ctx;
   const scopes = combo?.components;

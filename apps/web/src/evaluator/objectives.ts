@@ -1,8 +1,8 @@
-import type { VoxelLevel, VoxelModel } from './model';
-import type { Context, VoxelAnalysis } from './results';
+import type { EvaluatorLevel, EvaluatorModel } from './model';
+import type { Context, StructureEvaluation } from './results';
 import { ITEMS, S } from './sections';
 import { key, parse } from './coordinates';
-function deckContinuous(model: VoxelModel, LV: VoxelLevel) {
+function deckContinuous(model: EvaluatorModel, LV: EvaluatorLevel) {
   const dk = LV.cliffH!,
     starts = LV.ys!.map((y) => key(LV.cliffL!, y, dk)),
     ends = new Set(LV.ys!.map((y) => key(LV.cliffR!, y, dk)));
@@ -28,7 +28,7 @@ function deckContinuous(model: VoxelModel, LV: VoxelLevel) {
   }
   return false;
 }
-function costOf(model: VoxelModel) {
+function costOf(model: EvaluatorModel) {
   let c = 0;
   for (const m of model.members) c += ITEMS[m.type].cost;
   for (const k in model.attrs) {
@@ -38,7 +38,7 @@ function costOf(model: VoxelModel) {
   }
   return c;
 }
-function massOf(model: VoxelModel) {
+function massOf(model: EvaluatorModel) {
   let w = 0;
   for (const m of model.members) {
     const a = model.positions?.[m.a] ?? parse(m.a),
@@ -49,10 +49,10 @@ function massOf(model: VoxelModel) {
   return w / 9.81;
 }
 export function evaluateObjectives(
-  model: VoxelModel,
-  LV: VoxelLevel,
+  model: EvaluatorModel,
+  LV: EvaluatorLevel,
   ctx: Context,
-  out: VoxelAnalysis,
+  out: StructureEvaluation,
   aMin: number,
   amp: number,
   {

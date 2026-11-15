@@ -1,12 +1,12 @@
 import { GAMMA } from './loads';
 import { dot } from './vector';
-import type { VoxelModel } from './model';
+import type { EvaluatorModel } from './model';
 import type {
   Context,
   Demand,
   Element,
   ElementForce,
-  VoxelAnalysis,
+  StructureEvaluation,
 } from './results';
 import type { Section } from './sections';
 import { CARD_STRENGTH } from './capacity';
@@ -126,9 +126,9 @@ export function govern(c: Record<string, number>) {
   return { util: u, gov: g };
 }
 export function checkDesign(
-  model: VoxelModel,
+  model: EvaluatorModel,
   ctx: Context,
-  out: VoxelAnalysis,
+  out: StructureEvaluation,
   alphas: ReadonlyMap<number, number>,
 ) {
   const { els, NA, isF, act, keys } = ctx;

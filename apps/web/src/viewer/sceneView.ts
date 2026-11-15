@@ -1,5 +1,5 @@
 import type { GridPoint } from "../game/model";
-import type { VoxelAnalysis } from "../evaluator/results";
+import type { StructureEvaluation } from "../evaluator/results";
 /** What the pointer is over, published by the picker for scene labels and guides. */
 export interface SceneHover {
   p: GridPoint;
@@ -21,7 +21,7 @@ export interface SceneView {
   jointLayer?: JointLayer;
   field?: DeformationField;
   reference?: boolean;
-  result: VoxelAnalysis | null;
+  result: StructureEvaluation | null;
   combo: number;
   baySize?: GridPoint;
   deformed: boolean;

@@ -1,5 +1,5 @@
 import { parse } from './coordinates';
-import type { VoxelModel } from './model';
+import type { EvaluatorModel } from './model';
 
 /** An exact zero-strain rigid displacement of one or more parent members.
  * A rotation about a line through stationary ball contacts preserves each
@@ -20,7 +20,7 @@ const crossLength = (a: number[], b: number[]) => Math.hypot(
  * about stability. Multi-body mechanisms can require several moving groups.
  * This diagnostic is defined for the scored fixed/ball prismatic-frame model.
  */
-export function rigidBodyWitnesses(model: VoxelModel): Map<number, RigidMotionWitness> {
+export function rigidBodyWitnesses(model: EvaluatorModel): Map<number, RigidMotionWitness> {
   const roots = new Map<number, number>();
   const joints = new Map<string, Map<number, boolean>>();
   const coordinates = (key: string) => model.positions?.[key] ?? parse(key);

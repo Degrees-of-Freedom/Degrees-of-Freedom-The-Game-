@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { VoxelAnalysis } from "../evaluator/results";
+import type { StructureEvaluation } from "../evaluator/results";
 import { verifiedResponse } from "../solver/voxel/linearVerification";
 import { spanPoint, type DeformationField } from "./deformationField";
 
@@ -8,7 +8,7 @@ export const boardActions = { 1: "Shear Vy", 2: "Shear Vz", 4: "Moment My", 5: "
 
 /** One common magnitude scale per action. Separate polylines retain the two
  * distinct cuts on either side of a joint load or an assembly connection. */
-export function boardDiagram(result: VoxelAnalysis, action: SectionAction) {
+export function boardDiagram(result: StructureEvaluation, action: SectionAction) {
   const combo = result.combos[0];
   const verified = new Set(combo?.components?.filter(scope =>
     scope.status === "computed" && verifiedResponse(scope.verification)).flatMap(scope => scope.memberIds));

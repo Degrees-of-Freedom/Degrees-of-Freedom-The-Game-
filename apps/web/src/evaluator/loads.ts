@@ -1,4 +1,4 @@
-import type { VoxelLevel, VoxelModel } from './model';
+import type { EvaluatorLevel, EvaluatorModel } from './model';
 import type { Context, LoadCombo } from './results';
 import { dot } from './vector';
 import { S } from './sections';
@@ -23,13 +23,13 @@ export const COMBOS: LoadCombo[] = [
   { name: 'SLS · G+Q+0.6Wx', short: 'SLS wind X', type: 'SLS', dir: [1, 0, 0] },
   { name: 'SLS · G+Q+0.6Wy', short: 'SLS wind Y', type: 'SLS', dir: [0, 1, 0] },
 ];
-const windQ = (LV: VoxelLevel, z: number) =>
+const windQ = (LV: EvaluatorLevel, z: number) =>
   LV.q0 * Math.pow(Math.max(z, 2) / 10, 0.25);
 
-const directions: Record<NonNullable<VoxelModel['attrs'][string]['loadDirection']>, [number, number, number]> = {
+const directions: Record<NonNullable<EvaluatorModel['attrs'][string]['loadDirection']>, [number, number, number]> = {
   '-Z': [0, 0, -1], '+Z': [0, 0, 1], '+X': [1, 0, 0], '-X': [-1, 0, 0], '+Y': [0, 1, 0], '-Y': [0, -1, 0],
 };
-function variableLoads(model: VoxelModel, LV: VoxelLevel, ctx: Context) {
+function variableLoads(model: EvaluatorModel, LV: EvaluatorLevel, ctx: Context) {
   const out: { a: number; f: number; direction: [number, number, number] }[] = [];
   if (LV.type === 'tower') {
     let top = -1;
@@ -56,8 +56,8 @@ function variableLoads(model: VoxelModel, LV: VoxelLevel, ctx: Context) {
   return out;
 }
 export function buildLoads(
-  model: VoxelModel,
-  LV: VoxelLevel,
+  model: EvaluatorModel,
+  LV: EvaluatorLevel,
   ctx: Context,
   combo: LoadCombo,
 ) {

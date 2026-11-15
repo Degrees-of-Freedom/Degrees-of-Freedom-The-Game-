@@ -1,10 +1,10 @@
-import type { VoxelMember } from './model';
+import type { EvaluatorMember } from './model';
 import type { Section } from './sections';
 import type { ResponseVerification } from './evidence';
 /** One analysed member: its axes and end fixity, in the active-node
  * numbering of its `Context`. Engines attach responses to these objects. */
 export type Element = {
-  m: VoxelMember;
+  m: EvaluatorMember;
   it: Section;
   /** Undeformed length, m. */
   L: number;
@@ -96,8 +96,10 @@ export function displacementAt(combo: Combo | undefined, active: number): Float6
   if (combo.u && 6 * active < combo.u.length) return combo.u.subarray(6 * active, 6 * active + 6);
   return combo.partialDisplacements?.get(active);
 }
-/** Prototype analysis in kN and metres. Results are approximate and not engineering design. */
-export interface VoxelAnalysis {
+/** Evaluation of a structure under a level, in kN and metres: the engine's
+ * response per load combination, plus design checks, objectives and score.
+ * Game-level checks only; not engineering design. */
+export interface StructureEvaluation {
   reference?: {modelVersion: string; solverVersion: string; fidelity: 'nonlinear'};
   /** Total physical card gravity, including unavailable components, kN. */
   appliedGravityKN?: number;

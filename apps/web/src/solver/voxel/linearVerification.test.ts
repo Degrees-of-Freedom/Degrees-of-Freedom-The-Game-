@@ -5,17 +5,17 @@ import { findComponents } from '../../evaluator/geometry';
 import { verifyLinearResponse } from './linearVerification';
 import { solveCombo } from './frameSolve';
 import { alphaCr } from './frameStability';
-import type { VoxelLevel, VoxelModel } from '../../evaluator/model';
+import type { EvaluatorLevel, EvaluatorModel } from '../../evaluator/model';
 import { analyzeTurn } from '../../game/turnAnalysis';
 import { createTurnGame } from '../../game/turns';
 
-const appliedOnly: VoxelLevel = {
+const appliedOnly: EvaluatorLevel = {
   type: 'sandbox', loadCase: 'applied', appliedSelfWeight: false, q0: 0, budget: Infinity, inv: null,
 };
 
 // Two rigidly continuous spans on a pin and a roller. Holding the unloaded
 // axial spin at the pin removes its inactive rigid rotation.
-function beam(station: number): VoxelModel {
+function beam(station: number): EvaluatorModel {
   const middle = `${station},0,0`;
   return {
     members: [
@@ -33,7 +33,7 @@ function beam(station: number): VoxelModel {
 
 describe('applied linear frame verification', () => {
   it('preserves the conservative design-factor cutoff on both sides of the preview threshold', () => {
-    const model: VoxelModel = {
+    const model: EvaluatorModel = {
       members: [{ id: 1, a: '0,0,0', b: '0,0,1', endA: 'fixed', endB: 'fixed', type: 'shs' }],
       attrs: {
         '0,0,0': { found: true },
@@ -83,7 +83,7 @@ describe('applied linear frame verification', () => {
   });
 
   it('balances a lateral load and an independent tip couple at an offset foundation', () => {
-    const model: VoxelModel = {
+    const model: EvaluatorModel = {
       members: [{ id: 10, a: '3,2,0', b: '3,2,1', endA: 'fixed', endB: 'fixed', type: 'ipe' }],
       attrs: { '3,2,0': { found: true }, '3,2,1': { joint: true } }, nextId: 11,
     };
@@ -139,7 +139,7 @@ describe('applied linear frame verification', () => {
   });
 
   it('withholds linear evidence for a compressed pin-ended member with lateral restraints at both tips', () => {
-    const model: VoxelModel = {
+    const model: EvaluatorModel = {
       members: [{ id: 1, a: '0,0,0', b: '0,0,4', type: 'shs', endA: 'ball', endB: 'ball' }],
       attrs: {
         '0,0,0': { found: true },

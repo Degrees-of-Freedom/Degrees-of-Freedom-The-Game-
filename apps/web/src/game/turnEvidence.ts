@@ -6,7 +6,7 @@ import {
 } from '@dof/solver-contract';
 import { localAxes } from '../solver/voxel/frameMath';
 import { ITEMS, S } from '../evaluator/sections';
-import type { VoxelAnalysis } from '../evaluator/results';
+import type { StructureEvaluation } from '../evaluator/results';
 import { parseNodeKey } from './model';
 import { CONNECTION_PROFILES, turnJoints, type TurnReport, type TurnState } from './turns';
 
@@ -117,7 +117,7 @@ export function buildTurnRequest(turn: TurnState, matchId: string): StructuralAn
 
 /** Archive the available playtest reactions and scope without promoting them to scoring evidence. */
 export function recordTurnAnalysis(
-  turn: TurnState, result: VoxelAnalysis | undefined, status: TurnReport['status'],
+  turn: TurnState, result: StructureEvaluation | undefined, status: TurnReport['status'],
   startedAt: string, matchId: string,
 ): StructuralAnalysisResult {
   const request = buildTurnRequest(turn, matchId);

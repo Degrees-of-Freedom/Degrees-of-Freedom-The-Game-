@@ -11,7 +11,7 @@ import { ReleaseBoard } from "../components/ReleaseBoard";
 import type { CameraMemory } from "../viewer/sceneView";
 import { deformationField } from "../viewer/deformationField";
 import { useStabilityCheck } from "../game/useStabilityCheck";
-import type { VoxelAnalysis } from "../evaluator/results";
+import type { StructureEvaluation } from "../evaluator/results";
 import { StabilityCheckPanel } from "../components/StabilityCheckPanel";
 import { modeProgress } from "../game/modes";
 import { environmentExample } from "../game/environmentExamples";
@@ -80,7 +80,7 @@ export function Workspace() {
   const contractCompatible = game.mode !== "multiplayer";
   const [analysis, setAnalysis] = useState<{
     model: typeof game.model;
-    result: VoxelAnalysis;
+    result: StructureEvaluation;
   } | null>(null);
   const [drawer, setDrawer] = useState<Drawer>(() =>
     new URLSearchParams(window.location.search).has("library") ? "library" :

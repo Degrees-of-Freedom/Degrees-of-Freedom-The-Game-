@@ -3,7 +3,7 @@ import { assemblyParts, TRICHORD } from './assembly';
 import { PLANAR_CATALOGUE, printedCards, SCORED_CATALOGUE, TRUSS_CATALOGUE } from './cardCatalogue';
 import { findMaterialClash } from './materialClashes';
 import { CELL_SIZE, type Member } from './model';
-import { analyzeTurn, toTurnVoxelInput } from './turnAnalysis';
+import { analyzeTurn, toTurnEvaluatorInput } from './turnAnalysis';
 import { createTurnGame } from './turns';
 import { analyzeVoxel } from '../solver/voxel/analyze';
 import { displacementAt } from '../evaluator/results';
@@ -30,7 +30,7 @@ describe('triangular four-panel assembly', () => {
     const pieces = assemblyParts(parent);
     expect(pieces).toHaveLength(41);
     expect(new Set(pieces.map(p => p.id)).size).toBe(41);
-    const expanded = toTurnVoxelInput(fixture(2)).members;
+    const expanded = toTurnEvaluatorInput(fixture(2)).members;
     expect(expanded.map(m => m.id)).toEqual(pieces.map(p => p.id));
     expect(expanded.every(m => m.parentSpan?.memberId === parent.id)).toBe(true);
     expect(expanded.map(m => m.parentSpan?.assemblyPart)).toEqual(pieces.map(p => p.name));
@@ -57,7 +57,7 @@ describe('triangular four-panel assembly', () => {
   };
   for (const q of [1,2,3]) it('transfers force and twist through the ' + q*25 + '% original joint', () => {
     const state = fixture(q), port = 'port:3:' + q;
-    const model = toTurnVoxelInput(state);
+    const model = toTurnEvaluatorInput(state);
     for (const direction of ['-Y','-Z'] as const) {
       model.attrs[port].loadDirection = direction;
       const result = analyzeVoxel(model, applied);
@@ -79,7 +79,7 @@ describe('triangular four-panel assembly', () => {
 
   it('resists a pure torque as independently predicted, and transforms signed results under rigid rotation', () => {
     for (const rotated of [false, true]) {
-      const state = fixture(2,1,rotated), model = toTurnVoxelInput(state);
+      const state = fixture(2,1,rotated), model = toTurnEvaluatorInput(state);
       model.attrs['assembly:3:second-2'] = {load: 1, loadDirection: '+Z'};
       model.members.reverse();
       const result = analyzeVoxel(model,applied), ctx = result.ctx!, combo = result.combos[0];

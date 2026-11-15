@@ -1,4 +1,4 @@
-import type { VoxelMember, VoxelModel } from '../../evaluator/model';
+import type { EvaluatorMember, EvaluatorModel } from '../../evaluator/model';
 import type { Element, ElementForce } from './types';
 import { memberGeometry } from '../../evaluator/geometry';
 import { connectorSlips, reduceConnections, recoverConnectorMotion, type FrameConnection } from './frameConnections';
@@ -12,8 +12,8 @@ import {
   gaussSolve,
 } from './frameMath';
 export function makeElement(
-  model: VoxelModel,
-  m: VoxelMember,
+  model: EvaluatorModel,
+  m: EvaluatorMember,
   pa: number[],
   pb: number[],
   a: number,

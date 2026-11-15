@@ -1,5 +1,5 @@
 import type { TurnState } from './turns';
-import { analyzeTurn, toTurnVoxelInput } from './turnAnalysis';
+import { analyzeTurn, toTurnEvaluatorInput } from './turnAnalysis';
 import { rigidBodyWitnesses } from '../evaluator/rigidBodyFreedom';
 import type { CapacityCheck } from '../evaluator/capacity';
 import { verifiedResponse } from '../solver/voxel/linearVerification';
@@ -82,7 +82,7 @@ function evidenceId(turn: TurnState) {
 export function inspectIssues(turn: TurnState, analysis?: ReturnType<typeof analyzeTurn> | null): IssueSnapshot {
   const members = [...turn.board.members, ...turn.draft.members];
   const connections = [...turn.board.connections, ...turn.draft.connections];
-  const input = toTurnVoxelInput(turn);
+  const input = toTurnEvaluatorInput(turn);
   const motion = rigidBodyWitnesses(input);
   let result = analysis;
   if (result === undefined) {

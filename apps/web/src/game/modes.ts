@@ -18,7 +18,7 @@ import { initialModel } from "./layout";
 import { environmentExample } from "./environmentExamples";
 import { LEVELS } from "./levels";
 import type { GameModel, LevelId } from "./model";
-import type { VoxelAnalysis } from "../evaluator/results";
+import type { StructureEvaluation } from "../evaluator/results";
 
 /** Starting layouts are experiments, not verified engineering exercises. */
 export function modeSetup(mode: GameMode): {
@@ -61,7 +61,7 @@ export function modeSetup(mode: GameMode): {
 /** Interpret only available prototype results; never treat an error as success. */
 export function modeProgress(
   mode: GameMode,
-  analysis: VoxelAnalysis,
+  analysis: StructureEvaluation,
 ): "complete" | "incomplete" | "unavailable" {
   if (mode !== "forensics" && mode !== "load-space" && mode !== "challenge")
     return "unavailable";

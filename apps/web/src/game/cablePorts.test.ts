@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
 import { CABLE_CATALOGUE } from './cardCatalogue';
-import { analyzeTurn, toTurnVoxelInput } from './turnAnalysis';
+import { analyzeTurn, toTurnEvaluatorInput } from './turnAnalysis';
 import { createTurnGame, activeTurnHand, endTurn, stageConnection, stageElement, stageLoad, parseTurnState, type TurnState } from './turns';
 import { analyzeVoxel } from '../solver/voxel/analyze';
 import { cableState } from '../solver/voxel/cableEquilibrium';
@@ -45,7 +45,7 @@ describe('tension-only cable printing',()=>{
     [3,61.0920115883,1.2484336973,6.0025060844,-.1226630237,61.2070921514],
   ]) it('transfers 5 kN at original quarter '+q+' with two unsymmetrically strained material legs',()=>{
     const {turn,port,left}=parentFixture(q);
-    const model=toTurnVoxelInput(turn);
+    const model=toTurnEvaluatorInput(turn);
     expect(model.members.map(m=>m.restLengthM)).toEqual([q/4,(4-q)/4].map(f=>turn.board.members[0].restLengthM!*f));
     const result=analyzeTurn(turn,'card-gravity'), ctx=result.ctx!, combo=result.combos[0];
     expect(combo.components![0].verification?.status, JSON.stringify(combo.components)).toBe('verified-cable');
@@ -84,7 +84,7 @@ describe('tension-only cable printing',()=>{
     expect(taut.tangent[4]).toBeCloseTo(taut.force/2.01,10);
     const {turn}=parentFixture(2);
     turn.board.members[0].restLengthM=8.1;
-    const result=analyzeVoxel(toTurnVoxelInput(turn),loadCase);
+    const result=analyzeVoxel(toTurnEvaluatorInput(turn),loadCase);
     expect(result.combos[0].components![0].status).toBe('unresolved');
     expect(result.combos[0].reac).toBeUndefined();
   });

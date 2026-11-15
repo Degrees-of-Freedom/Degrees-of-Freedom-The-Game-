@@ -3,7 +3,7 @@ import type {
   AnalysisResult,
   SolverAdapter,
 } from '@dof/solver-contract';
-import type { VoxelAnalysis } from '../evaluator/results';
+import type { StructureEvaluation } from '../evaluator/results';
 import { unavailableSolver } from '../solver/unavailable';
 import type { GameModel, Level } from './model';
 import { toStructuralModel } from './structuralModel';
@@ -26,7 +26,7 @@ export type SolverVerdict = 'stable' | 'unstable' | 'unresolved' | 'unavailable'
 
 /** The solver's own result, kept for the panels that understand it. */
 export type SolverNative =
-  | { kind: 'voxel'; result: VoxelAnalysis }
+  | { kind: 'voxel'; result: StructureEvaluation }
   | { kind: 'contract'; result: AnalysisResult; notes: string[] };
 
 export interface RunContext {
@@ -35,7 +35,7 @@ export interface RunContext {
   /** False when the game state cannot be expressed in the shared contract. */
   contractCompatible: boolean;
   /** Runs the in-browser analysis on the current state (the turn board in multiplayer). */
-  analyzeVoxel: () => VoxelAnalysis;
+  analyzeVoxel: () => StructureEvaluation;
 }
 
 export type Clock = () => number;
@@ -72,7 +72,7 @@ export const MULTIPLAYER_REASON =
 export const NOT_CONFIGURED_REASON =
   'No solver service is configured. Set VITE_OPENSEES_URL, or run the service in development.';
 
-export function voxelVerdict(result: VoxelAnalysis): Pick<SolverOutcome, 'verdict' | 'message'> {
+export function voxelVerdict(result: StructureEvaluation): Pick<SolverOutcome, 'verdict' | 'message'> {
   if (result.error) return { verdict: 'unstable', message: result.error };
   if (result.mechanism) return { verdict: 'unstable', message: 'The structure is a mechanism.' };
   if (result.floating.length > 0)

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { VoxelModel } from '../model';
+import type { EvaluatorModel } from '../model';
 import { createTurnSolver } from './releaseTurn';
 import { computeLoadPath } from '../loadPath';
 import { connectionDefinition } from '../../game/jointFreedom';
@@ -16,7 +16,7 @@ describe('scored turn Rust/WASM projection', () => {
     it(`preserves the ${k} N/m cartridge in series at quarter ${quarter}`, () => {
       // Constrain only transverse motion at the loaded collar. All axial
       // reactions follow from the two series fractions on the original span.
-      const model: VoxelModel = { nextId: 4, attrs: {base:{found:true}, head:{found:true},
+      const model: EvaluatorModel = { nextId: 4, attrs: {base:{found:true}, head:{found:true},
         collar:{found:true, restraint:[true,true,false,false,false,false], load:1}},
         positions: {base:[0,0,0], head:[0,0,4], collar:[0,0,quarter]},
         members: [
@@ -34,7 +34,7 @@ describe('scored turn Rust/WASM projection', () => {
     });
   }
   it('withholds overstroke reactions in that component while preserving the independent frame', () => {
-    const model: VoxelModel = { nextId: 3, attrs:{a:{found:true}, b:{found:true, restraint:[true,true,false,false,false,false], load:5},
+    const model: EvaluatorModel = { nextId: 3, attrs:{a:{found:true}, b:{found:true, restraint:[true,true,false,false,false,false], load:5},
       c:{found:true}, d:{load:5}}, positions:{a:[0,0,0], b:[0,0,1], c:[1,0,0], d:[1,0,1]},
       members:[{id:1, a:'a', b:'b', type:'spring', springStiffnessNPerM:12500}, {id:2,a:'c',b:'d',type:'heb',endA:'fixed',endB:'fixed'}] };
     const result = solver.analyze(model, 'overstroke');
@@ -48,7 +48,7 @@ describe('scored turn Rust/WASM projection', () => {
     // 10 m horizontal half-reference cartridge, pinned axial material at
     // both foundation columns. A central 5 kN load causes large sag with
     // less than 10% extension. Both supports must carry exactly half.
-    const span: VoxelModel = { nextId:4,
+    const span: EvaluatorModel = { nextId:4,
       positions:{a:[5,7,1], b:[10,7,1], mid:[7.5,7,1], l:[5,7,0], r:[10,7,0]},
       attrs:{l:{found:true},r:{found:true},mid:{load:5}},
       members:[{id:1,type:'heb',a:'l',b:'a',endA:'fixed',endB:'fixed'},
@@ -65,7 +65,7 @@ describe('scored turn Rust/WASM projection', () => {
     expect(combo.ef!.get(spring)!.f[6]).toBeGreaterThan(5);
   });
   it('isolates an unloaded free member and retains its physical identity', () => {
-    const model: VoxelModel = {nextId:3, attrs:{base:{found:true},tip:{load:10}},
+    const model: EvaluatorModel = {nextId:3, attrs:{base:{found:true},tip:{load:10}},
       positions:{base:[0,0,0],tip:[0,0,1],other:[0,0,1],loose:[1,0,1]},
       members:[{id:1,a:'base',b:'tip',type:'heb',endA:'fixed',endB:'fixed'}, {id:2,a:'other',b:'loose',type:'heb'}]};
     const result = solver.analyze(model, 'independent');
@@ -73,7 +73,7 @@ describe('scored turn Rust/WASM projection', () => {
       expect.objectContaining({memberIds:[1],status:'computed'}),expect.objectContaining({memberIds:[2],status:'unsupported'})]));
   });
   it('uses vertical shear for gravity transfer and includes actual fitting slip at a beam end', () => {
-    const input: VoxelModel = {nextId:3, attrs:{base:{found:true},tip:{load:5}},
+    const input: EvaluatorModel = {nextId:3, attrs:{base:{found:true},tip:{load:5}},
       positions:{base:[0,0,0],tip:[2,0,0]}, members:[{id:1,a:'base',b:'tip',type:'heb',endA:'fixed',
         endB:'fixed',connectionA:connectionDefinition('seat-20')}]};
     const result = solver.analyze(input, 'seat'), e = result.ctx!.els[0];

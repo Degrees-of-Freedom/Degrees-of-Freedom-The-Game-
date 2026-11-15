@@ -4,11 +4,11 @@ import { type GameModel } from '../../game/model';
 import { analyzeVoxel } from './analyze';
 import { autoDesign } from '../../evaluator/sizing';
 import { exampleModel } from '../../game/examples';
-import type { VoxelModel } from '../../evaluator/model';
+import type { EvaluatorModel } from '../../evaluator/model';
 
 describe('prototype voxel analysis', () => {
   it('isolates a component above the browser equation limit without dropping a small supported frame', () => {
-    const model: VoxelModel = {
+    const model: EvaluatorModel = {
       members: [{ id: 0, a: '1,0,0', b: '1,0,1', type: 'shs' }],
       attrs: { '1,0,0': { found: true, joint: true }, '1,0,1': { joint: true, load: 8 }, '0,0,0': { found: true } },
       nextId: 402,

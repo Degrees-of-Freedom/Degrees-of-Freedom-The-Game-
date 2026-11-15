@@ -3,7 +3,7 @@ import { analyzeVoxel } from './analyze';
 import { componentSystems, solveComponents } from './components';
 import { findComponents } from '../../evaluator/geometry';
 import { connectionDefinition } from '../../game/jointFreedom';
-import type { VoxelModel, VoxelLevel } from '../../evaluator/model';
+import type { EvaluatorModel, EvaluatorLevel } from '../../evaluator/model';
 import { vecToGlobal } from './frameMath';
 import { verifyLinearResponse } from './linearVerification';
 import { ITEMS, S } from '../../evaluator/sections';
@@ -11,14 +11,14 @@ import type { FrameConnection } from './frameConnections';
 import { solveCombo } from './frameSolve';
 import { alphaCr } from './frameStability';
 
-const level: VoxelLevel = {type:'sandbox', loadCase:'applied', appliedSelfWeight:false, q0:0, budget:Infinity, inv:null};
+const level: EvaluatorLevel = {type:'sandbox', loadCase:'applied', appliedSelfWeight:false, q0:0, budget:Infinity, inv:null};
 const root = '0,0,0', tip = '0,0,1';
-function cantilever(connection: FrameConnection, reversed=false): VoxelModel {
+function cantilever(connection: FrameConnection, reversed=false): EvaluatorModel {
   return {members:[{id:1, type:'shs', a:reversed ? tip : root, b:reversed ? root : tip,
     endA:'fixed', endB:'fixed', ...(reversed ? {connectionA:connection} : {connectionB:connection})}],
     attrs:{[root]:{found:true}}, nextId:2};
 }
-function loaded(model:VoxelModel, load:number[]) {
+function loaded(model:EvaluatorModel, load:number[]) {
   const analysis = analyzeVoxel(model,level);
   const ctx = analysis.ctx!, F = new Float64Array(6*ctx.NA);
   const at = (id:string) => ctx.aid[ctx.idx.get(id)!];
@@ -103,7 +103,7 @@ describe('six-axis physical frame ends', () => {
     const end = connectionDefinition('fixed');
     const springK = 200; // kN·m/rad, each end
     end.laws[4] = {kind:'elastic',stiffness:1000*springK};
-    const model: VoxelModel = {members:[{id:1,type:'shs',a:root,b:'1,0,0',connectionA:end,connectionB:end}],
+    const model: EvaluatorModel = {members:[{id:1,type:'shs',a:root,b:'1,0,0',connectionA:end,connectionB:end}],
       attrs:{[root]:{found:true},'1,0,0':{found:true}},nextId:2};
     const ctx = analyzeVoxel(model,level).ctx!, e = ctx.els[0];
     const solved = solveCombo(ctx,new Float64Array(12));

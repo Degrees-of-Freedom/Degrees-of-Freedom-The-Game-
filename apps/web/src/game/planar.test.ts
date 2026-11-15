@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { PLANAR, assemblyParts } from './assembly';
 import { PLANAR_CATALOGUE, SCORED_CATALOGUE, printedCards } from './cardCatalogue';
 import { createTurnGame, endTurn, parseTurnState, stageConnection, stageElement, type TurnState } from './turns';
-import { analyzeTurn, toTurnVoxelInput } from './turnAnalysis';
+import { analyzeTurn, toTurnEvaluatorInput } from './turnAnalysis';
 import { analyzeVoxel } from '../solver/voxel/analyze';
 import { findMaterialClash } from './materialClashes';
 import { findPort } from './turnPorts';
@@ -31,7 +31,7 @@ describe('four-panel welded planar card', () => {
   const lateral = [-0.00041952944883955534,-0.002831372753601817,-0.008708472776477285];
   for (const q of [1,2,3]) it('transfers the physical ' + q*25 + '% load, including transverse response', () => {
     const state = fixture(q);
-    const model = toTurnVoxelInput(state);
+    const model = toTurnEvaluatorInput(state);
     expect(model.members).toHaveLength(19);
     expect(new Set(model.members.map(m => m.id)).size).toBe(19);
     const port = 'port:3:' + q;

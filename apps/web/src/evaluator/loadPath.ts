@@ -1,4 +1,4 @@
-import type { VoxelAnalysis } from './results';
+import type { StructureEvaluation } from './results';
 import { RELEASE_SOLVER } from './evidence';
 
 /** A visual interpretation of member forces, not a separate structural analysis. */
@@ -23,7 +23,7 @@ export interface LoadPath {
 }
 /** Compute a force-weighted route toward supports for one combination. */
 export function computeLoadPath(
-  result: VoxelAnalysis,
+  result: StructureEvaluation,
   comboIndex: number,
 ): LoadPath | null {
   const c = result.combos[comboIndex],

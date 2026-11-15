@@ -3,8 +3,8 @@ import { sectionFor } from '../../game/analysisModel';
 import type { FrameConnection } from '../connections';
 import { localAxes, vecToLocal } from '../vector';
 import { prepareGeometry } from '../geometry';
-import type { VoxelMember, VoxelModel } from '../model';
-import type { Combo, ComponentResponse, Context, Element, VoxelAnalysis } from '../results';
+import type { EvaluatorMember, EvaluatorModel } from '../model';
+import type { Combo, ComponentResponse, Context, Element, StructureEvaluation } from '../results';
 import { RELEASE_SOLVER } from '../evidence';
 import { createPreparedWasmSolver, type WasmSource } from '../../solver/wasm/wasmSolver';
 
@@ -12,7 +12,7 @@ const fixed = [true, true, true, true, true, true] as const;
 const ball = ['rigid', 'rigid', 'rigid', 'free', 'free', 'free'] as const;
 const triple = (values: readonly number[]): Vector3 => [values[0], values[1], values[2]];
 
-function attachment(end: VoxelMember['endA'], law?: FrameConnection): MemberConnection | undefined {
+function attachment(end: EvaluatorMember['endA'], law?: FrameConnection): MemberConnection | undefined {
   if (!law) return end === 'ball' ? { laws: ball } : undefined;
   const component = (index: number) => {
     const axis = law.laws[index];
@@ -26,7 +26,7 @@ function attachment(end: VoxelMember['endA'], law?: FrameConnection): MemberConn
  * corotational bar with EA/L equal to its printed stiffness. Series segments
  * receive the inverse fraction of that stiffness. No beam properties are
  * assigned to a cartridge, and no rotational stiffness is added at a collar. */
-export function turnReferenceModel(input: VoxelModel, ctx: Context, version: string): AnalysisModel {
+export function turnReferenceModel(input: EvaluatorModel, ctx: Context, version: string): AnalysisModel {
   const sections = new Map<string, AnalysisSection>();
   const position = (key: string) => ctx.pos[ctx.idx.get(key)!];
   const nodes = ctx.keys.map((id, i) => ({ id, position: triple(ctx.pos[i]) }));
@@ -102,11 +102,11 @@ function scopeResponse(scope: AnalysisComponent, result: DetailedAnalysisResult,
 /** Adopt only quantities computed by the Rust kernel. The game view and card
  * strengths use kN, kN m and m. Rust reports N and N m on the positive cut
  * face; the legacy view's start actions are outward nodal actions. */
-function project(input: VoxelModel, ctx: Context, result: DetailedAnalysisResult, model: AnalysisModel): VoxelAnalysis {
+function project(input: EvaluatorModel, ctx: Context, result: DetailedAnalysisResult, model: AnalysisModel): StructureEvaluation {
   const components = result.components.map(c => scopeResponse(c, result, ctx, model));
   const combo: Combo = { combo: {name: 'Card gravity', short: 'Gravity', type: 'SLS', dir: [0, 0, -1]},
     components, F: new Float64Array(6*ctx.NA), vis: [], partialDisplacements: new Map(), ef: new Map(), reac: {} };
-  const analysis: VoxelAnalysis = { ctx, combos: [combo], members: {}, nodes: {}, found: {}, objectives: [],
+  const analysis: StructureEvaluation = { ctx, combos: [combo], members: {}, nodes: {}, found: {}, objectives: [],
     ...(result.analysis.modelVersion && {reference:{modelVersion:result.analysis.modelVersion,
       solverVersion:result.analysis.solverVersion, fidelity:'nonlinear' as const}}),
     appliedGravityKN:Object.values(input.attrs).reduce((sum, a) => sum + (a.load ?? 0), 0),
@@ -157,7 +157,7 @@ export function createTurnSolver(source?: WasmSource) {
   let previous: { key: string; result: DetailedAnalysisResult } | undefined;
   return {
     prepare: solver.prepare,
-    analyze(input: VoxelModel, version: string) {
+    analyze(input: EvaluatorModel, version: string) {
       const {ctx} = prepareGeometry(input);
       const model = turnReferenceModel(input, ctx, version);
       const key = JSON.stringify(model);

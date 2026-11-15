@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LEGACY_CATALOGUE, PLANAR_CATALOGUE, SCORED_CATALOGUE, SPRING_CATALOGUE, TRUSS_CATALOGUE, printedCards } from './cardCatalogue';
 import { findMaterialClash } from './materialClashes';
-import { analyzeTurn, toTurnVoxelInput } from './turnAnalysis';
+import { analyzeTurn, toTurnEvaluatorInput } from './turnAnalysis';
 import { activeTurnHand, createTurnGame, endTurn, parseTurnState, stageConnection, stageElement, stageLoad, type TurnState } from './turns';
 import { analyzeVoxel } from '../solver/voxel/analyze';
 import { assessCardCapacity } from '../evaluator/capacity';
@@ -21,7 +21,7 @@ function sample(quarter: number, magnitude: number, both = true, guide = true) {
     loads:[{cardId:'applied',magnitude:Math.abs(magnitude),jointId:port,owner}],
   };
   if (quarter !== 4) state.board.joints.push({id:port,point:[1,3,quarter].join(',')});
-  const model = toTurnVoxelInput(state);
+  const model = toTurnEvaluatorInput(state);
   // Explicit laboratory lateral guide. The actual game fixture below instead
   // supplies this restraint with a second anchored frame and real cards.
   if (guide) model.attrs[port].restraint = [true,true,false,false,false,false];

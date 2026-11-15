@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useGameStore } from "../game/store";
 import { type GridPoint, type MemberType } from "../game/model";
 import { modeProgress } from "../game/modes";
-import type { VoxelAnalysis } from "../evaluator/results";
+import type { StructureEvaluation } from "../evaluator/results";
 import { MODE_CATALOG, STYLE_CATALOG } from "./runtimeCatalog";
 import { MEMBER_TYPES } from "../game/inventory";
 
@@ -43,7 +43,7 @@ export function ModeObjective({
   result,
 }: {
   game: Game;
-  result: VoxelAnalysis | null;
+  result: StructureEvaluation | null;
 }) {
   if (game.mode !== "forensics" && game.mode !== "load-space") return null;
   const progress = result ? modeProgress(game.mode, result) : "incomplete";

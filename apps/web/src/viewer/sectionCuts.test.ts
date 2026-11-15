@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { beforeAll, expect, it } from "vitest";
 import { createTurnSolver } from "../evaluator/engine/releaseTurn";
-import type { VoxelModel } from "../evaluator/model";
+import type { EvaluatorModel } from "../evaluator/model";
 import { sectionCuts } from "./sectionCuts";
 import { boardDiagram } from "./boardDiagrams";
 
@@ -9,7 +9,7 @@ const solver = createTurnSolver(async () => Uint8Array.from(await readFile(new U
 beforeAll(solver.prepare);
 
 it("plots actual cantilever section cuts, in kN and kN·m, for a 5 kN tip load and 4 m span", () => {
-  const model: VoxelModel = { nextId: 2, attrs: { base: { found: true }, tip: { load: 5 } },
+  const model: EvaluatorModel = { nextId: 2, attrs: { base: { found: true }, tip: { load: 5 } },
     positions: { base: [0,0,0], tip: [2,0,0] }, members: [{ id: 1, a: "base", b: "tip", type: "heb", endA: "fixed", endB: "fixed" }] };
   const result = solver.analyze(model, "cantilever");
   const [span] = sectionCuts(result, 1);
@@ -23,7 +23,7 @@ it("plots actual cantilever section cuts, in kN and kN·m, for a 5 kN tip load a
 });
 
 it("preserves both sides of a midspan gravity point on a simply supported beam", () => {
-  const model: VoxelModel = { nextId: 4, attrs: { left: {found: true, restraint: [true,true,true,true,false,false]},
+  const model: EvaluatorModel = { nextId: 4, attrs: { left: {found: true, restraint: [true,true,true,true,false,false]},
     right: {found: true, restraint: [false,true,true,false,false,false]}, mid: {load: 4} },
     positions: {left:[0,0,0], mid:[1,0,0], right:[2,0,0]},
     members: [{id:2, type:"heb", a:"left", b:"mid", parentSpan:{memberId:1, fromQuarter:0, toQuarter:2}},

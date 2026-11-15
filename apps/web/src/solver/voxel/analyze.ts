@@ -1,4 +1,4 @@
-import type { VoxelLevel, VoxelModel } from '../../evaluator/model';
+import type { EvaluatorLevel, EvaluatorModel } from '../../evaluator/model';
 import { allNodeKeys, prepareGeometry } from '../../evaluator/geometry';
 import type { Context, VoxelAnalysis } from './types';
 import { makeElement } from './frameElement';
@@ -9,7 +9,7 @@ import { evaluateObjectives } from '../../evaluator/objectives';
 export type { VoxelAnalysis } from './types';
 /** Legacy kernel numbering on top of the shared geometry: one equation per
  * unrestrained DOF of each supported node, and element stiffness. */
-export function prepareTurnGeometry(model: VoxelModel, keys = allNodeKeys(model)) {
+export function prepareTurnGeometry(model: EvaluatorModel, keys = allNodeKeys(model)) {
   const { ctx: geometry, components, labels, floating } = prepareGeometry(model, keys);
   const { NA, act } = geometry;
   const eq = new Int32Array(NA * 6);
@@ -37,8 +37,8 @@ export function prepareTurnGeometry(model: VoxelModel, keys = allNodeKeys(model)
 }
 /** Coordinate the game-specific prototype analysis. */
 export function analyzeVoxel(
-  model: VoxelModel,
-  level: VoxelLevel,
+  model: EvaluatorModel,
+  level: EvaluatorLevel,
 ): VoxelAnalysis {
   const t0 = performance.now();
   const keys = allNodeKeys(model);

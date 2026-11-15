@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { displacementAt, type Element, type ElementForce, type VoxelAnalysis } from "../evaluator/results";
+import { displacementAt, type Element, type ElementForce, type StructureEvaluation } from "../evaluator/results";
 import { verifiedResponse } from "../solver/voxel/linearVerification";
 
 export interface DeflectedSpan {
@@ -58,7 +58,7 @@ export const SHAPE_INTERVALS = 16;
 
 /** Index by physical parent for drawing and analytical ID for submember/port
  * inspection. Independent coincident endpoints retain their own solutions. */
-export function deformationField(result: VoxelAnalysis | null, comboIndex: number) {
+export function deformationField(result: StructureEvaluation | null, comboIndex: number) {
   const spans = new Map<number, DeflectedSpan[]>(), nodes = new Map<string, Float64Array>();
   const unavailable = new Set<number>();
   let peakM = 0;

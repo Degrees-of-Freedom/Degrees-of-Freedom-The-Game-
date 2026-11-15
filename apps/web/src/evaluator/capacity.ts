@@ -1,5 +1,5 @@
-import type { VoxelModel } from './model';
-import type { ComponentResponse, VoxelAnalysis } from './results';
+import type { EvaluatorModel } from './model';
+import type { ComponentResponse, StructureEvaluation } from './results';
 import { ITEMS, type BeamSection, type BeamType } from './sections';
 import { verifiedResponse } from './evidence';
 
@@ -84,7 +84,7 @@ function connectorCheck(attachment: AttachedEnd, actions: LocalActions, station:
  * that comparison. A released or absent external connector belongs only to its
  * own original end. Internal subdivision never creates another connector. */
 export function assessCardCapacity(
-  model: VoxelModel, analysis: VoxelAnalysis, attachments: readonly AttachedEnd[],
+  model: EvaluatorModel, analysis: StructureEvaluation, attachments: readonly AttachedEnd[],
 ): CardCapacity {
   const report: CardCapacity = { version: CARD_STRENGTH.version, members: {}, connections: {} };
   const attached = new Map(attachments.map(a => [`${a.memberId}:${a.end}`, a]));

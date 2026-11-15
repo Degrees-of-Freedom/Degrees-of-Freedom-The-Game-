@@ -1,8 +1,9 @@
-import type { VoxelMemberType } from './model';
-export type BeamType = Exclude<VoxelMemberType, 'cable' | 'spring'>;
-export type Section = (typeof ITEMS)[VoxelMemberType];
+import type { EvaluatorMemberType } from './model';
+export type BeamType = Exclude<EvaluatorMemberType, 'cable' | 'spring'>;
+export type Section = (typeof ITEMS)[EvaluatorMemberType];
 export type BeamSection = (typeof ITEMS)[BeamType];
-export const S = 2; // voxel size [m]
+/** Grid cell size, metres. */
+export const S = 2;
 /** Ideal circular annulus. Grid length, mesh tessellation and rendered
  * enlargement play no part in its stiffness or its elastic section modulus. */
 export const CHS = {outerDiameter: 0.100, wall: 0.006, clearanceFaces: 48} as const;
@@ -189,13 +190,13 @@ export const SECTION_GEOMETRY = {
   ipe: { kind: 'wide-flange', width: 0.150, depth: 0.300, web: 0.0071, flange: 0.0107 },
   heb: { kind: 'wide-flange', width: 0.300, depth: 0.300, web: 0.011, flange: 0.019 },
   cable: { kind: 'cable', diameter: 0.024 },
-} as const satisfies Record<VoxelMemberType, { kind: string } & Record<string, number | string>>;
+} as const satisfies Record<EvaluatorMemberType, { kind: string } & Record<string, number | string>>;
 
 /** Resolve one printed physical definition into SI (N, m, Pa). Native voxel
  * moduli/stresses are kN/m²; areas and second moments are already in m²/m⁴.
  * Cable pretension is referenced to the straight, placed length and positive
  * in tension. An unstressed length is not the current deformed cable length. */
-export function resolveMemberLaw(type: Exclude<VoxelMemberType, 'spring'>, referenceLengthM: number) {
+export function resolveMemberLaw(type: Exclude<EvaluatorMemberType, 'spring'>, referenceLengthM: number) {
   if (!Number.isFinite(referenceLengthM) || referenceLengthM <= 0) {
     throw new RangeError('Physical reference length must be finite and positive.');
   }

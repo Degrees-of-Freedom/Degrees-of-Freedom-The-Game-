@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { analyzeVoxel } from "../solver/voxel/analyze";
 import { componentSystems, solveComponents } from "../solver/voxel/components";
 import { findComponents } from "../evaluator/geometry";
-import type { VoxelModel, VoxelLevel } from "../evaluator/model";
+import type { EvaluatorModel, EvaluatorLevel } from "../evaluator/model";
 import { ITEMS } from "../evaluator/sections";
 import { deflectedFrameGeometry } from "./deflectedGeometry";
 import { deformationField, spanDisplacement, spanPoint } from "./deformationField";
@@ -11,7 +11,7 @@ import { analyzeTurn } from "../game/turnAnalysis";
 import { TRUSS_CATALOGUE } from "../game/cardCatalogue";
 import { TRICHORD } from "../game/assembly";
 
-const level: VoxelLevel = { type:"sandbox", loadCase:"applied", appliedSelfWeight:false, q0:0, budget:Infinity, inv:null };
+const level: EvaluatorLevel = { type:"sandbox", loadCase:"applied", appliedSelfWeight:false, q0:0, budget:Infinity, inv:null };
 const EI = ITEMS.heb.E * ITEMS.heb.Iy;
 it("identifies an unsupported factory assembly by card even when no submembers entered the solver", () => {
   const turn = createTurnGame(1,TRUSS_CATALOGUE);
@@ -20,7 +20,7 @@ it("identifies an unsupported factory assembly by card even when no submembers e
   expect([...field.unavailable]).toEqual([3]);
   expect(field.spans.has(3)).toBe(false);
 });
-function cantilever(): VoxelModel {
+function cantilever(): EvaluatorModel {
   return {members:[{id:1,type:"heb",a:"0,0,0",b:"2,0,0",endA:"fixed",endB:"ball"}],
     attrs:{"0,0,0":{found:true},"2,0,0":{load:1}}, nextId:2};
 }
@@ -64,7 +64,7 @@ it("recovers a pure end moment and superposes it with the existing point load", 
 });
 
 it("shows a simply supported beam and keeps a separate unsupported member at reference", () => {
-  const model: VoxelModel = { members:[
+  const model: EvaluatorModel = { members:[
     {id:-4,type:"heb",a:"0,0,0",b:"1,0,0",endA:"fixed",endB:"fixed",parentSpan:{memberId:9,fromQuarter:0,toQuarter:2}},
     {id:-6,type:"heb",a:"1,0,0",b:"2,0,0",endA:"fixed",endB:"fixed",parentSpan:{memberId:9,fromQuarter:2,toQuarter:4}},
     {id:10,type:"ipe",a:"4,0,0",b:"5,0,0"}], nextId:11, attrs:{

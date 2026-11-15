@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GameModel } from '../../game/model';
-import type { Combo, Context, Element, VoxelAnalysis } from '../../evaluator/results';
+import type { Combo, Context, Element, StructureEvaluation } from '../../evaluator/results';
 import { ITEMS } from '../../evaluator/sections';
 import { adaptBaselineGame } from './baselineAdapter';
 import type { BaselineAdapterOptions, BaselineAnalysisScope } from './baselineAdapter';
@@ -45,7 +45,7 @@ function analysisFixture(model = modelFixture()): BaselineAnalysisScope {
     NA: 2, els: [element],
     isF: [true, false], idx: new Map([[member.a, 0], [member.b, 1]]), aid: new Int32Array([0, 1]),
   };
-  const result: VoxelAnalysis = {
+  const result: StructureEvaluation = {
     mechanism: false, floating: [], unstable: new Set(), objectives: [],
     members: {}, found: {}, combos: [combo], nodes: {}, ctx,
   };

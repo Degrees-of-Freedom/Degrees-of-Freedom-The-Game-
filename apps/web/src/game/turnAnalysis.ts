@@ -6,7 +6,7 @@ import { analysisLoadJoint, originalPorts, turnJoints } from './turnPorts';
 import { connectionDefinition } from './jointFreedom';
 import { analyzeVoxel } from '../solver/voxel/analyze';
 import { assessCardCapacity } from '../evaluator/capacity';
-import type { VoxelLevel, VoxelModel } from '../evaluator/model';
+import type { EvaluatorLevel, EvaluatorModel } from '../evaluator/model';
 import { createTurnSolver } from '../evaluator/engine/releaseTurn';
 import type { WasmSource } from '../solver/wasm/wasmSolver';
 
@@ -18,15 +18,15 @@ export async function prepareReleaseSolver(source?: WasmSource): Promise<void> {
   await releaseSolver.prepare();
 }
 
-const turnLevel: VoxelLevel = { type: 'sandbox', q0: 0, budget: Infinity, inv: null, loadCase: 'applied' };
+const turnLevel: EvaluatorLevel = { type: 'sandbox', q0: 0, budget: Infinity, inv: null, loadCase: 'applied' };
 
 /** Expand independent member ends before analysis. Coincident geometry alone
  * confers no constraint, and an unattached end retains free translations. */
-export function toTurnVoxelInput(turn: TurnState): VoxelModel {
+export function toTurnEvaluatorInput(turn: TurnState): EvaluatorModel {
   const connections = new Map([...turn.board.connections, ...turn.draft.connections]
     .map((connection) => [`${connection.memberId}:${connection.end}`, connection]));
-  const attrs: VoxelModel['attrs'] = {};
-  const positions: NonNullable<VoxelModel['positions']> = {};
+  const attrs: EvaluatorModel['attrs'] = {};
+  const positions: NonNullable<EvaluatorModel['positions']> = {};
   const inactiveRotations = new Set<string>();
   for (const joint of turnJoints(turn)) {
     attrs[joint.id] = joint.foundationOwner ? { found: true, locked: true } : { joint: true };
@@ -37,7 +37,7 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
     const joint = attrs[analysisLoadJoint(turn, load.jointId)];
     joint.load = (joint.load ?? 0) + load.magnitude;
   }
-  const members = [...turn.board.members, ...turn.draft.members].flatMap<VoxelModel['members'][number]>(member => {
+  const members = [...turn.board.members, ...turn.draft.members].flatMap<EvaluatorModel['members'][number]>(member => {
     const { id, a, b, type } = member;
     const spring = member.springStiffnessNPerM === undefined ? {} : { springStiffnessNPerM: member.springStiffnessNPerM };
     function end(side: 'a' | 'b', point: string) {
@@ -102,7 +102,7 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
 
 /** Scoring uses card gravity alone. Ordinary experimental previews retain their original load case. */
 export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card-gravity' = 'with-self-weight') {
-  const input = toTurnVoxelInput(turn);
+  const input = toTurnEvaluatorInput(turn);
   const release = turn.catalogue === 'grow-dusk-release-1';
   const response = release ? releaseSolver.analyze(input, turn.catalogue)
     : analyzeVoxel(input, { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });

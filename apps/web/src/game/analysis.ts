@@ -1,6 +1,6 @@
 import { groundK } from "./terrain";
 import { parseNodeKey, type GameModel, type Level } from "./model";
-import type { VoxelLevel, VoxelModel } from "../evaluator/model";
+import type { EvaluatorLevel, EvaluatorModel } from "../evaluator/model";
 import { analyzeVoxel } from "../solver/voxel/analyze";
 import { autoDesign } from "../evaluator/sizing";
 import {
@@ -9,10 +9,10 @@ import {
 } from "./structuralState";
 
 /** Translate game state to the prototype-specific analysis input. */
-export function toVoxelInput(
+export function toEvaluatorInput(
   model: GameModel,
   level: Level,
-): { model: VoxelModel; level: VoxelLevel } {
+): { model: EvaluatorModel; level: EvaluatorLevel } {
   return {
     model: {
       members: model.members.map((member) => ({ ...member })),
@@ -46,14 +46,14 @@ export function toVoxelInput(
   };
 }
 export function analyzeGame(model: GameModel, level: Level) {
-  const source = toVoxelInput(model, level);
+  const source = toEvaluatorInput(model, level);
   const input = recomposeVoxelAnalysis(
     createVoxelAnalysisSnapshot(source.model, source.level),
   );
   return analyzeVoxel(input.model, input.level);
 }
 export function autoDesignGame(model: GameModel, level: Level) {
-  const source = toVoxelInput(model, level);
+  const source = toEvaluatorInput(model, level);
   const input = recomposeVoxelAnalysis(
     createVoxelAnalysisSnapshot(source.model, source.level),
   );

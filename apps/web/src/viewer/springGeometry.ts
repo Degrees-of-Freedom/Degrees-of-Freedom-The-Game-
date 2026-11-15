@@ -3,13 +3,13 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CELL_SIZE, type Member } from '../game/model';
 import { springParts } from '../game/springParts';
 import { localAxes } from '../solver/voxel/frameMath';
-import type { VoxelAnalysis } from '../evaluator/results';
+import type { StructureEvaluation } from '../evaluator/results';
 import { verifiedResponse } from '../solver/voxel/linearVerification';
 
 /** Displacement at an unactivated collar interpolates the ends of its exact
  * condensed spring segment. Use coordinates from verified regions only. */
 export function springDisplayAxis(
-  parentId: number, result: VoxelAnalysis, comboIndex: number, point: (key: string) => THREE.Vector3,
+  parentId: number, result: StructureEvaluation, comboIndex: number, point: (key: string) => THREE.Vector3,
 ) {
   const ctx = result.ctx;
   const combo = result.combos[comboIndex];

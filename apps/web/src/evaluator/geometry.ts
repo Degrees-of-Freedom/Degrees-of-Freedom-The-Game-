@@ -3,7 +3,7 @@
  * (the Rust solver adapters and the legacy voxel kernel) shares it, and the
  * viewer, design checks and objectives address members and nodes the same
  * way whichever engine produced the response. Lengths are metres. */
-import type { VoxelMember, VoxelModel } from './model';
+import type { EvaluatorMember, EvaluatorModel } from './model';
 import type { Context, Element } from './results';
 import { ITEMS, S, type Section } from './sections';
 import { parse } from './coordinates';
@@ -16,7 +16,7 @@ export interface Component {
 }
 
 /** Traverse analytical endpoints, including isolated loads and unused foundations. */
-export function findComponents(keys: string[], idx: Map<string, number>, members: VoxelMember[], isF: boolean[]) {
+export function findComponents(keys: string[], idx: Map<string, number>, members: EvaluatorMember[], isF: boolean[]) {
   const neighbours: number[][] = keys.map(() => []);
   for (const member of members) {
     const a = idx.get(member.a)!, b = idx.get(member.b)!;
@@ -49,7 +49,7 @@ export function findComponents(keys: string[], idx: Map<string, number>, members
 
 /** Every analytical endpoint: member ends and attributed nodes (foundations,
  * joints and loads), in first-seen order. */
-export function allNodeKeys(model: VoxelModel) {
+export function allNodeKeys(model: EvaluatorModel) {
   const keys = new Set<string>();
   for (const m of model.members) {
     keys.add(m.a);
@@ -65,7 +65,7 @@ export function allNodeKeys(model: VoxelModel) {
 /** Member axes and end fixity. `a` and `b` are active-node indices. A beam
  * end is rigid when its printed end is fixed or, with no printing, when the
  * node carries a joint. Cables and springs have no rotational fixity. */
-export function memberGeometry(model: VoxelModel, m: VoxelMember, pa: number[], pb: number[], a: number, b: number): Element {
+export function memberGeometry(model: EvaluatorModel, m: EvaluatorMember, pa: number[], pb: number[], a: number, b: number): Element {
   const it: Section = ITEMS[m.type];
   const d = [pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]],
     L = Math.hypot(...d);
@@ -80,7 +80,7 @@ export function memberGeometry(model: VoxelModel, m: VoxelMember, pa: number[], 
 /** Number the supported nodes, build member geometry and find components.
  * Supported nodes are ordered spatially (z, x, y); floating nodes and the
  * members that start on them are left out of `ctx.act` and `ctx.els`. */
-export function prepareGeometry(model: VoxelModel, keys = allNodeKeys(model)) {
+export function prepareGeometry(model: EvaluatorModel, keys = allNodeKeys(model)) {
   const idx = new Map(keys.map((k, n) => [k, n]));
   const pos = keys.map((k) => (model.positions?.[k] ?? parse(k)).map((v) => v * S));
   const isF = keys.map((k) => !!model.attrs[k]?.found);
