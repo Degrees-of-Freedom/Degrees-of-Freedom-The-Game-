@@ -10,6 +10,25 @@ status: partial
 
 # Criteria ledger
 
+## Grow Dusk release 1
+
+Integration starts at `3a2d4e3` on `Complete-Grow-Dusk-Release`. The rows below track the frozen appendices and the numerical gates they retain. The earlier playtest evidence below belongs to its original rules and solver versions.
+
+| Requirement and source | Integration owner and runtime | Release evidence or outstanding check |
+| --- | --- | --- |
+| [Completion](game-completion-criteria.md), [turns](turn-criteria.md), [cards](card-definition-criteria.md) | Rules, game/turns and cardCatalogue. Integration, Home Play entry. | Verify exact finite manifest, 16 distinct assessed turns, retained hands, legacy modes and normal entry. |
+| [Placement](placement-criteria.md), [common joint freedoms](joint-dof-criteria.md), [families](element-representation-criteria.md) | Rules and presentation, turnPorts, assembly, materialClashes, viewer. | Exercise original quarter identity, end laws, distinct topology, clashes, isolated plays and family reach. |
+| [Numerical M01–M09, A01–A08 and acceptance](solver-criteria.md) | Physics, Rust kernel, WASM adapter, turnAnalysis. | Check analytical/reference responses, nonlinear equilibrium, genuine mechanisms, buckling and scoped verified results. Run 10,000 states and stress workload separately. |
+| [Scoring](scoring-match-criteria.md), [failure and physical correction](failure-repair-criteria.md) | Rules and physics, turnIssues, turnPenalty, turnRepair, finalScore. | Verify one deduction, local additions, signed player and neutral reactions, zero gravity, partial evidence, ties and finalization. |
+| [Saved matches](saved-match-criteria.md), [hot-seat privacy](multiplayer-criteria.md) | Integration, IndexedDB match store, assessment worker, private handoff and menu. | Exercise transaction acknowledgement, conflicting writers, reload, retry, import limits, original bytes, rejected restart and public export. |
+| [Controls](controls-camera-criteria.md), [visualization](visualization-criteria.md) | Presentation, release board and contextual inspector. | Inspect a production match with keyboard, touch and zoom. Verify overlays show scoped data and work with missing WebGL. |
+| [Avatar](avatar-criteria.md), [animation and sound](animation-criteria.md) | Presentation, companion and game settings. | Verify event eligibility, cooldown, deduplication, fallbacks, bounded resources, skip and reduced motion. |
+| [Platform, performance, full-game gates](release-acceptance-criteria.md), [code standards](code-standards.md) | Integration and independent verification. Production build, CI and browser acceptance runner. | Run seeds 0–19, inspect three full games, record actual platform/assistive technology and performance evidence. |
+
+Online multiplayer, accounts, matchmaking, progression and a tutorial campaign are explicitly deferred. Desktop and tablet release checks remain mandatory. See the detailed historical IDs below for the individual technical criteria.
+
+## Historical playtest evidence
+
 The three domain audits used local commit `cdd5c9a`, also the tip of main and the criteria branch. The implementation branch is `codex/criteria-implementation`. This ledger tracks the normal game, service or renderer entry point specified in each row. An isolated helper passing its tests does not establish game integration. Section numbers identify the acceptance cases in the linked specifications.
 
 ## Rules decisions for this run
