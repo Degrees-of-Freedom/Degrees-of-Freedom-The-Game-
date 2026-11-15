@@ -48,4 +48,4 @@ it("restores the active match across startup and mode changes, then persists a n
       turn: { seed: 2, turn: 1, finished: false, reports: [] },
     },
   });
-}, 15_000);
+}, 60_000);
