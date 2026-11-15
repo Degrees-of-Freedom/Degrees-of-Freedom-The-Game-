@@ -1,0 +1,413 @@
+{
+  "format": "dof-structure-record",
+  "version": 1,
+  "id": "16-roof-grid",
+  "name": "Timber roof grid",
+  "family": "roof",
+  "purpose": "Plan view, orthogonal roof grid and material contrast.",
+  "complexity": "medium",
+  "nodeCount": 29,
+  "memberCount": 44,
+  "extentMetres": [
+    16,
+    16,
+    6
+  ],
+  "expectation": {
+    "stability": "stable",
+    "basis": "Qualitative design intent; not a verified numerical reference."
+  },
+  "preview": "previews/16-roof-grid.png",
+  "save": {
+    "format": "dof-voxel-save",
+    "version": 1,
+    "levelId": "library",
+    "model": {
+      "members": [
+        {
+          "id": 1,
+          "a": "2,2,3",
+          "b": "4,2,3",
+          "type": "glulam"
+        },
+        {
+          "id": 2,
+          "a": "2,2,3",
+          "b": "2,4,3",
+          "type": "glulam"
+        },
+        {
+          "id": 3,
+          "a": "2,2,0",
+          "b": "2,2,3",
+          "type": "heb"
+        },
+        {
+          "id": 4,
+          "a": "2,4,3",
+          "b": "4,4,3",
+          "type": "glulam"
+        },
+        {
+          "id": 5,
+          "a": "2,4,3",
+          "b": "2,6,3",
+          "type": "glulam"
+        },
+        {
+          "id": 6,
+          "a": "2,6,3",
+          "b": "4,6,3",
+          "type": "glulam"
+        },
+        {
+          "id": 7,
+          "a": "2,6,3",
+          "b": "2,8,3",
+          "type": "glulam"
+        },
+        {
+          "id": 8,
+          "a": "2,8,3",
+          "b": "4,8,3",
+          "type": "glulam"
+        },
+        {
+          "id": 9,
+          "a": "2,8,3",
+          "b": "2,10,3",
+          "type": "glulam"
+        },
+        {
+          "id": 10,
+          "a": "2,10,3",
+          "b": "4,10,3",
+          "type": "glulam"
+        },
+        {
+          "id": 11,
+          "a": "2,10,0",
+          "b": "2,10,3",
+          "type": "heb"
+        },
+        {
+          "id": 12,
+          "a": "4,2,3",
+          "b": "6,2,3",
+          "type": "glulam"
+        },
+        {
+          "id": 13,
+          "a": "4,2,3",
+          "b": "4,4,3",
+          "type": "glulam"
+        },
+        {
+          "id": 14,
+          "a": "4,4,3",
+          "b": "6,4,3",
+          "type": "glulam"
+        },
+        {
+          "id": 15,
+          "a": "4,4,3",
+          "b": "4,6,3",
+          "type": "glulam"
+        },
+        {
+          "id": 16,
+          "a": "4,6,3",
+          "b": "6,6,3",
+          "type": "glulam"
+        },
+        {
+          "id": 17,
+          "a": "4,6,3",
+          "b": "4,8,3",
+          "type": "glulam"
+        },
+        {
+          "id": 18,
+          "a": "4,8,3",
+          "b": "6,8,3",
+          "type": "glulam"
+        },
+        {
+          "id": 19,
+          "a": "4,8,3",
+          "b": "4,10,3",
+          "type": "glulam"
+        },
+        {
+          "id": 20,
+          "a": "4,10,3",
+          "b": "6,10,3",
+          "type": "glulam"
+        },
+        {
+          "id": 21,
+          "a": "6,2,3",
+          "b": "8,2,3",
+          "type": "glulam"
+        },
+        {
+          "id": 22,
+          "a": "6,2,3",
+          "b": "6,4,3",
+          "type": "glulam"
+        },
+        {
+          "id": 23,
+          "a": "6,4,3",
+          "b": "8,4,3",
+          "type": "glulam"
+        },
+        {
+          "id": 24,
+          "a": "6,4,3",
+          "b": "6,6,3",
+          "type": "glulam"
+        },
+        {
+          "id": 25,
+          "a": "6,6,3",
+          "b": "8,6,3",
+          "type": "glulam"
+        },
+        {
+          "id": 26,
+          "a": "6,6,3",
+          "b": "6,8,3",
+          "type": "glulam"
+        },
+        {
+          "id": 27,
+          "a": "6,8,3",
+          "b": "8,8,3",
+          "type": "glulam"
+        },
+        {
+          "id": 28,
+          "a": "6,8,3",
+          "b": "6,10,3",
+          "type": "glulam"
+        },
+        {
+          "id": 29,
+          "a": "6,10,3",
+          "b": "8,10,3",
+          "type": "glulam"
+        },
+        {
+          "id": 30,
+          "a": "8,2,3",
+          "b": "10,2,3",
+          "type": "glulam"
+        },
+        {
+          "id": 31,
+          "a": "8,2,3",
+          "b": "8,4,3",
+          "type": "glulam"
+        },
+        {
+          "id": 32,
+          "a": "8,4,3",
+          "b": "10,4,3",
+          "type": "glulam"
+        },
+        {
+          "id": 33,
+          "a": "8,4,3",
+          "b": "8,6,3",
+          "type": "glulam"
+        },
+        {
+          "id": 34,
+          "a": "8,6,3",
+          "b": "10,6,3",
+          "type": "glulam"
+        },
+        {
+          "id": 35,
+          "a": "8,6,3",
+          "b": "8,8,3",
+          "type": "glulam"
+        },
+        {
+          "id": 36,
+          "a": "8,8,3",
+          "b": "10,8,3",
+          "type": "glulam"
+        },
+        {
+          "id": 37,
+          "a": "8,8,3",
+          "b": "8,10,3",
+          "type": "glulam"
+        },
+        {
+          "id": 38,
+          "a": "8,10,3",
+          "b": "10,10,3",
+          "type": "glulam"
+        },
+        {
+          "id": 39,
+          "a": "10,2,3",
+          "b": "10,4,3",
+          "type": "glulam"
+        },
+        {
+          "id": 40,
+          "a": "10,2,0",
+          "b": "10,2,3",
+          "type": "heb"
+        },
+        {
+          "id": 41,
+          "a": "10,4,3",
+          "b": "10,6,3",
+          "type": "glulam"
+        },
+        {
+          "id": 42,
+          "a": "10,6,3",
+          "b": "10,8,3",
+          "type": "glulam"
+        },
+        {
+          "id": 43,
+          "a": "10,8,3",
+          "b": "10,10,3",
+          "type": "glulam"
+        },
+        {
+          "id": 44,
+          "a": "10,10,0",
+          "b": "10,10,3",
+          "type": "heb"
+        }
+      ],
+      "attrs": {
+        "2,2,3": {
+          "joint": true,
+          "load": 2
+        },
+        "4,2,3": {
+          "joint": true,
+          "load": 2
+        },
+        "2,4,3": {
+          "joint": true,
+          "load": 2
+        },
+        "2,2,0": {
+          "found": true,
+          "joint": true
+        },
+        "4,4,3": {
+          "joint": true,
+          "load": 2
+        },
+        "2,6,3": {
+          "joint": true,
+          "load": 2
+        },
+        "4,6,3": {
+          "joint": true,
+          "load": 2
+        },
+        "2,8,3": {
+          "joint": true,
+          "load": 2
+        },
+        "4,8,3": {
+          "joint": true,
+          "load": 2
+        },
+        "2,10,3": {
+          "joint": true,
+          "load": 2
+        },
+        "4,10,3": {
+          "joint": true,
+          "load": 2
+        },
+        "2,10,0": {
+          "found": true,
+          "joint": true
+        },
+        "6,2,3": {
+          "joint": true,
+          "load": 2
+        },
+        "6,4,3": {
+          "joint": true,
+          "load": 2
+        },
+        "6,6,3": {
+          "joint": true,
+          "load": 2
+        },
+        "6,8,3": {
+          "joint": true,
+          "load": 2
+        },
+        "6,10,3": {
+          "joint": true,
+          "load": 2
+        },
+        "8,2,3": {
+          "joint": true,
+          "load": 2
+        },
+        "8,4,3": {
+          "joint": true,
+          "load": 2
+        },
+        "8,6,3": {
+          "joint": true,
+          "load": 2
+        },
+        "8,8,3": {
+          "joint": true,
+          "load": 2
+        },
+        "8,10,3": {
+          "joint": true,
+          "load": 2
+        },
+        "10,2,3": {
+          "joint": true,
+          "load": 2
+        },
+        "10,4,3": {
+          "joint": true,
+          "load": 2
+        },
+        "10,6,3": {
+          "joint": true,
+          "load": 2
+        },
+        "10,8,3": {
+          "joint": true,
+          "load": 2
+        },
+        "10,10,3": {
+          "joint": true,
+          "load": 2
+        },
+        "10,2,0": {
+          "found": true,
+          "joint": true
+        },
+        "10,10,0": {
+          "found": true,
+          "joint": true
+        }
+      },
+      "nextId": 45
+    }
+  }
+}

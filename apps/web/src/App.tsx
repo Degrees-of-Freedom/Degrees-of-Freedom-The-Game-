@@ -1,3 +1,42 @@
-import { NavLink, Route, Routes } from 'react-router-dom';
-import { Workspace } from './pages/Workspace';
-export function App() { return <><header><NavLink className="brand" to="/">✳ <span>DEGREES OF FREEDOM<small>THE STRUCTURAL PLAYGROUND</small></span></NavLink><nav><NavLink to="/" end>Workspace</NavLink><NavLink to="/about">About</NavLink></nav><span className="badge">EARLY EXPLORATION ●</span></header><Routes><Route path="/" element={<Workspace />} /><Route path="/about" element={<main className="about"><p className="eyebrow">THE IDEA</p><h1>A playground for <em>structural thinking.</em></h1><p>Build, experiment, and discover how structures carry forces. Gameplay and structural analysis are still being developed.</p></main>} /><Route path="*" element={<main className="about"><h1>Page not found.</h1><NavLink to="/">Return to workspace</NavLink></main>} /></Routes></>; }
+import { lazy, Suspense } from "react";
+import { Link, Route, Routes } from "react-router-dom";
+import { Home } from "./pages/Home";
+import { ModeSelect } from "./pages/ModeSelect";
+import { ModeSetup } from "./pages/ModeSetup";
+import { About, HowToPlay, SettingsPage } from "./pages/InfoPages";
+
+// Keep the Three.js workspace out of the initial menu download.
+const Workspace = lazy(() =>
+  import("./pages/Workspace").then((module) => ({ default: module.Workspace })),
+);
+
+export function App() {
+  return (
+    <Suspense
+      fallback={
+        <main className="launcher" role="status">
+          Opening the workspace…
+        </main>
+      }
+    >
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/modes" element={<ModeSelect />} />
+        <Route path="/setup/:mode" element={<ModeSetup />} />
+        <Route path="/how" element={<HowToPlay />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/play" element={<Workspace />} />
+        <Route
+          path="*"
+          element={
+            <main className="launcher">
+              <h1>Page not found</h1>
+              <Link to="/">Return to the main menu</Link>
+            </main>
+          }
+        />
+      </Routes>
+    </Suspense>
+  );
+}

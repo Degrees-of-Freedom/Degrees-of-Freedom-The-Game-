@@ -1,0 +1,47 @@
+{
+  "format": "dof-structure-record",
+  "version": 1,
+  "id": "01-stocky-column",
+  "name": "Stocky column",
+  "family": "column",
+  "purpose": "Axial load, foundation reaction and short-member picking.",
+  "complexity": "small",
+  "nodeCount": 2,
+  "memberCount": 1,
+  "extentMetres": [
+    0,
+    0,
+    2
+  ],
+  "expectation": {
+    "stability": "stable",
+    "basis": "Qualitative design intent; not a verified numerical reference."
+  },
+  "preview": "previews/01-stocky-column.png",
+  "save": {
+    "format": "dof-voxel-save",
+    "version": 1,
+    "levelId": "library",
+    "model": {
+      "members": [
+        {
+          "id": 1,
+          "a": "6,6,0",
+          "b": "6,6,1",
+          "type": "heb"
+        }
+      ],
+      "attrs": {
+        "6,6,0": {
+          "found": true,
+          "joint": true
+        },
+        "6,6,1": {
+          "joint": true,
+          "load": 10
+        }
+      },
+      "nextId": 2
+    }
+  }
+}

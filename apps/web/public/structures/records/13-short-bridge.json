@@ -1,0 +1,333 @@
+{
+  "format": "dof-structure-record",
+  "version": 1,
+  "id": "13-short-bridge",
+  "name": "Short through bridge",
+  "family": "bridge",
+  "purpose": "Deck loads and two connected side frames.",
+  "complexity": "medium",
+  "nodeCount": 20,
+  "memberCount": 38,
+  "extentMetres": [
+    12,
+    4,
+    8
+  ],
+  "expectation": {
+    "stability": "stable",
+    "basis": "Qualitative design intent; not a verified numerical reference."
+  },
+  "preview": "previews/13-short-bridge.png",
+  "save": {
+    "format": "dof-voxel-save",
+    "version": 1,
+    "levelId": "library",
+    "model": {
+      "members": [
+        {
+          "id": 1,
+          "a": "2,4,0",
+          "b": "2,4,2",
+          "type": "heb"
+        },
+        {
+          "id": 2,
+          "a": "8,4,0",
+          "b": "8,4,2",
+          "type": "heb"
+        },
+        {
+          "id": 3,
+          "a": "2,4,2",
+          "b": "4,4,2",
+          "type": "ipe"
+        },
+        {
+          "id": 4,
+          "a": "2,4,4",
+          "b": "4,4,4",
+          "type": "shs"
+        },
+        {
+          "id": 5,
+          "a": "2,4,2",
+          "b": "4,4,4",
+          "type": "shs"
+        },
+        {
+          "id": 6,
+          "a": "4,4,2",
+          "b": "6,4,2",
+          "type": "ipe"
+        },
+        {
+          "id": 7,
+          "a": "4,4,4",
+          "b": "6,4,4",
+          "type": "shs"
+        },
+        {
+          "id": 8,
+          "a": "4,4,2",
+          "b": "6,4,4",
+          "type": "shs"
+        },
+        {
+          "id": 9,
+          "a": "6,4,2",
+          "b": "8,4,2",
+          "type": "ipe"
+        },
+        {
+          "id": 10,
+          "a": "6,4,4",
+          "b": "8,4,4",
+          "type": "shs"
+        },
+        {
+          "id": 11,
+          "a": "6,4,2",
+          "b": "8,4,4",
+          "type": "shs"
+        },
+        {
+          "id": 12,
+          "a": "2,4,2",
+          "b": "2,4,4",
+          "type": "shs"
+        },
+        {
+          "id": 13,
+          "a": "4,4,2",
+          "b": "4,4,4",
+          "type": "shs"
+        },
+        {
+          "id": 14,
+          "a": "6,4,2",
+          "b": "6,4,4",
+          "type": "shs"
+        },
+        {
+          "id": 15,
+          "a": "8,4,2",
+          "b": "8,4,4",
+          "type": "shs"
+        },
+        {
+          "id": 16,
+          "a": "2,6,0",
+          "b": "2,6,2",
+          "type": "heb"
+        },
+        {
+          "id": 17,
+          "a": "8,6,0",
+          "b": "8,6,2",
+          "type": "heb"
+        },
+        {
+          "id": 18,
+          "a": "2,6,2",
+          "b": "4,6,2",
+          "type": "ipe"
+        },
+        {
+          "id": 19,
+          "a": "2,6,4",
+          "b": "4,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 20,
+          "a": "2,6,2",
+          "b": "4,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 21,
+          "a": "4,6,2",
+          "b": "6,6,2",
+          "type": "ipe"
+        },
+        {
+          "id": 22,
+          "a": "4,6,4",
+          "b": "6,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 23,
+          "a": "4,6,2",
+          "b": "6,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 24,
+          "a": "6,6,2",
+          "b": "8,6,2",
+          "type": "ipe"
+        },
+        {
+          "id": 25,
+          "a": "6,6,4",
+          "b": "8,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 26,
+          "a": "6,6,2",
+          "b": "8,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 27,
+          "a": "2,6,2",
+          "b": "2,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 28,
+          "a": "4,6,2",
+          "b": "4,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 29,
+          "a": "6,6,2",
+          "b": "6,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 30,
+          "a": "8,6,2",
+          "b": "8,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 31,
+          "a": "2,4,2",
+          "b": "2,6,2",
+          "type": "shs"
+        },
+        {
+          "id": 32,
+          "a": "2,4,4",
+          "b": "2,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 33,
+          "a": "4,4,2",
+          "b": "4,6,2",
+          "type": "shs"
+        },
+        {
+          "id": 34,
+          "a": "4,4,4",
+          "b": "4,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 35,
+          "a": "6,4,2",
+          "b": "6,6,2",
+          "type": "shs"
+        },
+        {
+          "id": 36,
+          "a": "6,4,4",
+          "b": "6,6,4",
+          "type": "shs"
+        },
+        {
+          "id": 37,
+          "a": "8,4,2",
+          "b": "8,6,2",
+          "type": "shs"
+        },
+        {
+          "id": 38,
+          "a": "8,4,4",
+          "b": "8,6,4",
+          "type": "shs"
+        }
+      ],
+      "attrs": {
+        "2,4,0": {
+          "found": true,
+          "joint": true
+        },
+        "2,4,2": {
+          "joint": true,
+          "load": 5
+        },
+        "8,4,0": {
+          "found": true,
+          "joint": true
+        },
+        "8,4,2": {
+          "joint": true,
+          "load": 5
+        },
+        "4,4,2": {
+          "joint": true,
+          "load": 5
+        },
+        "2,4,4": {
+          "joint": true
+        },
+        "4,4,4": {
+          "joint": true
+        },
+        "6,4,2": {
+          "joint": true,
+          "load": 5
+        },
+        "6,4,4": {
+          "joint": true
+        },
+        "8,4,4": {
+          "joint": true
+        },
+        "2,6,0": {
+          "found": true,
+          "joint": true
+        },
+        "2,6,2": {
+          "joint": true,
+          "load": 5
+        },
+        "8,6,0": {
+          "found": true,
+          "joint": true
+        },
+        "8,6,2": {
+          "joint": true,
+          "load": 5
+        },
+        "4,6,2": {
+          "joint": true,
+          "load": 5
+        },
+        "2,6,4": {
+          "joint": true
+        },
+        "4,6,4": {
+          "joint": true
+        },
+        "6,6,2": {
+          "joint": true,
+          "load": 5
+        },
+        "6,6,4": {
+          "joint": true
+        },
+        "8,6,4": {
+          "joint": true
+        }
+      },
+      "nextId": 39
+    }
+  }
+}

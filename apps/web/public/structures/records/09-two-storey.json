@@ -1,0 +1,255 @@
+{
+  "format": "dof-structure-record",
+  "version": 1,
+  "id": "09-two-storey",
+  "name": "Two-storey frame",
+  "family": "building",
+  "purpose": "Multiple build planes and floor connectivity.",
+  "complexity": "medium",
+  "nodeCount": 18,
+  "memberCount": 26,
+  "extentMetres": [
+    8,
+    4,
+    8
+  ],
+  "expectation": {
+    "stability": "stable",
+    "basis": "Qualitative design intent; not a verified numerical reference."
+  },
+  "preview": "previews/09-two-storey.png",
+  "save": {
+    "format": "dof-voxel-save",
+    "version": 1,
+    "levelId": "library",
+    "model": {
+      "members": [
+        {
+          "id": 1,
+          "a": "2,2,0",
+          "b": "2,2,2",
+          "type": "heb"
+        },
+        {
+          "id": 2,
+          "a": "2,2,2",
+          "b": "4,2,2",
+          "type": "ipe"
+        },
+        {
+          "id": 3,
+          "a": "2,2,2",
+          "b": "2,4,2",
+          "type": "ipe"
+        },
+        {
+          "id": 4,
+          "a": "2,2,2",
+          "b": "2,2,4",
+          "type": "heb"
+        },
+        {
+          "id": 5,
+          "a": "2,2,4",
+          "b": "4,2,4",
+          "type": "ipe"
+        },
+        {
+          "id": 6,
+          "a": "2,2,4",
+          "b": "2,4,4",
+          "type": "ipe"
+        },
+        {
+          "id": 7,
+          "a": "2,4,0",
+          "b": "2,4,2",
+          "type": "heb"
+        },
+        {
+          "id": 8,
+          "a": "2,4,2",
+          "b": "4,4,2",
+          "type": "ipe"
+        },
+        {
+          "id": 9,
+          "a": "2,4,2",
+          "b": "2,4,4",
+          "type": "heb"
+        },
+        {
+          "id": 10,
+          "a": "2,4,4",
+          "b": "4,4,4",
+          "type": "ipe"
+        },
+        {
+          "id": 11,
+          "a": "4,2,0",
+          "b": "4,2,2",
+          "type": "heb"
+        },
+        {
+          "id": 12,
+          "a": "4,2,2",
+          "b": "6,2,2",
+          "type": "ipe"
+        },
+        {
+          "id": 13,
+          "a": "4,2,2",
+          "b": "4,4,2",
+          "type": "ipe"
+        },
+        {
+          "id": 14,
+          "a": "4,2,2",
+          "b": "4,2,4",
+          "type": "heb"
+        },
+        {
+          "id": 15,
+          "a": "4,2,4",
+          "b": "6,2,4",
+          "type": "ipe"
+        },
+        {
+          "id": 16,
+          "a": "4,2,4",
+          "b": "4,4,4",
+          "type": "ipe"
+        },
+        {
+          "id": 17,
+          "a": "4,4,0",
+          "b": "4,4,2",
+          "type": "heb"
+        },
+        {
+          "id": 18,
+          "a": "4,4,2",
+          "b": "6,4,2",
+          "type": "ipe"
+        },
+        {
+          "id": 19,
+          "a": "4,4,2",
+          "b": "4,4,4",
+          "type": "heb"
+        },
+        {
+          "id": 20,
+          "a": "4,4,4",
+          "b": "6,4,4",
+          "type": "ipe"
+        },
+        {
+          "id": 21,
+          "a": "6,2,0",
+          "b": "6,2,2",
+          "type": "heb"
+        },
+        {
+          "id": 22,
+          "a": "6,2,2",
+          "b": "6,4,2",
+          "type": "ipe"
+        },
+        {
+          "id": 23,
+          "a": "6,2,2",
+          "b": "6,2,4",
+          "type": "heb"
+        },
+        {
+          "id": 24,
+          "a": "6,2,4",
+          "b": "6,4,4",
+          "type": "ipe"
+        },
+        {
+          "id": 25,
+          "a": "6,4,0",
+          "b": "6,4,2",
+          "type": "heb"
+        },
+        {
+          "id": 26,
+          "a": "6,4,2",
+          "b": "6,4,4",
+          "type": "heb"
+        }
+      ],
+      "attrs": {
+        "2,2,0": {
+          "found": true,
+          "joint": true
+        },
+        "2,2,2": {
+          "joint": true
+        },
+        "4,2,2": {
+          "joint": true
+        },
+        "2,4,2": {
+          "joint": true
+        },
+        "2,2,4": {
+          "joint": true,
+          "load": 5
+        },
+        "4,2,4": {
+          "joint": true,
+          "load": 5
+        },
+        "2,4,4": {
+          "joint": true,
+          "load": 5
+        },
+        "2,4,0": {
+          "found": true,
+          "joint": true
+        },
+        "4,4,2": {
+          "joint": true
+        },
+        "4,4,4": {
+          "joint": true,
+          "load": 5
+        },
+        "4,2,0": {
+          "found": true,
+          "joint": true
+        },
+        "6,2,2": {
+          "joint": true
+        },
+        "6,2,4": {
+          "joint": true,
+          "load": 5
+        },
+        "4,4,0": {
+          "found": true,
+          "joint": true
+        },
+        "6,4,2": {
+          "joint": true
+        },
+        "6,4,4": {
+          "joint": true,
+          "load": 5
+        },
+        "6,2,0": {
+          "found": true,
+          "joint": true
+        },
+        "6,4,0": {
+          "found": true,
+          "joint": true
+        }
+      },
+      "nextId": 27
+    }
+  }
+}

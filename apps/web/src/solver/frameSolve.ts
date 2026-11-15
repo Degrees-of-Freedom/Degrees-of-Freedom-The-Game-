@@ -18,18 +18,18 @@ function assemble(ctx: Context, active: Map<Element, boolean>) {
       }
     }
   }
-  for (let i = 0; i < nf; i++) K[i * nf + i] += 1e-3; // tiny regularisation → mechanisms show as huge displacements
   return K;
 }
 export function solveCombo(
   ctx: Context,
   F: Float64Array,
-): { fail: true } | Solved {
+): { fail: true; reason?: string } | Solved {
   const { nf, eq, els, NA } = ctx;
   const cables = els.filter((e) => e.cable);
   const active = new Map(cables.map((e) => [e, true]));
   let u = new Float64Array(NA * 6),
-    K0 = new Float64Array(nf * nf);
+    K0 = new Float64Array(nf * nf), solvedDofs: number[] = [];
+  let converged = false;
   for (let iter = 0; iter < 10; iter++) {
     const K = assemble(ctx, active);
     K0 = K.slice();
@@ -46,8 +46,30 @@ export function solveCombo(
         if (db >= 0) Ff[db] -= P * e.ex[c];
       }
     }
-    if (!cholesky(K, nf, ctx.bw)) return { fail: true };
-    const x = cholSolve(K, nf, Ff, ctx.bw);
+    // An uncoupled, unloaded rotational coordinate does not participate in a
+    // pin or axial element. Remove only such coordinate-aligned zero rows;
+    // unsupported translations and coupled singularities remain mechanisms.
+    const originalDof = new Int32Array(nf);
+    for (let d = 0; d < NA * 6; d++) if (eq[d] >= 0) originalDof[eq[d]] = d;
+    let maxDiagonal = 0;
+    for (let i = 0; i < nf; i++) maxDiagonal = Math.max(maxDiagonal, Math.abs(K[i * nf + i]));
+    const tolerance = maxDiagonal * 1e-14;
+    const activeDofs: number[] = [];
+    for (let i = 0; i < nf; i++) {
+      if (Math.abs(K[i * nf + i]) <= tolerance) {
+        if (originalDof[i] % 6 < 3 || Math.abs(Ff[i]) > 1e-10) return { fail: true };
+      } else activeDofs.push(i);
+    }
+    const n = activeDofs.length, reduced = new Float64Array(n * n), rhs = new Float64Array(n);
+    solvedDofs = activeDofs;
+    for (let i = 0; i < n; i++) {
+      rhs[i] = Ff[activeDofs[i]];
+      for (let j = 0; j < n; j++) reduced[i * n + j] = K[activeDofs[i] * nf + activeDofs[j]];
+    }
+    if (n && !cholesky(reduced, n, n - 1)) return { fail: true };
+    const solved = n ? cholSolve(reduced, n, rhs, n - 1) : new Float64Array();
+    const x = new Float64Array(nf);
+    activeDofs.forEach((dof, i) => { x[dof] = solved[i]; });
     u = new Float64Array(NA * 6);
     for (let d = 0; d < NA * 6; d++) if (eq[d] >= 0) u[d] = x[eq[d]];
     let changed = false;
@@ -61,8 +83,11 @@ export function solveCombo(
         changed = true;
       }
     }
-    if (!changed) break;
+    if (!changed) { converged = true; break; }
   }
+  // The last displacements correspond to the previous active set if it
+  // changes on the final iteration; they must not be reported as a solution.
+  if (!converged) return { fail: true, reason: 'Cable active-set iteration did not converge.' };
   const ef = new Map<Element, ElementForce>();
   for (const e of els) {
     if (e.cable && !active.get(e)) {
@@ -80,5 +105,5 @@ export function solveCombo(
     }
     ef.set(e, r);
   }
-  return { u, K0, active, ef };
+  return { u, K0, activeDofs: solvedDofs, active, ef };
 }

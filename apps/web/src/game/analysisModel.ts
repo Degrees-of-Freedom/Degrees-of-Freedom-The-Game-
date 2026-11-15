@@ -11,7 +11,10 @@ import {
   parseNodeKey,
   type GameModel,
   type Level,
+  type LoadDirection,
   type MemberType,
+  type NodeAttributes,
+  type Restraint,
 } from './model';
 
 /** The game stores forces in kN and stiffness in kN/m²; the solver uses SI. */
@@ -24,6 +27,28 @@ const GRAVITY = 9.81;
  * (non-moment) connection, as the voxel analysis models it.
  */
 const PINNED: ConnectionLaws = ['rigid', 'rigid', 'rigid', 'rigid', 'free', 'free'];
+
+const FULLY_FIXED: Restraint = [true, true, true, true, true, true];
+
+/** Unit vector of each point-load direction the editor offers. */
+const DIRECTIONS: Record<LoadDirection, [number, number, number]> = {
+  '-Z': [0, 0, -1],
+  '+Z': [0, 0, 1],
+  '+X': [1, 0, 0],
+  '-X': [-1, 0, 0],
+  '+Y': [0, 1, 0],
+  '-Y': [0, -1, 0],
+};
+
+/**
+ * Restrained degrees of freedom of a node, or `null` if it is not a support.
+ * A foundation without an explicit mask restrains all six, as before masks
+ * existed.
+ */
+function restraintOf(attrs: NodeAttributes | undefined): Restraint | null {
+  if (!attrs?.found) return null;
+  return attrs.restraint ?? FULLY_FIXED;
+}
 
 export interface AnalysisModelTranslation {
   model: AnalysisModel;
@@ -79,7 +104,7 @@ function supportedNodes(game: GameModel): Set<string> {
     neighbours.set(a, [...(neighbours.get(a) ?? []), b]);
     neighbours.set(b, [...(neighbours.get(b) ?? []), a]);
   }
-  const reached = new Set(Object.keys(game.attrs).filter((key) => game.attrs[key].found && neighbours.has(key)));
+  const reached = new Set(Object.keys(game.attrs).filter((key) => restraintOf(game.attrs[key])?.some(Boolean) && neighbours.has(key)));
   const queue = [...reached];
   for (let next = queue.pop(); next !== undefined; next = queue.pop())
     for (const neighbour of neighbours.get(next) ?? [])
@@ -91,7 +116,7 @@ function supportedNodes(game: GameModel): Set<string> {
 }
 
 /**
- * Downward loads the level puts on the structure, in kN per node key.
+ * Loads the level puts on the structure, as a force vector in kN per node key.
  *
  * These follow the voxel analysis: a tower carries its payload on its
  * highest nodes, a bridge carries its traffic on the deck nodes between the
@@ -99,12 +124,12 @@ function supportedNodes(game: GameModel): Set<string> {
  * voxel analysis, only nodes connected to a foundation are considered, so a
  * loose member cannot attract the payload away from the structure.
  */
-function levelLoads(game: GameModel, level: Level, keys: string[]): Map<string, number> {
-  const loads = new Map<string, number>();
+function levelLoads(game: GameModel, level: Level, keys: string[]): Map<string, [number, number, number]> {
+  const loads = new Map<string, [number, number, number]>();
   if (level.type === 'tower' && level.payload) {
     const top = Math.max(...keys.map((key) => parseNodeKey(key)[2]), 0);
     const tops = top > 0 ? keys.filter((key) => parseNodeKey(key)[2] === top) : [];
-    for (const key of tops) loads.set(key, level.payload / tops.length);
+    for (const key of tops) loads.set(key, [0, 0, -level.payload / tops.length]);
   } else if (level.type === 'bridge' && level.traffic) {
     const { cliffL = 0, cliffR = 0, cliffH } = level;
     const deck = keys.filter((key) => {
@@ -112,11 +137,14 @@ function levelLoads(game: GameModel, level: Level, keys: string[]): Map<string, 
       return k === cliffH && i > cliffL && i < cliffR;
     });
     const total = level.traffic * (cliffR - cliffL) * CELL_SIZE;
-    for (const key of deck) loads.set(key, total / deck.length);
+    for (const key of deck) loads.set(key, [0, 0, -total / deck.length]);
   } else {
     for (const key of keys) {
-      const load = game.attrs[key]?.load;
-      if (load) loads.set(key, load);
+      const attrs = game.attrs[key];
+      if (!attrs?.load) continue;
+      // A placed load acts along its chosen axis; downwards unless set.
+      const [x, y, z] = DIRECTIONS[attrs.loadDirection ?? '-Z'];
+      loads.set(key, [x * attrs.load, y * attrs.load, z * attrs.load]);
     }
   }
   return loads;
@@ -131,7 +159,8 @@ function levelLoads(game: GameModel, level: Level, keys: string[]): Map<string, 
  * - cables are tension-only and start with their card pretension;
  * - a member end is rigid at a moment connection and pinned in bending
  *   elsewhere;
- * - a foundation restrains all six degrees of freedom;
+ * - a foundation restrains the degrees of freedom in its restraint mask, or
+ *   all six when it has none;
  * - the level's gravity loads are applied (tower payload, bridge traffic,
  *   placed point loads) to the parts that reach a foundation.
  *
@@ -153,8 +182,8 @@ export function toAnalysisModel(game: GameModel, level: Level): AnalysisModelTra
   const types = [...new Set(game.members.map((member) => member.type))].sort();
 
   const loads: AnalysisLoad[] = [];
-  for (const [key, kilonewtons] of levelLoads(game, level, keys.filter((key) => supported.has(key))))
-    loads.push({ id: `load:${key}`, nodeId: key, force: [0, 0, -kilonewtons * SI_PER_KILO] });
+  for (const [key, [x, y, z]] of levelLoads(game, level, keys.filter((key) => supported.has(key))))
+    loads.push({ id: `load:${key}`, nodeId: key, force: [x * SI_PER_KILO, y * SI_PER_KILO, z * SI_PER_KILO] });
 
   const model: AnalysisModel = {
     version: `next-id-${game.nextId}`,
@@ -176,9 +205,10 @@ export function toAnalysisModel(game: GameModel, level: Level): AnalysisModelTra
         ...(!game.attrs[member.b]?.joint && { end: { laws: PINNED } }),
       };
     }),
-    foundations: keys
-      .filter((key) => game.attrs[key]?.found)
-      .map((key) => ({ id: `foundation:${key}`, nodeId: key, restrained: [true, true, true, true, true, true] as const })),
+    foundations: keys.flatMap((key) => {
+      const restrained = restraintOf(game.attrs[key]);
+      return restrained ? [{ id: `foundation:${key}`, nodeId: key, restrained: [...restrained] as Restraint }] : [];
+    }),
     loads,
   };
 

@@ -38,13 +38,14 @@ export function analyzeVoxel(
     floating: [],
     unstable: new Set<string>(),
     mechanism: false,
+    designChecksAvailable: level.loadCase !== 'applied',
   };
   if (!keys.length) {
     out.error = 'Nothing built yet.';
     return out;
   }
   const idx = new Map(keys.map((k, n) => [k, n]));
-  const pos = keys.map((k) => parse(k).map((v) => v * S));
+  const pos = keys.map((k) => (model.positions?.[k] ?? parse(k)).map((v) => v * S));
   const isF = keys.map((k) => !!model.attrs[k]?.found);
   const adj: number[][] = keys.map(() => []);
   for (const m of model.members) {
@@ -89,8 +90,10 @@ export function analyzeVoxel(
     eq = new Int32Array(NA * 6);
   let nf = 0;
   for (let a = 0; a < NA; a++) {
-    const fx = isF[act[a]];
-    for (let q = 0; q < 6; q++) eq[a * 6 + q] = fx ? -1 : nf++;
+    const attrs = model.attrs[keys[act[a]]];
+    const restraint = attrs?.restraint ?? (attrs?.found ? [true, true, true, true, true, true] : [false, false, false, false, false, false]);
+    for (let q = 0; q < 6; q++)
+      eq[a * 6 + q] = restraint[q] || (q >= 3 && model.inactiveRotations?.has(keys[act[a]])) ? -1 : nf++;
   }
   const els = [];
   for (const m of model.members) {
@@ -118,10 +121,17 @@ export function analyzeVoxel(
   }
 
   // ---- load combinations
-  for (const combo of COMBOS) {
+  const combos = level.loadCase === 'applied'
+    ? [{ name: 'Applied loads + self-weight', short: 'Applied loads + self-weight', type: 'SLS' as const, dir: [0, 0, 0] }]
+    : COMBOS;
+  for (const combo of combos) {
     const { F, vis } = buildLoads(model, level, ctx, combo);
     const sol = solveCombo(ctx, F);
     if ('fail' in sol) {
+      if (sol.reason) {
+        out.error = sol.reason;
+        return out;
+      }
       out.mechanism = true;
       out.combos.push({ combo, F, vis, fail: true });
       continue;
@@ -146,6 +156,9 @@ export function analyzeVoxel(
       if (reac[e.a]) for (let q = 0; q < 6; q++) reac[e.a][q] += fg[q];
       if (reac[e.b]) for (let q = 0; q < 6; q++) reac[e.b][q] += fg[6 + q];
     }
+    // Free axes are not support reactions even at a partially restrained node.
+    for (const [a, reaction] of Object.entries(reac))
+      for (let q = 0; q < 6; q++) if (eq[Number(a) * 6 + q] >= 0) reaction[q] = 0;
     out.combos.push({
       combo,
       F,
@@ -170,9 +183,9 @@ export function analyzeVoxel(
   const aMin = out.alpha.length
     ? Math.min(...out.alpha.map((a) => (a === null ? Infinity : a)))
     : Infinity;
-  out.alphaMin = aMin;
+  if (out.designChecksAvailable) out.alphaMin = aMin;
   const amp = aMin > 1 && aMin < 10 ? 1 / (1 - 1 / aMin) : 1;
-  out.amp = amp;
+  if (out.designChecksAvailable) out.amp = amp;
   for (const c of out.combos) delete c.sol; // free memory
   const design = checkDesign(model, ctx, out, amp);
   evaluateObjectives(model, level, ctx, out, aMin, amp, design);

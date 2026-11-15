@@ -2,6 +2,7 @@
 title: "Architecture"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/turn-criteria.md
   - package.json
   - apps/web/src/game
   - apps/web/src/viewer
@@ -36,20 +37,28 @@ The workspace incorporates the Voxel Struct experiment. Its Zustand store owns v
 
 A second, narrower path does use the shared contract. The `useStabilityCheck` hook sends the model to the adapter chosen by `solver/index.ts` and picks the contract by solver capability. If the adapter implements the detailed contract (the Rust solver), `game/analysisModel.ts` translates the game and level into a detailed model with card sections, tension-only cables, connection laws, foundations and gravity loads, and `game/structuralSummary.ts` reduces the result for the "Structural check" panel. Otherwise (the OpenSees service) `game/structuralModel.ts` translates it into the original contract, which carries geometry, connectivity, connection type, foundations and point loads, and the panel shows the stability report. Either way the result appears beside the voxel results. Both analyses start from the same Run analysis action and report independently, so a solver failure does not block the voxel analysis. By default the adapter is the Rust solver running in the browser; the OpenSees service is used when the build configuration asks for it. The Rust module is also stateless and has no imports: a JSON request goes in and a JSON result comes out. The OpenSees service is stateless: each request carries a whole model and gets a whole result. Inside the service, request schema, OpenSees translation, and stiffness-matrix stability assessment are separate modules, and only the translation module imports OpenSees. The original standalone prototype is [archived in Git history](../../prototypes/voxel-struct/README.md).
 
+The [unified runtime](unified-runtime.md) maps five prototype environments onto this architecture. The launcher and full-screen workspace follow the prototype branch for visual design.
+
 ## Where changes belong
 
-- `game/` owns the model, level setup, terrain, inventory, placement rules, persistence, and undo. The store coordinates these operations; `game/analysis.ts` translates game state into voxel solver inputs, `game/structuralModel.ts` translates it into the original shared contract, and `game/analysisModel.ts` translates it into the detailed one. `game/structuralSummary.ts` turns a detailed result into the values the panel shows, and `useStabilityCheck` chooses the contract by solver capability.
-- `solver/opensees.ts` is the HTTP adapter for the OpenSees service and `solver/index.ts` selects the adapter from build-time configuration. `services/opensees` owns everything that touches OpenSees.
+- `game/` owns the model, level setup, terrain, inventory, placement rules, persistence, undo, and the Shared table card lifecycle. The store coordinates these operations. `analysis.ts` and `turnAnalysis.ts` translate editor and Shared table states into voxel solver inputs. `structuralModel.ts` translates editor state into the original shared solver contract and `analysisModel.ts` into the detailed one; `structuralSummary.ts` turns a detailed result into the values the panel shows.
+- `solver/opensees.ts` is the HTTP adapter for the OpenSees service. `solver/index.ts` selects the adapter from build-time configuration. `services/opensees` owns the code that calls OpenSees.
 - `solver/wasm/wasmSolver.ts` loads the compiled Rust module and is the adapter for both contracts; `solver/wasm/legacyContract.ts` translates the original contract to and from the detailed one. `crates/dof-solver` owns all of the physics. The module in `solver/wasm/dof_solver.wasm` is a build artefact of that crate, rebuilt by `npm run build:solver`.
 - `solver/voxel.ts` coordinates an analysis. Frame assembly and solving, stability, load generation, design checks, level objectives, and auto-sizing each have their own modules.
 - `viewer/Scene.tsx` manages Three.js setup and teardown. Picking translates pointer coordinates into hits; interaction turns hits into store actions. Meshes, overlays, and load-path particles live alongside the scene.
-- `pages/Workspace.tsx` connects the scene and game actions to the controls and panels in `components/`. Styles are grouped by base rules, panels, workspace layout, and responsive overrides.
+- `pages/Workspace.tsx` connects the scene and game actions to the controls and panels in `components/`. Each environment scopes its prototype layout and palette through style-specific CSS.
 
 ## Working boundaries
 
 - Keep structural model and solver-facing types in the shared contract rather than coupling a solver to React or Three.js. The existing contract is preliminary and needs revision as semantics are decided.
-- Keep game state and turn decisions separate from rendering and backend-specific solver details. The voxel experiment has editing rules but no turn system.
-- Keep backend conversion and unsupported-feature handling in adapters. The OpenSees service follows this rule by rejecting request fields it does not know, and the game translation returns notes for what the contract cannot express.
-- Treat the viewer as a consumer of structural state, not the source of engineering or game rules.
+- Keep game state and turn decisions separate from rendering and backend-specific solver details. Shared table stores explicit member-end connections in the turn model and derives the voxel shape for rendering.
+- Keep backend conversion and unsupported-feature handling in adapters. The OpenSees service rejects unknown request fields, and the game translation returns notes for features the contract cannot express.
+- The viewer consumes structural state. Game rules and solver inputs live outside the rendering layer.
+
+See [structural solver](structural-solver.md) for the backend capabilities and analysis limitations. The [turn criteria](turn-criteria.md) define the confirmed core rules and proposed transaction flow. The [unified runtime](unified-runtime.md#shared-table-playtest) records the local implementation. Verified issue comparison and penalties remain pending. The OpenSees service runs locally for development and includes an untested Dockerfile. Game sessions use local browser storage.
+
+The voxel game uses versioned browser saves and an experimental analysis snapshot; see [structural state](structural-state.md) for validation, replay limits, and the proposed solver-neutral model.
+
+The shared contract also defines a versioned solver-neutral structural snapshot and immutable revision service. The existing voxel game and OpenSees adapter are not yet wired to that model; see [structural state](structural-state.md).
 
 See [structural solver](structural-solver.md) for analysis limitations and candidate frameworks, and [Rust solver](rust-solver.md) for that backend. The Rust solver ships inside the web bundle, so it needs no deployment of its own. The OpenSees service runs locally for development and has an untested Dockerfile. Persistence beyond local browser storage, turn flow, and deployment remain open.

@@ -87,6 +87,21 @@ describe('game model to detailed solver contract', () => {
     expect(notes.join(' ')).toContain('Wind');
   });
 
+  it('carries explicit restraint masks and the direction of placed loads', () => {
+    const game: GameModel = {
+      ...frame,
+      attrs: {
+        ...frame.attrs,
+        '2,0,0': { found: true, restraint: [true, true, true, false, false, false] },
+        '1,0,2': { load: 30, loadDirection: '+X' },
+      },
+    };
+    const translated = toAnalysisModel(game, sandbox).model;
+    expect(translated.foundations[0].restrained).toEqual([true, true, true, true, true, true]);
+    expect(translated.foundations[1]).toMatchObject({ nodeId: '2,0,0', restrained: [true, true, true, false, false, false] });
+    expect(translated.loads).toEqual([{ id: 'load:1,0,2', nodeId: '1,0,2', force: [30_000, 0, 0] }]);
+  });
+
   it('applies the level loads: tower payload on the top nodes, bridge traffic on the deck', () => {
     const tower = toAnalysisModel(exampleModel('tower1')!, LEVELS.tower1).model;
     const total = (loads: typeof tower.loads) => loads.reduce((sum, load) => sum - load.force![2], 0);
