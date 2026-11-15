@@ -145,11 +145,14 @@ function DetailedCheck({ result, notes, solverName }: { result: DetailedAnalysis
 export function StabilityCheckPanel({
   check,
   solverName,
+  onNonlinear,
 }: {
   check: StabilityCheck;
   solverName: string;
+  onNonlinear?: () => void;
 }) {
-  if (check.phase === 'idle') return <section className="analysis stability-check"><ResultHeader solverName={solverName} /><p className="result-empty">Run simulation to check this structure. Editing the model or changing solver clears the previous check.</p></section>;
+  const nonlinearControl = onNonlinear && <button className="btn" onClick={onNonlinear}>Run nonlinear check</button>;
+  if (check.phase === 'idle') return <section className="analysis stability-check"><ResultHeader solverName={solverName} /><p className="result-empty">Run simulation to check this structure. Editing the model or changing solver clears the previous check.</p>{nonlinearControl}</section>;
   if (check.phase === 'running')
     return (
       <div className="analysis stability-check">
@@ -166,8 +169,11 @@ export function StabilityCheckPanel({
       <div className="analysis stability-check">
         <ResultHeader solverName={solverName} />
         <p>
-          {solverName} check unavailable: {result.message}
+          {result.status === 'unresolved' ? 'Equilibrium unresolved' : solverName + ' check unavailable'}: {result.message}
         </p>
+        {result.components && <ComponentResponses scopes={result.components} />}
+        {notes.map(note => <p key={note}>{note}</p>)}
+        {nonlinearControl}
       </div>
     );
 
@@ -197,7 +203,8 @@ export function StabilityCheckPanel({
           {text}
         </p>
       ))}
-      <p>Geometry, connections and supports only. Computed by {solverName}.</p>
+      <p>{result.status === 'success' && result.nonlinear ? 'Nonlinear equilibrium' : 'Geometry, connections and supports only'}. Computed by {solverName}.</p>
+      {nonlinearControl}
     </div>
   );
 }

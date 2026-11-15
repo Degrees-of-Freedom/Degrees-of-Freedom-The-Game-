@@ -148,7 +148,7 @@ export function createOpenSeesSolver(baseUrl: string, fetchImpl: typeof fetch = 
   const endpoint = `${baseUrl.replace(/\/+$/, '')}/analyze`;
   return {
     id: 'opensees',
-    name: 'OpenSees linear static',
+    name: 'OpenSees',
     async analyze(model: StructuralModel, signal?: AbortSignal): Promise<AnalysisResult> {
       let response: Response;
       try {
@@ -168,3 +168,4 @@ export function createOpenSeesSolver(baseUrl: string, fetchImpl: typeof fetch = 
     },
   };
 }
+

@@ -754,6 +754,7 @@ export function Workspace() {
                     <StabilityCheckPanel
                       check={stability.check}
                       solverName={stability.solverName}
+                      onNonlinear={stability.supportsNonlinearService ? () => void stability.run(game.model, LEVELS[game.levelId], true) : undefined}
                     />
                   )}
                   {!contractCompatible && <p className="result-source">Selected structural solver: <strong>{stability.solverName}</strong><br />Shared-table analysis currently uses the approximate voxel solver. The selected structural solver is used for single-player checks.</p>}

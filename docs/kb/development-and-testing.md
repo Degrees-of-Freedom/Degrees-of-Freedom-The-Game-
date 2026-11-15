@@ -134,3 +134,9 @@ Run on Windows 11 with Rust 1.100.0 and Node 24.16.0, on the branch that adds `c
 | `npm run bench:solver` | Timings recorded on the [Rust solver page](rust-solver.md#timings). |
 
 Measured errors, the outcome counts of the random states and the limits of this evidence are on the [Rust solver page](rust-solver.md). The evidence shows that the solver's tests pass. It does not show owner acceptance of any criteria milestone, and it includes no comparison with an independent nonlinear program.
+
+## Integrated OpenSees nonlinear control
+
+On the criteria integration branch, selecting OpenSees exposes **Run nonlinear check** in the editor structural analysis panel. It sends the editor model through the corotational service contract, with catalogue section laws and explicit point loads; self-weight and challenge load combinations are excluded. The selected Rust solver continues to use its detailed analysis path. Shared table scoring uses its separate verified linear frame analysis. Springs are not represented by this editor service translation and return an unavailable message.
+
+Focused verification on the integration worktree: 19 nonlinear and component service tests passed, and 24 web tests passed with a local OpenSees service, including a corotational editor request and support-reaction check. The panel was rendered in a component test; an interactive browser walkthrough remains outstanding.

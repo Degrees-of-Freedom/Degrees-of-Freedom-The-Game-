@@ -48,7 +48,7 @@ export function useStabilityCheck(
   useEffect(() => () => inFlight.current?.abort(), []);
 
   const run = useCallback(
-    async (target: GameModel, level: Level) => {
+    async (target: GameModel, level: Level, nonlinear = false) => {
       inFlight.current?.abort();
       const controller = new AbortController();
       inFlight.current = controller;
@@ -56,12 +56,13 @@ export function useStabilityCheck(
 
       let check: StabilityCheck;
       try {
-        if (isDetailedSolver(solver)) {
+        if (nonlinear && solver.id !== 'opensees') throw new Error('The nonlinear service check requires OpenSees.');
+        if (isDetailedSolver(solver) && !nonlinear) {
           const { model: analysis, options, notes } = toAnalysisModel(target, level);
           const result = await solver.analyzeDetailed(analysis, options, controller.signal);
           check = { phase: 'detailed', result, notes };
         } else {
-          const { model: structural, notes } = toStructuralModel(target);
+          const { model: structural, notes } = toStructuralModel(target, nonlinear);
           check = { phase: 'done', result: await solver.analyze(structural, controller.signal), notes };
         }
       } catch (error) {
@@ -83,5 +84,6 @@ export function useStabilityCheck(
     run,
     /** Display name of the solver that produces the check. */
     solverName: solver.name,
+    supportsNonlinearService: solver.id === 'opensees',
   };
 }
