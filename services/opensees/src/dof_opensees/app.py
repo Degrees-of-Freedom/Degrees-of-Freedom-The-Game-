@@ -6,9 +6,10 @@ Endpoints:
 * ``GET /capabilities`` - what the solver models and its request limits.
 * ``POST /analyze`` - body is a ``StructuralModel``; the response body is
   always an ``AnalysisResult`` from ``@dof/solver-contract``. Analysis
-  outcomes (``success``, ``unstable``, semantic ``error``) return HTTP 200. A
-  body that does not match the schema returns HTTP 422 with an ``error``
-  result, so clients can treat every response body the same way.
+  outcomes (``success``, ``unstable``, ``unresolved``, and semantic
+  ``unsupported`` or ``error``) return HTTP 200. A body that does not match
+  the schema returns HTTP 422 with an ``error`` result, so clients can treat
+  every response body the same way.
 
 Configuration is by environment variable:
 
@@ -16,25 +17,41 @@ Configuration is by environment variable:
   call the service. When unset, any port on localhost is allowed, because the
   Vite dev server picks another port when its usual one is taken.
 * ``DOF_OPENSEES_MAX_NODES`` / ``DOF_OPENSEES_MAX_MEMBERS`` - request limits.
+* ``DOF_OPENSEES_MAX_NONLINEAR_ATTEMPTS`` - request-wide Newton attempt budget.
 """
 
 from __future__ import annotations
 
 import os
-from dataclasses import asdict
 
-import openseespy.opensees as ops
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from . import __version__, engine
-from .properties import STEEL_MEMBER
-from .schema import StructuralModel
+from .model import DEFAULT_PROPERTIES
+from .schema import MAX_SEGMENTS_PER_FRAME, StructuralModel
 
 #: Development default: a page served from this machine, on any port.
 LOCAL_ORIGIN_PATTERN = r"http://(localhost|127\.0\.0\.1)(:\d+)?"
+
+#: Connection patterns (UX UY UZ RX RY RZ in member local axes; L locked,
+#: F free, E elastic) and how each is represented. Mirrors DESIGN.md,
+#: "Connection capability".
+CONNECTION_PATTERNS = [
+    {"pattern": "LLLLLL", "members": "any", "representation": "Member end shares the node."},
+    {"pattern": "LLLFFF", "members": "any", "representation": "Ball joint: translations tied exactly."},
+    {"pattern": "LLLL[LF][LF]", "members": "any",
+     "representation": "Hinge with torsion locked: beam end moment releases."},
+    {"pattern": "LLL[EF][EF][EF], at least one E", "members": "any",
+     "representation": "Translations tied exactly, rotational springs on member axes."},
+    {"pattern": "[EF]x6, at least one E", "members": "any",
+     "representation": "Springs on member axes only."},
+    {"pattern": "FFFFFF", "members": "any", "representation": "Unattached: the end transfers nothing."},
+    {"pattern": "any other", "members": "local axes parallel to global axes",
+     "representation": "Exact constraints on global DOFs plus springs; exact for small joint rotations."},
+]
 
 
 def _limits() -> engine.Limits:
@@ -42,6 +59,9 @@ def _limits() -> engine.Limits:
     return engine.Limits(
         max_nodes=int(os.environ.get("DOF_OPENSEES_MAX_NODES", defaults.max_nodes)),
         max_members=int(os.environ.get("DOF_OPENSEES_MAX_MEMBERS", defaults.max_members)),
+        max_nonlinear_attempts=int(
+            os.environ.get("DOF_OPENSEES_MAX_NONLINEAR_ATTEMPTS", defaults.max_nonlinear_attempts)
+        ),
     )
 
 
@@ -72,23 +92,67 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     def health() -> dict:
-        return {"status": "ok", "service": __version__, "opensees": ops.version()}
+        return {"status": "ok", "service": __version__, "opensees": engine.opensees_version()}
 
     @app.get("/capabilities")
     def capabilities() -> dict:
+        p = DEFAULT_PROPERTIES
         return {
             "id": "opensees",
-            "name": "OpenSees linear static",
-            "analysis": "linear-elastic-static",
-            "optionalAnalysis": ["corotational"],
+            "name": "OpenSees static analysis",
+            "solver": engine.solver_name(),
             "units": "SI",
-            "memberEndFixities": ["fixed", "pinned"],
-            "loads": ["nodal-force", "nodal-moment"],
-            "results": ["displacements", "reactions", "memberForces", "stability", "components"],
-            "memberProperties": asdict(STEEL_MEMBER),
-            "limits": {"maxNodes": limits.max_nodes, "maxMembers": limits.max_members, "maxModes": limits.max_modes,
-                       "maxLinearEquations": limits.max_linear_equations, "maxNonlinearEquations": 1200,
-                       "maxNonlinearAttempts": limits.max_nonlinear_attempts},
+            "fidelities": ["linear", "nonlinear"],
+            "defaultFidelity": "linear",
+            "analysisOptions": {
+                "fidelity": "linear (default) or nonlinear.",
+                "type": "corotational: the same as fidelity 'nonlinear'. Contradicting fidelity 'linear' is an error.",
+                "segmentsPerFrame": f"Integer 1 to {MAX_SEGMENTS_PER_FRAME}, nonlinear only: fixes the elements per "
+                "beam. Without it beams are subdivided adaptively by compression and end rotation.",
+                "selfWeight": "Apply weightPerLength along -Z.",
+                "timeoutMs": "Optional wall-clock safeguard; none by default. The primary bound is the request's "
+                "Newton attempt count, so results do not depend on machine load.",
+                "displacementLimit": "Flag excessive_deformation above this displacement.",
+            },
+            "memberKinds": {
+                "beam": "Elastic 3D beam-column (elasticBeamColumn); under nonlinear fidelity subdivided into "
+                f"segmentsPerFrame elements, or adaptively by its compression and rotation (1 to {MAX_SEGMENTS_PER_FRAME}).",
+                "brace": "Axial element, tension and compression.",
+                "cable": "Axial element, tension only at both fidelities.",
+            },
+            "memberLaws": {
+                "frame": "{kind, elasticModulus, shearModulus, area, iy, iz, torsionConstant}: a beam with these "
+                "properties.",
+                "cable": "{kind, elasticModulus, area, restLength}: a tension-only cable with force "
+                "EA max(0, length / restLength - 1); linearised at linear fidelity.",
+                "combination": "kind, properties and initialStrain may accompany a law only when they agree with it "
+                "(same kind, equal defined values, initialStrain 0); otherwise the request is an error.",
+            },
+            "connectionLaws": ["locked", "free", "elastic"],
+            "connectionShorthands": ["fixed", "pinned", "free"],
+            "connectionPatterns": CONNECTION_PATTERNS,
+            "initialStrain": ["brace", "cable"],
+            "loads": ["nodal-force", "nodal-moment", "self-weight"],
+            "results": ["components", "displacements", "reactions", "memberForces", "stability",
+                        "inactiveNodeIds", "nonlinear"],
+            "defaultMemberProperties": {
+                "elasticModulus": p.elastic_modulus,
+                "shearModulus": p.shear_modulus,
+                "area": p.area,
+                "inertiaY": p.inertia_y,
+                "inertiaZ": p.inertia_z,
+                "torsionConstant": p.torsion_constant,
+                "weightPerLength": p.weight_per_length,
+            },
+            "limits": {
+                "maxNodes": limits.max_nodes,
+                "maxMembers": limits.max_members,
+                "maxModes": limits.max_modes,
+                "maxLinearEquations": limits.max_linear_equations,
+                "maxNonlinearEquations": limits.max_nonlinear_equations,
+                "maxNonlinearAttempts": limits.max_nonlinear_attempts,
+                "defaultTimeoutMs": limits.default_timeout_ms,
+            },
         }
 
     # A plain ``def`` endpoint runs in FastAPI's thread pool, so a long solve

@@ -12,6 +12,12 @@ export interface SceneHover {
 import type { JointLayer } from "./jointGlyphs";
 import type { DeformationField } from "./deformationField";
 export interface SceneView {
+  /** Kept in the workspace only, so privacy handoff can unmount every private scene resource. */
+  cameraMemory?: CameraMemory;
+  still?: boolean;
+  trueScale?: boolean;
+  showInstability?: boolean;
+  diagrams?: import("./boardDiagrams").BoardDiagram[];
   jointLayer?: JointLayer;
   field?: DeformationField;
   reference?: boolean;
@@ -23,6 +29,13 @@ export interface SceneView {
   utilization: boolean;
   loads: boolean;
   loadPath: boolean;
+  /** Draw a translucent deflected ghost from `field` while members stay at their reference position. */
+  shadow?: boolean;
+  /** In-scene text labels (load, reaction, force, peak and axis values). Undefined means shown. */
+  labels?: boolean;
   onToggleLoadPath?: () => void;
   onMessage?: (message: string) => void;
+}
+export interface CameraMemory {
+  pose?: { seed: number; eye: GridPoint; target: GridPoint };
 }

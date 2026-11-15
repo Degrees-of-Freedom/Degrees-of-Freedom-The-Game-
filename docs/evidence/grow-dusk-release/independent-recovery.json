@@ -1,0 +1,21 @@
+{
+  "commit": "9df8c9c5b94c34b7879af3805f23c5a0f9bc3afe",
+  "dirtySource": false,
+  "solverFile": "dof_solver-DW3m5Jgn.wasm",
+  "solverSha256": "3c391970e1863f5752538224a5280927246344b4caa4eb104d5d43281acbce17",
+  "assetsSha256": "0346c7a63494b52e74ddca7703c1a089901f521c3b3a4c993b686716a07fe8a9",
+  "browser": "157.0.8103.51",
+  "viewport": [
+    1366,
+    900
+  ],
+  "matches": [],
+  "checks": [
+    "redacted summary, valid private export, corrupt/future/oversize/altered import and exact byte preservation",
+    "restart cancellation and quota failure preserve prior match; retry installs exactly exported replacement",
+    "rapid End input and stale tab render one accepted event",
+    "worker interrupted after durable End intent resumes once behind handoff",
+    "missing WASM on reload permits retry and exact private export without replacing a valid save",
+    "failed recovery preserves both damaged source and pending replacement, then restores identical state"
+  ]
+}

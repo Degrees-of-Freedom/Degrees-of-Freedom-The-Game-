@@ -6,11 +6,15 @@ import { useGameStore } from "../game/store";
 import { useSettings } from "../menu/settings";
 import { SettingToggles } from "../pages/InfoPages";
 import { SolverSetting } from "./SolverSetting";
+import { MatchFiles } from "./MatchFiles";
 import { MODE_CATALOG } from "./runtimeCatalog";
 import "../pages/menu.css";
 import "./PauseMenu.css";
 
-type View = "main" | "settings" | "confirm";
+type View = "main" | "settings" | "confirm" | "files";
+
+/** Attribute an open pop-over sets so Esc closes it rather than opening the pause menu. */
+export const ESCAPE_OWNER = "data-owns-escape";
 
 /** Elements the focus trap may land on. */
 const FOCUSABLE = "button:not([disabled]), input:not([disabled]), a[href]";
@@ -20,6 +24,8 @@ const FOCUSABLE = "button:not([disabled]), input:not([disabled]), a[href]";
  *
  * - Opens with the Menu button or `P`; `Esc` opens it only when nothing else in
  *   the workspace is using Esc (see `escapeBusy` and the store checks below).
+ *   An open overlay that closes on Esc marks itself with `data-owns-escape`
+ *   (see {@link ESCAPE_OWNER}); its own handler then gets the key.
  * - While open the app root is `inert` (no pointer, focus or scene input) and a
  *   capture-phase key listener swallows every key for the rest of the app, so
  *   scene shortcuts such as `R` or `1` cannot fire behind it.
@@ -55,10 +61,11 @@ export function PauseMenu({
   const title = MODE_CATALOG.find((item) => item.id === mode)?.title ?? "";
   const subtitle =
     mode === "challenge" ? `${title} · ${LEVELS[levelId].name}` : title;
-  const canRestart = mode !== "multiplayer" || !!turn?.finished;
+  const release = turn?.catalogue === "grow-dusk-release-1" && mode === "multiplayer";
+  const canRestart = release || mode !== "multiplayer" || !!turn?.finished;
   const restartText =
     mode === "multiplayer"
-      ? "Deal a new match. The finished match is replaced."
+      ? "Replace the current match and deal new hands?"
       : mode === "forensics"
         ? "Restore the prepared structure. Your repairs are replaced. You can undo this."
         : "Clear every member you placed. Supports and loads set by the level stay. You can undo this.";
@@ -72,7 +79,7 @@ export function PauseMenu({
     const game = useGameStore.getState();
     if (game.mode === "multiplayer") {
       const error = game.newMatch();
-      onMessage(error ?? "New match dealt");
+      onMessage(error ?? (release ? "" : "New match dealt"));
     } else {
       game.reset();
       onMessage(game.mode === "forensics" ? "Repair exercise restarted" : "Structure cleared");
@@ -89,6 +96,7 @@ export function PauseMenu({
         if (event.ctrlKey || event.metaKey || event.altKey) return;
         // Let Escape dismiss the focused companion conversation first.
         if (key === "Escape" && target?.closest?.(".companion")?.querySelector('[aria-expanded="true"]')) return;
+        if (key === "Escape" && document.querySelector(`[${ESCAPE_OWNER}]`)) return;
         if (target?.closest?.("input, textarea, select, [contenteditable]"))
           return;
         const state = useGameStore.getState();
@@ -113,7 +121,7 @@ export function PauseMenu({
       } else if (key === "Tab" || key === "ArrowDown" || key === "ArrowUp") {
         const items = [
           ...(panel.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []),
-        ];
+        ].filter(item => item.getClientRects().length > 0);
         if (!items.length) return;
         const at = items.indexOf(document.activeElement as HTMLElement);
         const step = key === "ArrowUp" || (key === "Tab" && event.shiftKey) ? -1 : 1;
@@ -181,7 +189,7 @@ export function PauseMenu({
               )}
               <button
                 className="btn mbtn"
-                onClick={() => navigate("/how", { state: { from: "/play" } })}
+                onClick={() => navigate("/how", { state: { from: release ? "/match" : "/play" } })}
               >
                 How to play
               </button>
@@ -189,7 +197,11 @@ export function PauseMenu({
                 Settings
               </button>
               <div className="msep" />
-              <button className="btn mbtn danger" onClick={() => navigate("/modes")}>
+              {release && <>
+                <button className="btn mbtn" onClick={() => setView("files")}>Save files</button>
+                <button className="btn mbtn" onClick={() => navigate("/modes")}>More modes</button>
+              </>}
+              <button className="btn mbtn danger" onClick={() => navigate(release ? "/" : "/modes")}>
                 Quit to menu
               </button>
               <p className="mnote">Progress is saved in this browser.</p>
@@ -201,7 +213,7 @@ export function PauseMenu({
             <h2 id="dm-pause-title">Settings</h2>
             <p className="msub">Saved in this browser.</p>
             <SettingToggles />
-            <SolverSetting />
+            {!release && <SolverSetting />}
             <div className="mrow">
               <button className="btn mbtn" data-first onClick={() => setView("main")}>
                 Back
@@ -209,6 +221,11 @@ export function PauseMenu({
             </div>
           </section>
         )}
+        {view === "files" && <section>
+          <h2 id="dm-pause-title">Save files</h2>
+          <MatchFiles onImported={close} />
+          <button className="btn mbtn" data-first onClick={() => setView("main")}>Back</button>
+        </section>}
         {view === "confirm" && (
           <section>
             <h2 id="dm-pause-title">Restart?</h2>

@@ -1,6 +1,11 @@
 import { create } from "zustand";
+import type { ConnectionProfile } from "./jointFreedom";
+import type { SolverAdapter } from "@dof/solver-contract";
 import { analyzeCompletedTurn, assessTurn } from "./turnAnalysis";
 import { SCORED_CATALOGUE, isScoredCatalogue, type CatalogueId } from "./cardCatalogue";
+import { assessTurnWithSolver } from "./turnSolve";
+import { getSettings } from "../menu/settings";
+import { solverForSettings } from "../solver";
 import { exampleModel } from "./examples";
 import {
   nodeKey,
@@ -51,6 +56,8 @@ export type Selection =
   | { type: "node"; key: string }
   | null;
 interface GameState {
+  importPrivateMatch?: (bytes: string) => Promise<string | null>;
+  pendingPrivateBytes?: () => string | null;
   levelId: LevelId;
   model: GameModel;
   persistenceError: string | null;
@@ -67,6 +74,8 @@ interface GameState {
   style: PresentationStyle;
   turn: TurnState | null;
   selectedCardId: string | null;
+  selectedConnectionProfile?: ConnectionProfile;
+  setConnectionProfile: (profile?: ConnectionProfile) => void;
   loadBrush: { magnitude: number; direction: LoadDirection };
   setLoadBrush: (magnitude: number, direction: LoadDirection) => void;
   selectCard: (id: string | null) => void;
@@ -77,9 +86,23 @@ interface GameState {
     memberId: number,
     end: "a" | "b",
     jointId?: string,
+    profile?: ConnectionProfile,
   ) => string | null;
   cancelDraft: () => string | null;
-  endTurn: () => string | null;
+  /**
+   * Commit the staged turn. The verified in-browser analysis decides issues,
+   * penalties, repair and score; the structural solver chosen in Settings
+   * runs alongside as a recorded cross-check. Resolves to an issue message,
+   * or null once the turn is committed.
+   */
+  endTurn: () => Promise<string | null>;
+  /** True while an ended turn's cross-check runs; staging is frozen meanwhile. */
+  turnAnalysing: boolean;
+  /**
+   * Solver for the end-of-turn cross-check. Null means the one chosen in the
+   * settings; tests set an explicit one.
+   */
+  turnSolver: SolverAdapter | null;
   setMode: (mode: GameMode, catalogue?: CatalogueId) => void;
   newMatch: (catalogue?: CatalogueId) => string | null;
   setStyle: (style: PresentationStyle) => void;
@@ -195,6 +218,8 @@ export const useGameStore = create<GameState>((set, get) => {
   ): string | null => {
     const blocked = saveBlocked();
     if (blocked) return blocked;
+    // The turn criteria freeze edits while a completed turn is analysed.
+    if (get().turnAnalysing) return "The turn is being analysed. Wait for the result.";
     if (!result.ok) return result.reason;
     const s = get(),
       turn = result.state;
@@ -229,6 +254,7 @@ export const useGameStore = create<GameState>((set, get) => {
   let sessionError: string | null = null;
   try {
     writer = openSessionWriter(localStorage, sessionLocks(), (status, lastSaved, target) => {
+      if (get()?.importPrivateMatch) return; // Secondary workspace writes never own the release match.
       if (status === "conflict") {
         // Never reveal the other tab's state. A reload reconstructs the newer
         // revision and goes through the regular private handoff.
@@ -335,6 +361,7 @@ export const useGameStore = create<GameState>((set, get) => {
     style: session.style,
     turn: session.turn,
     selectedCardId: null,
+    setConnectionProfile: (selectedConnectionProfile) => set({ selectedConnectionProfile }),
     loadBrush: { magnitude: 50, direction: "-Z" },
     setLoadBrush: (magnitude, direction) => {
       if (
@@ -347,6 +374,7 @@ export const useGameStore = create<GameState>((set, get) => {
     },
     selectCard: (id) =>
       set((s) => ({
+        selectedConnectionProfile: undefined,
         selectedCardId:
           id && s.turn && activeTurnHand(s.turn).some((c) => c.id === id)
             ? id
@@ -365,11 +393,11 @@ export const useGameStore = create<GameState>((set, get) => {
         ? turnTransition(stageLoad(s.turn, cardId, jointId))
         : "No multiplayer game is active";
     },
-    playConnection: (cardId, memberId, end, jointId) => {
+    playConnection: (cardId, memberId, end, jointId, profile) => {
       const s = get();
       return s.mode === "multiplayer" && s.turn
         ? turnTransition(
-            stageConnection(s.turn, cardId, memberId, end, jointId),
+            stageConnection(s.turn, cardId, memberId, end, jointId, profile ?? s.selectedConnectionProfile),
           )
         : "No multiplayer game is active";
     },
@@ -379,19 +407,48 @@ export const useGameStore = create<GameState>((set, get) => {
         ? turnTransition(cancelTurnDraft(s.turn))
         : "No multiplayer game is active";
     },
-    endTurn: () => {
+    turnAnalysing: false,
+    turnSolver: null,
+    endTurn: async () => {
       const s = get();
       const blocked = saveBlocked();
       if (blocked) return blocked;
       if (s.mode !== "multiplayer" || !s.turn) return "No multiplayer game is active";
       if (s.turn.finished) return "This turn has already ended.";
+      if (s.turnAnalysing) return "The turn is already being analysed.";
+      // Analyse exactly the turn that was ended. Staging is frozen while the
+      // solver runs, and the commit is refused if the table changed anyway
+      // (a new match, a mode switch), so a slow answer is never applied to a
+      // different turn.
+      const ended = s.turn;
+      let prepared: { status: ReturnType<typeof assessTurn>; analysis: ReturnType<typeof analyzeCompletedTurn>["analysis"] | undefined; spring: boolean };
       try {
-        if ([...s.turn.board.members, ...s.turn.draft.members].some(m => m.type === 'spring')) return turnTransition(endTurn(s.turn, s.turn.turn, assessTurn(s.turn)));
-        const { status, analysis } = analyzeCompletedTurn(s.turn);
-        return turnTransition(endTurn(s.turn, s.turn.turn, status, analysis));
+        // Axial springs are outside the applied-load evidence formulation.
+        prepared = [...ended.board.members, ...ended.draft.members].some((m) => m.type === "spring")
+          ? { status: assessTurn(ended), analysis: undefined, spring: true }
+          : { ...analyzeCompletedTurn(ended), spring: false };
       } catch {
         return "Could not prepare the turn analysis. The draft is still open.";
       }
+      // Cross-check with the selected structural solver. It does not change
+      // the scored verdict; its account is recorded, and a disagreement is
+      // stated, so the two can be compared turn by turn.
+      let reason: string | undefined;
+      if (!prepared.spring) {
+        set({ turnAnalysing: true });
+        try {
+          const solver = s.turnSolver ?? solverForSettings(getSettings());
+          const check = await assessTurnWithSolver(ended, solver, prepared.status);
+          if (check.solver !== "voxel")
+            reason = check.status === prepared.status
+              ? `Structural check agrees. ${check.reason}`
+              : `Structural check disagrees with the scored analysis (${prepared.status}). ${check.reason}`;
+        } finally {
+          set({ turnAnalysing: false });
+        }
+        if (get().turn !== ended) return "The table changed during analysis, so the turn was not committed.";
+      }
+      return turnTransition(endTurn(ended, ended.turn, prepared.status, prepared.analysis, reason));
     },
     newMatch: (catalogue) => {
       const s = get();

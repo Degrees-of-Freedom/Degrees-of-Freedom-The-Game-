@@ -3,6 +3,36 @@ import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 export type FigureName = "timburr" | "conkeldurr";
+export type FigurePose = "nod" | "foreman" | "victory";
+
+/** The attributed models have no skeleton or clips. Author a small, continuous
+ * upper-body flex in model coordinates, including eyes and the carried prop,
+ * so their original alignment survives the slight nod. Feet stay planted. */
+function poseTargets(model: THREE.Group, bounds: THREE.Box3) {
+  model.updateWorldMatrix(true, true);
+  const height = bounds.max.y - bounds.min.y;
+  const pivot = bounds.getCenter(new THREE.Vector3());
+  pivot.y = bounds.min.y + .42 * height;
+  const axis = new THREE.Vector3(1, 0, 0), p = new THREE.Vector3(), base = new THREE.Vector3();
+  const meshes: THREE.Mesh[] = [];
+  model.traverse(mesh => {
+    if (!(mesh instanceof THREE.Mesh)) return;
+    const geometry = mesh.geometry, positions = geometry.getAttribute("position");
+    const offset = new Float32Array(positions.count * 3);
+    const inverse = mesh.matrixWorld.clone().invert();
+    for (let i = 0; i < positions.count; i++) {
+      base.fromBufferAttribute(positions, i);
+      p.copy(base).applyMatrix4(mesh.matrixWorld);
+      const weight = THREE.MathUtils.smoothstep((p.y - bounds.min.y) / height, .35, .85);
+      p.sub(pivot).applyAxisAngle(axis, weight * .13).add(pivot).applyMatrix4(inverse).sub(base).toArray(offset, i * 3);
+    }
+    geometry.morphTargetsRelative = true;
+    geometry.morphAttributes.position = [new THREE.BufferAttribute(offset, 3)];
+    mesh.updateMorphTargets();
+    meshes.push(mesh);
+  });
+  return meshes;
+}
 
 function release(root: THREE.Object3D) {
   const materials = new Set<THREE.Material>();
@@ -46,7 +76,32 @@ export function createFigure(pixels = 128) {
   let revision = 0;
   let loading = 0;
   let disposed = false;
+  let posable: THREE.Mesh[] = [];
+  let frame = 0;
   const draw = () => { if (!disposed) renderer.render(scene, camera); };
+  function settle() {
+    cancelAnimationFrame(frame);
+    if (displayed) displayed.rotation.set(0, 0, 0);
+    posable.forEach(mesh => { mesh.morphTargetInfluences![0] = 0; });
+    draw();
+  }
+  function pose(kind: FigurePose, still: boolean) {
+    settle();
+    if (!displayed || still || document.hidden) return;
+    const start = performance.now();
+    const duration = kind === "foreman" ? 800 : kind === "victory" ? 1500 : 250;
+    function tick(time: number) {
+      if (disposed || document.hidden || !displayed) return;
+      const t = Math.min(1, (time - start) / duration);
+      const bend = Math.sin(Math.PI * t);
+      posable.forEach(mesh => { mesh.morphTargetInfluences![0] = bend; });
+      displayed.rotation.y = (kind === "foreman" ? -.28 : .15) * bend;
+      displayed.rotation.z = (kind === "victory" ? .12 : .018) * bend;
+      draw();
+      if (t < 1) frame = requestAnimationFrame(tick);
+    }
+    frame = requestAnimationFrame(tick);
+  }
   async function show(name: FigureName) {
     const load = ++revision;
     loading++;
@@ -62,6 +117,7 @@ export function createFigure(pixels = 128) {
     if (disposed || load !== revision) { release(model); return; }
     model.rotation.y -= 0.18;
     const bounds = new THREE.Box3().setFromObject(model, true);
+    posable = poseTargets(model, bounds);
     const size = bounds.getSize(new THREE.Vector3());
     const scale = 1.85 / Math.max(size.x, size.y, size.z);
     const center = bounds.getCenter(new THREE.Vector3());
@@ -74,7 +130,8 @@ export function createFigure(pixels = 128) {
     scene.add(group);
     draw();
   }
-  return { canvas: renderer.domElement, draw, show, dispose() {
+  return { canvas: renderer.domElement, draw, show, pose, settle, dispose() {
+    cancelAnimationFrame(frame);
     disposed = true;
     if (displayed) release(displayed);
     if (!loading) decoder.dispose();

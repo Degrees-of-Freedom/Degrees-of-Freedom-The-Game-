@@ -22,6 +22,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub const SOLVER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// A mode whose largest model-node motion is below this fraction of its
+/// largest motion overall (connection variables included) moves no node.
+const NODE_PARTICIPATION: f64 = 1e-9;
+
 fn strings(items: impl IntoIterator<Item = impl Into<String>>) -> Json {
     Json::Arr(items.into_iter().map(|s| Json::Str(s.into())).collect())
 }
@@ -231,7 +235,7 @@ fn deflection_json(sys: &System, solution: &solve::Solution, range: &std::ops::R
     object([("stations", Json::Arr(stations)), ("maxFromChord", max_from_chord.into()), ("atMax", at_max.into()), ("length", length.into())])
 }
 
-fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> Pass {
+fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>, remaining: &mut u32) -> Pass {
     let model = index.model;
     let mut pass = Pass {
         components: Vec::new(),
@@ -259,7 +263,16 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
     for (number, (nodes, members)) in components(index).into_iter().enumerate() {
         let id = format!("c{}", number + 1);
         let sys = System::build(index, &nodes, &members, options);
-        let outcome: Outcome = solve::analyze(&sys, options);
+        // Each component gets what is left of the request's budget, up to its
+        // own limit, in component order: the same work in the same order
+        // every time, on any machine.
+        let mut budgeted = options.clone();
+        budgeted.max_total_iterations = options.max_total_iterations.min(*remaining);
+        let outcome: Outcome = solve::analyze(&sys, &budgeted);
+        *remaining = remaining.saturating_sub(outcome.iterations);
+        if budgeted.max_total_iterations < options.max_total_iterations && outcome.reasons.contains(&"iterationLimit") {
+            pass.reasons.insert("requestIterationLimit");
+        }
         pass.iterations += outcome.iterations;
         let solution = outcome.solution.as_ref();
         let lam = options.load_factor;
@@ -321,6 +334,7 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
                 }
                 (Some(s), Span::Segs(range)) => {
                     let mut stations: Vec<[f64; 6]> = Vec::new();
+                    let mut field = Vec::new();
                     for seg_index in range.clone() {
                         let seg = &sys.segs[seg_index];
                         let frame = sys.seg_frame(seg_index, s.state.as_ref());
@@ -330,6 +344,17 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
                             let force = tmat_vec(&frame, &[net[0], net[1], net[2]]);
                             let moment = tmat_vec(&frame, &[net[3], net[4], net[5]]);
                             stations.push([force[0], force[1], force[2], moment[0], moment[1], moment[2]].map(|v| sign * v));
+                            if options.member_fields {
+                                let fraction = (seg_index - range.start + end) as f64 / range.len() as f64;
+                                let global = [net[0]*sign, net[1]*sign, net[2]*sign];
+                                let mut sample = vec![("fraction".into(), fraction.into()), ("forces".into(), (*stations.last().unwrap()).into()),
+                                                      ("globalForce".into(), global.into())];
+                                if let Some(state) = &s.state {
+                                    let (seg_state, q) = sys.seg_state(seg_index, state);
+                                    sample.push(("motion".into(), crate::element::end_motion(&seg.geom, &seg_state, &q, end).into()));
+                                }
+                                field.push(Json::Obj(sample));
+                            }
                         }
                     }
                     let (start, end) = (stations[0], stations[stations.len() - 1]);
@@ -365,6 +390,7 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
                         ("connections", object([("start", connections.remove(0)), ("end", connections.remove(0))])),
                         ("deflection", deflection_json(&sys, s, range, member_length(index, member))),
                     ]);
+                    if options.member_fields { fields.push(("stations", Json::Arr(field))); }
                 }
             }
             pass.members.insert(member.id.clone(), Json::Obj(fields.into_iter().map(|(k, v)| (k.to_string(), v)).collect()));
@@ -386,9 +412,18 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
             let peak = |range: std::ops::Range<usize>| shape.iter().map(|(_, v)| v[range.clone()].iter().map(|x| x * x).sum::<f64>().sqrt()).fold(0.0, f64::max);
             // A spin has no translation worth scaling by, only rounding noise.
             let scale = if mode.kind != "spin" && peak(0..3) > 0.0 { peak(0..3) } else { peak(3..6) };
+            // The whole mode, connection variables included, with rotations
+            // weighted by the characteristic length so that both are lengths.
+            let whole = mode.shape.iter().zip(&sys.eq_rot).map(|(v, rot)| v.abs() * if *rot { sys.lc } else { 1.0 }).fold(0.0, f64::max);
+            let node_scale = if mode.kind == "spin" { scale * sys.lc } else { scale };
+            // A motion that lives only in connection variables, such as a
+            // member spinning about its own axis on ball joints, moves no
+            // model node. Scaling its rounding noise up to one would draw a
+            // movement that does not exist, so it is reported with no nodes.
+            let moves_nodes = node_scale > NODE_PARTICIPATION * whole;
             let mut displacements = Vec::new();
             for (node_id, values) in shape {
-                if scale > 0.0 && values.iter().any(|v| v.abs() > 1e-6 * scale) {
+                if moves_nodes && values.iter().any(|v| v.abs() > 1e-6 * scale) {
                     if mode.kind != "spin" {
                         unstable_nodes.insert(node_id);
                     }
@@ -449,6 +484,7 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
                 object([
                     ("converged", outcome.converged.into()),
                     ("iterations", (outcome.iterations as usize).into()),
+                    ("loadSteps", (outcome.load_steps as usize).into()),
                     ("loadFractionReached", outcome.load_fraction_reached.into()),
                     ("residual", outcome.residual.into()),
                     ("forceImbalance", outcome.force_imbalance.into()),
@@ -456,6 +492,9 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
                 ]),
             ),
             ("criticalLoadFactor", outcome.critical_load_factor.into()),
+            ("unstableTangent", outcome.unstable_tangent.map(|(negative, null)| object([
+                ("negativePivots", negative.into()), ("mechanisms", null.into())
+            ])).unwrap_or(Json::Null)),
             ("minPivot", outcome.min_pivot.into()),
             ("maxDisplacement", outcome.max_displacement.into()),
             ("appliedForce", applied.into()),
@@ -533,8 +572,9 @@ pub fn analyze(input: &Model, options: &Options) -> Json {
     let mut events: Vec<Json> = Vec::new();
     let mut iterations = 0;
     let mut event_limit_hit = false;
+    let mut remaining = options.max_request_iterations;
     let pass = loop {
-        let pass = analyse_once(&Index::new(&model), options, &failed);
+        let pass = analyse_once(&Index::new(&model), options, &failed, &mut remaining);
         iterations += pass.iterations;
         let Some(overload) = pass.overload.clone().filter(|_| options.failure == FailureMode::Remove) else { break pass };
         if events.len() >= options.max_failure_events as usize {

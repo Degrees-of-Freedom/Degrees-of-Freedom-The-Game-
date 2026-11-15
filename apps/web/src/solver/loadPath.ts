@@ -1,4 +1,5 @@
 import type { VoxelAnalysis } from './voxel';
+import { RELEASE_SOLVER } from './voxelVerification';
 
 /** A visual interpretation of member forces, not a separate structural analysis. */
 export interface LoadPathMember {
@@ -10,6 +11,7 @@ export interface LoadPathMember {
   axial: number;
   mode: 'tension' | 'compression' | 'bending' | 'none';
   direction: -1 | 0 | 1;
+  verticalTransferKN?: number;
 }
 export interface LoadPath {
   members: Map<number, LoadPathMember>;
@@ -28,8 +30,6 @@ export function computeLoadPath(
     ctx = result.ctx;
   if (
     result.error ||
-    result.mechanism ||
-    result.unresolved ||
     !ctx ||
     !c ||
     c.fail ||
@@ -38,6 +38,8 @@ export function computeLoadPath(
   )
     return null;
   const members = new Map<number, LoadPathMember>();
+  const release = c.components?.some(scope => scope.verification?.formulation === RELEASE_SOLVER);
+  if (!release && (result.mechanism || result.unresolved)) return null;
   let maxForce = 1e-9;
   for (const e of ctx.els) {
     const r = c.ef.get(e);
@@ -60,21 +62,25 @@ export function computeLoadPath(
       a: e.m.a,
       b: e.m.b,
       length: e.L,
-      force,
+      force: release ? Math.abs(r.verticalTransferKN ?? 0) : force,
       axial,
       mode,
       direction: 0,
+      ...(release && {verticalTransferKN: r.verticalTransferKN}),
     });
-    maxForce = Math.max(maxForce, force);
+    maxForce = Math.max(maxForce, members.get(e.m.id)!.force);
   }
   const adj = new Map<string, { to: string; weight: number; id: number }[]>();
   for (const x of members.values()) {
-    if (x.force < 0.01 * maxForce) continue;
+    if (x.force < (release ? 1e-8*Math.max(1,maxForce) : 0.01*maxForce)) continue;
     const weight = (x.length * maxForce) / (x.force + 0.02 * maxForce);
     for (const [p, q] of [
       [x.a, x.b],
       [x.b, x.a],
     ]) {
+      // Search upstream from a receiving support, using only edges whose
+      // measured vertical transfer reaches the current node.
+      if (release && (x.verticalTransferKN! > 0 ? p !== x.b : p !== x.a)) continue;
       const edges = adj.get(p) ?? [];
       edges.push({ to: q, weight, id: x.memberId });
       adj.set(p, edges);
@@ -83,8 +89,8 @@ export function computeLoadPath(
   const distances = new Map<string, number>(),
     parents = new Map<string, { next: string; id: number }>(),
     done = new Set<string>();
-  ctx.act.forEach((n) => {
-    if (ctx.isF[n]) distances.set(ctx.keys[n], 0);
+  ctx.act.forEach((n, a) => {
+    if (ctx.isF[n] && (!release || (c.reac?.[a]?.[2] ?? 0) > 0)) distances.set(ctx.keys[n], 0);
   });
   for (;;) {
     let best: string | null = null,
@@ -107,7 +113,13 @@ export function computeLoadPath(
   for (const x of members.values()) {
     const da = distances.get(x.a),
       db = distances.get(x.b);
-    x.direction =
+    if (release) {
+      // Positive-face Fz is the force on the lower-station side. Under a
+      // simultaneous downward gravity case it measures signed load transfer
+      // along increasing station, independently of section axial sign.
+      const transfer = x.verticalTransferKN ?? 0;
+      x.direction = x.mode === 'none' || Math.abs(transfer) <= 1e-8*Math.max(1,maxForce) ? 0 : transfer > 0 ? 1 : -1;
+    } else x.direction =
       da === undefined || db === undefined || Math.abs(da - db) < 1e-9
         ? 0
         : da > db
@@ -116,10 +128,11 @@ export function computeLoadPath(
   }
   let totalVertical = 0;
   const shares = Object.entries(c.reac).map(([a, r]) => {
-    const verticalForce = Math.max(0, r[2]);
+    const verticalForce = release ? r[2] : Math.max(0, r[2]);
     totalVertical += verticalForce;
     return { key: ctx.keys[ctx.act[Number(a)]], verticalForce, fraction: 0 };
   });
+  if (release) totalVertical = result.appliedGravityKN ?? 0;
   shares.forEach((s) => {
     s.fraction = totalVertical > 0 ? s.verticalForce / totalVertical : 0;
   });

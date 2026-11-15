@@ -10,7 +10,7 @@ interface PublicTurnModel {
   finished: boolean;
   board: {
     joints: Pick<Board["joints"][number], "id" | "point" | "foundationOwner" | "system">[];
-    members: Pick<Board["members"][number], "id" | "a" | "b" | "type" | "assembly" | "restLengthM" | "owner" | "system">[];
+    members: Pick<Board["members"][number], "id" | "a" | "b" | "type" | "assembly" | "restLengthM" | "springStiffnessNPerM" | "owner" | "system">[];
     loads: Pick<Board["loads"][number], "jointId" | "magnitude" | "owner">[];
     connections: Pick<Board["connections"][number], "memberId" | "end" | "jointId" | "profile" | "owner" | "system">[];
   };
@@ -47,7 +47,7 @@ export function publicTurnModel(state: TurnState): PublicTurnModel {
     finished: state.finished,
     board: {
       joints: joints.map(({ id, point, foundationOwner, system }) => ({ id, ...(point && { point }), foundationOwner, ...systemIdentity(system) })),
-      members: members.map(({ id, a, b, type, assembly, restLengthM, owner, system }) => ({ id, a, b, type, owner, ...(assembly && { assembly }), ...(restLengthM !== undefined && {restLengthM}), ...systemIdentity(system) })),
+      members: members.map(({ id, a, b, type, assembly, restLengthM, springStiffnessNPerM, owner, system }) => ({ id, a, b, type, owner, ...(assembly && { assembly }), ...(restLengthM !== undefined && {restLengthM}), ...(springStiffnessNPerM !== undefined && {springStiffnessNPerM}), ...systemIdentity(system) })),
       loads: loads.map(({ jointId, magnitude, owner }) => ({ jointId, magnitude, owner })),
       connections: connections.map(({ memberId, end, jointId, profile, owner, system }) => ({
         memberId, end, jointId, profile, owner, ...systemIdentity(system),

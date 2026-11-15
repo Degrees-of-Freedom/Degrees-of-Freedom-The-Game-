@@ -43,29 +43,40 @@ function compiler(source: WasmSource): () => Promise<WebAssembly.Module> {
  * Run on the calling thread. The call blocks that thread, cannot be
  * cancelled once started, and has no wall-clock limit.
  */
-export function createInlineRunner(source: WasmSource): SolverRunner {
+export function createInlineRunner(source: WasmSource): SolverRunner & {
+  prepare(): Promise<void>; runPrepared(request: string): RunOutcome;
+} {
   const compile = compiler(source);
-  let instance: Promise<SolverExports> | undefined;
+  let preparing: Promise<void> | undefined;
+  let instance: SolverExports | undefined;
+  function prepare() {
+    preparing ??= compile().then(instantiate).then(solver => { instance = solver; })
+      .catch(error => { preparing = undefined; throw error; });
+    return preparing;
+  }
+  function runPrepared(request: string): RunOutcome {
+    if (!instance) return {kind:'unavailable', message:'The solver is not initialized.'};
+    try {
+      return { kind: 'text', text: call(instance, request) };
+    } catch {
+      // A trap leaves the instance's memory in an unknown state.
+      instance = undefined;
+      preparing = undefined;
+      return { kind: 'trap' };
+    }
+  }
   return {
+    prepare, runPrepared,
     async run(request, signal) {
       signal?.throwIfAborted();
-      let solver: SolverExports;
       try {
-        instance ??= compile().then(instantiate);
-        solver = await instance;
+        await prepare();
       } catch (error) {
-        instance = undefined;
         signal?.throwIfAborted();
         return { kind: 'unavailable', message: message(error) };
       }
       signal?.throwIfAborted();
-      try {
-        return { kind: 'text', text: call(solver, request) };
-      } catch {
-        // A trap leaves the instance's memory in an unknown state.
-        instance = undefined;
-        return { kind: 'trap' };
-      }
+      return runPrepared(request);
     },
   };
 }

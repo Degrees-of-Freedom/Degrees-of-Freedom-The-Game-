@@ -17,7 +17,7 @@ const ARROW = (
   </svg>
 );
 
-/** Title screen. Continue opens the persisted workspace without changing any state. */
+/** Play opens the local Shared table match, including its private resume cover. */
 export function Home() {
   const nav = useRef<HTMLElement>(null);
   const onKeyDown = (event: KeyboardEvent) => {
@@ -48,7 +48,7 @@ export function Home() {
               strokeLinejoin="round"
             />
           </svg>
-          The structural game
+          Shared table · 2 players
         </div>
         <h1 className="title">
           Degrees of
@@ -57,9 +57,11 @@ export function Home() {
         </h1>
         <p className="tagline">Build it. Load it. See what moves.</p>
         <nav className="menu" aria-label="Main menu" ref={nav}>
-          <Link className="btn primary" to="/modes" data-menu-focus>
+          <Link className="btn primary" to={"/match" + window.location.search} data-menu-focus>
             Play {ARROW}
           </Link>
+<Link className="btn" to="/ai-lab">AI turn lab</Link>
+          <Link className="btn" to="/wiki">Companion wiki</Link>
           <Link className="btn" to="/how">
             How to play
           </Link>
@@ -71,7 +73,7 @@ export function Home() {
           </Link>
         </nav>
         <p className="continue">
-          <Link to="/play">Continue where you left off</Link>
+          <Link to="/modes">More modes</Link>
         </p>
       </div>
       <div className="keys">
@@ -81,3 +83,5 @@ export function Home() {
     </MenuShell>
   );
 }
+
+

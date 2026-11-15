@@ -66,11 +66,16 @@ pub struct Solution {
 }
 
 pub struct Outcome {
+    /// Inertia of the full-load constrained tangent after force/moment checks.
+    /// Omitted for initial-tangent diagnoses and approximate mode splits.
+    pub unstable_tangent: Option<(usize, usize)>,
     pub status: Status,
     pub reasons: Vec<&'static str>,
     pub solution: Option<Solution>,
     pub converged: bool,
     pub iterations: u32,
+    /// Load increments accepted by the nonlinear solution (0 for linear).
+    pub load_steps: u32,
     /// Fraction of the requested load at which equilibrium was last found.
     pub load_fraction_reached: f64,
     pub critical_load_factor: Option<f64>,
@@ -316,6 +321,8 @@ struct Newton<'a> {
     /// A factorised tangent from an earlier, nearby state, to start from.
     carry: Option<Factor>,
     iterations: u32,
+    /// Load increments accepted on the way to the target load.
+    steps: u32,
     budget: u32,
 }
 
@@ -461,7 +468,10 @@ impl Newton<'_> {
     fn path(&mut self, target: f64) -> Result<(State, Converged), (f64, Failure)> {
         let mut state = self.sys.reference();
         match self.solve(&mut state, target, true) {
-            Ok(result) => return Ok((state, result)),
+            Ok(result) => {
+                self.steps += 1;
+                return Ok((state, result));
+            }
             Err(Failure::Budget) => return Err((0.0, Failure::Budget)),
             Err(_) => {}
         }
@@ -482,6 +492,7 @@ impl Newton<'_> {
                 Ok(result) => {
                     state = trial;
                     fraction = next;
+                    self.steps += 1;
                     if fraction >= 1.0 {
                         return Ok((state, result));
                     }
@@ -510,11 +521,16 @@ fn tangent_stable(sys: &System, converged: &Converged, load: &[f64]) -> bool {
 /// structure in equilibrium.
 fn imbalance(sys: &System, eval: &Eval, state: Option<&State>, lam: f64) -> (f64, f64) {
     let (mut force, mut moment) = ([0.0; 3], [0.0; 3]);
+    // Moments are taken about the centroid of the nodes, not the origin, so
+    // that a structure far from the origin keeps the precision of its check.
+    let count = sys.anodes.len().max(1) as f64;
+    let centroid = sys.anodes.iter().fold([0.0; 3], |c, n| add(&c, &n.pos)).map(|v| v / count);
     for (a, node) in sys.anodes.iter().enumerate() {
         let total: [f64; 6] = std::array::from_fn(|i| if node.eq[i] == RESTRAINED { eval.g[a][i] } else { lam * sys.fext[a][i] });
+        let offset = sub(&node.pos, &centroid);
         let position = match state {
-            Some(s) => add(&node.pos, &s.u[a]),
-            None => node.pos,
+            Some(s) => add(&offset, &s.u[a]),
+            None => offset,
         };
         let arm = cross(&position, &[total[0], total[1], total[2]]);
         for i in 0..3 {
@@ -545,11 +561,13 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
     let f = sys.load_vector();
     let lam = options.load_factor;
     let mut out = Outcome {
+        unstable_tangent: None,
         status: Status::Unknown,
         reasons: Vec::new(),
         solution: None,
         converged: false,
         iterations: 0,
+        load_steps: 0,
         load_fraction_reached: 0.0,
         critical_load_factor: None,
         residual: None,
@@ -630,45 +648,73 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
         return out;
     }
 
-    let mut newton = Newton { sys, f: &f, gauge: &linear.nulls.gauge, options, stiffness: sys.stiffness(), carry: None, iterations: 0, budget: options.max_total_iterations };
+    let mut newton = Newton { sys, f: &f, gauge: &linear.nulls.gauge, options, stiffness: sys.stiffness(), carry: None, iterations: 0, steps: 0, budget: options.max_total_iterations };
     let path = newton.path(lam);
     out.iterations = newton.iterations;
+    out.load_steps = newton.steps;
     let load: Vec<f64> = f.iter().map(|v| lam * v).collect();
     match path {
         Err((fraction, failure)) => {
             out.load_fraction_reached = fraction;
+            // A first-order mechanism alone may still stabilize through
+            // finite deformation. A cut hinge supplies a stronger, purely
+            // kinematic proof if its exact rigid motions span the nullspace.
+            // Neither outcome supplies forces at a missing equilibrium.
             if first_order_unstable {
-                out.status = Status::Unstable;
+                if linear.factor.inertia.null.len() <= MAX_CLASSIFIED &&
+                    crate::hinge::spans_reference_modes(sys, &linear.nulls.translational) {
+                    out.status = Status::Unstable;
+                    out.reasons.push("finiteReferenceMechanism");
+                }
                 out.reasons.push("recoveryFailed");
-            } else {
-                out.reasons.push(match failure {
-                    Failure::Budget => "iterationLimit",
-                    Failure::NoConvergence => "noConvergence",
-                    Failure::NonFinite => "nonFinite",
-                });
             }
+            out.reasons.push(match failure {
+                Failure::Budget => "iterationLimit",
+                Failure::NoConvergence => "noConvergence",
+                Failure::NonFinite => "nonFinite",
+            });
         }
         Ok((state, converged)) => {
             out.converged = true;
             out.load_fraction_reached = 1.0;
             out.min_pivot = Some(converged.factor.inertia.min_pivot);
             let tangent = classify(sys, &converged.factor, &load);
+            if !converged.factor.inertia.negative.is_empty() || !tangent.translational.is_empty() {
+                // A witnessed mode is physical evidence only at an equilibrated
+                // state. Its count is independent of the order/sign of vectors.
+                let (force, moment) = imbalance(sys, &converged.eval, Some(&state), lam);
+                let residual = converged.residual;
+                out.force_imbalance = Some(force);
+                out.moment_imbalance = Some(moment);
+                out.residual = Some(residual);
+                if ![force,moment,residual].iter().all(|v| v.is_finite() && *v <= options.residual_gate) {
+                    out.reasons.push("equilibriumNotVerified");
+                    return out;
+                }
+                if converged.factor.inertia.null.len() <= MAX_CLASSIFIED {
+                    out.unstable_tangent = Some((converged.factor.inertia.negative.len(), tangent.translational.len()));
+                }
+                // Report the final modes, including a change in nullity from
+                // the initial tangent. Zero-energy spins have no translational
+                // rank and never raise the severity.
+                out.modes.retain(|m| m.kind == "spin");
+                out.mechanisms = tangent.translational.len();
+                out.modes.extend(tangent.translational.iter().map(|v| Mode {kind: "mechanism", shape:v.clone()}));
+            }
             if !converged.factor.inertia.negative.is_empty() {
                 out.status = Status::Unstable;
                 out.reasons.push("loadInducedInstability");
                 let dof = converged.factor.inertia.negative[0];
                 out.modes.push(Mode { kind: "buckling", shape: converged.factor.pivot_vector(dof) });
                 if options.critical_load_search {
-                    out.critical_load_factor = critical_load(sys, &f, &linear.nulls.gauge, options, lam);
+                    let (factor, used) = critical_load(sys, &f, &linear.nulls.gauge, options, lam);
+                    out.critical_load_factor = factor;
+                    out.iterations += used;
                 }
             } else if !tangent.translational.is_empty() {
                 out.status = Status::Unstable;
                 if !first_order_unstable {
                     out.reasons.push("mechanism");
-                    out.mechanisms = tangent.translational.len();
-                    for v in tangent.translational {
-                        out.modes.push(Mode { kind: "mechanism", shape: v });
-                    }
                 }
             } else {
                 if first_order_unstable {
@@ -690,14 +736,14 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
                         let mut probe = Newton { budget: options.max_total_iterations, iterations: 0, stiffness: sys.stiffness(), carry: Some(converged.factor), ..newton };
                         let mut state = stable_state;
                         let amplified: Vec<f64> = load.iter().map(|v| v * options.stability_margin).collect();
-                        let survives = match probe.solve(&mut state, lam * options.stability_margin, false) {
-                            Ok(result) => tangent_stable(sys, &result, &amplified),
-                            Err(_) => false,
-                        };
+                        let survives = probe.solve(&mut state, lam * options.stability_margin, false)
+                            .ok().map(|result| tangent_stable(sys, &result, &amplified));
                         out.iterations += probe.iterations;
-                        if !survives {
+                        if survives == Some(false) {
                             out.status = Status::Marginal;
                             out.reasons.push("lowStabilityMargin");
+                        } else if survives.is_none() {
+                            out.reasons.push("reserveUnresolved");
                         }
                     }
                 }
@@ -735,27 +781,32 @@ fn finish(sys: &System, options: &Options, out: &mut Outcome, solution: Solution
 
 /// Load factor at which the fundamental equilibrium path first loses
 /// stability, found by bisection between zero and the applied factor.
-fn critical_load(sys: &System, f: &[f64], gauge: &[usize], options: &Options, lam: f64) -> Option<f64> {
-    let mut newton = Newton { sys, f, gauge, options, stiffness: sys.stiffness(), carry: None, iterations: 0, budget: options.max_total_iterations };
+/// Returns the factor, if found, and the Newton iterations the search used.
+fn critical_load(sys: &System, f: &[f64], gauge: &[usize], options: &Options, lam: f64) -> (Option<f64>, u32) {
+    let mut newton = Newton { sys, f, gauge, options, stiffness: sys.stiffness(), carry: None, iterations: 0, steps: 0, budget: options.max_total_iterations };
+    let factor = critical_load_with(&mut newton, sys, f, lam);
+    (factor, newton.iterations)
+}
+
+fn critical_load_with(newton: &mut Newton, sys: &System, f: &[f64], lam: f64) -> Option<f64> {
     let stable_at = |newton: &mut Newton, fraction: f64| -> Option<bool> {
         let mut state = sys.reference();
         let load: Vec<f64> = f.iter().map(|v| v * fraction * lam).collect();
         match newton.solve(&mut state, fraction * lam, true) {
             Ok(result) => Some(tangent_stable(sys, &result, &load)),
-            Err(Failure::Budget) => None,
-            Err(_) => Some(false),
+            Err(_) => None,
         }
     };
-    if stable_at(&mut newton, 0.0)? == false {
+    if stable_at(newton, 0.0)? == false {
         return None;
     }
     let (mut low, mut high) = (0.0, 1.0);
     for _ in 0..12 {
         let middle = 0.5 * (low + high);
-        match stable_at(&mut newton, middle) {
+        match stable_at(newton, middle) {
             Some(true) => low = middle,
             Some(false) => high = middle,
-            None => break,
+            None => return None,
         }
     }
     Some(0.5 * (low + high) * lam)

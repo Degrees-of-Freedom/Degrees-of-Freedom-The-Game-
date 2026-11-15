@@ -119,7 +119,7 @@ export function bindSceneInteraction(
     if (s.mode === "multiplayer") {
       let issue: string | null = null;
       if (card?.kind === "connection" && hit?.kind === "connection")
-        issue = s.playConnection(card.id, hit.memberId, hit.end, hit.key);
+        issue = s.playConnection(card.id, hit.memberId, hit.end, hit.key, s.selectedConnectionProfile);
       else if (card && hit?.kind === "point") {
         issue = hit.issue;
         const target = hit.target ?? nodeKey(...hit.p);
@@ -129,6 +129,8 @@ export function bindSceneInteraction(
             issue = s.playElement(card.id, s.chainStart, target);
           else s.setChainStart(target);
         }
+      } else if (card && !hit) {
+        issue = card.kind === "connection" ? "Choose a compatible loose end." : "Choose a highlighted target.";
       } else if (!card) {
         s.setSelected(
           hit?.kind === "member"
@@ -184,8 +186,7 @@ export function bindSceneInteraction(
       hit?.kind === "point" &&
       s.style !== "engineering" &&
       ((s.tool === "load" && s.model.attrs[nodeKey(...hit.p)]?.load) ||
-        s.tool === "joint" ||
-        s.tool === "found")
+        s.tool === "joint")
     ) {
       const key = nodeKey(...hit.p);
       if (!hit.issue || s.model.attrs[key]) {
@@ -272,11 +273,11 @@ export function bindSceneInteraction(
       else if (key === "q" || key === "e" || key === "a" || key === "d")
         getCameraActions().orbit(key === "q" || key === "a" ? -1 : 1);
       else s.setWorkK(s.workK + (key === "pageup" || key === "w" ? 1 : -1));
-    } else if (!e.ctrlKey && !e.metaKey && !e.altKey && s.style !== "engineering" && ["x", "i", "1", "2", "3", "4"].includes(key)) {
+    } else if (!e.ctrlKey && !e.metaKey && !e.altKey && s.style !== "engineering" && ["x", "i", "b", "1", "2", "3", "4"].includes(key)) {
       const tools: Partial<Record<string, Tool>> = s.style === "blocks"
         ? { "1": "shs", "2": "brace", "3": "joint", "4": "load", x: "delete", i: "inspect" }
         : { "1": "shs", "2": "joint", "3": "load", x: "delete", i: "inspect" };
-      const tool = tools[key];
+      const tool = key === "b" && s.mode !== "multiplayer" ? "found" : tools[key];
       if (tool) {
         // As in the prototype, changing tool lets go of the selected joint or load.
         if (isGrowthStyle(s.style) && s.mode !== "multiplayer") s.setSelected(null);
@@ -343,6 +344,7 @@ export function bindSceneInteraction(
     buildPlane,
     clearPreview,
     dispose() {
+      pick.dispose();
       canvas.removeEventListener("pointerdown", pointerDown, true);
       canvas.removeEventListener("pointermove", move);
       canvas.removeEventListener("pointerup", up);

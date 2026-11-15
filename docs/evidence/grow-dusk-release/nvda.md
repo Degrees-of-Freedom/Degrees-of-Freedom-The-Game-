@@ -1,0 +1,17 @@
+# NVDA and Chrome acceptance
+
+**Gate open.** On Windows 11 Pro 25H2 (build 26200.9974), NVDA 2026.3.1 AMD64 started with eSpeak NG 1.52.0 and a fresh portable profile. Chrome 157.0.8103.51 used a separate temporary profile on the same, non-active Windows desktop. Chrome opened the built Shared table game at `/match`, revealed Player 1’s hand and opened Inspect. NVDA’s speech log recorded “Desktop, window”. Its Windows accessibility event handler reported that the foreground window remained 0 when it expected Chrome’s window. The test therefore provides no evidence of spoken match controls, private-hand transitions or final results. A keyboard-only browser pass is recorded separately.
+
+The executable came from [NV Access](https://www.nvaccess.org/download/). Windows Authenticode verified its NV Access Limited signature. Extraction used `--create-portable-silent` into a fresh directory. The reader ran with `--no-sr-flag`, an isolated configuration directory and a test log. No installed reader or Windows Sandbox executable was available on the test machine.
+
+## Interactive Windows 11 check
+
+1. On a Windows 11 test session with an active input desktop, open current Chrome with a fresh profile. Start NVDA, enable Speech Viewer under **NVDA → Tools**, and confirm it speaks a normal Chrome button. Keep the speech transcript private until it has been checked for card identities.
+2. Open the built game with `/?seed=7` in that fresh profile and activate **Play**. Confirm NVDA announces the neutral handoff and the named player. Navigate by headings, buttons and reading commands. Neither player’s cards, card counts, seed, deck order or draft should be spoken before Ready.
+3. Activate **Ready · Reveal my hand**. Navigate the **Active hand** region. Select the HEB card and open **Precise placement**. Fill end A with `5,7,1` and end B with `10,7,1`. Stage the element. Check the staged feedback, remaining allowances and enabled End turn. Select each fixed connector and attach an end to its matching setup-column head.
+4. End the turn and hold Enter briefly. Check that saving is announced, the next player’s hand stays concealed and a separate deliberate Ready is required. Review the cover using NVDA’s browse cursor, not just Tab. Pause or switch applications after reveal and return to confirm the cover reappears.
+5. Pass Player 2’s turn. On turn 3 place the HEB from `10,7,1` to `15,7,1`, fix its first end and put 5 kN at its free tip. Reload before committing. Confirm the handoff conceals the restored draft, reveal it, then end the turn once.
+6. In **Inspect**, choose the built member, open **Inspect committed response**, and read the signed cut diagram’s title and station table. Check the units and local positive-face sign convention. Confirm the foundation share inspection announces the uplift sign. Tab and Shift+Tab through the drawer and dismiss it with Escape.
+7. Pass the remaining turns through turn 16. Confirm the final winner or tie, signed shares, historical deductions, adjusted totals and any partial-evidence label can be read without sight. Restart from Menu, cancel the confirmation, and verify the final result remains available.
+
+Record Windows, Chrome, NVDA, rules/solver version and build commit, the spoken result of each step, observed focus after each handoff and any privacy leak or missing announcement. VoiceOver on macOS and landscape iPad Safari require separate runs on their target devices.

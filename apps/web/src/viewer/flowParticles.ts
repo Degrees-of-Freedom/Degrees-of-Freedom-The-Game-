@@ -48,7 +48,8 @@ export function createFlowParticles(
         });
     }
   }
-  function tick(time: number) {
+  function tick(time: number, still = false) {
+    if (still) { particles.count = 0; lastFrame = 0; return; }
     const dt = lastFrame ? Math.min((time - lastFrame) / 1000, 0.1) : 0;
     lastFrame = time;
     particles.count = flowing.length;

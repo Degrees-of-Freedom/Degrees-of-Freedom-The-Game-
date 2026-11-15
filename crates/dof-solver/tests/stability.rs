@@ -458,3 +458,112 @@ fn a_fully_released_end_is_not_a_connection() {
     assert_eq!(r.component_of("a").get("status").unwrap().as_str(), Some("stable"));
     assert_eq!(r.displacement("b"), [0.0; 6]);
 }
+/// Rotate the connector basis about a skew beam without rolling its section.
+/// Under an axial load P the fixed-base reaction is -P, the end translates
+/// PL/EA and the compliant connector translates (P dot d)/k along d.
+#[test]
+fn physical_connector_axes_are_independent_of_section_roll() {
+    let l = 2.0;
+    let p = 1000.0;
+    let k = 8.0e6;
+    let d = [0.6, 0.8, 0.0];
+    for nonlinear in [false, true] {
+        let mut b = if nonlinear { Build::new() } else { Build::linear() };
+        b.node("a", [0.0; 3]).node("b", d.map(|v| l*v));
+        let m = b.beam("m", "a", "b");
+        m.start.axes = Some([[1.,0.,0.], [0.,1.,0.], [0.,0.,1.]]);
+        m.start.laws[0] = Law::Elastic(k);
+        m.orientation = Some([0.,0.,1.]);
+        b.support("a", FIXED).load("b", d.map(|v| p*v));
+        let result = b.run();
+        assert_eq!(result.status(0), "stable");
+        close(result.displacement("b")[0], d[0]*p*l/(E*A) + d[0]*p/k, 1e-6);
+        close(result.displacement("b")[1], d[1]*p*l/(E*A), 1e-6);
+        close(result.reaction("a")[0], -d[0]*p, 1e-7);
+    }
+}
+
+/// The two-to-four-player load sharing of the shared frame also holds in the
+/// nonlinear analysis: under gravity the supports carry exactly the applied
+/// load, and each share stays within 0.1 % of the total load of the linear
+/// share for these stiff, lightly loaded legs.
+#[test]
+fn shared_frame_load_sharing_holds_in_the_nonlinear_analysis() {
+    let p = 1.2e5;
+    let feet = [[4.0, 0.0, 0.0], [0.0, 4.0, 0.0], [-4.0, 0.0, 0.0], [0.0, -4.0, 0.0]];
+    for areas in [[1.0, 1.0, 1.0, 1.0], [1.0, 3.0, 1.0, 3.0], [1.0, 2.0, 3.0, 4.0], [1.0, 2.5, 0.0, 4.0]] {
+        let build = |fidelity: Fidelity| {
+            let mut b = Build::new();
+            b.options.fidelity = fidelity;
+            b.node("hub", [0.0, 0.0, 3.0]);
+            for (i, (foot, area)) in feet.iter().zip(areas).enumerate() {
+                if area == 0.0 {
+                    continue;
+                }
+                let mut section = steel(&format!("s{i}"));
+                section.a = A * area;
+                b.model.sections.push(section);
+                b.node(&format!("p{i}"), *foot);
+                b.brace(&format!("leg{i}"), "hub", &format!("p{i}")).section_id = format!("s{i}");
+                b.support(&format!("p{i}"), PINNED);
+            }
+            b.load("hub", [0.0, 0.0, -p]);
+            b.run()
+        };
+        let (linear, nonlinear) = (build(Fidelity::Linear), build(Fidelity::Nonlinear));
+        assert_eq!(nonlinear.status(0), "stable", "{:?}", nonlinear.reasons(0));
+        let mut total = 0.0;
+        for i in 0..4 {
+            if areas[i] == 0.0 {
+                continue;
+            }
+            let (a, b) = (linear.reaction(&format!("p{i}"))[2], nonlinear.reaction(&format!("p{i}"))[2]);
+            // Measured against the total load, because a share can be zero.
+            assert!((b - a).abs() <= 1e-3 * p, "support p{i}: linear {a}, nonlinear {b}");
+            total += b;
+        }
+        close(total, p, 1e-8);
+    }
+}
+
+/// A spin that lives only in a connection, such as a member on ball joints
+/// at both ends turning about its own axis, moves no model node. It must not
+/// be drawn as a movement of the nodes: scaling rounding noise up to one
+/// once showed nodes g and h sliding by half a unit in this frame.
+#[test]
+fn connection_spins_are_not_drawn_as_node_movement() {
+    let mut b = Build::linear();
+    for (id, p) in [("a", [0.0, 0.0, 0.0]), ("b", [5.0, 0.0, 0.0]), ("c", [5.0, 4.0, 0.0]), ("d", [0.0, 4.0, 0.0]),
+        ("e", [0.0, 0.0, 3.0]), ("f", [5.0, 0.0, 3.0]), ("g", [5.0, 4.0, 3.0]), ("h", [0.0, 4.0, 3.0])] {
+        b.node(id, p);
+    }
+    for (id, s, e) in [("c1", "a", "e"), ("c2", "b", "f"), ("c3", "c", "g"), ("c4", "d", "h"), ("g1", "e", "f"), ("g2", "f", "g"), ("g3", "g", "h"), ("g4", "h", "e")] {
+        let member = b.beam(id, s, e);
+        member.start.laws = BALL;
+        if id == "g2" {
+            member.end.laws = BALL;
+        }
+    }
+    for n in ["a", "b", "c", "d"] {
+        b.support(n, PINNED);
+    }
+    let r = b.run();
+    assert_eq!(r.status(0), "unstable");
+    assert_eq!(r.count(0, "mechanisms"), 1.0);
+    assert_eq!(r.count(0, "spinModes"), 2.0);
+    let moving: Vec<&str> = r.component(0).get("unstableNodeIds").unwrap().as_array().unwrap().iter().map(|n| n.as_str().unwrap()).collect();
+    assert_eq!(moving, ["f", "g", "h"]);
+    for mode in r.component(0).get("modes").unwrap().as_array().unwrap() {
+        if mode.get("kind").unwrap().as_str() != Some("spin") {
+            continue;
+        }
+        let dof_solver::json::Json::Obj(nodes) = mode.get("displacements").unwrap() else { panic!("displacements must be an object") };
+        for (node, values) in nodes {
+            let values = values.as_array().unwrap();
+            // A spin may turn a node in place, but never moves it.
+            for v in &values[..3] {
+                assert!(v.as_f64().unwrap().abs() < 1e-6, "spin moves node {node}: {}", mode.to_json_string());
+            }
+        }
+    }
+}

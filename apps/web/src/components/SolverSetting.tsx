@@ -16,7 +16,7 @@ const CHOICES: { value: SolverChoice; title: string; text: string }[] = [
   {
     value: "opensees",
     title: "OpenSees service",
-    text: "Linear stability and degrees-of-freedom check with one steel section. Needs the service running (npm run dev:opensees).",
+    text: "Geometrically nonlinear analysis with each member's own section, tension-only cables and buckling checks. Needs the service running (npm run dev:opensees).",
   },
 ];
 

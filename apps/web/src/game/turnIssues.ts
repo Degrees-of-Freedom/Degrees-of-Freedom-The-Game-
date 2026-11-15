@@ -2,10 +2,14 @@ import type { TurnState } from './turns';
 import { analyzeTurn, toTurnVoxelInput } from './turnAnalysis';
 import { rigidBodyWitnesses } from '../solver/rigidBodyFreedom';
 import type { CapacityCheck } from '../solver/voxelCapacity';
+import { verifiedResponse } from '../solver/voxelVerification';
 
 export const ISSUE_POLICY = 'card-gravity-issues-1' as const;
 const overloadEntry = 1.001, overloadExit = 0.999, worseningIncrement = 0.10;
 export type IssueCategory = 'instability' | 'member-overload' | 'connection-overload';
+/** Inertia of the same converged, constrained component tangent. Eigenvector
+ * signs, order and normalization do not change these dimension counts. */
+type TangentComparison = { topology: string; negativePivots: number; mechanisms: number };
 export interface IssueFinding {
   id: string;
   category: IssueCategory;
@@ -18,6 +22,7 @@ export interface IssueFinding {
   utilization?: number;
   station?: number;
   contactNodes?: string[];
+  comparison?: TangentComparison;
 }
 export interface IssueSnapshot {
   policy: typeof ISSUE_POLICY;
@@ -85,6 +90,7 @@ export function inspectIssues(turn: TurnState, analysis?: ReturnType<typeof anal
   }
   const parents = new Map(input.members.map(m => [m.id, m.parentSpan?.memberId ?? m.id]));
   const scopes = new Map<number, { ids: number[]; stable: boolean; reason: string }>();
+  const solverWitness = new Map<number, {memberIds: number[]; contactNodes: string[]; reason: string; comparison?: TangentComparison}>();
   for (const scope of result?.combos[0]?.components ?? []) {
     const ids = [...new Set(scope.memberIds.map(id => parents.get(id) ?? id))].sort((a,b) => a-b);
     // Even a floating loop of three or more non-collinear pin contacts can
@@ -93,9 +99,16 @@ export function inspectIssues(turn: TurnState, analysis?: ReturnType<typeof anal
       for (const id of ids) motion.set(id, { motion: 'free translation', memberIds: ids, contactNodes: [] });
     }
     const cable = scope.verification?.status === 'verified-cable';
-    const verified = scope.verification?.status === 'verified-linear' || cable;
+    const verified = verifiedResponse(scope.verification);
+    if (scope.instabilityWitness) {
+      const witness = scope.instabilityWitness;
+      const memberIds = [...new Set(witness.memberIds.map(id => parents.get(id) ?? id))].sort((a,b) => a-b);
+      for (const id of memberIds) solverWitness.set(id, {memberIds, contactNodes: witness.nodes, reason: witness.reason,
+        ...(witness.comparison && {comparison: witness.comparison})});
+    }
     for (const id of ids) scopes.set(id, { ids, stable: verified,
-      reason: verified ? (cable ? 'Verified cable equilibrium and frame response.' : 'Verified small-displacement frame response.')
+      reason: scope.verification?.status === 'verified-nonlinear' ? 'Verified nonlinear equilibrium and stability.' :
+        verified ? (cable ? 'Verified cable equilibrium and frame response.' : 'Verified small-displacement frame response.')
         : scope.verification?.reason ?? scope.reason ?? 'Stability verification unavailable.' });
   }
   const findings: IssueFinding[] = [];
@@ -106,7 +119,10 @@ export function inspectIssues(turn: TurnState, analysis?: ReturnType<typeof anal
     const subject: Subject = { id: `instability:${memberId}`, category: 'instability', memberId };
     if (witness) {
       findings.push({ ...subject, validity: 'verified', active: true, memberIds: witness.memberIds,
-        contactNodes: witness.contactNodes, reason: `Zero-strain rigid motion: ${witness.motion}.` });
+        contactNodes: witness.contactNodes, reason: `Zero-strain rigid motion: ${witness.motion}.`,
+        ...(solverWitness.get(memberId)?.comparison && {comparison: solverWitness.get(memberId)!.comparison}) });
+    } else if (solverWitness.has(memberId)) {
+      findings.push({...subject, validity: 'verified', active: true, ...solverWitness.get(memberId)!});
     } else if (scope?.stable) {
       findings.push({ ...subject, validity: 'verified', active: false, memberIds: ids,
         reason: scope.reason });
@@ -161,6 +177,10 @@ export function compareIssues(before: IssueSnapshot, after: IssueSnapshot, previ
         prior.get(`instability:${other}`)?.validity === 'unknown');
       if (previousFinding?.validity === 'unknown' || uncertainLineage) change = 'unknown';
       else if (!previousFinding?.active) change = inherited ? 'persistent' : 'new';
+      else if (current.comparison && previousFinding.comparison &&
+          current.comparison.topology === previousFinding.comparison.topology &&
+          current.comparison.negativePivots + current.comparison.mechanisms >
+            previousFinding.comparison.negativePivots + previousFinding.comparison.mechanisms) change = 'worsened';
       else if (history?.reference != null && current.utilization !== undefined &&
           current.utilization - Math.max(history.reference, history.lastUnattributed ?? 0) >= worseningIncrement - 1e-12) change = 'worsened';
       else if (current.utilization !== undefined && previousFinding.utilization !== undefined &&
@@ -183,11 +203,21 @@ export function compareIssues(before: IssueSnapshot, after: IssueSnapshot, previ
 }
 
 /** Called only for a scored turn commit. Draft previews never alter memory. */
-export function assessTurnIssues(turn: TurnState, previous: IssueMemory = {}) {
+export function assessTurnOutcome(turn: TurnState, previous: IssueMemory = {}) {
   const before = inspectIssues({ ...turn, draft: { members: [], connections: [], loads: [] } });
   const after = turn.draft.members.length || turn.draft.connections.length || turn.draft.loads.length
     ? inspectIssues(turn) : before;
-  return compareIssues(before, after, previous);
+  const stability = after.findings.filter(f => f.category === 'instability');
+  const hasUnstable = stability.some(f => f.active === true);
+  const hasStable = stability.some(f => f.active === false);
+  const hasUnknown = stability.some(f => f.active === null);
+  const status = hasStable && (hasUnstable || hasUnknown) ? 'partial' :
+    hasUnstable ? 'unstable' : hasUnknown || !hasStable ? 'unresolved' : 'stable';
+  return {issues: compareIssues(before, after, previous), status} as const;
+}
+
+export function assessTurnIssues(turn: TurnState, previous: IssueMemory = {}) {
+  return assessTurnOutcome(turn, previous).issues;
 }
 
 /** Compare the supplied JSON against freshly recomputed evidence. Traversal is

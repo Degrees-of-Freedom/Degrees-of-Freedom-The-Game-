@@ -10,9 +10,10 @@ import {
   visualLoadDirection,
 } from "./scenePieces";
 import { isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
-import { poseSection, wideFlangeGeometry, type WideFlange } from "./sectionGeometry";
-import { assemblyGeometry } from "./assemblyGeometry";
+import { poseSection, roundHollowGeometry, wideFlangeGeometry, type WideFlange } from "./sectionGeometry";
+import { assemblyGeometry, assemblySectionGeometry } from "./assemblyGeometry";
 import { springDisplayAxis, springGeometry } from "./springGeometry";
+import { LOAD_PATH_COLORS } from "./viewPalette";
 import { deflectedFrameGeometry, undeformedReference } from "./deflectedGeometry";
 import { viewBasePoint } from "./sceneResults";
 import { cableGeometry } from "./cableGeometry";
@@ -36,7 +37,7 @@ export function buildStructure(
   const playerColors = ["#e9806e", "#6a9bd8"];
   const neutralSteel = "#d7b55f";
   // Each rebuilt structure owns its profiles; sliced pieces share the same unit prism.
-  const sections = new Map<WideFlange, THREE.BufferGeometry>();
+  const sections = new Map<WideFlange | "chs" | "shs", THREE.BufferGeometry>();
   const turnOwners = new Map(
     turn
       ? [...turn.board.members, ...turn.draft.members].map((member) => [
@@ -102,22 +103,16 @@ export function buildStructure(
         : defaultColor;
     if (path)
       color =
-        relative < 0.01
-          ? "#5a6370"
-          : flow?.mode === "tension"
-            ? "#4da3ff"
-            : flow?.mode === "compression"
-              ? "#ff6b4a"
-              : flow?.mode === "bending"
-                ? "#c58cff"
-                : "#5a6370";
+        relative < 0.01 || !flow || flow.mode === "none"
+          ? LOAD_PATH_COLORS.idle
+          : LOAD_PATH_COLORS[flow.mode];
     const pending = activeMembers.has(member.id);
     const spans = field?.spans.get(member.id);
     if (member.type === "cable" && member.restLengthM !== undefined) {
       const ordered = spans?.slice().sort((l,r) =>
         (l.element.m.parentSpan?.fromQuarter ?? 0) - (r.element.m.parentSpan?.fromQuarter ?? 0));
       const axis = ordered?.length ? [point(ordered[0].element.m.a), ...ordered.map(span => point(span.element.m.b))] : [a,b];
-      const mesh = new THREE.Mesh(cableGeometry(axis,1.8), new THREE.MeshStandardMaterial({
+      const mesh = new THREE.Mesh(cableGeometry(axis,v.trueScale ? 1 : 1.8), new THREE.MeshStandardMaterial({
         color, transparent: pending, opacity: pending ? 0.65 : 1,
         emissive: s.selected?.type === "member" && s.selected.id === member.id ? 0x536b54 : 0,
       }));
@@ -127,9 +122,10 @@ export function buildStructure(
       continue;
     }
     if (spans?.length && spans.every(span => span.element.it.kind === "beam")) {
-      const geometry = deflectedFrameGeometry(spans, v.scale, v.loadPath ? width/2 : CELL_SIZE*0.072);
+      const contour = v.cameraMemory ? field?.peakM : undefined;
+      const geometry = deflectedFrameGeometry(spans, v.scale, v.loadPath ? width/2 : CELL_SIZE*0.072, v.trueScale, contour);
       const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
-        color, transparent: pending, opacity: pending ? 0.65 : 1,
+        color: contour === undefined ? color : "#ffffff", vertexColors: contour !== undefined, transparent: pending, opacity: pending ? 0.65 : 1,
         emissive: trace?.members.has(member.id) || (s.selected?.type === "member" && s.selected.id === member.id) ? 0x536b54 : 0,
       }));
       mesh.name = "Displaced member " + member.id;
@@ -140,7 +136,7 @@ export function buildStructure(
     }
     if (member.type === "spring") {
       const displayedAxis = v.deformed && result ? springDisplayAxis(member.id, result, v.combo, point) : undefined;
-      const mesh = new THREE.Mesh(springGeometry(member, 1.8, displayedAxis), new THREE.MeshStandardMaterial({
+      const mesh = new THREE.Mesh(springGeometry(member, v.trueScale ? 1 : 1.8, displayedAxis), new THREE.MeshStandardMaterial({
         color, transparent: pending, opacity: pending ? 0.65 : 1,
         emissive: s.selected?.type === "member" && s.selected.id === member.id ? 0x536b54 : 0,
       }));
@@ -155,7 +151,7 @@ export function buildStructure(
         const key = end ? connections.find(c => c.memberId === member.id && c.end === end)?.jointId ??
           `endpoint:${member.id}:${end}` : node.id;
         return !field && result?.ctx?.idx.has(key) ? point(key) : new THREE.Vector3(...node.point).multiplyScalar(CELL_SIZE);
-      });
+      }, v.trueScale ? 1 : undefined);
       const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
         color, transparent: pending, opacity: pending ? 0.65 : 1,
         emissive: s.selected?.type === 'member' && s.selected.id === member.id ? 0x536b54 : 0,
@@ -190,8 +186,9 @@ export function buildStructure(
         ? width / 2
         : CELL_SIZE * (s.style === "kit" ? 0.1 : 0.072);
       let profile: THREE.BufferGeometry | undefined;
-      if (member.type === "ipe" || member.type === "heb") {
-        profile = sections.get(member.type) ?? wideFlangeGeometry(member.type);
+      if (member.type === "ipe" || member.type === "heb" || member.type === "chs" || member.type === "shs") {
+        profile = sections.get(member.type) ?? (member.type === "chs" ? roundHollowGeometry() :
+          member.type === "shs" ? assemblySectionGeometry() : wideFlangeGeometry(member.type));
         sections.set(member.type, profile);
       }
       const mesh = new THREE.Mesh(
@@ -220,7 +217,7 @@ export function buildStructure(
         }),
       );
       if (profile) {
-        poseSection(mesh, start, end, new THREE.Vector3(bx - ax, by - ay, bz - az));
+        poseSection(mesh, start, end, new THREE.Vector3(bx - ax, by - ay, bz - az), v.trueScale ? 1 : undefined);
       } else {
         mesh.position.copy(start).add(end).multiplyScalar(0.5);
         mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.normalize());

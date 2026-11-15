@@ -5,6 +5,18 @@ import { SECTION_GEOMETRY } from "../solver/voxelSections";
 export type WideFlange = "ipe" | "heb";
 export const READABLE_SECTION_SCALE = 1.5;
 
+/** The caps are annuli and the inside wall is visible through either end. */
+export function roundHollowGeometry(steps = 1): THREE.ExtrudeGeometry {
+  const { outerDiameter, wall } = SECTION_GEOMETRY.chs;
+  const radius = outerDiameter / 2;
+  const shape = new THREE.Shape();
+  shape.absarc(0, 0, radius, 0, 2 * Math.PI, false);
+  const hole = new THREE.Path();
+  hole.absarc(0, 0, radius - wall, 0, 2 * Math.PI, true);
+  shape.holes.push(hole);
+  return new THREE.ExtrudeGeometry(shape, {depth: 1, steps, curveSegments: 16, bevelEnabled: false}).translate(0,0,-0.5);
+}
+
 /** Unit-length prism along mesh Z. The section dimensions are metres in the
  * solver's local Y/Z plane. Nominal rolled sections omit the root fillets. */
 export function wideFlangeGeometry(type: WideFlange, steps = 1): THREE.ExtrudeGeometry {

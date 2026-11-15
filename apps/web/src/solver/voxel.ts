@@ -20,38 +20,13 @@ function allNodeKeys(model: VoxelModel) {
   }
   return [...keys];
 }
-/** Coordinate the game-specific prototype analysis. */
-export function analyzeVoxel(
-  model: VoxelModel,
-  level: VoxelLevel,
-): VoxelAnalysis {
-  const t0 = performance.now();
-  const keys = allNodeKeys(model);
-  const out: VoxelAnalysis = {
-    members: {},
-    nodes: {},
-    found: {},
-    objectives: [],
-    combos: [],
-    floating: [],
-    unstable: new Set<string>(),
-    mechanism: false,
-    designChecksAvailable: level.loadCase !== 'applied',
-  };
-  if (!keys.length) {
-    out.error = 'Nothing built yet.';
-    return out;
-  }
+export function prepareTurnGeometry(model: VoxelModel, keys = allNodeKeys(model)) {
   const idx = new Map(keys.map((k, n) => [k, n]));
   const pos = keys.map((k) => (model.positions?.[k] ?? parse(k)).map((v) => v * S));
   const isF = keys.map((k) => !!model.attrs[k]?.found);
   const { components, labels } = findComponents(keys, idx, model.members, isF);
   const sup = keys.map((_, n) => components[labels[n]].supported);
-  out.floating = keys.filter((k, n) => !sup[n]);
-  if (!isF.some(Boolean)) {
-    out.error = 'No foundation — place at least one foundation on the ground.';
-    return out;
-  }
+  const floating = keys.filter((_, n) => !sup[n]);
   const act: number[] = [],
     aid = new Int32Array(keys.length).fill(-1);
   keys.forEach((k, n) => {
@@ -91,6 +66,36 @@ export function analyzeVoxel(
     if (hi >= 0) bw = Math.max(bw, hi - lo);
   }
   const ctx = { keys, idx, pos, act, aid, NA, eq, nf, els, isF, bw };
+  return {ctx, components, labels, floating};
+}
+/** Coordinate the game-specific prototype analysis. */
+export function analyzeVoxel(
+  model: VoxelModel,
+  level: VoxelLevel,
+): VoxelAnalysis {
+  const t0 = performance.now();
+  const keys = allNodeKeys(model);
+  const out: VoxelAnalysis = {
+    members: {},
+    nodes: {},
+    found: {},
+    objectives: [],
+    combos: [],
+    floating: [],
+    unstable: new Set<string>(),
+    mechanism: false,
+    designChecksAvailable: level.loadCase !== 'applied',
+  };
+  if (!keys.length) {
+    out.error = 'Nothing built yet.';
+    return out;
+  }
+  const {ctx, components, labels, floating} = prepareTurnGeometry(model, keys);
+  out.floating = floating;
+  if (!ctx.isF.some(Boolean)) {
+    out.error = 'No foundation — place at least one foundation on the ground.';
+    return out;
+  }
   out.ctx = ctx;
   // ---- load combinations
   const appliedLabel = level.appliedSelfWeight === false ? 'Applied loads only' : 'Applied loads + self-weight';

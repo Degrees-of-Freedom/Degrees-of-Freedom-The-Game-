@@ -1,14 +1,14 @@
 import { CELL_SIZE, parseNodeKey, type Member } from "./model";
 import { originalPorts } from "./turnPorts";
 import { dot, localAxes } from "../solver/frameMath";
-import { SECTION_GEOMETRY } from "../solver/voxelSections";
+import { CHS, SECTION_GEOMETRY } from "../solver/voxelSections";
 import { assemblyParts } from "./assembly";
 import { springParts } from "./springParts";
 
 type Placed = Member & { endTargets?: Partial<Record<"a" | "b", string>>; owner?: string };
 type Vector = number[];
 type Interval = [number, number];
-type SectionPart = { y: number; z: number; width: number; depth: number };
+type SectionPart = { y: number; z: number; width: number; depth: number; angle?: number };
 type Prism = { origin: Vector; axes: Vector[]; half: Vector };
 type Solid = { member: Placed; start: Vector; axes: Vector[]; length: number; parts: SectionPart[]; bounds: Prism; springStation?: Interval };
 
@@ -23,6 +23,18 @@ function sectionParts(type: Member["type"]): SectionPart[] {
   if (s.kind === "helix") throw new Error("A spring clearance check requires its physical wire and collar pieces.");
   // A square clearance envelope circumscribes the legacy round cable.
   if (s.kind === "cable") return [{ y: 0, z: 0, width: s.diameter, depth: s.diameter }];
+  if (s.kind === "round-hollow") {
+    // Conservative radial wall sectors retain the empty bore. Outer corners
+    // depart from the true radius by <0.11 mm for the printed 48-face envelope.
+    const outer = s.outerDiameter / 2, halfAngle = Math.PI / CHS.clearanceFaces;
+    const inner = (outer - s.wall) * Math.cos(halfAngle);
+    const centre = (outer + inner) / 2;
+    return Array.from({length: CHS.clearanceFaces}, (_, i) => {
+      const angle = 2 * halfAngle * i;
+      return {angle, y: centre * Math.cos(angle), z: centre * Math.sin(angle),
+        width: outer - inner, depth: 2 * outer * Math.tan(halfAngle)};
+    });
+  }
   if (s.kind === "solid-rectangle") return [{ y: 0, z: 0, width: s.width, depth: s.depth }];
   const t = s.kind === "wide-flange" ? s.flange : s.wall;
   const parts: SectionPart[] = [-1, 1].map(sign => ({ y: 0, z: sign * (s.depth - t) / 2, width: s.width, depth: t }));
@@ -38,9 +50,12 @@ function cross(a: Vector, b: Vector) {
 
 function prism(start: Vector, axes: Vector[], span: Interval, part: SectionPart): Prism {
   const x = (span[0] + span[1]) / 2;
+  const c = Math.cos(part.angle ?? 0), s = Math.sin(part.angle ?? 0);
   return {
     origin: start.map((value, i) => value + x * axes[0][i] + part.y * axes[1][i] + part.z * axes[2][i]),
-    axes, half: [(span[1] - span[0]) / 2, part.width / 2, part.depth / 2],
+    axes: part.angle ? [axes[0], axes[1].map((v,i) => v*c + axes[2][i]*s),
+      axes[2].map((v,i) => v*c - axes[1][i]*s)] : axes,
+    half: [(span[1] - span[0]) / 2, part.width / 2, part.depth / 2],
   };
 }
 
@@ -51,6 +66,10 @@ function solid(member: Placed, springWidth?: number): Solid {
   const axes = localAxes(delta.map(x => x / length));
   const section = SECTION_GEOMETRY[member.type];
   const size = section.kind === "helix" ? { width: springWidth!, depth: springWidth! }
+    : section.kind === "round-hollow" ? {
+      width: section.outerDiameter / Math.cos(Math.PI / CHS.clearanceFaces),
+      depth: section.outerDiameter / Math.cos(Math.PI / CHS.clearanceFaces),
+    }
     : section.kind === "cable" ? { width: section.diameter, depth: section.diameter } : section;
   const parts = springWidth ? [{y: 0, z: 0, ...size}] : sectionParts(member.type);
   const bounds = prism(start, axes, [0, length], { y: 0, z: 0, width: size.width, depth: size.depth });

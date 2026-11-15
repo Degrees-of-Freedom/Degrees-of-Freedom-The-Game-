@@ -1,5 +1,5 @@
 import { nodeKey, parseNodeKey } from './model';
-import { CARD_DEFINITION_VERSION } from './cardCatalogue';
+import { CARD_DEFINITION_VERSION, RELEASE_CATALOGUE } from './cardCatalogue';
 import { finalReceipt, NEUTRAL_OWNER } from './finalScore';
 import { findMaterialClash } from './materialClashes';
 import { analyzeTurn } from './turnAnalysis';
@@ -186,7 +186,8 @@ function rejection(before: IssueSnapshot, after: IssueSnapshot, propId: number, 
  * Replay reconstructs the same transaction from its immutable pre-move board. */
 export function correctTurnIssues(frozen: TurnState, assessment: IssueAssessment, turnNumber: number, policy: RepairPolicy) {
   const supported = (finding: IssueFinding) => policy === REPAIR_POLICY || finding.category === 'instability';
-  const targets = assessment.changes.filter(c => supported(c.after) && c.after.active === true)
+  const targets = assessment.changes.filter(c => supported(c.after) && c.after.active === true &&
+      (frozen.catalogue !== RELEASE_CATALOGUE || c.eligible))
     .sort((a,b) => Number(b.category === 'instability') - Number(a.category === 'instability') || a.memberId - b.memberId);
   if (!targets.length || assessment.beforeModelId === assessment.afterModelId) return undefined;
   const initial = evidence(frozen);

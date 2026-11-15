@@ -39,7 +39,10 @@ export function publicRepairReport(report: TurnReport) {
       return { jointId, owner: (after ?? before)!.owner, before: reading(before), after: reading(after) };
     });
   return { turn: report.turn, playerId: report.playerId, penalty: report.penalty,
-    foreman: charged.length > 0, issues, attempts, checks, supports,
+    foreman: charged.length > 0,
+    releaseForeman: issues.some(issue => charged.includes(issue.id) &&
+      (issue.category === "instability" || (issue.utilization ?? 0) >= 1.25)),
+    issues, attempts, checks, supports,
     pending: [...(receipt?.pending ?? [])], policy: receipt?.policy };
 }
 

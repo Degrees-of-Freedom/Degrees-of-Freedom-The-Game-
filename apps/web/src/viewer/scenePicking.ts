@@ -33,7 +33,8 @@ import {
 import { isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
 import { memberEndPosition } from "./turnGuides";
 import { assemblyParts } from "../game/assembly";
-import { portLabel, targetCoordinate } from "../game/turnPorts";
+import { loadTargets, portLabel, targetCoordinate } from "../game/turnPorts";
+import { RELEASE_CATALOGUE } from "../game/cardCatalogue";
 import {
   selectedTurnCard,
   turnConnectionTargets,
@@ -160,6 +161,21 @@ export function createPicker(
         ghost.material.color.set("#f6ad49");
         ghost.visible = true;
         if (choices.length > 1) stackLabel = `${choice + 1}/${choices.length}, [ or ] to cycle`;
+      } else stack.reset();
+    } else if (card?.kind === "load" && s.turn?.catalogue === RELEASE_CATALOGUE) {
+      const candidates = buildStack(loadTargets(s.turn).flatMap(target => {
+        const [sx, sy, depth] = screen(basePoint(target.point));
+        const dist = Math.hypot(sx - x, sy - y);
+        return depth >= -1 && depth < 1 ? [{ item: target, sx, sy, depth, dist }] : [];
+      }), 18);
+      if (candidates.length) {
+        const index = stack.choose(candidates.map(c => c.item.id), card.id);
+        const target = candidates[index].item;
+        hit = { kind: "point", p: parseNodeKey(target.point), issue: null, target: target.id };
+        stackLabel = target.label + (candidates.length > 1 ? ` · ${index+1}/${candidates.length}, [ or ] to cycle` : "");
+        ghost.position.copy(basePoint(target.point));
+        ghost.material.color.set("#f6ad49");
+        ghost.visible = true;
       } else stack.reset();
     } else if (portStack.length) {
       const choice = stack.choose(portStack.map(x => x.item.id), s.chainStart);
@@ -471,22 +487,16 @@ export function createPicker(
     stack.step(delta);
     if (lastEvent) pick(lastEvent);
   };
-  canvas.addEventListener(
-    "wheel",
-    (e: WheelEvent) => {
+  const onWheel = (e: WheelEvent) => {
       if (!e.deltaY || !overStack()) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       step(e.deltaY > 0 ? 1 : -1);
-    },
-    { capture: true, passive: false },
-  );
-  canvas.addEventListener("pointerleave", () => stack.reset());
+  };
+  const leave = () => stack.reset();
+  canvas.addEventListener("wheel", onWheel, { capture: true, passive: false });
+  canvas.addEventListener("pointerleave", leave);
   const onKey = (e: KeyboardEvent) => {
-    if (!canvas.isConnected) {
-      window.removeEventListener("keydown", onKey, true);
-      return;
-    }
     if (
       (e.key !== "[" && e.key !== "]") ||
       e.defaultPrevented || controlOwnsKey(e.target) ||
@@ -501,5 +511,9 @@ export function createPicker(
     step(e.key === "]" ? 1 : -1);
   };
   window.addEventListener("keydown", onKey, true);
-  return pick;
+  return Object.assign(pick, { dispose() {
+    canvas.removeEventListener("wheel", onWheel, true);
+    canvas.removeEventListener("pointerleave", leave);
+    window.removeEventListener("keydown", onKey, true);
+  } });
 }

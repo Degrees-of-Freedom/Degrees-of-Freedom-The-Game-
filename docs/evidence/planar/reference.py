@@ -6,7 +6,7 @@ are axial truss elements. The only restraint is the lower chord's left tip.
 import openseespy.opensees as ops
 
 
-def displacement(station, direction):
+def displacement(station, direction, shear=False):
     ops.wipe()
     ops.model("basic", "-ndm", 3, "-ndf", 6)
     span = 4.0
@@ -21,6 +21,9 @@ def displacement(station, direction):
     ops.geomTransf("Linear", 1, 0, 0, 1)
     ops.geomTransf("Linear", 2, 0, 1, 0)
     def beam(tag, a, b, axes):
+        if shear:
+            return ops.element("ElasticTimoshenkoBeam", tag, a, b, 210e9, 81e9,
+                               2.24e-3, 5.13e-6, 3.2e-6, 3.2e-6, 1.12e-3, 1.12e-3, axes)
         ops.element("elasticBeamColumn", tag, a, b, 2.24e-3, 210e9, 81e9,
                     5.13e-6, 3.2e-6, 3.2e-6, axes)
     beam(1, 11, 1, 1)
@@ -48,5 +51,9 @@ def displacement(station, direction):
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--shear", action="store_true", help="Include the SHS card shear flexibility used by Rust")
+    args = parser.parse_args()
     for direction in [1, 2]:
-        print(direction, [displacement(i, direction) for i in range(1, 4)])
+        print(direction, [displacement(i, direction, shear=args.shear) for i in range(1, 4)])

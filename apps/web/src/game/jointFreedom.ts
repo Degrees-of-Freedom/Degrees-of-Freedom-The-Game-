@@ -11,6 +11,12 @@ const axes = ["UX", "UY", "UZ", "RX", "RY", "RZ"] as const;
 
 export const CONNECTION_PROFILES = {
   fixed: ["locked", "locked", "locked", "locked", "locked", "locked"],
+  "lock-x": ["locked", "locked", "locked", "locked", "free", "free"],
+  "lock-y": ["locked", "locked", "locked", "free", "locked", "free"],
+  "lock-z": ["locked", "locked", "locked", "free", "free", "locked"],
+  "lock-xy": ["locked", "locked", "locked", "locked", "locked", "free"],
+  "lock-xz": ["locked", "locked", "locked", "locked", "free", "locked"],
+  "lock-yz": ["locked", "locked", "locked", "free", "locked", "locked"],
   ball: ["locked", "locked", "locked", "free", "free", "free"],
   "hinge-diagonal": ["locked", "locked", "locked", "free", "locked", "locked"],
   "guided-x": ["free", "locked", "locked", "locked", "locked", "locked"],
@@ -24,6 +30,8 @@ const c = Math.SQRT1_2;
 const diagonalFrame: Frame = [[c, c, 0], [-c, c, 0], [0, 0, 1]];
 const labels: Record<ConnectionProfile, string> = {
   fixed: "Fixed / moment", ball: "Ball joint", "hinge-diagonal": "Diagonal hinge",
+  "lock-x": "Lock X", "lock-y": "Lock Y", "lock-z": "Lock Z",
+  "lock-xy": "Lock X and Y", "lock-xz": "Lock X and Z", "lock-yz": "Lock Y and Z",
   "guided-x": "X guide", "seat-20": "Elastic seat · 20 MN/m", "seat-80": "Elastic seat · 80 MN/m",
   "semi-rigid": "Yaw spring · 8 MN·m/rad",
 };

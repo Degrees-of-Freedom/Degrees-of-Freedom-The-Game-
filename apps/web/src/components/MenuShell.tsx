@@ -49,10 +49,9 @@ export function MenuShell({
   const settings = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
-  const fromGame =
-    (location.state as { from?: unknown } | null)?.from === "/play";
-  const back = fromGame
-    ? { to: "/play", label: "Game" }
+  const from = (location.state as { from?: unknown } | null)?.from;
+  const back = from === "/play" || from === "/match"
+    ? { to: from, label: "Game" }
     : parent
       ? { to: parent, label: parentLabel ?? "Back" }
       : null;

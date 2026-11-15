@@ -4,7 +4,7 @@ import type { GameModel } from "./model";
 
 /** The board and companion share one context. A suspended device drops its cue
  * so a later user gesture cannot flush sounds from a concealed turn. */
-export function useEditorSound(model: GameModel, covered: boolean) {
+export function useEditorSound(model: GameModel, covered: boolean, release = false) {
   const { sound: enabled, masterVolume, effectsVolume } = useSettings();
   const audio = useRef<AudioContext | null>(null);
   const mix = useRef<{ master: GainNode; effects: GainNode } | null>(null);
@@ -102,12 +102,12 @@ export function useEditorSound(model: GameModel, covered: boolean) {
     };
   }, [enabled, covered, unlock]);
   useEffect(() => {
-    if (previous.current !== model) {
+    if (!release && previous.current !== model) {
       const frequency = 440 + (model.members.length % 8) * 45;
       tone(frequency, frequency, 0.12);
     }
     previous.current = model;
-  }, [model, tone]);
+  }, [model, tone, release]);
 
   function toggle() {
     const sound = !getSettings().sound;
@@ -119,5 +119,11 @@ export function useEditorSound(model: GameModel, covered: boolean) {
     unlock();
     return tone(185, 110, 0.16);
   }, [tone, unlock]);
-  return { enabled, toggle, foremanAccent };
+  const cue = useCallback((event: "select" | "place" | "attach" | "result") => {
+    unlock();
+    const notes = { select: [430, 510, .08], place: [300, 415, .12], attach: [590, 700, .1], result: [350, 450, .16] };
+    const [from, to, duration] = notes[event];
+    tone(from, to, duration);
+  }, [tone, unlock]);
+  return { enabled, toggle, foremanAccent, cue };
 }

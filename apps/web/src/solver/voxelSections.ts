@@ -3,6 +3,12 @@ export type BeamType = Exclude<VoxelMemberType, 'cable' | 'spring'>;
 export type Section = (typeof ITEMS)[VoxelMemberType];
 export type BeamSection = (typeof ITEMS)[BeamType];
 export const S = 2; // voxel size [m]
+/** Ideal circular annulus. Grid length, mesh tessellation and rendered
+ * enlargement play no part in its stiffness or its elastic section modulus. */
+export const CHS = {outerDiameter: 0.100, wall: 0.006, clearanceFaces: 48} as const;
+const outerRadius = CHS.outerDiameter / 2, innerRadius = outerRadius - CHS.wall;
+const annularArea = Math.PI * (outerRadius ** 2 - innerRadius ** 2);
+const annularInertia = Math.PI / 4 * (outerRadius ** 4 - innerRadius ** 4);
 /** Provisional cartridge printing. The placed length is the unloaded length.
  * The schematic coil does not determine its printed stiffness. The spring
  * carries axial translation only; a collar needs external lateral restraint.
@@ -12,6 +18,14 @@ export const SPRING = {
   coilDiameterM: 0.16, wireDiameterM: 0.012, turns: 8,
 } as const;
 export const ITEMS = {
+  chs: {
+    kind: 'beam', label: 'CHS 100×6', sub: 'Round steel tube S355', color: '#9babc1',
+    cost: 120, maxCells: 3, shape: 'round-hollow', dim: [CHS.outerDiameter, CHS.outerDiameter],
+    E: 210e6, G: 81e6, A: annularArea, Iy: annularInertia, Iz: annularInertia, J: 2 * annularInertia,
+    Wy: annularInertia / outerRadius, Wz: annularInertia / outerRadius,
+    Avy: annularArea / 2, Avz: annularArea / 2, ft: 355e3, fc: 355e3, fm: 355e3, fv: 205e3,
+    alpha: 0.21, l0: 0.2, w: 7850 * 9.81 * annularArea / 1000,
+  },
   spring: {
     kind: 'spring', label: 'Axial spring', sub: 'Two-way · 50 kN/m',
     color: '#a7afba', cost: 100, maxCells: 4, w: 0, shape: 'helix',
@@ -168,6 +182,7 @@ export const ITEMS = {
  * section table's independently specified area, inertia or torsion constant.
  * Wall/web/flange values are provisional printed playtest dimensions. */
 export const SECTION_GEOMETRY = {
+  chs: {kind: 'round-hollow', outerDiameter: CHS.outerDiameter, wall: CHS.wall},
   spring: {kind: 'helix', coilDiameter: SPRING.coilDiameterM, wireDiameter: SPRING.wireDiameterM},
   shs: { kind: 'rectangular-hollow', width: 0.100, depth: 0.100, wall: 0.006 },
   glulam: { kind: 'solid-rectangle', width: 0.200, depth: 0.400 },

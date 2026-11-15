@@ -311,6 +311,13 @@ export function EnvironmentTools({ style, onMessage }: Props) {
       active: game.tool === "joint",
       action: () => game.setTool("joint"),
     },
+    ...(game.mode !== "multiplayer" ? [{
+      kind: "foundation" as const,
+      label: "Foundation",
+      key: "B",
+      active: game.tool === "found",
+      action: () => game.setTool("found"),
+    }] : []),
     {
       kind: "load",
       label: "Load",
@@ -500,7 +507,7 @@ export function EnvironmentTray({ style }: Props) {
           className={`token${game.tool === "found" ? " selected" : ""}`}
           onClick={() => game.setTool("found")}
         >
-          <Icon kind="connection" style={style} />
+          <Icon kind="foundation" style={style} />
           <small>Foundation</small>
         </button>
       </div>

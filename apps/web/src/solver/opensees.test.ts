@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AnalysisResult, StructuralModel } from '@dof/solver-contract';
+import type { AnalysisBody, AnalysisResult, StabilityReport, StructuralModel } from '@dof/solver-contract';
 import { checkOpenSees, createOpenSeesSolver } from './opensees';
 
 const cantilever: StructuralModel = {
@@ -8,6 +8,23 @@ const cantilever: StructuralModel = {
   members: [{ id: 'm', startNodeId: 'a', endNodeId: 'b' }],
   supports: [{ nodeId: 'a', restrained: [true, true, true, true, true, true] }],
   loads: [{ nodeId: 'b', force: [0, 0, -1000], moment: [0, 0, 0] }],
+};
+
+const stabilityReport: StabilityReport = {
+  stable: true, freeDofs: 6, mechanisms: 0, translationalMechanisms: 0, rotationalMechanisms: 0,
+  staticIndeterminacy: 0, unstableNodeIds: [], modes: [],
+};
+const body: AnalysisBody = {
+  analysis: { fidelity: 'nonlinear', solver: 'OpenSeesPy test', runtimeMs: 12, reasonCodes: [] },
+  components: [{
+    id: 'a', nodeIds: ['a', 'b'], memberIds: ['m'], state: 'stable', reasonCodes: [], resultsValid: true,
+    stability: stabilityReport,
+  }],
+  displacements: { a: [0, 0, 0, 0, 0, 0] },
+  reactions: {},
+  memberForces: {},
+  stability: stabilityReport,
+  warnings: [],
 };
 
 const respond = (body: unknown, status = 200) =>
@@ -34,7 +51,7 @@ describe('OpenSees health check', () => {
 
 describe('OpenSees solver adapter', () => {
   it('posts the model as JSON to /analyze and returns the service result', async () => {
-    const result: AnalysisResult = { status: 'success', displacements: { a: [0, 0, 0, 0, 0, 0] }, warnings: [] };
+    const result: AnalysisResult = { status: 'success', ...body };
     const fetchMock = respond(result);
     const solver = createOpenSeesSolver('http://solver.test/', fetchMock);
 
@@ -56,15 +73,30 @@ describe('OpenSees solver adapter', () => {
   });
 
   it('rejects a body that has a known status but the wrong shape', async () => {
+    const badComponent = { ...body.components[0], state: 'fine' };
     const malformed = [
       { status: 'success' },
-      { status: 'success', displacements: {}, warnings: [], stability: { stable: true } },
+      { ...body, status: 'success', stability: { stable: true } },
+      { ...body, status: 'success', analysis: { ...body.analysis, fidelity: 'quick' } },
+      { ...body, status: 'success', components: [badComponent] },
+      { ...body, status: 'success', components: [{ ...body.components[0], reasonCodes: ['mystery'] }] },
+      { ...body, status: 'success', components: [{ ...body.components[0], resultsValid: 'yes' }] },
+      { ...body, status: 'success', warnings: 'none' },
+      { ...body, status: 'unstable' },
+      { ...body, status: 'unresolved' },
       { status: 'unstable', message: 'moves', warnings: [] },
       { status: 'error' },
     ];
     for (const body of malformed) {
       const result = await createOpenSeesSolver('http://solver.test', respond(body)).analyze(cantilever);
       expect(result).toEqual({ status: 'error', message: expect.stringContaining('unexpected response') });
+    }
+  });
+
+  it('accepts unstable and unresolved results that carry a body and a message', async () => {
+    for (const status of ['unstable', 'unresolved'] as const) {
+      const result: AnalysisResult = { status, message: 'explained', ...body };
+      expect(await createOpenSeesSolver('http://solver.test', respond(result)).analyze(cantilever)).toEqual(result);
     }
   });
 
@@ -77,19 +109,28 @@ describe('OpenSees solver adapter', () => {
   it('retains a solved component exclusively on its physical IDs beside an unresolved region', async () => {
     const model = {...cantilever, nodes:[...cantilever.nodes, {id:'c', position:[9, 0, 0] as const}],
       loads:[...cantilever.loads, {...cantilever.loads[0], nodeId:'c'}]};
+    // Contract v2: components carry their state, and node, member and
+    // reaction entries exist only for components with valid results.
     const vec = [0, 0, 0, 0, 0, 0];
-    const solved = {nodeIds:['a','b'], memberIds:['m'], result:{status:'success',
-      displacements:{a:vec,b:vec}, reactions:{a:[0,0,1000,0,-3000,0]}, warnings:[]}};
-    const unknown = {nodeIds:['c'],memberIds:[],result:{status:'unresolved',message:'No tangent.'}};
-    const response = {status:'unresolved', message:'One region unresolved.', components:[solved,unknown]};
-    const request = (body:unknown) => createOpenSeesSolver('http://solver.test', respond(body)).analyze(model);
+    const stability = { stable: true, freeDofs: 6, mechanisms: 0, translationalMechanisms: 0, rotationalMechanisms: 0, staticIndeterminacy: 0, unstableNodeIds: [], modes: [] };
+    const solved = { id: 'a', nodeIds: ['a', 'b'], memberIds: ['m'], state: 'stable', reasonCodes: [], resultsValid: true, stability };
+    const unknown = { id: 'c', nodeIds: ['c'], memberIds: [], state: 'unknown', reasonCodes: ['not_converged'], resultsValid: false, stability: { ...stability, stable: false } };
+    const response = {
+      status: 'unresolved', message: 'One region unresolved.',
+      analysis: { fidelity: 'nonlinear', solver: 'OpenSees', runtimeMs: 3, reasonCodes: ['not_converged'] },
+      components: [solved, unknown],
+      displacements: { a: vec, b: vec }, reactions: { a: [0, 0, 1000, 0, -3000, 0] }, memberForces: {},
+      stability, warnings: [],
+    };
+    const request = (body: unknown) => createOpenSeesSolver('http://solver.test', respond(body)).analyze(model);
     expect(await request(response)).toEqual(response);
     for (const corrupted of [
-      [solved,{...unknown,nodeIds:['a']}], [solved,{...unknown,memberIds:['m']}],
-      [solved,{...unknown,result:{...unknown.result,reactions:{c:vec}}}],
-      [{...solved,result:{...solved.result,reactions:{c:vec}}},unknown],
-      [{...solved,result:{...solved.result,displacements:{a:vec,b:[1]}}},unknown],
-    ]) expect((await request({...response,components:corrupted})).status).toBe('error');
+      { components: [solved, { ...unknown, nodeIds: ['a'] }] },
+      { components: [solved, { ...unknown, memberIds: ['m'] }] },
+      { reactions: { ...response.reactions, c: vec } },
+      { displacements: { a: vec, b: vec, c: vec } },
+      { displacements: { a: vec, b: [1] } },
+    ]) expect((await request({ ...response, ...corrupted })).status).toBe('error');
   });
 
   it('rejects when the caller aborts', async () => {

@@ -1,7 +1,8 @@
 ---
 title: "Development and Testing"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
+  - docs/kb/grow-dusk-runtime.md
   - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
@@ -28,6 +29,9 @@ validated_against:
   - scripts/build-solver-wasm.mjs
   - scripts/bench-solver.mjs
   - apps/web/src/solver/wasm
+  - apps/web/src/viewer/viewModes.test.ts
+  - apps/web/src/components/viewModes/viewModes.test.tsx
+  - apps/web/src/solver/wasm/crossCheck.test.ts
 owner: unknown
 status: partial
 ---
@@ -36,13 +40,15 @@ status: partial
 
 The [criteria acceptance ledger](criteria-ledger.md) records the current implementation run. The OpenSees suite includes a reproducible 10,000-state test in `services/opensees/tests/test_seeded_states.py`. It compares 6,000 oblique, subdivided cantilevers with analytical displacement and six-axis reaction balance, and checks 4,000 invalid or unstable configurations for classification and absence of fabricated response. The initial Windows x64 run recorded maximum relative displacement error 6.67e-13, normalized force residual 1.24e-12 and moment residual 7.72e-13. The generator-plus-solve p95 was 1.45 ms for these one-to-four-member cases. Nonlinear and game-scale performance need separate evidence.
 
-From the repository root, install dependencies with `npm install`, start the web app with `npm run dev`, build with `npm run build`, check TypeScript with `npm run typecheck`, and run tests with `npm test`. The dev command builds the shared contract before starting Vite; rebuild it after editing its source. The root build builds the contract before the web app.
+From the repository root, use `npm ci`, `npm run dev`, `npm run typecheck` and `npm test`. The root production build also recompiles the Rust solver and checks the shipped binary against Cargo's output. See the [release build, hosting and browser test instructions](grow-dusk-runtime.md#running-and-hosting).
 
-Vitest covers voxel editing rules, undo, examples, persistence, turn replay and attachment rules, viewer picking candidates, force labels, and selected analysis cases including equilibrium, signed loads and Shared table connection behavior. These tests do not independently validate numerical accuracy or exercise the viewer in a browser. The proposed [solver acceptance suite and numerical gates](solver-criteria.md#7-acceptance-tests) now define the target coverage. Most fixtures, absolute tolerances, characteristic scales, and turn/replay tests still need implementation; see the [gap analysis](solver-criteria-gap-analysis.md). Passing the current tests does not establish compliance with those gates.
+Vitest covers editing rules, draw conservation, turn replay, attachment laws, viewer picking and units. The release also runs the Rust analytical suite, independent OpenSees comparisons and complete production browser matches. The [numerical evidence](rust-solver.md) records tolerances, classification limits and stress timings.
 
-Vitest also covers the OpenSees adapter and its health check against a stubbed `fetch`, solver selection, the stored solver setting, and the translation from the game model to the shared contract. Further tests run only when `VITE_OPENSEES_URL` points at a running service: two send a cantilever and the reference examples through it, and three compare its answers with the Rust solver's.
+Vitest also covers the OpenSees adapter and its health check against a stubbed `fetch`, solver selection, the stored solver setting, and the translation from the game model to the shared contract. Further tests run only when `VITE_OPENSEES_URL` points at a running service: two send a cantilever and the reference examples through it, and six in `crossCheck.test.ts` compare its answers with the Rust solver's, at both fidelities, on hand-built frames, the reference examples and the twenty library structures.
 
-`analysisModel.test.ts` covers the translation of the game to the detailed contract (SI sections and capacities, pinned and rigid ends, cables, foundations, level loads) and runs the three reference examples and small frames through the real WebAssembly module, including the reduction of the result for the panel. Vitest runs the Rust solver as the real WebAssembly module, loaded from `apps/web/src/solver/wasm/dof_solver.wasm`. That file is a committed build artefact, so `npm install`, `npm test` and `npm run build` need no Rust toolchain. They test whatever module is committed: after changing `crates/dof-solver`, run `npm run build:solver` or the web tests will exercise the old build.
+`analysisModel.test.ts` checks SI units, translation to the detailed contract and reference games against the actual WebAssembly module. Vitest loads the checked-in `apps/web/src/solver/wasm/dof_solver.wasm`. Run `npm run build:solver` after editing Rust. The root production build always rebuilds the binary from source.
+
+Grow Dusk view modes have Vitest coverage in `viewModes.test.ts` (reducer, exclusivity, drawer mapping, on-demand response, scale) and `viewLegends.test.ts` (content, colours, unavailable states). `contourRamp.test.ts`, `viewFormat.test.ts`, `displacementShadow.test.ts` (against the analytical cantilever) and `components/viewModes/viewModes.test.tsx` (static panel and legend markup) cover the rest. On 2026-11-15 the panel was also checked in headless Chromium with SwiftShader through the Vite dev server: a six-turn seed 0 match at 1366 × 900, plus 683 × 384 and 412 × 915 touch layouts. The checks covered each mode, the label switch, Escape handling, drawer synchronisation and no horizontal overflow. After a production build, `release-presentation.mjs` passed all nine scenarios, `release-resources.mjs` passed, and `release-browser.mjs` passed seed 0 and its all-pass match, with `DOF_SOFTWARE_GL=1` on Linux Chromium. That build compiled the solver with Rust 1.97.0, and the rebuilt WASM was not committed. The presentation script first found a legend accessible name colliding with the drawer's **Shear diagram** label; the legend cards no longer carry one.
 
 ## Rust solver
 
@@ -142,3 +148,38 @@ Measured errors, the outcome counts of the random states and the limits of this 
 On the criteria integration branch, selecting OpenSees exposes **Run nonlinear check** in the editor structural analysis panel. It sends the editor model through the corotational service contract, with catalogue section laws and explicit point loads; self-weight and challenge load combinations are excluded. The selected Rust solver continues to use its detailed analysis path. Shared table scoring uses its separate verified linear frame analysis. Springs are not represented by this editor service translation and return an unavailable message.
 
 Focused verification on the integration worktree: 19 nonlinear and component service tests passed, and 24 web tests passed with a local OpenSees service, including a corotational editor request and support-reaction check. The panel was rendered in a component test; an interactive browser walkthrough remains outstanding.
+
+## Main after the solver restore — 2026-11-15
+
+On 15 November `main` was force-pushed while the criteria integration (#10) was merged, which dropped #8 (OpenSees v2 and the end-of-turn solve) and #9 (Rust worker, load cases, deflection, member loads) from its history, although GitHub still lists both as merged. Both were restored by merge, without rewriting history: #9 as #12, and #8 together with the alternative OpenSees engine that #10 had added as #15. The Rust adapter was then brought to the merged shared contract in #16, which replaces the closed #11. Avoid force-pushing `main`; restore lost work with a merge instead.
+
+Checked on `main` at `af45c30` (#16), Windows 11, Node 24.16.0, Rust 1.100.0:
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | Pass. |
+| `npm test` | Pass: 73 test files, 518 tests; 2 files and 9 tests are skipped without an OpenSees service. |
+| `VITE_OPENSEES_URL=http://127.0.0.1:8000 npm test` with `npm run dev:opensees` running | Pass: 75 test files, 527 tests. The Rust and OpenSees solvers agree on linear results within 2e-5, on a nonlinear space frame within 1 %, on the mechanism verdict, and on the three reference examples. |
+| `npm run build` | Pass. The existing chunk-size warning remains. |
+| `npm run test:solver` | Pass: 78 tests, 1 ignored timing harness. |
+| `npm run test:opensees` | Pass: 716 tests, 7 skipped. |
+| Documentation links | 464 relative links and anchors checked, none broken. |
+
+Not checked in this pass: the workspace panels in a browser, and the 10,000-state generated run of the OpenSees service, which runs only when `DOF_GENERATED_STATES` is set.
+
+## Solver re-check and Rust–OpenSees cross-check — 2026-11-15
+
+Checked on `main` at `39508f0` (#14) in a Linux container: 4-core Intel Xeon at 2.1 GHz, Node 22.23.4, Rust 1.97.0, uv-managed Python 3.12, OpenSees 3.8.0. All solver branches on the remote are contained in `main`. The three commits that `nico/rust-v2-contract` appears to carry are on `main` with different hashes.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | Pass. |
+| `npm test` | Pass: 78 test files, 564 tests; 2 files and 9 tests skipped without an OpenSees service. |
+| `VITE_OPENSEES_URL=http://127.0.0.1:8000 npm test` with `npm run dev:opensees` running | Pass: 80 test files, 573 tests, before the cross-check was extended. The extended `crossCheck.test.ts` passes 6 of 6. |
+| `npm run test:solver` | Pass: 82 tests, 1 ignored timing harness. |
+| `npm run test:opensees` | Pass: 719 tests, 7 skipped (6 unrepresentable skew-axis releases, 1 opt-in single seed). |
+| `npm run build:solver` | Pass. The rebuilt module (686 kB) is not byte-identical to the committed one, which was built with another toolchain. All 125 solver Vitest tests pass with it. The committed module was kept. |
+| `npm run bench:solver` | All proposed targets met; numbers on the [Rust solver page](rust-solver.md#timings). |
+| `SOLVER_TIMING_REPS=1 npm run compare:solvers` | Runs the voxel and OpenSees linear/nonlinear paths only; it does not include the Rust solver. OpenSees nonlinear calls the slender column and the cantilever unstable where the voxel and linear paths call them stable. |
+
+The cross-check results, the prestressed-cable convention difference and the two nonlinear verdicts that Rust leaves `unresolved` are in [Cross-check with OpenSees](rust-solver.md#cross-check-with-opensees--2026-11-15). Not checked in this pass: the browser, the production build and the 10,000-state generated OpenSees run.

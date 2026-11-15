@@ -118,6 +118,10 @@ fn parse_connection(value: Option<&Json>, path: &str) -> Parsed<Connection> {
     };
     let mut f = Fields::new(value, path)?;
     let mut connection = Connection::default();
+    if let Some(axes) = f.opt("axes") {
+        let items = axes.as_array().filter(|axes| axes.len() == 3).ok_or(format!("{path}.axes needs three reference directions."))?;
+        connection.axes = Some([numbers(&items[0], path)?, numbers(&items[1], path)?, numbers(&items[2], path)?]);
+    }
     if let Some(laws) = f.opt("laws") {
         let items = laws.as_array().filter(|a| a.len() == 6).ok_or(format!("{path}.laws must be an array of 6 laws."))?;
         for (i, item) in items.iter().enumerate() {
@@ -267,6 +271,7 @@ fn parse_options(value: Option<&Json>) -> Parsed<Options> {
         residual_gate: f.num_or("residualGate", d.residual_gate)?,
         max_iterations: f.count("maxIterations")?.unwrap_or(d.max_iterations),
         max_total_iterations: f.count("maxTotalIterations")?.unwrap_or(d.max_total_iterations),
+        max_request_iterations: f.count("maxRequestIterations")?.unwrap_or(d.max_request_iterations),
         excessive_displacement_ratio: f.num_or("excessiveDisplacementRatio", d.excessive_displacement_ratio)?,
         critical_load_search: f.flag_or("criticalLoadSearch", d.critical_load_search)?,
         stability_margin: f.num_or("stabilityMargin", d.stability_margin)?,
@@ -277,6 +282,7 @@ fn parse_options(value: Option<&Json>) -> Parsed<Options> {
         },
         max_failure_events: f.count("maxFailureEvents")?.unwrap_or(d.max_failure_events),
         max_modes: f.count("maxModes")?.unwrap_or(d.max_modes),
+        member_fields: f.flag_or("memberFields", d.member_fields)?,
     };
     f.done()?;
     Ok(options)

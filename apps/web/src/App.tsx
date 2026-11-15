@@ -1,7 +1,9 @@
 import { lazy, Suspense } from "react";
 import { Link, Route, Routes } from "react-router-dom";
+import { AiLab } from "./pages/AiLab";
 import { Home } from "./pages/Home";
 import { Companion } from "./companion/Companion";
+import { Wiki } from "./pages/Wiki";
 import { ModeSelect } from "./pages/ModeSelect";
 import { ModeSetup } from "./pages/ModeSetup";
 import { About, HowToPlay, SettingsPage } from "./pages/InfoPages";
@@ -10,6 +12,7 @@ import { About, HowToPlay, SettingsPage } from "./pages/InfoPages";
 const Workspace = lazy(() =>
   import("./pages/Workspace").then((module) => ({ default: module.Workspace })),
 );
+const ReleaseMatch = lazy(() => import("./pages/ReleaseMatch"));
 
 export function App() {
   return (
@@ -22,12 +25,19 @@ export function App() {
     >
       <Routes>
         <Route path="/" element={<Home />} />
+<Route path="/ai-lab" element={<AiLab />} />
+        <Route path="/wiki" element={<Wiki />} />
         <Route path="/modes" element={<ModeSelect />} />
         <Route path="/setup/:mode" element={<ModeSetup />} />
         <Route path="/how" element={<HowToPlay />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/about" element={<About />} />
         <Route path="/play" element={<Workspace />} />
+        <Route path="/match" element={
+          <Suspense fallback={<main className="dof-menu dm-pause dm-handoff"><p role="status">Opening Shared table…</p></main>}>
+            <ReleaseMatch />
+          </Suspense>
+        } />
         <Route
           path="*"
           element={
@@ -42,3 +52,5 @@ export function App() {
     </Suspense>
   );
 }
+
+

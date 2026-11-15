@@ -1,7 +1,8 @@
 ---
 title: "Architecture"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
+  - docs/kb/grow-dusk-runtime.md
   - docs/kb/turn-criteria.md
   - package.json
   - apps/web/src/game
@@ -29,9 +30,11 @@ status: partial
 
 # Architecture
 
+The normal match has a dedicated route, an IndexedDB transaction coordinator and an End Turn worker that reuses the versioned TurnState domain. The release board and engineering inspector consume that state. See the [release runtime and recovery boundary](grow-dusk-runtime.md).
+
 The npm workspace contains a React and TypeScript site in `apps/web`, using React Router, Zustand, Three.js and Vite. The shared `packages/solver-contract` defines two contracts: the original structural model, result types and asynchronous adapter interface, and a detailed analysis model and result written against the solver criteria. TypeScript project references build the shared package before the app.
 
-Two solver backends sit outside the npm workspace. `crates/dof-solver` is a Rust crate with no dependencies that compiles to a WebAssembly module; the app bundles the compiled module and runs it in the browser. `services/opensees` is a Python project, managed with uv, that implements the original contract over HTTP with FastAPI and OpenSeesPy.
+Two solver backends sit outside the npm workspace. `crates/dof-solver` is a Rust crate with no dependencies that compiles to a WebAssembly module; the app bundles the compiled module and runs it in the browser. `services/opensees` is a Python project, managed with uv, that implements the versioned structural contract over HTTP with FastAPI and OpenSeesPy.
 
 The workspace incorporates the Voxel Struct experiment. Its Zustand store owns voxel game state and rules, while the Three.js scene renders and interacts with that state. The workspace calls the experimental TypeScript analysis through the game boundary. A game boundary translates the model and level into solver-owned inputs; it does not implement the shared solver adapter. Its sections, loads and checks cannot yet be represented by the shared contract, so backend interchangeability remains future work.
 

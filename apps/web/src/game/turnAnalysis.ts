@@ -2,11 +2,21 @@ import { recordTurnAnalysis } from './turnEvidence';
 import { CELL_SIZE, parseNodeKey } from './model';
 import { assemblyParts, type AssemblyNode } from './assembly';
 import type { TurnState } from './turns';
-import { originalPorts, turnJoints } from './turnPorts';
+import { analysisLoadJoint, originalPorts, turnJoints } from './turnPorts';
 import { connectionDefinition } from './jointFreedom';
 import { analyzeVoxel } from '../solver/voxel';
 import { assessCardCapacity } from '../solver/voxelCapacity';
 import type { VoxelLevel, VoxelModel } from '../solver/voxelInput';
+import { createTurnSolver } from '../solver/wasm/turnSolver';
+import type { WasmSource } from '../solver/wasm/wasmSolver';
+
+let releaseSolver = createTurnSolver();
+/** Initialize once in the transaction worker before replaying or assessing
+ * the release. Tests can provide the same checked-in binary as bytes. */
+export async function prepareReleaseSolver(source?: WasmSource): Promise<void> {
+  if (source) releaseSolver = createTurnSolver(source);
+  await releaseSolver.prepare();
+}
 
 const turnLevel: VoxelLevel = { type: 'sandbox', q0: 0, budget: Infinity, inv: null, loadCase: 'applied' };
 
@@ -24,11 +34,12 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
     if (!joint.foundationOwner) inactiveRotations.add(joint.id);
   }
   for (const load of [...turn.board.loads, ...turn.draft.loads]) {
-    const joint = attrs[load.jointId];
+    const joint = attrs[analysisLoadJoint(turn, load.jointId)];
     joint.load = (joint.load ?? 0) + load.magnitude;
   }
   const members = [...turn.board.members, ...turn.draft.members].flatMap<VoxelModel['members'][number]>(member => {
     const { id, a, b, type } = member;
+    const spring = member.springStiffnessNPerM === undefined ? {} : { springStiffnessNPerM: member.springStiffnessNPerM };
     function end(side: 'a' | 'b', point: string) {
       const connection = connections.get(`${id}:${side}`);
       const key = connection?.jointId ?? `endpoint:${id}:${side}`;
@@ -58,12 +69,14 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
         id: part.id, type, a: key(part.a), b: key(part.b),
         endA: part.a.station === 0 ? start.profile : part.pinned ? 'ball' : 'fixed',
         endB: part.b.station === 1 ? finish.profile : part.pinned ? 'ball' : 'fixed',
+        ...(part.a.station === 0 && start.law && {connectionA: start.law}),
+        ...(part.b.station === 1 && finish.law && {connectionB: finish.law}),
         parentSpan: {memberId: id, fromQuarter: part.a.station*4, toQuarter: part.b.station*4, assemblyPart: part.name,
           ...(part.chord && {unbracedLengthM: chordLength})},
       }));
     }
     const ports = originalPorts(member).filter(port => port.available && attrs[port.id]);
-    if (!ports.length) return [{ id, a: start.key, b: finish.key, type, endA: start.profile, endB: finish.profile,
+    if (!ports.length) return [{ id, a: start.key, b: finish.key, type, ...spring, endA: start.profile, endB: finish.profile,
       ...(member.restLengthM !== undefined && {restLengthM: member.restLengthM}),
       ...(start.law && {connectionA:start.law}), ...(finish.law && {connectionB:finish.law}) }];
     // Parent continuity passes all six DOFs across internal stations, even if
@@ -74,7 +87,7 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
       const from = stations[i];
       return {
         // Player IDs are positive. Analytical pieces never re-enter the playable catalogue.
-        id: -(id * 4 + from.quarter), type, a: from.id, b: to.id,
+        id: -(id * 4 + from.quarter), type, ...spring, a: from.id, b: to.id,
         ...(member.restLengthM !== undefined && {restLengthM: member.restLengthM * (to.quarter-from.quarter)/4}),
         endA: i === 0 ? start.profile : 'fixed',
         endB: to.quarter === 4 ? finish.profile : 'fixed',
@@ -90,8 +103,10 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
 /** Scoring uses card gravity alone. Ordinary experimental previews retain their original load case. */
 export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card-gravity' = 'with-self-weight') {
   const input = toTurnVoxelInput(turn);
-  const response = analyzeVoxel(input, { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });
-  const capacity = loading === 'card-gravity'
+  const release = turn.catalogue === 'grow-dusk-release-1';
+  const response = release ? releaseSolver.analyze(input, turn.catalogue)
+    : analyzeVoxel(input, { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });
+  const capacity = release || loading === 'card-gravity'
     ? assessCardCapacity(input, response, [...turn.board.connections, ...turn.draft.connections])
     : undefined;
   const physicalParents = new Map(input.members.filter(m => m.parentSpan).map(m => [m.id, m.parentSpan!.memberId]));

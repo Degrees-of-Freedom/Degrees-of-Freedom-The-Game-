@@ -7,6 +7,7 @@ import {
   stageLoad,
 } from "../game/turns";
 import type { useGameStore } from "../game/store";
+import { connectionChoices, RELEASE_CATALOGUE } from "../game/cardCatalogue";
 
 type GameState = ReturnType<typeof useGameStore.getState>;
 export type ConnectionTarget = {
@@ -40,11 +41,14 @@ export function turnConnectionTargets(state: GameState): ConnectionTarget[] {
   const card = selectedTurnCard(state);
   if (!state.turn || card?.kind !== "connection") return [];
   const turn = state.turn;
+  const profiles = connectionChoices(card);
+  const profile = profiles.length === 1 ? profiles[0] : state.selectedConnectionProfile;
+  if (turn.catalogue === RELEASE_CATALOGUE && !profile) return [];
   const members = [...turn.board.members, ...turn.draft.members];
   return members.flatMap((member) =>
     (["a", "b"] as const).flatMap((end) => {
       return connectionLocations(members, member, end).flatMap(key => {
-        const transition = stageConnection(turn, card.id, member.id, end, key);
+        const transition = stageConnection(turn, card.id, member.id, end, key, profile);
         return transition.ok ? [{ memberId: member.id, end, key }] : [];
       });
     }),

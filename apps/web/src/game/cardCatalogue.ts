@@ -14,16 +14,20 @@ export const TRUSS_CATALOGUE = 'shared-table-trusses-1' as const;
 export const SPRING_CATALOGUE = 'shared-table-springs-1' as const;
 export const JOINT_CATALOGUE = 'shared-table-joints-1' as const;
 export const CABLE_CATALOGUE = 'shared-table-cables-1' as const;
-export type ScoredCatalogue = typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE | typeof TRUSS_CATALOGUE | typeof SPRING_CATALOGUE | typeof JOINT_CATALOGUE | typeof CABLE_CATALOGUE;
+export const HOLLOW_CATALOGUE = 'shared-table-hollow-1' as const;
+export const RELEASE_CATALOGUE = 'grow-dusk-release-1' as const;
+export type ScoredCatalogue = typeof HOLLOW_CATALOGUE | typeof RELEASE_CATALOGUE | typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE | typeof TRUSS_CATALOGUE | typeof SPRING_CATALOGUE | typeof JOINT_CATALOGUE | typeof CABLE_CATALOGUE;
 export type CatalogueId = typeof LEGACY_CATALOGUE | ScoredCatalogue;
 export function isScoredCatalogue(catalogue: unknown): catalogue is ScoredCatalogue {
-  return catalogue === SCORED_CATALOGUE || catalogue === PLANAR_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === SPRING_CATALOGUE || catalogue === JOINT_CATALOGUE || catalogue === CABLE_CATALOGUE;
+  return catalogue === HOLLOW_CATALOGUE || catalogue === RELEASE_CATALOGUE || catalogue === SCORED_CATALOGUE || catalogue === PLANAR_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === SPRING_CATALOGUE || catalogue === JOINT_CATALOGUE || catalogue === CABLE_CATALOGUE;
 }
 
 const legacyTypes = ['shs', 'glulam', 'ipe', 'heb', 'cable'] as const;
 const scoredTypes = ['shs', 'glulam', 'ipe', 'heb'] as const;
 
 export function memberDeckTypes(catalogue: CatalogueId): readonly (MemberType | AssemblyId)[] {
+  if (catalogue === HOLLOW_CATALOGUE) return ['chs','shs'];
+  if (catalogue === RELEASE_CATALOGUE) return ['heb', 'cable', 'spring'];
   if (catalogue === CABLE_CATALOGUE) return legacyTypes;
   if (catalogue === SPRING_CATALOGUE) return [...scoredTypes, 'spring'];
   if (catalogue === TRUSS_CATALOGUE) return [...scoredTypes, PLANAR.id, TRICHORD.id];
@@ -33,17 +37,24 @@ export function memberDeckTypes(catalogue: CatalogueId): readonly (MemberType | 
 
 interface Printing {
   definitionId: string;
-  definitionVersion: typeof CARD_DEFINITION_VERSION;
+  definitionVersion: typeof CARD_DEFINITION_VERSION | typeof RELEASE_CATALOGUE;
   label: string;
 }
 
 export type CardDefinition =
-  | Printing & { kind: 'element'; type: MemberType; assembly?: AssemblyId; maxSteps: number }
+  | Printing & { kind: 'element'; type: MemberType; assembly?: AssemblyId; maxSteps: number; springStiffnessNPerM?: number }
   | Printing & { kind: 'load'; magnitude: number }
-  | Printing & { kind: 'connection'; profile: keyof typeof CONNECTION_PROFILES };
+  | Printing & { kind: 'connection'; profile: keyof typeof CONNECTION_PROFILES; rotationsToLock?: 1 | 2 | 3 };
+
+/** Choices remain relative to global axes for the lifetime of the connection. */
+export function connectionChoices(card: Extract<CardDefinition, {kind:'connection'}>): readonly ConnectionProfile[] {
+  if (card.rotationsToLock === 1) return ['lock-x', 'lock-y', 'lock-z'];
+  if (card.rotationsToLock === 2) return ['lock-xy', 'lock-xz', 'lock-yz'];
+  return [card.profile];
+}
 
 const printings: CardDefinition[] = [];
-for (const type of [...legacyTypes, 'spring'] as const) {
+for (const type of [...legacyTypes, 'spring', 'chs'] as const) {
   for (const maxSteps of [1, 2, 3, 4]) {
     printings.push({
       definitionId: `element/${type}/axis-${maxSteps}`, definitionVersion: CARD_DEFINITION_VERSION,
@@ -77,21 +88,68 @@ for (const profile of jointPrintings) {
 }
 const definitions = new Map(printings.map(card => [card.definitionId, Object.freeze(card)] as const));
 
+/** Count, reach, section law and strength interactions are pinned by this manifest.
+ * Both ordered decks are shuffled by the replayable LCG Fisher–Yates in turns.ts. */
+export const RELEASE_MANIFEST = {
+  version: RELEASE_CATALOGUE, shuffle: 'fisher-yates-lcg32-1',
+  capacity: 'card-strength-1', clash: 'reference-solids-1', springStrokeFraction: 0.10,
+  boardMax: [15, 15, 12], setup: [[5, 7, 0], [10, 7, 0]], cellSizeM: 2,
+} as const;
+
+function authoredReleaseDecks() {
+  const elementsLoads: CardDefinition[] = [], connections: CardDefinition[] = [];
+  const version = RELEASE_CATALOGUE;
+  const reaches = [5, 5, 7, 10];
+  for (const family of ['heb', 'cable', 'spring-quarter', 'spring-half'] as const) {
+    for (const maxSteps of family === 'heb' ? [5,5,5,5,7,7,7,7,10,10,10,10] : reaches) {
+      const spring = family === 'spring-quarter' || family === 'spring-half';
+      const name = family === 'heb' ? 'HEB 300' : family === 'cable' ? 'Cable Ø24' :
+        family === 'spring-quarter' ? 'Quarter spring' : 'Half spring';
+      elementsLoads.push({ definitionId: `element/${family}/reach-${maxSteps}`, definitionVersion: version,
+        kind: 'element', type: spring ? 'spring' : family, maxSteps,
+        ...(spring && {springStiffnessNPerM: family === 'spring-quarter' ? 12_500 : 25_000}),
+        label: `${name} · ≤${maxSteps} cells` });
+    }
+  }
+  for (const [magnitude, count] of [[5,12],[10,8],[20,4]]) {
+    for (let i = 0; i < count; ++i) elementsLoads.push({ kind: 'load', magnitude,
+      definitionId: 'gravity/' + magnitude + 'kN', definitionVersion: version, label: magnitude + ' kN down' });
+  }
+  for (const rotationsToLock of [3, 2, 1] as const) {
+    for (let i = 0; i < (rotationsToLock === 3 ? 32 : 8); ++i) connections.push({
+      kind: 'connection', rotationsToLock, profile: rotationsToLock === 3 ? 'fixed' : rotationsToLock === 2 ? 'lock-xy' : 'lock-x',
+      definitionId: 'connection/lock-' + rotationsToLock, definitionVersion: version,
+      label: rotationsToLock === 3 ? 'Fixed connector' : rotationsToLock === 2 ? 'Lock two axes' : 'Lock one axis',
+    });
+  }
+  return [elementsLoads, connections] as const;
+}
+const releaseDecks = authoredReleaseDecks();
+const releaseDefinitions = new Map(releaseDecks.flat().map(card => [card.definitionId, Object.freeze(card)]));
+
+export function createReleaseDecks() {
+  const instances = (deck: readonly CardDefinition[], name: string) =>
+    deck.map((card, index) => ({ ...card, id: name + '-' + index }));
+  return [instances(releaseDecks[0], 'piece'), instances(releaseDecks[1], 'connector')] as const;
+}
+
 /** Unknown or future revisions cannot silently acquire current mechanics. */
 export function resolveCardDefinition(definitionId: string, version: string): Readonly<CardDefinition> {
-  const definition = definitions.get(definitionId);
-  if (version !== CARD_DEFINITION_VERSION || !definition) {
+  const definition = version === RELEASE_CATALOGUE ? releaseDefinitions.get(definitionId) :
+    version === CARD_DEFINITION_VERSION ? definitions.get(definitionId) : undefined;
+  if (!definition) {
     throw new Error(`Unsupported card definition ${definitionId} at ${version}.`);
   }
   return definition;
 }
 
 export function printedCards(index: number, catalogue: CatalogueId) {
+  if (catalogue === RELEASE_CATALOGUE) throw new Error('The release uses its finite authored decks.');
   const types = memberDeckTypes(catalogue);
   const type = types[index % types.length];
   // Even-sized catalogues shift the reach after each pass through the families
   // so each family can draw all four reaches. Five-family deals already cycle.
-  const rotateReach = catalogue === SCORED_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === JOINT_CATALOGUE;
+  const rotateReach = catalogue === HOLLOW_CATALOGUE || catalogue === SCORED_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === JOINT_CATALOGUE;
   const reachIndex = rotateReach ? index + Math.floor(index / types.length) : index;
   const maxSteps = 1 + reachIndex % 4;
   const load = GRAVITY_CARDS_KN[index % GRAVITY_CARDS_KN.length];
@@ -110,6 +168,7 @@ export function describePrinting(card: CardDefinition): string {
     return `One persistent ${card.magnitude} kN force in global −Z at the selected joint.`;
   }
   if (card.kind === 'connection') {
+    if (card.rotationsToLock) return `Locks all translations and ${card.rotationsToLock} of the three global rotational axes. All incoming freedoms must match the shared joint.`;
     if (card.profile === 'hinge-diagonal') return 'Allows rotation about the horizontal 45° axis pointing equally along global +X and +Y. All other motions are locked.';
     if (card.profile === 'guided-x') return 'Slides along global X with zero transferred X force. Locks the other five motions.';
     if (card.profile === 'seat-20' || card.profile === 'seat-80') return `Global vertical stiffness is ${card.profile === 'seat-20' ? 20 : 80} MN/m in tension and compression. The other five motions are locked.`;
@@ -119,7 +178,14 @@ export function describePrinting(card: CardDefinition): string {
       : 'Locks all three translations and rotations at one end. Existing joint permissions must match.';
   }
   const section = ITEMS[card.type];
+  if (card.definitionVersion === RELEASE_CATALOGUE) {
+    const reach = `Maximum straight-line reach ${card.maxSteps * S} m (${card.maxSteps} grid units).`;
+    if (card.type === 'cable') return 'Cable Ø24 · E 160 GPa, metallic area 360 mm², tensile limit 260 kN. Rest length equals the placed span. Slack carries zero tension. ' + reach;
+    if (card.type === 'spring') return `Axial spring · ${card.springStiffnessNPerM! / 1000} kN/m, strength 5 kN, verified stroke within 10% of its placed span. ${reach}`;
+    return `${section.label} · ${section.sub}. ${reach}`;
+  }
   const reach = `Up to ${card.maxSteps * S} m on each grid axis, including diagonals.`;
+  if (card.type === 'chs') return 'CHS 100×6 · steel circular annulus, 100 mm outside diameter and 6 mm wall. Quarter load and connection ports preserve the continuous section. ' + reach;
   if (section.kind === 'spring') return 'Axial spring · 50 kN/m in tension and compression, 5 kN printed limit. The placed span is unloaded. Three sliding collars expose the original quarters. Attached pieces must provide transverse restraint. ' + reach;
   if (card.assembly === TRICHORD.id) return 'Four-panel trichord truss · three SHS 100×6 chords on a 500 mm equilateral triangle. Welded rings and pin-ended diagonals brace all three faces. External tips and 25%, 50% and 75% branch joints lie on the first chord. ' + reach;
   if (card.assembly === PLANAR.id) return 'Four-panel planar truss · 500 mm deep · two continuous SHS 100×6 chords, welded posts and pin-ended alternating diagonals. External connectors fit the lower chord tips. Branch ports lie on its 25%, 50% and 75% joints. ' + reach;

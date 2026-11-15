@@ -110,6 +110,23 @@ function parse(text: string): unknown {
   }
 }
 
+/** Match workers own the entire atomic turn and can be terminated by their
+ * caller. Their repeated solves share one prepared module on that worker. */
+export function createPreparedWasmSolver(source: WasmSource = bundledModule) {
+  const runner = createInlineRunner(source);
+  return { prepare: runner.prepare,
+    analyzePrepared(model: AnalysisModel, options: AnalysisOptions): DetailedAnalysisResult {
+      const started = performance.now();
+      const outcome = runner.runPrepared(JSON.stringify({model, options}));
+      if (outcome.kind !== 'text') return failureFor(outcome);
+      const result = parse(outcome.text);
+      if (!isDetailedResult(result)) return failure('internalError', 'The solver returned an unexpected result.');
+      result.analysis.runtimeMs = performance.now() - started;
+      return result;
+    },
+  };
+}
+
 /**
  * The Rust reference solver, running as WebAssembly in the browser.
  *
@@ -191,8 +208,9 @@ export function createWasmSolver(config: WasmSource | WasmSolverConfig = {}): So
     async analyze(model: StructuralModel, signal?: AbortSignal): Promise<AnalysisResult> {
       const translated = toAnalysisModel(model);
       if ('error' in translated) return { status: 'error', message: translated.error };
+      if ('unsupported' in translated) return { status: 'unsupported', message: translated.unsupported };
       const detailed = await analyzeDetailed(translated.model, translated.options, signal);
-      return fromDetailedResult(model, detailed);
+      return fromDetailedResult(model, detailed, translated.displacementLimit, translated.segmentsPerFrame);
     },
   };
 }

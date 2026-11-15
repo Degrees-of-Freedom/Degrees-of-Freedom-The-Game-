@@ -1,18 +1,26 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { FigureName } from "./figure";
+import type { FigureName, FigurePose } from "./figure";
 import type { PublicRepairReport } from "../game/publicRepairReport";
 import { RepairExplanation } from "./RepairExplanation";
-import { useSettings } from "../menu/settings";
+import { updateSettings, useSettings } from "../menu/settings";
 import "./companion.css";
 
 type Area = "home" | "menu" | "board" | "drawer";
 
 /** Keep the matching portrait available throughout lazy import/decoding. A
  * context loss replaces the canvas immediately and offers an explicit retry. */
-function Figure({ name, retry, onFailure }: {
+function Figure({ name, retry, onFailure, pose, sequence, still }: {
   name: FigureName; retry: number; onFailure: (failed: boolean) => void;
+  pose?: FigurePose; sequence?: number; still: boolean;
 }) {
   const host = useRef<HTMLSpanElement>(null);
+  const actor = useRef<ReturnType<typeof import("./figure").createFigure> | undefined>(undefined);
+  const currentPose = useRef({ pose, still });
+  currentPose.current = { pose, still };
+  useEffect(() => {
+    if (pose) actor.current?.pose(pose, still);
+    else actor.current?.settle();
+  }, [pose, sequence, still]);
   const [view, setView] = useState<"portrait" | "model">("portrait");
   useEffect(() => {
     const element = host.current!;
@@ -25,6 +33,7 @@ function Figure({ name, retry, onFailure }: {
       stage.canvas.remove();
       stage.dispose();
       stage = undefined;
+      actor.current = undefined;
     };
     function lost(event: Event) {
       event.preventDefault();
@@ -42,7 +51,11 @@ function Figure({ name, retry, onFailure }: {
         stage.canvas.addEventListener("webglcontextlost", lost);
         element.append(stage.canvas);
         await stage.show(name);
-        if (active && token === generation) { setView("model"); onFailure(false); }
+        if (active && token === generation) {
+          actor.current = stage;
+          if (currentPose.current.pose) stage.pose(currentPose.current.pose, currentPose.current.still);
+          setView("model"); onFailure(false);
+        }
       } catch {
         if (active && token === generation) { drop(); setView("portrait"); onFailure(true); }
       }
@@ -68,13 +81,23 @@ function Figure({ name, retry, onFailure }: {
   </span>;
 }
 
-export function Companion({ area, repairs, announceRepair = false, onPresented, onForemanAccent }: {
+export interface CompanionProps {
   area: Area;
   repairs?: PublicRepairReport[];
   announceRepair?: boolean;
   onPresented?: () => void;
   onForemanAccent?: () => void | (() => void);
-}) {
+  release?: boolean;
+  action?: number;
+  final?: boolean;
+  skip?: boolean;
+}
+
+// Cosmetic cooldowns survive privacy unmounts. No cards, seed or topology are recorded.
+let lastForeman = -Infinity;
+let lastActivation = -Infinity;
+export function Companion({ area, repairs, announceRepair = false, onPresented, onForemanAccent,
+  release = false, action = 0, final = false, skip = false }: CompanionProps) {
   const id = useId();
   const settings = useSettings();
   const button = useRef<HTMLButtonElement>(null);
@@ -90,16 +113,19 @@ export function Companion({ area, repairs, announceRepair = false, onPresented, 
     if (announceRepair && latest && presentedTurn.current !== latest.turn) {
       presentedTurn.current = latest.turn;
       setSelectedTurn(null);
-      setForeman(latest.foreman ? "reaction" : null);
-      if (latest.foreman && settings.sound && !document.hidden) stopAccent.current = onForemanAccent?.() ?? null;
-      setOpen(true);
+      const eligible = settings.showCompanion && !document.hidden && !final && !skip &&
+        (release ? latest.releaseForeman && performance.now() - lastForeman >= 45_000 : latest.foreman);
+      if (release && eligible) lastForeman = performance.now();
+      setForeman(eligible ? "reaction" : null);
+      if (eligible && settings.sound) stopAccent.current = onForemanAccent?.() ?? null;
+      setOpen(!final && settings.showCompanion);
       onPresented?.();
     }
-  }, [announceRepair, latest, onPresented, onForemanAccent, settings.sound]);
+  }, [announceRepair, latest, onPresented, onForemanAccent, settings.sound, settings.showCompanion, final, skip, release]);
   useEffect(() => {
     if (foreman !== "reaction") return;
     const settle = () => { setForeman(null); setFailed(false); };
-    const timer = window.setTimeout(settle, 4000);
+    const timer = window.setTimeout(settle, release ? 3800 : 4000);
     const hidden = () => { if (document.hidden) settle(); };
     document.addEventListener("visibilitychange", hidden);
     return () => {
@@ -108,7 +134,9 @@ export function Companion({ area, repairs, announceRepair = false, onPresented, 
       stopAccent.current?.();
       stopAccent.current = null;
     };
-  }, [foreman]);
+  }, [foreman, release]);
+  useEffect(() => { if (final || skip || !settings.showCompanion) { setForeman(null); setOpen(false); } },
+    [final, skip, settings.showCompanion]);
   useEffect(() => {
     if (!settings.sound) stopAccent.current?.();
     return () => { stopAccent.current?.(); };
@@ -119,6 +147,9 @@ export function Companion({ area, repairs, announceRepair = false, onPresented, 
     if (foreman) { setForeman(null); setFailed(false); }
     button.current?.focus();
   }
+  if (!settings.showCompanion) return <aside className={"companion companion-" + area}>
+    <button className="companion-restore" onClick={() => updateSettings({ showCompanion: true })}>Show companion</button>
+  </aside>;
   return <aside className={"companion companion-" + area} aria-label="Site companion"
     data-foreman={foreman ?? undefined} data-motion={settings.reducedMotion ? "reduced" : "system"}
     onKeyDown={e => {
@@ -126,13 +157,23 @@ export function Companion({ area, repairs, announceRepair = false, onPresented, 
     }}>
     <button type="button" ref={button} className="companion-figure"
       aria-label={"Talk to " + name} aria-expanded={open} aria-controls={open ? id : undefined}
-      onClick={() => open ? close() : setOpen(true)}>
-      <Figure key={name} name={foreman ? "conkeldurr" : "timburr"} retry={retry} onFailure={setFailed} />
+      onClick={() => {
+        if (open) close();
+        else if (!release || performance.now() - lastActivation >= 5000) {
+          lastActivation = performance.now(); setOpen(true);
+        }
+      }}>
+      <Figure key={name} name={foreman ? "conkeldurr" : "timburr"} retry={retry} onFailure={setFailed}
+        pose={release ? final ? "victory" : foreman ? "foreman" : action || open ? "nod" : undefined : undefined}
+        sequence={action} still={settings.reducedMotion || skip} />
       <span>{name}</span>
     </button>
     {open && <div id={id} className={"companion-note" + (repair && foreman !== "preview" ? " companion-repair" : "")}>
       {foreman === "reaction" && <span className="companion-announcement" role="status">Conkeldurr has a foreman report for turn {repair?.turn}.</span>}
-      {repair && foreman !== "preview" ? <>
+      {release ? <p>{final ? "The final scores are in." : repair ? repair.attempts.some(a => a.status === "verified")
+        ? `A neutral prop was installed on turn ${repair.turn}.${repair.pending.length ? " Inspect the remaining issue." : " Inspect its support reaction."}`
+        : `Inspect the unresolved region from turn ${repair.turn}.`
+        : "Select a member or joint to inspect it."}</p> : repair && foreman !== "preview" ? <>
         {repairs && repairs.length > 1 && <label>Recorded repair
           <select value={repair.turn} onChange={e => { setForeman(null); setSelectedTurn(Number(e.target.value)); }}>
             {repairs.map(entry => <option key={entry.turn} value={entry.turn}>Turn {entry.turn}</option>)}
@@ -142,9 +183,9 @@ export function Companion({ area, repairs, announceRepair = false, onPresented, 
       </> : <p>{foreman ? "Conkeldurr · Foreman preview" : area === "board" || area === "drawer"
         ? "Got a tricky joint? Inspect it to see which ends are connected."
         : "Ready to build? Pick a game mode and I’ll meet you on the board."}</p>}
-      <button type="button" onClick={() => { setFailed(false); setForeman(foreman ? null : "preview"); }}>
+      {(!release || foreman === "reaction") && <button type="button" onClick={() => { setFailed(false); setForeman(foreman ? null : "preview"); }}>
         {foreman === "reaction" ? "Skip transformation" : foreman ? "Back to Timburr" : "Preview Conkeldurr"}
-      </button>
+      </button>}
       {failed && <button type="button" onClick={() => { setFailed(false); setRetry(value => value + 1); }}>
         Retry 3D model
       </button>}

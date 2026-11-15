@@ -14,6 +14,8 @@ import type { JointDisplay } from "../viewer/jointPermissions";
  */
 export interface Settings {
   sound: boolean;
+  showCompanion: boolean;
+  glow: boolean;
   masterVolume: number;
   effectsVolume: number;
   reducedMotion: boolean;
@@ -58,9 +60,11 @@ export function defaultSettings(
     : null;
   return {
     sound: false,
-    masterVolume: 100,
-    effectsVolume: 100,
-    reducedMotion: false,
+    masterVolume: 35,
+    effectsVolume: 70,
+    reducedMotion: typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches,
+    glow: true,
+    showCompanion: true,
     showHelpOnStart: false,
     jointDisplay: "selected",
     solver: configured || env.VITE_SOLVER === "opensees" ? "opensees" : "rust",
@@ -87,7 +91,7 @@ export function parseSettings(raw: string | null): Settings {
   }
   const record =
     value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-  const pick = (key: "sound" | "reducedMotion" | "showHelpOnStart") =>
+  const pick = (key: "sound" | "reducedMotion" | "showHelpOnStart" | "glow" | "showCompanion") =>
     typeof record[key] === "boolean"
       ? (record[key] as boolean)
       : DEFAULT_SETTINGS[key];
@@ -103,6 +107,8 @@ export function parseSettings(raw: string | null): Settings {
       : null;
   return {
     sound: pick("sound"),
+    glow: pick("glow"),
+    showCompanion: pick("showCompanion"),
     masterVolume: volume("masterVolume"),
     effectsVolume: volume("effectsVolume"),
     reducedMotion: pick("reducedMotion"),

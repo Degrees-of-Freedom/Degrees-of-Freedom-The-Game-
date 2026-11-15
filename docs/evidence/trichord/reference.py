@@ -7,7 +7,7 @@ import math
 import openseespy.opensees as ops
 
 
-def reference(quarter, direction, torque=False):
+def reference(quarter, direction, torque=False, shear=False):
     ops.wipe()
     ops.model("basic", "-ndm", 3, "-ndf", 6)
     offsets = [(0., 0.), (.5, 0.), (.25, math.sqrt(3)/4)]
@@ -33,6 +33,9 @@ def reference(quarter, direction, torque=False):
             a, b = locations[start-1], locations[end-1]
             orientation = [0, 0, 1] if a[:2] != b[:2] else [0, 1, 0]
             ops.geomTransf("Linear", tag, *orientation)
+            if shear:
+                return ops.element("ElasticTimoshenkoBeam", tag, start, end, 210e9, 81e9, .00224,
+                                   5.13e-6, 3.2e-6, 3.2e-6, 1.12e-3, 1.12e-3, tag)
             ops.element("elasticBeamColumn", tag, start, end, .00224, 210e9, 81e9,
                         5.13e-6, 3.2e-6, 3.2e-6, tag)
     part(1, joint(0, 0))
@@ -67,6 +70,10 @@ def reference(quarter, direction, torque=False):
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--shear", action="store_true", help="Include the SHS card shear flexibility used by Rust")
+    args = parser.parse_args()
     for direction in [1, 2]:
-        print(direction, [reference(q, direction) for q in [1,2,3]])
-    print("Torque", reference(2, 2, torque=True))
+        print(direction, [reference(q, direction, shear=args.shear) for q in [1,2,3]])
+    print("Torque", reference(2, 2, torque=True, shear=args.shear))

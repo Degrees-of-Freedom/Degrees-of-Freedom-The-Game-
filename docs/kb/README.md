@@ -1,7 +1,8 @@
 ---
 title: "Knowledge Base"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
+  - docs/kb/grow-dusk-runtime.md
   - README.md
   - package.json
   - docs/kb/architecture.md
@@ -31,9 +32,13 @@ status: partial
 
 ## Purpose and status
 
-This is the canonical entry point for durable project knowledge. The web prototype contains five existing environment presenters, voxel editing, challenges and a local Shared table card playtest. Its two-player, eight-round frame preset supports private handoffs, intentional original-quarter attachments and final scoring from verified component reactions. The editor can request linear or bounded nonlinear analysis through the OpenSees adapter. The Rust solver in `crates/dof-solver` runs in the browser and provides the editor’s default structural check. The [criteria ledger](criteria-ledger.md) records the tested scope and remaining gaps.
+On the release integration branch, **Play** opens the versioned, two-player Grow Dusk match. Its turn worker uses in-browser Rust/WASM and commits through IndexedDB. The operating instructions and acceptance status are in the [release runtime](grow-dusk-runtime.md) and [criteria ledger](criteria-ledger.md). The playtest descriptions below document the preceding presets and secondary modes.
+
+The secondary workspaces retain their playable presets, editor and earlier environment implementations. The editor can request linear or bounded nonlinear analysis through the OpenSees adapter. The [criteria ledger](criteria-ledger.md) records the current Shared table findings separately from the earlier preset walkthroughs.
 
 ## Pages
+
+The app's `/wiki` companion offers six introductory lessons, a searchable glossary and exercises linking to the existing workspace. Its frame graphic is illustrative, not solver output. The wiki is an introductory foundation rather than an exhaustive engineering reference; see [Rust solver](rust-solver.md), [structural solver](structural-solver.md), and [unified runtime](unified-runtime.md) for implementation and limitations.
 
 | Page | Use this when |
 | --- | --- |
@@ -62,6 +67,7 @@ This is the canonical entry point for durable project knowledge. The web prototy
 | [multiplayer-criteria.md](multiplayer-criteria.md) | Specifying first-release local hot-seat, private handoff, information visibility and future authority boundaries. |
 | [saved-match-criteria.md](saved-match-criteria.md) | Saving/recovering complete matches, atomic commits, replay, migration and private exports. |
 | [release-acceptance-criteria.md](release-acceptance-criteria.md) | Validating a complete playable match with evidence, numerical/performance gates and supported scope. |
+| [ai-turn-lab.md](ai-turn-lab.md) | Running and understanding the experimental trainable turn agents. |
 | [game-dynamics.md](game-dynamics.md) | Working on game state, turns, rules, or modes. |
 | [avatar-criteria.md](avatar-criteria.md) | Defining Timburr’s personality, compact presence, reactions, Conkeldurr transformation, model sources and deferred implementation handoff. |
 | [animation-criteria.md](animation-criteria.md) | Defining all-action animation and sound requirements, optional structural glow/pulse, accessibility, timing and acceptance scenarios. |
@@ -117,3 +123,4 @@ They freeze `grow-dusk-release-1`: two players/eight rounds, finite authored dec
 ## Complete-release implementation prompt
 
 [Complete Grow Dusk release implementation prompt](../implementation-prompts/complete-grow-dusk-release.md) provides the implementation handoff for the frozen release decisions: criteria precedence, coordinated agents, integrated milestones, minimal UI, numerical verification, full-game tests and final review. It is an execution prompt, not evidence of completed implementation.
+

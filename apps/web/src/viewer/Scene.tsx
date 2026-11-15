@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { useGameStore } from "../game/store";
@@ -12,8 +12,11 @@ import {
 } from "../game/model";
 import { getSettings } from "../menu/settings";
 import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
-import { addResultArrows, displayPoint } from "./sceneResults";
+import { addResultArrows, displayPoint, viewBasePoint } from "./sceneResults";
+import { buildDisplacementShadow, labelPeakDisplacement } from "./displacementShadow";
 import { createFlowParticles } from "./flowParticles";
+import { buildReleaseFlow, markInstability } from "./releaseFlow";
+import { drawBoardDiagram } from "./boardDiagrams";
 import { buildStructure } from "./structureMeshes";
 import { bindSceneInteraction } from "./sceneInteraction";
 import { selectedTurnCard } from "./turnPicking";
@@ -36,6 +39,11 @@ const trimLength = (value: number) =>
 import { createJointGlyphs } from "./jointGlyphs";
 /** Three.js owns only presentation and picking; the game store owns the model and rules. */
 export function Scene({
+  diagrams,
+  cameraMemory,
+  still,
+  trueScale,
+  showInstability,
   jointLayer,
   field, reference,
   result,
@@ -46,10 +54,17 @@ export function Scene({
   loads,
   loadPath,
   onToggleLoadPath,
+  shadow,
+  labels,
   onMessage,
   baySize,
 }: SceneView) {
   const view = useRef<SceneView>({
+    diagrams,
+    cameraMemory,
+    still,
+    trueScale,
+    showInstability,
     jointLayer,
     field, reference,
     result,
@@ -60,10 +75,17 @@ export function Scene({
     loads,
     loadPath,
     onToggleLoadPath,
+    shadow,
+    labels,
     onMessage,
     baySize,
   });
   view.current = {
+    diagrams,
+    cameraMemory,
+    still,
+    trueScale,
+    showInstability,
     jointLayer,
     field, reference,
     result,
@@ -74,17 +96,20 @@ export function Scene({
     loads,
     loadPath,
     onToggleLoadPath,
+    shadow,
+    labels,
     onMessage,
     baySize,
   };
   const refresh = useRef<() => void>(() => {});
+  const [gpuLost, setGpuLost] = useState(false);
   const refreshPermissions = useRef<() => void>(() => {});
   useEffect(() => {
     refreshPermissions.current();
-  }, [jointLayer, result, combo, deformed, scale, field]);
+  }, [jointLayer, result, combo, deformed, scale, field, labels]);
   useEffect(() => {
     refresh.current();
-  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath]);
+  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath, trueScale, showInstability, diagrams, shadow, labels]);
   const workK = useGameStore((state) => state.workK);
   const style = useGameStore((state) => state.style);
   const host = useRef<HTMLDivElement>(null);
@@ -92,10 +117,13 @@ export function Scene({
   const labelHost = useRef<HTMLDivElement>(null);
   const cameraActions = useRef({
     fit: () => {},
+    focus: () => {},
     orbit: (_step: number) => {},
     tilt: () => {},
   });
-  useEffect(() => {
+  // OrbitControls removes key listeners from the canvas's root. Dispose it
+  // while the canvas is still attached to the same document it registered on.
+  useLayoutEffect(() => {
     const element = host.current;
     if (!element) return;
     const scene = new THREE.Scene();
@@ -115,6 +143,8 @@ export function Scene({
     orthographic.up.set(0, 0, 1);
     camera.up.set(0, 0, 1);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const lose = (e: Event) => { e.preventDefault(); setGpuLost(true); };
+    renderer.domElement.addEventListener("webglcontextlost", lose);
     // The joint gizmo is drawn as a second pass over the structure, so clearing is explicit.
     renderer.autoClear = false;
     renderer.shadowMap.enabled = true;
@@ -328,8 +358,21 @@ export function Scene({
       disposeGroup(structure);
       disposeGroup(guides);
       particles.reset();
-      buildStructure(structure, state, view.current, point, particles.add);
-      addResultArrows(structure, view.current, point, state.style !== 'engineering');
+      const releaseFlow = !!view.current.cameraMemory && view.current.loadPath;
+      buildStructure(structure, state, releaseFlow ? { ...view.current, loadPath: false } : view.current, point, particles.add);
+      // Labels default to shown; the release board's view panel can hide them all at once.
+      const labels = view.current.labels !== false;
+      if (releaseFlow && view.current.result) buildReleaseFlow(structure, view.current.result, point, particles.add, labels);
+      for (const diagram of view.current.diagrams ?? []) {
+        drawBoardDiagram(structure, diagram, point, view.current.deformed ? view.current.field : undefined, view.current.scale, labels);
+      }
+      const field = view.current.field;
+      if (view.current.shadow && field) {
+        structure.add(buildDisplacementShadow(field, view.current.scale, key => viewBasePoint(key, view.current), view.current.trueScale));
+      }
+      if (labels && field && (view.current.shadow || view.current.deformed)) labelPeakDisplacement(structure, field, view.current.scale);
+      if (view.current.showInstability && view.current.result) markInstability(structure, view.current.result, point, labels);
+      addResultArrows(structure, view.current, point, state.style !== 'engineering' && labels);
       buildGuides(
         guides,
         level,
@@ -376,12 +419,23 @@ export function Scene({
       }
     };
     cameraActions.current = {
+      focus() {
+        const state = useGameStore.getState();
+        const sel = state.selected;
+        if (!sel) return;
+        const member = sel.type === "member" && state.model.members.find(m => m.id === sel.id);
+        const next = sel.type === "node" ? point(sel.key) : member ? point(member.a).lerp(point(member.b), .5) : null;
+        if (!next) return;
+        camera.position.add(next.clone().sub(controls.target));
+        controls.target.copy(next);
+        controls.update();
+      },
       fit() {
         currentEnvironment = "";
         rebuild();
         const state = useGameStore.getState();
         const points = allNodeKeys(state.model).map(point);
-        if (!points.length || state.mode === "multiplayer") return;
+        if (!points.length || (state.mode === "multiplayer" && !view.current.cameraMemory)) return;
         const bounds = new THREE.Box3().setFromPoints(points);
         const focus = bounds.getCenter(new THREE.Vector3());
         const radius = Math.max(
@@ -430,7 +484,17 @@ export function Scene({
     const observer = new ResizeObserver(resize);
     observer.observe(element);
     rebuild();
+    const initial = useGameStore.getState().turn;
+    const memory = view.current.cameraMemory;
+    if (memory && initial) {
+      if (memory.pose?.seed === initial.seed) {
+        camera.position.fromArray(memory.pose.eye);
+        controls.target.fromArray(memory.pose.target);
+        controls.update();
+      } else cameraActions.current.fit();
+    }
     renderer.setAnimationLoop((time: number) => {
+      if (document.hidden) return;
       if (cameraSwing > 0.001) {
         const step = cameraSwing * 0.075;
         const offset = camera.position.clone().sub(controls.target);
@@ -439,7 +503,7 @@ export function Scene({
         cameraSwing -= step;
       }
       controls.update();
-      particles.tick(time);
+      particles.tick(time, prefersStill || getSettings().reducedMotion || view.current.still);
       const state = useGameStore.getState();
       const line = preview.geometry.getAttribute("position");
       stickGhost.visible =
@@ -514,6 +578,9 @@ export function Scene({
           ? Math.atan2(Math.max(0, camera.position.z + CELL_SIZE), 145)
           : 0;
       updateGrowthOverlays(state, time);
+      // Joint glyphs keep a constant on-screen size and avoid each other, so
+      // they are positioned against the current camera before each draw.
+      glyphs.layout(camera, element.clientWidth, element.clientHeight);
       draw();
     });
     /**
@@ -683,6 +750,7 @@ export function Scene({
       }
     }
     return () => {
+      if (memory && initial) memory.pose = { seed: initial.seed, eye: camera.position.toArray(), target: controls.target.toArray() };
       refresh.current = () => {};
       refreshPermissions.current = () => {};
       glyphs.dispose();
@@ -696,6 +764,10 @@ export function Scene({
       bloom.dispose();
       gizmo.dispose();
       controls.removeEventListener("end", cameraChanged);
+      // Three r180 removes its root keydown in disconnect(), but leaves the
+      // temporary root keyup registered if Control is held during teardown.
+      const controlUp = (controls as OrbitControls & { _interceptControlUp?: EventListener })._interceptControlUp;
+      if (typeof controlUp === "function") renderer.domElement.getRootNode().removeEventListener("keyup", controlUp, true);
       controls.dispose();
       [terrain, structure, guides].forEach(disposeGroup);
       particles.dispose();
@@ -710,10 +782,13 @@ export function Scene({
       ghost.material.dispose();
       preview.geometry.dispose();
       preview.material.dispose();
+      renderer.domElement.removeEventListener("webglcontextlost", lose);
       renderer.dispose();
+      if (!renderer.getContext().isContextLost()) renderer.forceContextLoss();
       renderer.domElement.remove();
     };
   }, [style]);
+  if (gpuLost) throw new Error("The 3D context was lost.");
   return (
     <div className="scene">
       <div
@@ -826,6 +901,8 @@ export function Scene({
         >
           Fit
         </button>
+        {cameraMemory && <button type="button" title="Center on selected member or joint"
+          onClick={() => cameraActions.current.focus()}>Focus</button>}
         <button
           type="button"
           title="Rotate left (Q)"
