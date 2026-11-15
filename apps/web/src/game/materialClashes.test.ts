@@ -138,6 +138,10 @@ describe('intentional original-port contacts in revised Shared table', () => {
     expect(second.state.draft.connections).toEqual([]);
     const input = toTurnVoxelInput(second.state);
     expect(input.members.find(member => member.id === 4)?.a).toBe('endpoint:4:a');
+    const typed = stageElement(first.state, cards[1].id, '4,2,1', '6,3,1');
+    if (!typed.ok) throw new Error(typed.reason);
+    expect(typed.state.draft.members[1].endTargets).toEqual({a: 'port:3:2'});
+    expect(toTurnVoxelInput(typed.state).members.find(member => member.id === 4)?.a).toBe('endpoint:4:a');
     const held = activeTurnHand(first.state).map(card => card.id);
     const rejected = stageElement(first.state, cards[1].id, '4,0,1', '4,4,1');
     expect(rejected).toMatchObject({ok: false, reason: expect.stringMatching(/intersect material/)});
