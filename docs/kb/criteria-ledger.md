@@ -23,7 +23,7 @@ The preserved production build at `e31231d` passed typecheck, all 293 committed 
 
 | Uncommitted work | Evidence available at pause | Next check before accepting |
 | --- | --- | --- |
-| Displacement contours (VIS-02) | The lead independently reproduced a 6.155 mm midpoint magnitude and its signed components in Chrome, unchanged colors at 1×/100× display scale, and an unavailable region. [Runner](../evidence/contour/check.mjs). | Review the final files and coverage on assemblies, cables and springs, then rerun the integrated suite. |
+| Displacement contours (VIS-02) | The lead independently reproduced a 6.155 mm midpoint magnitude and its signed components in Chrome, unchanged colors at 1×/100× display scale, and an unavailable region. Historical runner reference: `docs/evidence/contour/check.mjs` (not present in this checkout; this criteria sync does not claim it was rerun). | Review the final files and coverage on assemblies, cables and springs, then rerun the integrated suite. |
 | Large connected-frame preview (PERF-STRESS) | Sparse factorization reduced the lead's observed p95 from 617.9 ms to 24.0 ms on the 500-member/2,016-equation fixture. Its normalized force residual was 3.93e−15. | Confirm signed parity, threshold behavior and cache invalidation after load/topology edits on the final implementation. |
 | Match-file exchange (SAVE-EXPORT) | Private import/export and a public summary were added to Turn details. The worker reported 14 writer, recovery-fault and conflict tests plus typecheck passing. | Independently check browser file handling, disclosure boundaries and interrupted/repeated imports through a complete saved match. |
 

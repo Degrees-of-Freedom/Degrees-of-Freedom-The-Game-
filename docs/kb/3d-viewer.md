@@ -38,7 +38,7 @@ See [animation and sound criteria](animation-criteria.md) for the owner-confirme
 
 ## Joint DOF visualization requirements
 
-Grow Dusk's **Build options → Joint permissions** controls Selected joint / All joints / Off and remembers the mode across reload. It draws an individual compass for each displayed intentional joint, with straight translation marks, rotational arcs, locked stops, free arrowheads and elastic zigzags. A separate striped base identifies ground restraints. The native selector exposes all joint identities, local-frame coordinates and six-axis tables, including world-axis coupling and different attached-end spring stiffnesses. The meanings, physical scope and verification are recorded in [Joint DOF criteria §10](joint-dof-criteria.md#10-open-decisions-and-current-gaps).
+Grow Dusk's **Build options → Joint permissions** controls Selected joint / All joints / Off and remembers the mode across reload. It draws an individual compass for each displayed intentional joint, with straight translation marks, rotational arcs, locked stops, free arrowheads and elastic zigzags. A separate striped base identifies ground restraints. The native selector exposes all joint identities, local-frame coordinates and six-axis tables, including world-axis coupling and different attached-end spring stiffnesses. The meanings, physical scope and verification are recorded in [current Joint DOF criteria](joint-dof-criteria.md) and the [implementation ledger](criteria-ledger.md).
 
 ## Structural element geometry requirements
 
