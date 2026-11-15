@@ -1,5 +1,13 @@
 # Session 1 multiplayer domain handoff
 
+## Confirmed restart criterion (MR20)
+
+Players can select Restart match at any point, including private handoff, drawing, staging, checkpoint analysis/correction, and after finalization. Before replacing the current save or starting another match, ask “Replace the current save and start a new match?” and explain that current progress will be lost. Cancel or dismiss preserves the current match and its save. Confirmation replaces the save with a fresh match and opens the first private handoff. On a write failure keep the current match available and report the error.
+
+Session 1 implements this transition in `domain/restart.ts` and exposes it through the independent draft fixture. Session 4 owns production wiring. Enable Restart in its persistent menu during every phase, including covering dialogs. Pass the active authority, its single-writer Storage slot and the confirmation result to `restartMultiplayerMatch`. For a custom asynchronous dialog, open it against the current match identity, discard stale confirmations on match change and call the synchronous adapter only after the player responds. On a null return or exception, keep the current authority and workers. On success detach the old subscriptions, invalidate/cancel old workers and animations, and bind the returned authority behind the first player's privacy cover. Use the same confirmation path for any other action that replaces this save. Quit retains its MR17 suspend behavior.
+
+Restart retains player/setup choices, deck composition and checkpoint interval, assigns a fresh match identity, and reshuffles the decks. The fixture uses its own browser storage slot. Session 4 acceptance includes cancel, confirm, failed save and reload from the real menu, including an outstanding checkpoint callback.
+
 Branch `codex/multiplayer-domain` starts at `bbe4c440eb5720c35ea0dbeee9a17430eb62412d`. Implementation commits in order are `e37bff0`, `d7511cd` and `4f8c8cadd3a13aaeb2c70b4f52d07efdc48531c2`. The following commit adds only this handoff. Resolve the complete integration tip with `git rev-parse codex/multiplayer-domain`.
 
 ## Files and interfaces
