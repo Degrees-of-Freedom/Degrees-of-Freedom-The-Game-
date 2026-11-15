@@ -1,3 +1,4 @@
+import { SolverSetting } from "../components/SolverSetting";
 import { MenuShell } from "../components/MenuShell";
 import { HOW_ART } from "../menu/art";
 import { PLAYTEST_SETTINGS, TURN_RULES, TURN_RULES_NOTES } from "../menu/turnRules";
@@ -160,7 +161,9 @@ export function HowToPlay() {
   );
 }
 
-const TOGGLES: { key: keyof Settings; title: string; text: string }[] = [
+type ToggleKey = "sound" | "reducedMotion" | "showHelpOnStart";
+
+const TOGGLES: { key: ToggleKey; title: string; text: string }[] = [
   {
     key: "sound",
     title: "Sound",
@@ -221,6 +224,9 @@ export function SettingsPage() {
       <p className="lede">Saved in this browser.</p>
       <div className="panel">
         <SettingToggles />
+      </div>
+      <div className="panel">
+        <SolverSetting />
       </div>
       <div className="foot">
         <button

@@ -30,6 +30,7 @@ import { EngineeringOptions } from "../components/environment/EngineeringOptions
 import { SceneBoundary } from "../components/environment/SceneBoundary";
 import { PauseMenu } from "../components/PauseMenu";
 import { getSettings, useSettings } from "../menu/settings";
+import { solverForSettings } from "../solver";
 import { StructureLibrary } from "../components/StructureLibrary";
 import { StoredAnalysisPanel } from "../components/StoredAnalysisPanel";
 import { GrowthHelp, growthHint } from "../components/environment/GrowthHelp";
@@ -39,7 +40,11 @@ type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 /** The environment variants compose the same store, scene and analysis boundary. */
 export function Workspace() {
   const game = useGameStore();
-  const stability = useStabilityCheck(game.model, LEVELS[game.levelId]);
+  const stability = useStabilityCheck(
+    game.model,
+    LEVELS[game.levelId],
+    solverForSettings(useSettings()),
+  );
   // Multiplayer uses independent member-end connections, not the node model.
   const contractCompatible = game.mode !== "multiplayer";
   const [analysis, setAnalysis] = useState<{

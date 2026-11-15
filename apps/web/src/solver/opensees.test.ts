@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AnalysisResult, StructuralModel } from '@dof/solver-contract';
-import { createOpenSeesSolver } from './opensees';
+import { checkOpenSees, createOpenSeesSolver } from './opensees';
 
 const cantilever: StructuralModel = {
   units: 'SI',
@@ -12,6 +12,25 @@ const cantilever: StructuralModel = {
 
 const respond = (body: unknown, status = 200) =>
   vi.fn(async () => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status }));
+
+describe('OpenSees health check', () => {
+  it('reports a running service with its OpenSees version', async () => {
+    const fetchMock = respond({ status: 'ok', service: '0.1.0', opensees: '3.8.0' });
+    expect(await checkOpenSees('http://solver.test/', fetchMock)).toEqual({ status: 'ok', openSeesVersion: '3.8.0' });
+    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe('http://solver.test/health');
+  });
+
+  it('reports something else at the address, an offline service and a timeout as unreachable', async () => {
+    const other = await checkOpenSees('http://solver.test', respond('<html>dev server</html>'));
+    expect(other).toEqual({ status: 'unreachable', message: expect.stringContaining('not as an OpenSees service') });
+    const offline = vi.fn(async () => { throw new TypeError('fetch failed'); });
+    expect(await checkOpenSees('http://solver.test', offline)).toEqual({ status: 'unreachable', message: expect.stringContaining('Could not reach') });
+    const hanging = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+    }));
+    expect(await checkOpenSees('http://solver.test', hanging, 10)).toEqual({ status: 'unreachable', message: expect.stringContaining('did not answer') });
+  });
+});
 
 describe('OpenSees solver adapter', () => {
   it('posts the model as JSON to /analyze and returns the service result', async () => {

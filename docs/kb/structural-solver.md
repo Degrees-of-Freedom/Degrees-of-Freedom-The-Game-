@@ -44,9 +44,9 @@ The game intends to communicate load paths, instability, member or connection fa
 Two backends implement the shared contract, and the workspace uses one of them for a structural check that runs beside the voxel analysis. `useStabilityCheck` picks the contract by what the solver implements: the detailed contract through `toAnalysisModel` when the solver offers it (the Rust solver), and the original contract through `toStructuralModel` otherwise (the OpenSees service):
 
 - A Rust solver in `crates/dof-solver`, compiled to WebAssembly and run in the browser through `createWasmSolver`. It is the default in development and production builds, because it needs no service. See [Rust solver](rust-solver.md).
-- An OpenSees service in `services/opensees`, reached through `createOpenSeesSolver`. `VITE_OPENSEES_URL` selects a service by address, and `VITE_SOLVER=opensees` selects the local one on `http://localhost:8000`.
+- An OpenSees service in `services/opensees`, reached through `createOpenSeesSolver`. It must be running; `npm run dev:opensees` serves it on `http://localhost:8000`.
 
-The placeholder adapter, which returns `unsupported`, is used only where WebAssembly is unavailable. `resolveSolver` in `apps/web/src/solver/index.ts` makes the choice, and the stability panel names the solver that produced the check.
+The player chooses between them under **Structural solver** in Settings or the pause menu (`components/SolverSetting.tsx`). The choice and the OpenSees address are stored with the other settings in `menu/settings.ts`; `VITE_OPENSEES_URL` and `VITE_SOLVER=opensees` only set the default for players who have not chosen. `solverFor` and `solverForSettings` in `apps/web/src/solver/index.ts` turn the choice into an adapter, and the workspace passes it to `useStabilityCheck`, which returns to idle when the choice changes. The placeholder adapter, which returns `unsupported`, is used only where WebAssembly is unavailable. The stability panel names the solver that produced the check. The choice affects only the structural check: the voxel analysis always runs, and the Shared table end-of-turn assessment still uses it.
 
 ## Target requirements and implementation status
 

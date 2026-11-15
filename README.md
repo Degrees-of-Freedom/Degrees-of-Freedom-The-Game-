@@ -18,7 +18,7 @@ To work on the solver, install [Rust](https://rustup.rs) and run `rustup target 
 
 ## Run the OpenSees service
 
-The same check can come from OpenSees instead. Install [uv](https://docs.astral.sh/uv/), then run `npm run dev:opensees` to serve structural analysis on `http://localhost:8000` and `npm run test:opensees` to run its tests. Start the web app with `VITE_SOLVER=opensees` to use it. See [its README](services/opensees/README.md).
+The same check can come from OpenSees instead. Install [uv](https://docs.astral.sh/uv/), then run `npm run dev:opensees` to serve structural analysis on `http://localhost:8000` and `npm run test:opensees` to run its tests. In the app, open **Settings** (or **Settings** in the pause menu) and choose **OpenSees service** under **Structural solver**; the address defaults to `http://localhost:8000`, and **Test** checks that the service answers. `VITE_OPENSEES_URL` or `VITE_SOLVER=opensees` at build time make OpenSees the default for players who have not chosen. See [its README](services/opensees/README.md).
 
 The [original prototype notes](prototypes/voxel-struct/README.md) link to the standalone version in Git history.
 The proposed [solver criteria](docs/kb/solver-criteria.md) define the target physics, result contract, acceptance tests, and implementation order. The [gap analysis](docs/kb/solver-criteria-gap-analysis.md) records current coverage and remaining work; the voxel experiment does not yet satisfy these criteria.
