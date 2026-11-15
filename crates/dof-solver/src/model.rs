@@ -279,9 +279,9 @@ pub enum ReserveMethod {
     /// bifurcations and limit points; costs Newton iterations per probe.
     Path,
     /// Linearised buckling about the verified state: the tangent at load
-    /// multiplier `t` is taken as `K0 + t (Kt - K0)`, where `K0` is the
-    /// stiffness at the undeformed state and `Kt` the tangent at the verified
-    /// equilibrium. One factorisation per probe; no limit points.
+    /// multiplier `t` is extrapolated to first order along the path,
+    /// `Kt + (t - 1) dK/dt`. Two tangent assemblies, then one factorisation
+    /// per probe; bifurcations only, no limit points.
     Linearized,
 }
 

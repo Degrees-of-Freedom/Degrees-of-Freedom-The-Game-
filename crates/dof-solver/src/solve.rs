@@ -134,6 +134,10 @@ const RESERVE_MIN_STEP: f64 = 1.0 / 32.0;
 /// failure to continue and the increment is halved.
 const RESERVE_MAX_ITERATIONS: u32 = 12;
 
+/// Load increment, as a fraction of the applied load, over which the
+/// linearised reserve differences the tangent.
+const RESERVE_DIFFERENCE: f64 = 1e-2;
+
 struct Nulls {
     translational: Vec<Vec<f64>>,
     spin: Vec<Vec<f64>>,
@@ -592,19 +596,37 @@ impl Newton<'_> {
         }
     }
 
-    /// Linearised stability reserve about the verified state: bracket and
-    /// bisect the multiplier `t` at which `K0 + t (Kt - K0)` stops being
-    /// positive definite or gains a null pivot. `K0` and `Kt` carry the same
-    /// spin constraints. Cable active states are those of each matrix's own
-    /// state, so a cable that is slack at the verified state is scaled as such.
-    fn linearized_reserve(&mut self, state: &State, limit: f64) -> Option<Reserve> {
-        self.assemble(&self.sys.reference(), true);
-        let initial = self.stiffness.clone();
+    /// Linearised stability reserve about the verified state `state` at
+    /// `lam` times the loads: the tangent at multiplier `t` is extrapolated
+    /// to first order along the equilibrium path, `K(t) = Kt + (t - 1) dK/dt`,
+    /// where `dK/dt` is a forward difference of the tangent along the path
+    /// direction `du = Kt^-1 (lam f)` over `RESERVE_DIFFERENCE` of the load.
+    /// The multiplier at which `K(t)` stops being positive definite or gains
+    /// a null pivot is bracketed and bisected. About the verified state,
+    /// cable states and large-displacement stiffness are those the structure
+    /// actually has; for a straight column this is the classical buckling
+    /// eigenvalue. `None` if the verified tangent cannot be factorised.
+    fn linearized_reserve(&mut self, state: &State, lam: f64, limit: f64) -> Option<Reserve> {
         self.assemble(state, false);
         let tangent = self.stiffness.clone();
-        let nulls = tangent.factor(0.0).inertia.null.len();
+        let factor = tangent.factor(0.0);
+        if !factor.inertia.negative.is_empty() {
+            return None;
+        }
+        let nulls = factor.inertia.null.len();
+        let mut load: Vec<f64> = self.f.iter().map(|v| v * lam).collect();
+        for &dof in self.gauge {
+            load[dof] = 0.0;
+        }
+        let du = factor.solve(&load);
+        if !du.iter().all(|v| v.is_finite()) {
+            return None;
+        }
+        let ahead = self.sys.advance(state, &du, RESERVE_DIFFERENCE);
+        self.assemble(&ahead, false);
+        let next = self.stiffness.clone();
         let stable = |t: f64| {
-            let inertia = initial.blend(&tangent, t).factor(0.0).inertia;
+            let inertia = tangent.blend(&next, (t - 1.0) / RESERVE_DIFFERENCE).factor(0.0).inertia;
             inertia.negative.is_empty() && inertia.null.len() <= nulls
         };
         let mut low = 1.0_f64;
@@ -911,7 +933,7 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
                         iterations: 0, steps: 0, stiffness: sys.stiffness(), carry: None, options: &probe_options, ..newton };
                     let found = match options.reserve_method {
                         ReserveMethod::Path => search.reserve(start, lam, options.reserve_search),
-                        ReserveMethod::Linearized => search.linearized_reserve(&start, options.reserve_search),
+                        ReserveMethod::Linearized => search.linearized_reserve(&start, lam, options.reserve_search),
                     };
                     out.iterations += search.iterations;
                     match found {

@@ -177,9 +177,10 @@ export interface AnalysisOptions {
   reserveSearch?: number;
   /**
    * `path` (default) continues the nonlinear equilibrium under increasing
-   * load and also finds limit points. `linearized` bisects on the positive
-   * definiteness of `K0 + t (Kt - K0)` about the verified state (linearised
-   * buckling): one factorisation per probe, bifurcations only.
+   * load and also finds limit points. `linearized` extrapolates the tangent
+   * at the verified state to first order along the path,
+   * `Kt + (t - 1) dK/dt`, and bisects on its positive definiteness
+   * (linearised buckling): one factorisation per probe, bifurcations only.
    */
   reserveMethod?: 'path' | 'linearized';
   /** `remove` fails the most overloaded object and reanalyses. */
