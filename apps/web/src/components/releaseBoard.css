@@ -5,7 +5,7 @@
   --edge: #626b70;
   --gold: #ffcc84;
   width: 100%; min-height: 100dvh; height: 100dvh; color: var(--ink);
-  background: #182330; display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+  background: #182330; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden; font: 500 1rem/1.35 "DM Sans", "Segoe UI", sans-serif;
   color-scheme: dark;
 }
