@@ -1,23 +1,26 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { assemblySectionGeometry } from "./assemblyGeometry";
-import { SHAPE_INTERVALS, spanPoint, type DeflectedSpan, type DeformationField } from "./deformationField";
-import { READABLE_SECTION_SCALE, wideFlangeGeometry } from "./sectionGeometry";
+import { SHAPE_INTERVALS, spanDisplacement, spanPoint, type DeflectedSpan, type DeformationField } from "./deformationField";
+import { READABLE_SECTION_SCALE, roundHollowGeometry, wideFlangeGeometry } from "./sectionGeometry";
 
 /** Sweep the existing section along sampled analytical centrelines. The
  * recovered axial twist rotates the section about the deformed tangent. */
-export function deflectedFrameGeometry(spans: DeflectedSpan[], scale: number, radius: number) {
+export function deflectedFrameGeometry(spans: DeflectedSpan[], scale: number, radius: number, trueScale = false, contourPeak?: number) {
   const pieces = spans.map(span => {
     const { element: e } = span;
     const type = e.m.type;
     const assembled = !!e.m.parentSpan?.assemblyPart;
-    const profile = assembled ? assemblySectionGeometry(SHAPE_INTERVALS)
+    const profile = assembled || type === "shs" ? assemblySectionGeometry(SHAPE_INTERVALS)
+      : type === "chs" ? roundHollowGeometry(SHAPE_INTERVALS)
       : type === "ipe" || type === "heb" ? wideFlangeGeometry(type, SHAPE_INTERVALS)
       : new THREE.CylinderGeometry(radius, radius, 1, 12, SHAPE_INTERVALS).rotateX(Math.PI/2);
-    const width = assembled || type === "ipe" || type === "heb" ? READABLE_SECTION_SCALE : 1;
+    const width = !trueScale && (assembled || type === "ipe" || type === "heb" || type === "chs" || type === "shs") ? READABLE_SECTION_SCALE : 1;
     const position = profile.getAttribute("position");
     const ex = new THREE.Vector3().fromArray(e.R[0]), ey = new THREE.Vector3().fromArray(e.R[1]);
     const ez = new THREE.Vector3().fromArray(e.R[2]);
+    const colors = contourPeak === undefined ? null : new Float32Array(position.count * 3);
+    const low = new THREE.Color("#77c9ed"), high = new THREE.Color("#ef5548");
     const stations = Array.from({length: SHAPE_INTERVALS+1}, (_, i) => {
       const t = i / SHAPE_INTERVALS, center = spanPoint(span, t, scale);
       const tangent = spanPoint(span, Math.min(1,t+1e-5), scale)
@@ -25,14 +28,18 @@ export function deflectedFrameGeometry(spans: DeflectedSpan[], scale: number, ra
       const roll = ((1-t)*span.response.ul[3] + t*span.response.ul[9])*scale;
       const orientation = new THREE.Quaternion().setFromUnitVectors(ex, tangent)
         .multiply(new THREE.Quaternion().setFromAxisAngle(ex, roll));
-      return { center, y: ey.clone().applyQuaternion(orientation), z: ez.clone().applyQuaternion(orientation) };
+      const fraction = contourPeak ? Math.min(1, spanDisplacement(span, t).length() / contourPeak) : 0;
+      return { center, y: ey.clone().applyQuaternion(orientation), z: ez.clone().applyQuaternion(orientation),
+        color: low.clone().lerp(high, fraction) };
     });
     for (let i = 0; i < position.count; i++) {
       const t = Math.max(0, Math.min(1, position.getZ(i)+0.5));
-      const { center, y, z } = stations[Math.round(t*SHAPE_INTERVALS)];
+      const { center, y, z, color } = stations[Math.round(t*SHAPE_INTERVALS)];
       const p = center.clone().addScaledVector(y,width*position.getX(i)).addScaledVector(z,width*position.getY(i));
       position.setXYZ(i,p.x,p.y,p.z);
+      if (colors) color.toArray(colors, i * 3);
     }
+    if (colors) profile.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     profile.computeVertexNormals();
     return profile;
   });

@@ -66,6 +66,9 @@ pub struct Solution {
 }
 
 pub struct Outcome {
+    /// Inertia of the full-load constrained tangent after force/moment checks.
+    /// Omitted for initial-tangent diagnoses and approximate mode splits.
+    pub unstable_tangent: Option<(usize, usize)>,
     pub status: Status,
     pub reasons: Vec<&'static str>,
     pub solution: Option<Solution>,
@@ -558,6 +561,7 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
     let f = sys.load_vector();
     let lam = options.load_factor;
     let mut out = Outcome {
+        unstable_tangent: None,
         status: Status::Unknown,
         reasons: Vec::new(),
         solution: None,
@@ -652,22 +656,51 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
     match path {
         Err((fraction, failure)) => {
             out.load_fraction_reached = fraction;
+            // A first-order mechanism alone may still stabilize through
+            // finite deformation. A cut hinge supplies a stronger, purely
+            // kinematic proof if its exact rigid motions span the nullspace.
+            // Neither outcome supplies forces at a missing equilibrium.
             if first_order_unstable {
-                out.status = Status::Unstable;
+                if linear.factor.inertia.null.len() <= MAX_CLASSIFIED &&
+                    crate::hinge::spans_reference_modes(sys, &linear.nulls.translational) {
+                    out.status = Status::Unstable;
+                    out.reasons.push("finiteReferenceMechanism");
+                }
                 out.reasons.push("recoveryFailed");
-            } else {
-                out.reasons.push(match failure {
-                    Failure::Budget => "iterationLimit",
-                    Failure::NoConvergence => "noConvergence",
-                    Failure::NonFinite => "nonFinite",
-                });
             }
+            out.reasons.push(match failure {
+                Failure::Budget => "iterationLimit",
+                Failure::NoConvergence => "noConvergence",
+                Failure::NonFinite => "nonFinite",
+            });
         }
         Ok((state, converged)) => {
             out.converged = true;
             out.load_fraction_reached = 1.0;
             out.min_pivot = Some(converged.factor.inertia.min_pivot);
             let tangent = classify(sys, &converged.factor, &load);
+            if !converged.factor.inertia.negative.is_empty() || !tangent.translational.is_empty() {
+                // A witnessed mode is physical evidence only at an equilibrated
+                // state. Its count is independent of the order/sign of vectors.
+                let (force, moment) = imbalance(sys, &converged.eval, Some(&state), lam);
+                let residual = converged.residual;
+                out.force_imbalance = Some(force);
+                out.moment_imbalance = Some(moment);
+                out.residual = Some(residual);
+                if ![force,moment,residual].iter().all(|v| v.is_finite() && *v <= options.residual_gate) {
+                    out.reasons.push("equilibriumNotVerified");
+                    return out;
+                }
+                if converged.factor.inertia.null.len() <= MAX_CLASSIFIED {
+                    out.unstable_tangent = Some((converged.factor.inertia.negative.len(), tangent.translational.len()));
+                }
+                // Report the final modes, including a change in nullity from
+                // the initial tangent. Zero-energy spins have no translational
+                // rank and never raise the severity.
+                out.modes.retain(|m| m.kind == "spin");
+                out.mechanisms = tangent.translational.len();
+                out.modes.extend(tangent.translational.iter().map(|v| Mode {kind: "mechanism", shape:v.clone()}));
+            }
             if !converged.factor.inertia.negative.is_empty() {
                 out.status = Status::Unstable;
                 out.reasons.push("loadInducedInstability");
@@ -682,10 +715,6 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
                 out.status = Status::Unstable;
                 if !first_order_unstable {
                     out.reasons.push("mechanism");
-                    out.mechanisms = tangent.translational.len();
-                    for v in tangent.translational {
-                        out.modes.push(Mode { kind: "mechanism", shape: v });
-                    }
                 }
             } else {
                 if first_order_unstable {
@@ -707,14 +736,14 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
                         let mut probe = Newton { budget: options.max_total_iterations, iterations: 0, stiffness: sys.stiffness(), carry: Some(converged.factor), ..newton };
                         let mut state = stable_state;
                         let amplified: Vec<f64> = load.iter().map(|v| v * options.stability_margin).collect();
-                        let survives = match probe.solve(&mut state, lam * options.stability_margin, false) {
-                            Ok(result) => tangent_stable(sys, &result, &amplified),
-                            Err(_) => false,
-                        };
+                        let survives = probe.solve(&mut state, lam * options.stability_margin, false)
+                            .ok().map(|result| tangent_stable(sys, &result, &amplified));
                         out.iterations += probe.iterations;
-                        if !survives {
+                        if survives == Some(false) {
                             out.status = Status::Marginal;
                             out.reasons.push("lowStabilityMargin");
+                        } else if survives.is_none() {
+                            out.reasons.push("reserveUnresolved");
                         }
                     }
                 }
@@ -765,8 +794,7 @@ fn critical_load_with(newton: &mut Newton, sys: &System, f: &[f64], lam: f64) ->
         let load: Vec<f64> = f.iter().map(|v| v * fraction * lam).collect();
         match newton.solve(&mut state, fraction * lam, true) {
             Ok(result) => Some(tangent_stable(sys, &result, &load)),
-            Err(Failure::Budget) => None,
-            Err(_) => Some(false),
+            Err(_) => None,
         }
     };
     if stable_at(newton, 0.0)? == false {
@@ -778,7 +806,7 @@ fn critical_load_with(newton: &mut Newton, sys: &System, f: &[f64], lam: f64) ->
         match stable_at(newton, middle) {
             Some(true) => low = middle,
             Some(false) => high = middle,
-            None => break,
+            None => return None,
         }
     }
     Some(0.5 * (low + high) * lam)

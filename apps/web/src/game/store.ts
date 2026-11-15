@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ConnectionProfile } from "./jointFreedom";
 import type { SolverAdapter } from "@dof/solver-contract";
 import { analyzeCompletedTurn, assessTurn } from "./turnAnalysis";
 import { SCORED_CATALOGUE, isScoredCatalogue, type CatalogueId } from "./cardCatalogue";
@@ -55,6 +56,8 @@ export type Selection =
   | { type: "node"; key: string }
   | null;
 interface GameState {
+  importPrivateMatch?: (bytes: string) => Promise<string | null>;
+  pendingPrivateBytes?: () => string | null;
   levelId: LevelId;
   model: GameModel;
   persistenceError: string | null;
@@ -71,6 +74,8 @@ interface GameState {
   style: PresentationStyle;
   turn: TurnState | null;
   selectedCardId: string | null;
+  selectedConnectionProfile?: ConnectionProfile;
+  setConnectionProfile: (profile?: ConnectionProfile) => void;
   loadBrush: { magnitude: number; direction: LoadDirection };
   setLoadBrush: (magnitude: number, direction: LoadDirection) => void;
   selectCard: (id: string | null) => void;
@@ -81,6 +86,7 @@ interface GameState {
     memberId: number,
     end: "a" | "b",
     jointId?: string,
+    profile?: ConnectionProfile,
   ) => string | null;
   cancelDraft: () => string | null;
   /**
@@ -248,6 +254,7 @@ export const useGameStore = create<GameState>((set, get) => {
   let sessionError: string | null = null;
   try {
     writer = openSessionWriter(localStorage, sessionLocks(), (status, lastSaved, target) => {
+      if (get()?.importPrivateMatch) return; // Secondary workspace writes never own the release match.
       if (status === "conflict") {
         // Never reveal the other tab's state. A reload reconstructs the newer
         // revision and goes through the regular private handoff.
@@ -354,6 +361,7 @@ export const useGameStore = create<GameState>((set, get) => {
     style: session.style,
     turn: session.turn,
     selectedCardId: null,
+    setConnectionProfile: (selectedConnectionProfile) => set({ selectedConnectionProfile }),
     loadBrush: { magnitude: 50, direction: "-Z" },
     setLoadBrush: (magnitude, direction) => {
       if (
@@ -366,6 +374,7 @@ export const useGameStore = create<GameState>((set, get) => {
     },
     selectCard: (id) =>
       set((s) => ({
+        selectedConnectionProfile: undefined,
         selectedCardId:
           id && s.turn && activeTurnHand(s.turn).some((c) => c.id === id)
             ? id
@@ -384,11 +393,11 @@ export const useGameStore = create<GameState>((set, get) => {
         ? turnTransition(stageLoad(s.turn, cardId, jointId))
         : "No multiplayer game is active";
     },
-    playConnection: (cardId, memberId, end, jointId) => {
+    playConnection: (cardId, memberId, end, jointId, profile) => {
       const s = get();
       return s.mode === "multiplayer" && s.turn
         ? turnTransition(
-            stageConnection(s.turn, cardId, memberId, end, jointId),
+            stageConnection(s.turn, cardId, memberId, end, jointId, profile ?? s.selectedConnectionProfile),
           )
         : "No multiplayer game is active";
     },

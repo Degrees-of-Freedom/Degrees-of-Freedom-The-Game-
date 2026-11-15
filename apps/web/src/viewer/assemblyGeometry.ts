@@ -21,11 +21,11 @@ export function assemblySectionGeometry(steps = 1) {
 
 /** One selectable mesh for the card. Each piece occupies its own physical
  * centerline. Section enlargement leaves the depth and port stations intact. */
-export function assemblyGeometry(member: Member, coordinate = reference) {
+export function assemblyGeometry(member: Member, coordinate = reference, transverseScale?: number) {
   const profile = assemblySectionGeometry();
   const pose = new THREE.Mesh(profile);
   const pieces = assemblyParts(member).map(part => {
-    poseSection(pose, coordinate(part.a), coordinate(part.b), reference(part.b).sub(reference(part.a)));
+    poseSection(pose, coordinate(part.a), coordinate(part.b), reference(part.b).sub(reference(part.a)), transverseScale);
     pose.updateMatrix();
     return profile.clone().applyMatrix4(pose.matrix);
   });

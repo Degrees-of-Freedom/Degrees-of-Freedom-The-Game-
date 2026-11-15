@@ -46,6 +46,9 @@ export interface ConnectionCapacity {
 
 /** How one member end joins its node. Omitted laws are rigid. */
 export interface MemberConnection {
+  /** Undeformed connector X/Y/Z unit directions in global axes. They turn
+   * with the node. Omission uses the member's local reference directions. */
+  axes?: readonly [Vector3, Vector3, Vector3];
   laws?: ConnectionLaws;
   capacity?: ConnectionCapacity;
 }
@@ -143,6 +146,8 @@ export interface AnalysisModel {
 }
 
 export interface AnalysisOptions {
+  /** Include internal beam cuts and nonlinear physical end motions. */
+  memberFields?: boolean;
   /** `linear` is the fast preview; `nonlinear` (default) is authoritative. */
   fidelity?: 'linear' | 'nonlinear';
   /** Gravity vector, m/s². Present switches member self-weight on. */
@@ -213,6 +218,9 @@ export interface AnalysisComponent {
   };
   /** Load multiplier at which a load-induced instability first occurs. */
   criticalLoadFactor: number | null;
+  /** Exact negative and translational-null counts at a verified full-load
+   * tangent. Null means no comparable unstable tangent was established. */
+  unstableTangent?: {negativePivots: number; mechanisms: number} | null;
   minPivot: number | null;
   maxDisplacement: number | null;
   /** Sum of the external forces on this part, N. */
@@ -240,6 +248,8 @@ export interface MemberResult {
    * positive in tension.
    */
   forces: { start: Vector6; end: Vector6 } | null;
+  /** End cuts of internal beam elements, including both sides of a mesh node. */
+  stations?: readonly { fraction: number; forces: Vector6; globalForce: Vector3; motion?: Vector6 }[];
   utilization: number | null;
   governingLimitState?: string | null;
   connections?: { start: ConnectionResult; end: ConnectionResult } | null;

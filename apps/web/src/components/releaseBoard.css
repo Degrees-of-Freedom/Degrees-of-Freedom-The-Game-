@@ -1,0 +1,106 @@
+.release-board {
+  --ink: #f9eedc;
+  --muted: #d0c9bc;
+  --surface: #222d38;
+  --edge: #626b70;
+  --gold: #ffcc84;
+  width: 100%; min-height: 100dvh; height: 100dvh; color: var(--ink);
+  background: #182330; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden; font: 500 1rem/1.35 "DM Sans", "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+.release-board *, .release-board *::before, .release-board *::after { box-sizing: border-box; }
+.release-board :is(button, select, input, summary) { font: inherit; }
+.release-board button, .release-board select, .release-board input {
+  color: var(--ink); border: 1px solid var(--edge); background: var(--surface);
+  border-radius: .55rem; padding: .45rem .8rem; min-height: 44px;
+}
+.release-board button, .release-board summary { cursor: pointer; }
+.release-board button:disabled { opacity: .52; cursor: default; }
+.release-board :focus-visible { outline: 3px solid #ffcf8c; outline-offset: 2px; }
+.release-header { display: flex; align-items: center; gap: clamp(1rem, 3vw, 3rem); padding: .8rem clamp(1rem, 2.5vw, 2.5rem); border-bottom: 1px solid #5d6061; }
+.release-title h1 { font: 600 clamp(1.45rem, 2.3vw, 2.2rem)/1.05 Georgia, serif; color: var(--ink); margin: .12rem 0 0; }
+.release-header small, .release-card > span { color: var(--gold); font-size: .75rem; font-weight: 700; letter-spacing: .065em; text-transform: uppercase; }
+.release-progress, .release-penalties { display: grid; gap: .15rem; }
+.release-progress > span, .release-penalties > span { font-size: .875rem; color: var(--muted); }
+.release-nav { display: flex; margin-inline-start: auto; gap: .5rem; }
+.release-phone-note { display: none; }
+@media (max-width: 600px) and (orientation: portrait) {
+  .release-phone-note { display: block; order: 5; width: 100%; margin: .25rem 0; font-size: .85rem; color: var(--muted); }
+}
+.release-stage { position: relative; overflow: hidden; min-height: 0; isolation: isolate; }
+.release-stage > .scene, .release-stage > .scene-host, .release-stage > [class^="scene-wrap"] { position: absolute; inset: 0; width: 100%; height: 100%; }
+.release-stage canvas { display: block; }
+.release-stage .scene-fallback { max-width: min(95%, 32rem); margin: 1rem auto; padding: 1rem; border: 1px solid var(--edge); background: var(--surface); border-radius: .75rem; }
+.release-stage [aria-label="Camera controls"] button { background: #19252eef; color: var(--ink); min-width: 44px; }
+.release-stage .scene-axes { position: absolute; left: .75rem; bottom: 4rem; width: 58px; height: 58px; pointer-events: none; }
+.release-status { position: absolute; top: .7rem; left: 50%; transform: translateX(-50%); margin: 0; max-width: 70%;
+  padding: .45rem .85rem; background: #14212ce8; border: 1px solid #918369; border-radius: .65rem; text-align: center; pointer-events: none; color: var(--ink); }
+.release-tray { padding: .65rem clamp(.75rem, 2vw, 2rem); border-top: 1px solid var(--edge); background: #19232f; }
+.release-handline { display: flex; align-items: center; gap: 1rem; }
+.release-cards { display: flex; overflow-x: auto; overscroll-behavior-x: contain; gap: .55rem; padding: .35rem .3rem; flex: 1; min-width: 0; scrollbar-color: #a39985 #202c36; }
+.release-card { flex: 0 0 clamp(9rem, 13vw, 12rem); display: flex; flex-direction: column; align-items: flex-start; justify-content: center; text-align: left; gap: .3rem; min-height: 4.9rem!important; }
+.release-card > span { display: flex; align-items: center; gap: .35rem; color: #bed9e7; }
+.release-card[data-kind="load"] > span { color: #ffd696; }
+.release-card[data-kind="connection"] > span { color: #cfc1e8; }
+.release-card i { font: bold 1rem/1 Georgia, serif; }
+.release-card strong { font-size: .93rem; }
+.release-card[aria-pressed="true"] { border-color: var(--gold); background: #3b3d3a; }
+.release-board[data-glow="true"] .release-card[aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--gold); }
+.release-turn-actions { display: flex; align-items: center; gap: .5rem; }
+.release-board .release-end { background: var(--gold); color: #271c10; border-color: var(--gold); font-weight: 750; min-width: 6rem; }
+.release-targetbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: 0 .25rem .5rem; }
+.release-targetbar > .release-back { margin-inline-start: auto; }
+.release-targets, .release-precision form { display: flex; align-items: end; gap: .5rem; flex-wrap: wrap; }
+.release-targets label, .release-drawer label { display: grid; font-size: .875rem; color: var(--muted); }
+.release-precision { min-width: 10rem; }
+.release-board summary { display: list-item; padding: .65rem .2rem; min-height: 44px; color: var(--gold); }
+.release-precision fieldset { display: flex; align-items: center; gap: .3rem; border: 0; margin: 0; padding: 0; }
+.release-precision :is(input, select) { width: clamp(5rem, 11vw, 10rem); }
+.release-stage > .release-skip { position: absolute; right: .75rem; bottom: .75rem; background: #15212ae6; font-size: .82rem; min-width: 44px; }
+.release-drawer { position: absolute; z-index: 4; right: .75rem; top: .75rem; bottom: .75rem; overflow: auto;
+  width: min(25rem, calc(100% - 1.5rem)); background: #1e2a36fc; border: 1px solid var(--edge); border-radius: .85rem; padding: 1rem 1.15rem; }
+.release-drawer > header { display: flex; align-items: center; justify-content: space-between; }
+.release-drawer h2, .release-final h3 { margin: 0; font: 600 1.5rem/1.2 Georgia, serif; }
+.release-drawer h3, .release-drawer h4 { margin: .7rem 0 .3rem; }
+.release-drawer p, .release-drawer dl { margin: .4rem 0; }
+.release-drawer > * + * { margin-top: .6rem; }
+.release-drawer dl > div { display: flex; gap: .5rem; }
+.release-drawer dd { margin-inline-start: 0; }
+.release-diagram svg { display: block; width: 100%; color: #cfcac3; background: #16232f; margin: .5rem 0; border-radius: .5rem; }
+.release-diagram svg text { font-size: 10px; fill: currentColor; }
+.release-drawer .release-check { display: flex; align-items: center; gap: .5rem; min-height: 44px; }
+.release-check input { width: 1.2rem; min-height: 1.2rem; }
+.release-drawer table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+.release-drawer :is(td, th) { border-bottom: 1px solid var(--edge); padding: .25rem; text-align: start; }
+.release-final { position: absolute; z-index: 2; inset: auto max(1rem, calc((100% - 31rem)/2)) 1rem; max-height: 82%; overflow: auto;
+  color: var(--ink); border: 1px solid #937d5a; border-radius: .85rem; padding: .85rem 1.2rem; background: #202b36f8; }
+.release-final .final-score { background: none; color: inherit; border: none; }
+.release-stage .companion-board { left: .75rem; top: .75rem; }
+.release-stage .companion-board .companion-note { left: calc(100% + .35rem); top: 0; }
+.release-board .companion-note button { min-height: 44px; }
+@media (prefers-reduced-motion: no-preference) {
+  .release-board[data-still="false"] .release-card { transition: border-color 120ms, background-color 120ms; }
+  .release-board[data-still="false"] .release-card[data-arrival] { animation: release-deal 300ms backwards; }
+  .release-board[data-still="false"] .release-card[data-arrival="1"] { animation-delay: 100ms; }
+  .release-board[data-still="false"] .release-card[data-arrival="2"] { animation-delay: 200ms; }
+  .release-board[data-still="false"] .release-card[data-arrival="3"] { animation-delay: 300ms; }
+  .release-board[data-still="false"] .release-status { animation: release-feedback 200ms ease-out; }
+  .release-board[data-still="false"] .release-final { animation: release-victory 1500ms ease-out; }
+  @keyframes release-deal { from { opacity: .5; transform: translateY(.45rem); } }
+  @keyframes release-feedback { from { background: #524535; } }
+  @keyframes release-victory { from { border-color: #ffdfa1; box-shadow: 0 0 1.4rem #ffdc9040; } }
+}
+@media (max-width: 750px), (max-height: 520px) {
+  .release-board { height: auto; min-height: 100dvh; grid-template-rows: auto minmax(18rem, 1fr) auto; overflow: auto; }
+  .release-header { flex-wrap: wrap; gap: .3rem .9rem; padding: .4rem .7rem; }
+  .release-header .release-title { order: 0; }
+  .release-nav { order: 1; }
+  .release-progress { order: 2; }
+  .release-penalties { order: 3; }
+  .release-targetbar { gap: .25rem; }
+  .release-tray { padding: .3rem; }
+  .release-handline { gap: .2rem; }
+  .release-turn-actions { flex-direction: column; }
+  .release-status { max-width: 65%; margin-left: .75rem; font-size: .85rem; }
+}

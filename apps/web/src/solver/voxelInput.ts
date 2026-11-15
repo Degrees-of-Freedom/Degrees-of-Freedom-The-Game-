@@ -1,10 +1,12 @@
 import type { FrameConnection } from './frameConnections';
 /** Input for the experimental voxel analysis. Grid keys contain integer x,y,z coordinates. */
-export type VoxelMemberType = 'shs' | 'glulam' | 'ipe' | 'heb' | 'cable' | 'spring';
+export type VoxelMemberType = 'shs' | 'chs' | 'glulam' | 'ipe' | 'heb' | 'cable' | 'spring';
 export interface VoxelMember {
   id: number; a: string; b: string; type: VoxelMemberType;
   /** Unstressed length of this particular versioned cable segment, metres. */
   restLengthM?: number;
+  /** Parent cartridge's two-way stiffness, before quarter subdivision. */
+  springStiffnessNPerM?: number;
   endA?: 'fixed' | 'ball'; endB?: 'fixed' | 'ball';
   /** Physical six-axis interface, when supplied by a printed frame connector. */
   connectionA?: FrameConnection; connectionB?: FrameConnection;

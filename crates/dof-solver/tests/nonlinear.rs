@@ -73,6 +73,23 @@ fn stability_margin_grades_a_compressed_column() {
     assert_eq!(linear.run().status(0), "stable");
 }
 
+#[test]
+fn a_second_euler_mode_increases_full_load_negative_inertia() {
+    let length = 12.0;
+    let weak_euler = PI * PI * E * I / (length * length);
+    // The orthogonal flexural critical loads are P and 2P. At both test
+    // loads the straight equilibrium balances but is unsafe in different
+    // numbers of directions. Report neither set of reactions as valid.
+    for (ratio, expected) in [(1.3, 1.), (2.3, 2.)] {
+        let mut b = column(length, ratio*weak_euler, 8);
+        b.model.sections[0].iy = 2.0*I;
+        let r = b.run();
+        let tangent = r.component(0).get("unstableTangent").unwrap();
+        assert_eq!(tangent.get("negativePivots").unwrap().as_f64(), Some(expected));
+        assert_eq!(r.component(0).get("resultsValid").unwrap().as_bool(), Some(false));
+    }
+}
+
 /// Imperfect column: a lateral load at mid-height is amplified by the axial
 /// load. Beam-column theory gives δ = (HL³/48EI) · 3(tan u − u)/u³ with
 /// u = (π/2)√(P/Pcr).
@@ -274,6 +291,30 @@ fn large_deflection_cable() {
     assert!(sag > 1.0);
     close(r.displacement("m")[2], -sag, 1e-6);
     close(r.forces("c1", "start")[0], tension, 1e-6);
+}
+
+#[test]
+fn uncompleted_non_linear_recovery_cannot_witness_final_instability() {
+    let mut b = cable_span(None, A, 5.0e4);
+    b.options.max_total_iterations = 1;
+    let result = b.run();
+    assert_eq!(result.status(0), "unknown");
+    assert!(result.reasons(0).contains(&"iterationLimit"));
+    assert_eq!(result.component(0).get("resultsValid").unwrap().as_bool(), Some(false));
+}
+
+#[test]
+fn unbraced_hinge_has_a_finite_reference_motion_without_a_final_equilibrium() {
+    let mut b = Build::new();
+    b.node("pivot", [0.0; 3]).node("tip", [4.0, 0.0, 0.0]);
+    b.beam("arm", "pivot", "tip").start.laws[4] = Law::Free;
+    b.support("pivot", FIXED).load("tip", [0.0, 0.0, -5000.0]);
+    b.options.max_total_iterations = 1;
+    let r = b.run();
+    assert_eq!(r.status(0), "unstable");
+    assert!(r.reasons(0).contains(&"finiteReferenceMechanism"));
+    assert_eq!(r.component(0).get("resultsValid").unwrap().as_bool(), Some(false));
+    assert_eq!(r.component(0).get("unstableTangent"), Some(&dof_solver::json::Json::Null));
 }
 
 /// Pure bending rolls a cantilever into a circular arc of radius EI/M. An

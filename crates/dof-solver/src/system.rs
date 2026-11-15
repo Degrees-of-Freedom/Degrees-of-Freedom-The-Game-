@@ -246,6 +246,7 @@ impl System {
                     dx: dx.map(|v| v / count as f64),
                     l0: seg_length,
                     e0,
+                    connector_basis: [None; 2],
                     ea: section.e * section.a,
                     gj: section.g * section.j,
                     eiy: section.e * section.iy,
@@ -260,7 +261,11 @@ impl System {
                     if k != at || !end_attached(member, end) {
                         continue;
                     }
-                    let laws = if end == 0 { &member.start.laws } else { &member.end.laws };
+                    let connection = if end == 0 { &member.start } else { &member.end };
+                    if let Some([x, y, z]) = connection.axes {
+                        geom.connector_basis[end] = Some(tmat_mul(&e0, &from_cols(&x, &y, &z)));
+                    }
+                    let laws = &connection.laws;
                     for (i, law) in laws.iter().enumerate() {
                         match law {
                             Law::Rigid => {}
@@ -403,7 +408,9 @@ impl System {
                     let (end, i) = (k / 6, k % 6);
                     let base = 6 * end + if i < 3 { 0 } else { 3 };
                     let load = [seg.self_weight[base], seg.self_weight[base + 1], seg.self_weight[base + 2]];
-                    system.fext_q[seg.q_eq[k] as usize] += dot(&load, &col(&seg.geom.e0, i % 3));
+                    let basis = seg.geom.connector_basis[end].as_ref().unwrap_or(&IDENTITY);
+                    let direction = mat_vec(&seg.geom.e0, &col(basis, i % 3));
+                    system.fext_q[seg.q_eq[k] as usize] += dot(&load, &direction);
                 }
             }
         }
@@ -485,7 +492,7 @@ impl System {
         self.fext.iter().map(square).sum::<f64>().sqrt()
     }
 
-    fn seg_state(&self, s: usize, state: &State) -> (SegState, [f64; 12]) {
+    pub(crate) fn seg_state(&self, s: usize, state: &State) -> (SegState, [f64; 12]) {
         let seg = &self.segs[s];
         let mut q = [0.0; 12];
         for i in 0..12 {

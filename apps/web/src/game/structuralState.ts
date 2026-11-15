@@ -7,7 +7,7 @@ import { COMBOS, GAMMA } from "../solver/voxelLoads";
 // This format captures the existing voxel solver, not the proposed general FEA model.
 const gridKey = z.string().regex(/^(0|[1-9]\d*),(0|[1-9]\d*),(0|[1-9]\d*)$/);
 const number = z.number().finite();
-const memberType = z.enum(["shs", "glulam", "ipe", "heb", "cable"]);
+const memberType = z.enum(["shs", "chs", "glulam", "ipe", "heb", "cable"]);
 const attrs = z
   .strictObject({
     found: z.boolean().optional(),
@@ -87,6 +87,7 @@ const gameSaveSchema = z.strictObject({
   model: modelSchema,
 });
 const inventory = z.strictObject({
+  chs: number.optional(),
   shs: number.optional(),
   glulam: number.optional(),
   ipe: number.optional(),
@@ -166,11 +167,13 @@ export function readGameSave(
 
 // The current voxel solver reads these constants directly. Record them and reject
 // replay if they change; increment the algorithm version when its semantics change.
-function currentProfile(): string {
+function currentProfile(model: VoxelModel): string {
+  // The optional round-tube printing cannot invalidate older editor snapshots.
+  const {chs, ...earlierSections} = ITEMS;
   return JSON.stringify({
     algorithm: "voxel-experimental-2",
     cellSize: S,
-    sections: ITEMS,
+    sections: model.members.some(m => m.type === "chs") ? {chs,...earlierSections} : earlierSections,
     combinations: COMBOS,
     factors: GAMMA,
   });
@@ -184,7 +187,7 @@ export function createVoxelAnalysisSnapshot(
   return analysisSchema.parse({
     format: "dof-voxel-analysis",
     version: 1,
-    solverProfile: currentProfile(),
+    solverProfile: currentProfile(model),
     model,
     level: {
       ...level,
@@ -199,7 +202,7 @@ export function recomposeVoxelAnalysis(value: unknown): {
   level: VoxelLevel;
 } {
   const snapshot = analysisSchema.parse(value);
-  if (snapshot.solverProfile !== currentProfile())
+  if (snapshot.solverProfile !== currentProfile(snapshot.model))
     throw new Error("Snapshot requires a different voxel solver profile.");
   return {
     model: snapshot.model,

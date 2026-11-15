@@ -49,7 +49,7 @@ Every outcome is a result. Bad input gives `analysis.status: "invalid"` with rea
 | Six-component vectors | Translations (or forces) X, Y, Z, then rotations (or moments) about X, Y, Z. |
 | Member local axes | `x` from start node to end node. `z` is the part of the member's `orientation` vector perpendicular to `x`; the default reference is global Z, or global X for a member parallel to Z. `y = z × x`. `Iy` and `Iz` are about local `y` and `z`. |
 | Connectivity | By node id only. Nodes at the same coordinates are separate unless a member names both. |
-| Connection laws | Six per member end, for local translation x, y, z then rotation about x, y, z: `"rigid"`, `"free"` or `{"elastic": k}`. The axes are the member's undeformed local axes, attached to the node and turning with it. |
+| Beam connection laws | Six laws for translation x, y, z and rotation about x, y, z. Each is `"rigid"`, `"free"` or `{"elastic": k}`. The default basis is the undeformed member basis. Set `axes: [[1,0,0],[0,1,0],[0,0,1]]` to use the board axes at the undeformed node. Both bases follow the node as it rotates. |
 | Member forces | Section forces `[N, Vy, Vz, T, My, Mz]` in the member's current local axes, as resultants on the face whose normal is local +x. `N` is positive in tension. `start` and `end` use the same convention. |
 | Reactions | What the foundation applies to the structure, global axes. Uplift is a reaction opposite to the supporting direction. |
 | Unavailable values | `null`. Never zero. |
@@ -62,6 +62,7 @@ Every outcome is a result. Bad input gives `analysis.status: "invalid"` with rea
 - **Foundations** restrain any of a node's six DOFs and return six signed reaction components.
 - **Loads** are nodal forces and moments, uniform member loads (`memberLoads`, N/m in global axes along the whole member), and optional member self-weight when `options.gravity` is given. Member loads are applied exactly like self-weight: consistent nodal loads per beam element, half to each end of a brace or cable, fixed global direction.
 - **Deflection along members**: each beam member result has `deflection.stations`, the global displacement at every element boundary (`subdivisions + 1` points, `at` = fraction of the length), and `maxFromChord`, the largest distance of a deformed station from the line through the deformed ends, for limits such as span / 250. Nothing is interpolated between stations. Braces and cables report `null`.
+- **Cut forces and motion.** With `options.memberFields`, verified beam results include `stations` with the local section resultants, global cut force, and physical translation and rotation at each element end. Both sides of an interior mesh boundary are available. Endpoint values include relative movement permitted by the connection, which the viewer uses when sampling the physical beam.
 - **Strength**: section and connection capacities give a utilisation and governing limit state. With `options.failure: "remove"` the most overloaded member is removed, or the most overloaded connection released, one event at a time.
 
 Two fidelities share one element formulation. `linear` is the small-displacement solution about the undeformed, prestressed state. `nonlinear` (the default) is the geometrically nonlinear solution.
@@ -87,7 +88,7 @@ The beam's strain energy is written once. Automatic differentiation gives the in
 | `unstable` | A mechanism, a load-induced instability, or an equilibrium that is excessively deformed. | Valid only for `excessiveDeformation` |
 | `unknown` | No verified conclusion: iterations ran out, did not converge, or the equilibrium check failed. | Not valid |
 
-`reasonCodes` say why. Strength exceedance (`strengthExceeded`) is reported separately and never changes the status.
+`reasonCodes` say why. Strength exceedance (`strengthExceeded`) is reported separately. A failed Newton recovery with no conclusive mechanism evidence returns `unknown`. A full-load unstable equilibrium can return `unstableTangent` when its force, moment and residual checks pass and its null modes can be classified exactly. This reports negative pivots and translational mechanisms. The game uses these counts only with an exact match of the component topology and configuration.
 
 ## Tolerances and limits
 
@@ -106,4 +107,4 @@ Residuals are normalised by the larger of the applied load and the largest eleme
 
 ## Not modelled
 
-Plasticity, contact, dynamics, post-buckling path tracing, staged construction, sagging cables with distributed weight, non-uniform or partial-length member loads, prescribed (forced) displacements such as support settlement, general multi-point constraints, and follower loads. Plasticity, dynamic collapse, contact and post-buckling are deferred by the criteria (section 8). Self-weight, member loads and applied moments keep their original direction. The reported buckling shape is the direction of the negative pivot, not an eigenvector. Results have not been checked against an independent nonlinear program.
+Plasticity, contact, dynamics, post-buckling path tracing, staged construction, sagging cables with distributed weight, non-uniform or partial-length member loads, prescribed (forced) displacements such as support settlement, general multi-point constraints, and follower loads. Plasticity, dynamic collapse, contact and post-buckling are deferred by the criteria (section 8). Self-weight, member loads and applied moments keep their original direction. The reported buckling shape is the direction of the negative pivot. For the independent OpenSees comparison of matched sway, column buckling and cable models, see the [release reference fixtures](../../services/opensees/tests/test_release_wasm_reference.py).

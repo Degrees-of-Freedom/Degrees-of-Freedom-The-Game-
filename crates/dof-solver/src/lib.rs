@@ -15,6 +15,7 @@
 
 pub mod ad;
 pub mod element;
+mod hinge;
 pub mod json;
 pub mod math;
 pub mod model;

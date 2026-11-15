@@ -13,6 +13,28 @@ export interface DeflectedSpan {
  * includes end slip and rotations released from the joint. Euler–Bernoulli
  * interpolation uses dv/dx = rz and dw/dx = -ry in the element basis. */
 export function spanDisplacement(span: DeflectedSpan, t: number) {
+  const samples = span.response.motionSamples;
+  if (samples && samples.length >= 2) {
+    // Interpolate in each actual corotational mesh interval. In particular
+    // the fitting's own end translation and spin can differ from its joint's.
+    const end = samples.findIndex((sample,i) => i > 0 && t <= sample.fraction);
+    const right = end < 0 ? samples.length-1 : end;
+    const a = samples[right-1], b = samples[right];
+    const width = b.fraction-a.fraction;
+    const x = (t-a.fraction)/width, h = x*x*(3-2*x);
+    const result = new THREE.Vector3().fromArray(a.motion).multiplyScalar(1-h)
+      .addScaledVector(new THREE.Vector3().fromArray(b.motion), h);
+    const axis = new THREE.Vector3().fromArray(span.element.ex);
+    for (const [sample, weight] of [[a, x*(1-x)**2],[b, -x*x*(1-x)]] as const) {
+      const rotation = new THREE.Vector3().fromArray(sample.motion, 3);
+      const angle = rotation.length();
+      if (angle > 0) {
+        const tangentChange = axis.clone().applyAxisAngle(rotation.divideScalar(angle), angle).sub(axis);
+        result.addScaledVector(tangentChange, weight * width * span.element.L);
+      }
+    }
+    return result;
+  }
   const { element: { R, L, it }, response: { ul } } = span;
   let y = (1-t)*ul[1] + t*ul[7], z = (1-t)*ul[2] + t*ul[8];
   if (it.kind === "beam") {

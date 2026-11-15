@@ -119,7 +119,7 @@ export function bindSceneInteraction(
     if (s.mode === "multiplayer") {
       let issue: string | null = null;
       if (card?.kind === "connection" && hit?.kind === "connection")
-        issue = s.playConnection(card.id, hit.memberId, hit.end, hit.key);
+        issue = s.playConnection(card.id, hit.memberId, hit.end, hit.key, s.selectedConnectionProfile);
       else if (card && hit?.kind === "point") {
         issue = hit.issue;
         const target = hit.target ?? nodeKey(...hit.p);
@@ -129,6 +129,8 @@ export function bindSceneInteraction(
             issue = s.playElement(card.id, s.chainStart, target);
           else s.setChainStart(target);
         }
+      } else if (card && !hit) {
+        issue = card.kind === "connection" ? "Choose a compatible loose end." : "Choose a highlighted target.";
       } else if (!card) {
         s.setSelected(
           hit?.kind === "member"
@@ -342,6 +344,7 @@ export function bindSceneInteraction(
     buildPlane,
     clearPreview,
     dispose() {
+      pick.dispose();
       canvas.removeEventListener("pointerdown", pointerDown, true);
       canvas.removeEventListener("pointermove", move);
       canvas.removeEventListener("pointerup", up);

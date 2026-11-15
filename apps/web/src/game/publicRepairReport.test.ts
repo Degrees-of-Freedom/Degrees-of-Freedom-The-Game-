@@ -41,6 +41,13 @@ it("projects committed local repair evidence without copying private comparison 
     expect(projected?.foreman).toBe(classification === "new" || classification === "worsened");
   }
   expect(publicRepairReport({...report,issues:{...issues,changes:[{...change,after:{...change.after,validity:"unknown"}}]}})?.foreman).toBe(false);
+  expect(record.releaseForeman).toBe(true);
+  for (const [utilization, eligible] of [[1.2499, false], [1.25, true]] as const) {
+    const finding = { ...change, category: "member-overload" as const,
+      after: { ...change.after, category: "member-overload" as const, utilization } };
+    expect(publicRepairReport({ ...report, issues: { ...issues, changes: [finding] } })?.releaseForeman).toBe(eligible);
+    expect(publicRepairReport({ ...report, issues: { ...issues, changes: [{ ...finding, change: "persistent" }] } })?.releaseForeman).toBe(false);
+  }
   expect(publicRepairReport({...report,correction:undefined})).toMatchObject({foreman:true,attempts:[],policy:undefined});
   apply(endTurn(turn));
   expect(publicRepairReport(turn.reports[1])).toBeNull();

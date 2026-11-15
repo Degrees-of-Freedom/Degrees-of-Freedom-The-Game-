@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Scene } from "../viewer/Scene";
 import { controlOwnsKey } from "../viewer/keyboardTarget";
@@ -6,7 +6,9 @@ import { LEVELS } from "../game/levels";
 import { useGameStore } from "../game/store";
 import { analyzeGame } from "../game/analysis";
 import { analyzeTurn } from "../game/turnAnalysis";
-import { isScoredCatalogue } from "../game/cardCatalogue";
+import { isScoredCatalogue, RELEASE_CATALOGUE } from "../game/cardCatalogue";
+import { ReleaseBoard } from "../components/ReleaseBoard";
+import type { CameraMemory } from "../viewer/sceneView";
 import { deformationField } from "../viewer/deformationField";
 import { useStabilityCheck } from "../game/useStabilityCheck";
 import type { VoxelAnalysis } from "../solver/voxel";
@@ -51,8 +53,10 @@ type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 /** The environment variants compose the same store, scene and analysis boundary. */
 export function Workspace() {
   const game = useGameStore();
-  // The structural solver is a setting: the game uses one solver at a time,
-  // for this check and to decide each completed shared-table turn.
+  const release = game.mode === "multiplayer" && game.turn?.catalogue === RELEASE_CATALOGUE;
+  const cameraMemory = useRef<CameraMemory>({});
+  // Editor and archived presets may request the configured solver. Release
+  // End turn and inspection use their versioned in-browser workers.
   const stability = useStabilityCheck(
     game.model,
     LEVELS[game.levelId],
@@ -113,7 +117,7 @@ export function Workspace() {
   const [loadPath, setLoadPath] = useState(false);
   const [exampleIndex, setExampleIndex] = useState(0);
   const [libraryIndex, setLibraryIndex] = useState(0);
-  const sound = useEditorSound(game.model, covered || paused);
+  const sound = useEditorSound(game.model, covered || paused, release);
   const settings = useSettings();
   const result = analysis?.model === game.model ? analysis.result : null;
   const field = useMemo(() => deformed && result ? deformationField(result, combo) : undefined, [result, combo, deformed]);
@@ -210,11 +214,6 @@ export function Workspace() {
           : "No example is available for this mode",
       );
   }
-  // Grow Dusk is the only environment offered; override any persisted style on entry.
-  const setStyle = game.setStyle;
-  useLayoutEffect(() => {
-    if (useGameStore.getState().style !== "grow-dusk") setStyle("grow-dusk");
-  }, [setStyle]);
   useEffect(() => {
     if (!message) return;
     const timeout = window.setTimeout(() => setMessage(""), 5500);
@@ -223,7 +222,7 @@ export function Workspace() {
   useEffect(() => {
     const keys = (event: KeyboardEvent) => {
       if (
-        covered || paused || event.defaultPrevented ||
+        covered || paused || release || event.defaultPrevented ||
         controlOwnsKey(event.target) ||
         event.ctrlKey ||
         event.metaKey ||
@@ -497,6 +496,9 @@ export function Workspace() {
       {pauseMenu}
     </>
   );
+  if (release && game.turn) return <ReleaseBoard game={game} turn={game.turn} notify={setMessage} message={message}
+    onMenu={pause} menu={pauseMenu} onEnd={endPrivateTurn} cameraMemory={cameraMemory.current} cue={sound.cue}
+    companion={{ ...companion, onForemanAccent: sound.foremanAccent }} />;
   return (
     <main
       className={`environment${game.turn?.playerIndex === 1 ? " p2" : ""}${settings.reducedMotion ? " rm" : ""}`}

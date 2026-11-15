@@ -20,7 +20,10 @@ def cable(q, span=8.0, weight=5.0, pretension=25.0, ea=57600.0):
         a, b = left*(1/tl+1/ea), right*(1/tr+1/ea)
         return (a+b)*h-span, -a*v+b*(weight-v)
 
-    h, v = pretension, (1-q)*weight
+    # With zero pretension a horizontal initial guess of zero points both
+    # legs straight down. Start at the shallow-cable scale for this case.
+    h = pretension if pretension > 0 else (ea*weight**2*q*(1-q)/2)**(1/3)
+    v = (1-q)*weight
     for _ in range(30):
         x, z = closure(h, v)
         if hypot(x,z) < 1e-13:

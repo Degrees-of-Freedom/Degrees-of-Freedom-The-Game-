@@ -5,7 +5,7 @@ import type { Combo, ComponentResponse, Context, Element, ElementForce, FrameSys
 import type { VoxelMember } from './voxelInput';
 import { minimumBucklingFactor, verifyLinearResponse } from './voxelVerification';
 
-interface Component {
+export interface Component {
   nodes: string[];
   memberIds: number[];
   supported: boolean;

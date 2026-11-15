@@ -112,6 +112,9 @@ pub enum Law {
 
 #[derive(Clone, Debug, Default)]
 pub struct Connection {
+    /// Optional unit X/Y/Z vectors expressed in the global reference frame.
+    /// They turn with the attached node. Omission uses the member axes.
+    pub axes: Option<[Vec3; 3]>,
     /// Laws for local translation x, y, z then rotation x, y, z.
     pub laws: [Law; 6],
     pub capacity: Option<ConnectionCapacity>,
@@ -226,6 +229,9 @@ pub enum FailureMode {
 
 #[derive(Clone, Debug)]
 pub struct Options {
+    /// Return mesh station cuts and physical end motions for rendering and
+    /// independent capacity laws. This changes serialization only.
+    pub member_fields: bool,
     pub fidelity: Fidelity,
     /// Gravity acceleration vector, m/s². Present switches self-weight on.
     pub gravity: Option<Vec3>,
@@ -266,6 +272,7 @@ impl Default for Options {
     fn default() -> Self {
         Self {
             fidelity: Fidelity::Nonlinear,
+            member_fields: false,
             gravity: None,
             load_factor: 1.0,
             subdivisions: 2,
@@ -463,6 +470,15 @@ pub fn validate(model: &Model, options: &Options) -> Vec<Issue> {
             }
         }
         for connection in [&m.start, &m.end] {
+            if let Some([x, y, z]) = connection.axes {
+                use crate::math::{cross, dot};
+                let orthonormal = [x, y, z].iter().all(|v| (dot(v, v) - 1.0).abs() < 1e-10)
+                    && dot(&x, &y).abs() < 1e-10 && dot(&x, &z).abs() < 1e-10
+                    && dot(&y, &z).abs() < 1e-10 && dot(&cross(&x, &y), &z) > 1.0 - 1e-10;
+                if !orthonormal {
+                    issues.push(issue("invalidConnectionAxes", "Connector axes must be right-handed and orthonormal.".into(), &[&m.id]));
+                }
+            }
             for law in connection.laws {
                 if let Law::Elastic(k) = law {
                     if !(k.is_finite() && k > 0.0) {

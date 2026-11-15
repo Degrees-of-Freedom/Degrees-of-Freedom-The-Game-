@@ -1,7 +1,8 @@
 ---
 title: "Knowledge Base"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
+  - docs/kb/grow-dusk-runtime.md
   - README.md
   - package.json
   - docs/kb/architecture.md
@@ -30,7 +31,9 @@ status: partial
 
 ## Purpose and status
 
-This is the canonical entry point for durable project knowledge. The web prototype contains five existing environment presenters, voxel editing, challenges and a local Shared table card playtest. Its two-player, eight-round frame preset supports private handoffs, intentional original-quarter attachments and final scoring from verified component reactions. The editor can request linear or bounded nonlinear analysis through the OpenSees adapter. The Rust solver in `crates/dof-solver` runs in the browser and provides the editor’s default structural check. The [criteria ledger](criteria-ledger.md) records the tested scope and remaining gaps.
+On the release integration branch, **Play** opens the versioned, two-player Grow Dusk match. Its turn worker uses in-browser Rust/WASM and commits through IndexedDB. The operating instructions and acceptance status are in the [release runtime](grow-dusk-runtime.md) and [criteria ledger](criteria-ledger.md). The playtest descriptions below document the preceding presets and secondary modes.
+
+The secondary workspaces retain their playable presets, editor and earlier environment implementations. The editor can request linear or bounded nonlinear analysis through the OpenSees adapter. The [criteria ledger](criteria-ledger.md) records the current Shared table findings separately from the earlier preset walkthroughs.
 
 ## Pages
 

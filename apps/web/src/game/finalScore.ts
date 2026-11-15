@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { TurnState } from "./turns";
 import type { VoxelAnalysis } from "../solver/voxelResults";
-import { CABLE_FORMULATION, verifiedResponse } from "../solver/voxelVerification";
+import { CABLE_FORMULATION, RELEASE_SOLVER, verifiedResponse } from "../solver/voxelVerification";
+import { analysisLoadJoint } from "./turnPorts";
 
 export const SCORE_POLICY = "signed-card-gravity-v1";
 export const TIE_TOLERANCE = 0.01;
@@ -22,11 +23,12 @@ const componentEvidence = z.strictObject({
   verified: z.boolean(),
   reason: z.string().min(1).max(512),
   residuals: residualsSchema.optional(),
+  nonlinear: z.strictObject({force: residual, moment: residual, residual}).optional(),
   foundations: z.array(supportEvidence).max(2048),
 });
 const receiptSchema = z.strictObject({
   policy: z.literal(SCORE_POLICY),
-  solver: z.enum(["voxel-linear-frame-v1", CABLE_FORMULATION]),
+  solver: z.enum(["voxel-linear-frame-v1", CABLE_FORMULATION, RELEASE_SOLVER]),
   modelId: z.string(),
   components: z.array(componentEvidence).min(1).max(2048),
 });
@@ -43,9 +45,10 @@ function modelId(turn: TurnState) {
   return `${turn.seed}/${turn.turn}/${(hash >>> 0).toString(16)}`;
 }
 
-function unknownScope(board: FinalBoard, reason: string): ScopeEvidence {
+function unknownScope(turn: TurnState, reason: string): ScopeEvidence {
+  const board = turn.board;
   return {
-    nodes: board.joints.map(j => j.id),
+    nodes: [...new Set([...board.joints.map(j => j.id), ...board.loads.map(l => analysisLoadJoint(turn, l.jointId))])],
     memberIds: board.members.map(m => m.id),
     verified: false,
     reason,
@@ -54,16 +57,21 @@ function unknownScope(board: FinalBoard, reason: string): ScopeEvidence {
 }
 
 /** Only an independently checked component contributes signed physical reactions. */
+function solverFor(turn: TurnState) {
+  return turn.catalogue === "grow-dusk-release-1" ? RELEASE_SOLVER :
+    turn.board.members.some(m => m.restLengthM !== undefined) ? CABLE_FORMULATION : "voxel-linear-frame-v1";
+}
+
 export function finalReceipt(turn: TurnState, analysis: VoxelAnalysis | null): ScoreReceipt {
   const combo = analysis?.combos[0];
   const ctx = analysis?.ctx;
   const scopes = combo?.components;
   const board = turn.board;
   const receipt = (components: ScopeEvidence[]): ScoreReceipt => ({
-    policy: SCORE_POLICY, solver: board.members.some(m => m.restLengthM !== undefined) ? CABLE_FORMULATION : "voxel-linear-frame-v1", modelId: modelId(turn), components,
+    policy: SCORE_POLICY, solver: solverFor(turn), modelId: modelId(turn), components,
   });
   if (!ctx || !combo || !scopes?.length) {
-    return receipt([unknownScope(board, analysis?.error ?? "Final card-gravity response unavailable.")]);
+    return receipt([unknownScope(turn, analysis?.error ?? "Final card-gravity response unavailable.")]);
   }
   const components = scopes.map(scope => {
     const foundations = board.joints.filter(j => j.foundationOwner && scope.nodes.includes(j.id));
@@ -76,13 +84,15 @@ export function finalReceipt(turn: TurnState, analysis: VoxelAnalysis | null): S
     });
     return {
       nodes: scope.nodes, memberIds: scope.memberIds, verified,
-      reason: verified ? (scope.verification?.status === "verified-cable" ? "Verified cable equilibrium and frame response." : "Verified linear frame response.") : scope.verification?.reason ?? scope.reason ?? "Response unavailable.",
+      reason: verified ? (scope.excessiveDeformation ? "Verified nonlinear equilibrium with excessive displacement."
+        : scope.verification?.status === "verified-nonlinear" ? "Verified nonlinear equilibrium." : scope.verification?.status === "verified-cable" ? "Verified cable equilibrium and frame response." : "Verified linear frame response.") : scope.verification?.reason ?? scope.reason ?? "Response unavailable.",
       ...(scope.verification?.residuals && { residuals: scope.verification.residuals }),
+      ...(scope.verification?.nonlinear && { nonlinear: scope.verification.nonlinear }),
       foundations: forces.map(f => ({ jointId: f.jointId, upwardKN: verified ? f.upwardKN : null })),
     };
   });
   const result = receipt(components);
-  return readFinalReceipt(turn, result) ?? receipt([unknownScope(board, "Incomplete final reaction evidence.")]);
+  return readFinalReceipt(turn, result) ?? receipt([unknownScope(turn, "Incomplete final reaction evidence.")]);
 }
 
 /** Validate the receipt against the reconstructed board without rerunning
@@ -91,12 +101,14 @@ export function readFinalReceipt(turn: TurnState, raw: unknown): ScoreReceipt | 
   const parsed = receiptSchema.safeParse(raw);
   if (!parsed.success || parsed.data.modelId !== modelId(turn)) return null;
   const { board } = turn;
-  if ((parsed.data.solver === CABLE_FORMULATION) !== board.members.some(m => m.restLengthM !== undefined)) return null;
+  if (parsed.data.solver !== solverFor(turn)) return null;
   const foundations = new Map(board.joints.filter(j => j.foundationOwner).map(j => [j.id, j.foundationOwner]));
   const seen = new Set<string>();
   const seenSupports = new Set<string>();
   for (const scope of parsed.data.components) {
-    if (scope.verified) {
+    if (scope.verified && parsed.data.solver === RELEASE_SOLVER) {
+      if (!scope.nonlinear || Math.max(...Object.values(scope.nonlinear)) > 1e-5) return null;
+    } else if (scope.verified) {
       const r = scope.residuals;
       if (!r || Math.max(r.force, r.moment, r.nodalBalance, r.memberLaw, r.releasedAction) > 1e-5 ||
         r.compatibility > 1e-9) return null;
@@ -105,7 +117,7 @@ export function readFinalReceipt(turn: TurnState, raw: unknown): ScoreReceipt | 
       if (seen.has(key)) return null;
       seen.add(key);
     }
-    const weight = board.loads.reduce((sum, l) => sum + (scope.nodes.includes(l.jointId) ? l.magnitude : 0), 0);
+    const weight = board.loads.reduce((sum, l) => sum + (scope.nodes.includes(analysisLoadJoint(turn,l.jointId)) ? l.magnitude : 0), 0);
     let sumUp = 0;
     for (const support of scope.foundations) {
       if (!foundations.has(support.jointId) || !scope.nodes.includes(support.jointId) || seenSupports.has(support.jointId)) return null;
@@ -115,7 +127,7 @@ export function readFinalReceipt(turn: TurnState, raw: unknown): ScoreReceipt | 
     }
     if (scope.verified && Math.abs(sumUp - weight) > 1e-5 * Math.max(weight, 1e-3)) return null;
   }
-  if (seenSupports.size !== foundations.size || board.loads.some(l => !seen.has(l.jointId))) return null;
+  if (seenSupports.size !== foundations.size || board.loads.some(l => !seen.has(analysisLoadJoint(turn,l.jointId)))) return null;
   return parsed.data;
 }
 
@@ -161,7 +173,7 @@ export function awardFinalScore(turn: TurnState, receipt: ScoreReceipt): FinalSc
   let unknownGravityKN = 0;
   for (const scope of receipt.components) {
     if (!scope.verified) {
-      unknownGravityKN += board.loads.reduce((sum, l) => sum + (scope.nodes.includes(l.jointId) ? l.magnitude : 0), 0);
+      unknownGravityKN += board.loads.reduce((sum, l) => sum + (scope.nodes.includes(analysisLoadJoint(turn,l.jointId)) ? l.magnitude : 0), 0);
       continue;
     }
     for (const { jointId, upwardKN } of scope.foundations) {

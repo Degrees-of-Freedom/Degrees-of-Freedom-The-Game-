@@ -1,0 +1,488 @@
+{
+  "commit": "9df8c9c5b94c34b7879af3805f23c5a0f9bc3afe",
+  "dirtySource": false,
+  "solverFile": "dof_solver-DW3m5Jgn.wasm",
+  "solverSha256": "3c391970e1863f5752538224a5280927246344b4caa4eb104d5d43281acbce17",
+  "assetsSha256": "0346c7a63494b52e74ddca7703c1a089901f521c3b3a4c993b686716a07fe8a9",
+  "browser": "157.0.4341.60",
+  "viewport": [
+    1366,
+    900
+  ],
+  "matches": [
+    {
+      "seed": 13,
+      "passOnly": false,
+      "input": "keyboard",
+      "actions": {
+        "end": 16,
+        "element": 2,
+        "connection": 2,
+        "load": 11
+      },
+      "version": "grow-dusk-release-1",
+      "solver": "dof-rust-0.2.0-nonlinear-1",
+      "assessments": [
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        }
+      ],
+      "repairObjects": 0,
+      "gravityKN": 90,
+      "partial": false,
+      "awards": [
+        {
+          "playerId": "player-1",
+          "awardedShare": 38.888888888537565,
+          "penaltyPoints": 0,
+          "finalScore": 38.888888888537565
+        },
+        {
+          "playerId": "player-2",
+          "awardedShare": 61.11111111024314,
+          "penaltyPoints": 0,
+          "finalScore": 61.11111111024314
+        }
+      ],
+      "winners": [
+        "player-2"
+      ],
+      "endToHandoffMs": [
+        1912,
+        1263,
+        1632,
+        1884,
+        1514,
+        3582,
+        3719,
+        2430,
+        1278,
+        1619,
+        1746,
+        1390,
+        1254,
+        1253,
+        1990,
+        2395
+      ],
+      "wasmResources": 1,
+      "errors": []
+    },
+    {
+      "seed": 14,
+      "passOnly": false,
+      "input": "keyboard",
+      "actions": {
+        "end": 16,
+        "element": 2,
+        "connection": 2,
+        "load": 12
+      },
+      "version": "grow-dusk-release-1",
+      "solver": "dof-rust-0.2.0-nonlinear-1",
+      "assessments": [
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        }
+      ],
+      "repairObjects": 0,
+      "gravityKN": 85,
+      "partial": false,
+      "awards": [
+        {
+          "playerId": "player-1",
+          "awardedShare": 58.82352941146628,
+          "penaltyPoints": 0,
+          "finalScore": 58.82352941146628
+        },
+        {
+          "playerId": "player-2",
+          "awardedShare": 41.17647058786331,
+          "penaltyPoints": 0,
+          "finalScore": 41.17647058786331
+        }
+      ],
+      "winners": [
+        "player-1"
+      ],
+      "endToHandoffMs": [
+        1380,
+        590,
+        909,
+        809,
+        838,
+        654,
+        670,
+        1035,
+        928,
+        905,
+        1017,
+        952,
+        893,
+        1037,
+        1519,
+        1767
+      ],
+      "wasmResources": 1,
+      "errors": []
+    },
+    {
+      "seed": 15,
+      "passOnly": false,
+      "input": "keyboard",
+      "actions": {
+        "element": 2,
+        "connection": 2,
+        "end": 16,
+        "load": 13
+      },
+      "version": "grow-dusk-release-1",
+      "solver": "dof-rust-0.2.0-nonlinear-1",
+      "assessments": [
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        },
+        {
+          "status": "stable",
+          "penalty": 0
+        }
+      ],
+      "repairObjects": 0,
+      "gravityKN": 120,
+      "partial": false,
+      "awards": [
+        {
+          "playerId": "player-1",
+          "awardedShare": 58.33333333283895,
+          "penaltyPoints": 0,
+          "finalScore": 58.33333333283895
+        },
+        {
+          "playerId": "player-2",
+          "awardedShare": 41.666666666455285,
+          "penaltyPoints": 0,
+          "finalScore": 41.666666666455285
+        }
+      ],
+      "winners": [
+        "player-1"
+      ],
+      "endToHandoffMs": [
+        453,
+        515,
+        534,
+        505,
+        892,
+        663,
+        505,
+        531,
+        642,
+        585,
+        641,
+        596,
+        688,
+        657,
+        675,
+        850
+      ],
+      "wasmResources": 1,
+      "errors": []
+    }
+  ],
+  "zeroGravity": {
+    "seed": 0,
+    "passOnly": true,
+    "input": "keyboard",
+    "actions": {
+      "end": 16
+    },
+    "version": "grow-dusk-release-1",
+    "solver": "dof-rust-0.2.0-nonlinear-1",
+    "assessments": [
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      },
+      {
+        "status": "stable",
+        "penalty": 0
+      }
+    ],
+    "repairObjects": 0,
+    "gravityKN": 0,
+    "partial": false,
+    "awards": [
+      {
+        "playerId": "player-1",
+        "awardedShare": 0,
+        "penaltyPoints": 0,
+        "finalScore": 0
+      },
+      {
+        "playerId": "player-2",
+        "awardedShare": 0,
+        "penaltyPoints": 0,
+        "finalScore": 0
+      }
+    ],
+    "winners": [
+      "player-1",
+      "player-2"
+    ],
+    "endToHandoffMs": [
+      434,
+      396,
+      431,
+      508,
+      582,
+      559,
+      609,
+      722,
+      640,
+      776,
+      726,
+      908,
+      1047,
+      1033,
+      1120,
+      1030
+    ],
+    "wasmResources": 1,
+    "errors": []
+  }
+}
