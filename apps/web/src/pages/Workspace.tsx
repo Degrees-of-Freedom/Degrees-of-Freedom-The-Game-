@@ -503,7 +503,7 @@ export function Workspace() {
   if (saveCovered) return <SessionRecovery />;
   if (covered && privateTurn) return (
     <>
-      <SharedTableHandoff player={privateTurn.playerIndex + 1} onReady={() => {
+      <SharedTableHandoff player={privateTurn.playerIndex + 1} board={privateTurn.board} onReady={() => {
         if (!paused && !document.hidden) setReadyBoard(privateTurn.board);
       }} />
       {pauseMenu}
