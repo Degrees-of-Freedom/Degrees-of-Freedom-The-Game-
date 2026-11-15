@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { SECTION_GEOMETRY } from "../solver/voxelSections";
-import { poseSection, READABLE_SECTION_SCALE, wideFlangeGeometry } from "./sectionGeometry";
+import { poseSection, READABLE_SECTION_SCALE, rectangularHollowGeometry, roundHollowGeometry, wideFlangeGeometry } from "./sectionGeometry";
 
 describe.each(["ipe", "heb"] as const)("%s wide flange", type => {
   const section = SECTION_GEOMETRY[type];
@@ -48,4 +48,52 @@ describe.each(["ipe", "heb"] as const)("%s wide flange", type => {
       mesh.material.dispose();
     },
   );
+});
+
+describe("hollow physical sections", () => {
+  it.each([
+    {name:"square", width:.1, depth:.1, wall:.006},
+    {name:"rectangular", width:.1, depth:.2, wall:.006},
+  ])("keeps both $name tube ends open with real walls and independent readable scale", ({width,depth,wall}) => {
+    const geometry = rectangularHollowGeometry({width,depth,wall});
+    const material = new THREE.MeshBasicMaterial();
+    const mesh = new THREE.Mesh(geometry, material);
+    const fromEnd = (x:number, side:number) => new THREE.Raycaster(
+      new THREE.Vector3(x,0,side), new THREE.Vector3(0,0,-side)).intersectObject(mesh);
+    for (const side of [-1,1]) {
+      expect(fromEnd(0,side)).toHaveLength(0);
+      expect(fromEnd(width/2-wall/2,side).length).toBeGreaterThan(0);
+      expect(fromEnd(width/2-wall-1e-5,side)).toHaveLength(0);
+    }
+    const inside = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(1,0,0)).intersectObject(mesh);
+    expect(inside[0].distance).toBeCloseTo(width/2-wall,7);
+    const start = new THREE.Vector3(2,3,4), end = new THREE.Vector3(4,6,8);
+    poseSection(mesh,start,end,end.clone().sub(start),1);
+    expect(mesh.scale.x).toBe(1);
+    expect(mesh.scale.y).toBe(1);
+    poseSection(mesh,start,end,end.clone().sub(start));
+    expect(mesh.scale.x).toBe(READABLE_SECTION_SCALE);
+    expect(mesh.scale.y).toBe(READABLE_SECTION_SCALE);
+    geometry.computeBoundingBox();
+    expect(geometry.boundingBox!.getSize(new THREE.Vector3()).toArray()).toEqual(expect.arrayContaining([
+      expect.closeTo(width,7),expect.closeTo(depth,7),1,
+    ]));
+    geometry.dispose(); material.dispose();
+  });
+
+  it("shows the circular bore, annular rims and inner wall from both ends", () => {
+    const geometry = roundHollowGeometry();
+    const material = new THREE.MeshBasicMaterial();
+    const mesh = new THREE.Mesh(geometry, material);
+    const {outerDiameter,wall} = SECTION_GEOMETRY.chs;
+    for (const side of [-1,1]) {
+      const ray = (x:number) => new THREE.Raycaster(new THREE.Vector3(x,0,side),new THREE.Vector3(0,0,-side)).intersectObject(mesh);
+      expect(ray(0)).toHaveLength(0);
+      expect(ray(outerDiameter/2-wall/2).length).toBeGreaterThan(0);
+      expect(ray(outerDiameter/2-wall-1e-5)).toHaveLength(0);
+    }
+    const inside = new THREE.Raycaster(new THREE.Vector3(),new THREE.Vector3(1,0,0)).intersectObject(mesh);
+    expect(inside[0].distance).toBeCloseTo(outerDiameter/2-wall,6);
+    geometry.dispose(); material.dispose();
+  });
 });

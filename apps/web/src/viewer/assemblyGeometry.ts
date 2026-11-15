@@ -2,21 +2,12 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { assemblyParts, type AssemblyNode } from '../game/assembly';
 import { CELL_SIZE, type Member } from '../game/model';
-import { SECTION_GEOMETRY } from '../solver/voxelSections';
-import { poseSection } from './sectionGeometry';
+import { poseSection, rectangularHollowGeometry } from './sectionGeometry';
 
 const reference = (node: AssemblyNode) => new THREE.Vector3(...node.point).multiplyScalar(CELL_SIZE);
 
 export function assemblySectionGeometry(steps = 1) {
-  const {width, depth, wall} = SECTION_GEOMETRY.shs;
-  const w = width/2, d = depth/2;
-  const face = new THREE.Shape();
-  face.moveTo(-w, -d); face.lineTo(w, -d); face.lineTo(w, d); face.lineTo(-w, d); face.closePath();
-  const hole = new THREE.Path();
-  hole.moveTo(-w+wall, -d+wall); hole.lineTo(-w+wall, d-wall);
-  hole.lineTo(w-wall, d-wall); hole.lineTo(w-wall, -d+wall); hole.closePath();
-  face.holes.push(hole);
-  return new THREE.ExtrudeGeometry(face, { depth: 1, steps, bevelEnabled: false }).translate(0,0,-0.5);
+  return rectangularHollowGeometry(undefined, steps);
 }
 
 /** One selectable mesh for the card. Each piece occupies its own physical

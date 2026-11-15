@@ -1,6 +1,6 @@
 ---
 title: "Visualization Criteria"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
   - "Project owner load-path discussion, 2026-11-14"
   - "Project owner primary-direction load-transfer revision"
@@ -115,3 +115,11 @@ Use a documented solver-result-based interpretation of applied loading, member a
 Keep vectors aligned with valid reference/deformed segments and within their connected scope. Use available segment results for quarter/subdivided members; do not invent intermediate values. Slack cables, zero displayed action within declared tolerance and unavailable regions have no moving flow. Zero axial force alone does not erase a valid shear/bending load path; identify the quantity shown. Reduced motion uses static directional arrows and equivalent labels. Historical results remain historical or suppressed, never animated as current verified response after an edit.
 
 Acceptance fixtures: simple source-to-support transfer; branching and asymmetric redistribution; arbitrary member/camera orientation; independent tension/compression styling; mixed-load ambiguity; valid shear/bending transfer; slack/zero/unknown states; segment scope and stale-result labeling. Direction changes must not alter physical geometry, numerical values, connectivity or scoring. See the [focused implementation prompt](../implementation-prompts/load-path-primary-direction.md).
+
+## 8. Shared table result projection and regression evidence
+
+The release path uses `solver/wasm/turnSolver.ts` to project actual Rust section cuts, recovered member-end motion, per-component validity and signed vertical gravity transfer. `viewer/sectionCuts.ts` retains both cuts at a concentrated load so shear discontinuities are not averaged away. `viewer/boardDiagrams.ts` and `components/MemberDiagram.tsx` use the same local positive-cut-face data in kN and kN·m. The deflected view interpolates supported member fields and retains its reference geometry. Its colour mapping now uses the specified dark-blue/cyan/green/yellow/orange/red magnitude contour independently of visual exaggeration.
+
+For the release's simultaneous downward card gravity, each verified segment's signed global vertical section action supplies the transfer direction. This covers horizontal bending/shear branches as well as axial force. It is an explanatory gravity-transfer display, without individual-load attribution. Other load patterns need a documented interpretation and ambiguity treatment before being displayed under that claim. The older voxel path retains its separately scoped force-weighted predecessor illustration.
+
+`viewer/releaseFlow.test.ts` runs the shipped WASM on a frame with unequal supported branches. Both gravity branches appear, their transferred magnitudes sum to 5 kN, and reversing all analytical member ends reverses local arrow signs while retaining the physical transfers. It also checks that a zero-gravity state has no moving flow and that an unavailable independent member does not erase verified branches. `viewer/sectionCuts.test.ts` checks cantilever moment/shear and the two distinct cuts at a simply-supported midpoint load. These tests establish the named numerical/projection cases. Actual normal-Play discoverability, supported-device rendering and the complete §5/§7 matrix remain separate release acceptance work in the [ledger](criteria-ledger.md).

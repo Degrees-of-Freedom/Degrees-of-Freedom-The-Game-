@@ -4,6 +4,15 @@ import { assemblySectionGeometry } from "./assemblyGeometry";
 import { SHAPE_INTERVALS, spanDisplacement, spanPoint, type DeflectedSpan, type DeformationField } from "./deformationField";
 import { READABLE_SECTION_SCALE, roundHollowGeometry, wideFlangeGeometry } from "./sectionGeometry";
 
+const contourColors = ["#1e40af", "#24c9ed", "#43d68b", "#f5e65b", "#f19c38", "#ef5548"].map(c => new THREE.Color(c));
+
+/** SAP-style displacement magnitude contour, independent of deformation scale. */
+export function deflectionColor(fraction: number) {
+  const location = Math.max(0, Math.min(1, fraction)) * (contourColors.length - 1);
+  const lower = Math.min(contourColors.length - 2, Math.floor(location));
+  return contourColors[lower].clone().lerp(contourColors[lower + 1], location - lower);
+}
+
 /** Sweep the existing section along sampled analytical centrelines. The
  * recovered axial twist rotates the section about the deformed tangent. */
 export function deflectedFrameGeometry(spans: DeflectedSpan[], scale: number, radius: number, trueScale = false, contourPeak?: number) {
@@ -20,7 +29,6 @@ export function deflectedFrameGeometry(spans: DeflectedSpan[], scale: number, ra
     const ex = new THREE.Vector3().fromArray(e.R[0]), ey = new THREE.Vector3().fromArray(e.R[1]);
     const ez = new THREE.Vector3().fromArray(e.R[2]);
     const colors = contourPeak === undefined ? null : new Float32Array(position.count * 3);
-    const low = new THREE.Color("#77c9ed"), high = new THREE.Color("#ef5548");
     const stations = Array.from({length: SHAPE_INTERVALS+1}, (_, i) => {
       const t = i / SHAPE_INTERVALS, center = spanPoint(span, t, scale);
       const tangent = spanPoint(span, Math.min(1,t+1e-5), scale)
@@ -30,7 +38,7 @@ export function deflectedFrameGeometry(spans: DeflectedSpan[], scale: number, ra
         .multiply(new THREE.Quaternion().setFromAxisAngle(ex, roll));
       const fraction = contourPeak ? Math.min(1, spanDisplacement(span, t).length() / contourPeak) : 0;
       return { center, y: ey.clone().applyQuaternion(orientation), z: ez.clone().applyQuaternion(orientation),
-        color: low.clone().lerp(high, fraction) };
+        color: deflectionColor(fraction) };
     });
     for (let i = 0; i < position.count; i++) {
       const t = Math.max(0, Math.min(1, position.getZ(i)+0.5));

@@ -93,6 +93,7 @@ function scopeResponse(scope: AnalysisComponent, result: DetailedAnalysisResult,
     comparison = {topology, ...tangent};
   }
   return { status, nodes: [...scope.nodeIds], memberIds, reason,
+    diagnosticModes: scope.modes,
     ...(scope.flags.excessiveDeformation && {excessiveDeformation:true}),
     ...(status === 'mechanism' && witnessed.length > 0 && {instabilityWitness: {nodes, memberIds: witnessed, reason, comparison}}),
     verification: valid ? {formulation: RELEASE_SOLVER, status: 'verified-nonlinear', nonlinear: {residual: residual!, force: force!, moment: moment!}}

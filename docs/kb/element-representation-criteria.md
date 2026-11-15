@@ -1,6 +1,6 @@
 ---
 title: "Structural Element Representation Criteria"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
   - docs/kb/game-completion-criteria.md
   - "Project owner element catalogue and geometry answers, 2026-11-14"
@@ -144,6 +144,12 @@ These are required future checks, not current test coverage.
 | Unsupported solver family | Recognizable geometry does not become a claimed supported analysis; explicit diagnostic and no fabricated result. |
 
 Recommended implementation stages: define versioned profiles/assembly data and solver-support boundaries; generate wide-flange/HSS/column geometry and true-scale inspection; add axial spring/planar/trichord/cable generators with explicit parameters; integrate selection, previews, joint interfaces and valid result fields; then validate LOD, accessibility, memory and performance. Update this page, [structural solver](structural-solver.md), [3D viewer](3d-viewer.md) and [development and testing](development-and-testing.md) as evidence is obtained. Implementation is deferred.
+
+### Hollow-section implementation evidence
+
+`viewer/sectionGeometry.ts` supplies a reusable square/rectangular hollow extrusion and the circular annular extrusion. Exposed ends are material rims with open bores and inward-facing inner walls. `viewer/structureMeshes.ts` uses them for standalone SHS/CHS members, and assemblies reuse the same rectangular profile. Catalogue wall thickness and section dimensions remain physical metres, with readable transverse enlargement separate from true scale and member length. Current SHS corners are sharp nominal corners. The generic rectangular generator accepts distinct width/depth, but this does not add a new playable RHS printing or numerical catalogue entry.
+
+`components/SectionProfile.tsx` supplies an end-on physical section with width/depth, wall thickness, or web/flange dimensions in millimetres. The section profile is independent of board enlargement and uses open holes rather than filled tube ends. `viewer/sectionGeometry.test.ts` raycasts both exposed ends and the inner walls of square, rectangular and circular sections. It also checks independent true/readable scale. These are geometry/projection tests. Final browser readability, device performance and any newly authored physical printing require separate acceptance.
 
 ## 9. Open decisions
 

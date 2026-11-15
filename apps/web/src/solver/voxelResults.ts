@@ -45,6 +45,9 @@ export interface ComponentResponse {
   verification?: LinearVerification;
   instabilityWitness?: { memberIds: number[]; nodes: string[]; reason: string;
     comparison?: {topology: string; negativePivots: number; mechanisms: number} };
+  /** Normalized vectors reported by the kernel. Diagnostic motion is separate
+   * from an equilibrium displacement, including when no equilibrium exists. */
+  diagnosticModes?: { kind: 'mechanism' | 'spin' | 'buckling'; displacements: Record<string, readonly number[]> }[];
   /** A converged large displacement is independent of tangent instability. */
   excessiveDeformation?: boolean;
 }
