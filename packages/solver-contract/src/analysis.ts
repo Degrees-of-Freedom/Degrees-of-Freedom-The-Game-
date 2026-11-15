@@ -205,6 +205,8 @@ export interface AnalysisComponent {
     converged: boolean;
     iterations: number;
     loadFractionReached: number;
+    /** Load increments the nonlinear solution accepted; 0 for a linear one. */
+    loadSteps?: number;
     residual: number | null;
     forceImbalance: number | null;
     momentImbalance: number | null;

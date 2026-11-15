@@ -34,7 +34,11 @@ import type {
  * - a member without properties gets the standard steel section of
  *   `services/opensees/src/dof_opensees/properties.py`, including its
  *   self-weight of 577 N/m;
- * - fidelity defaults to `nonlinear`;
+ * - fidelity defaults to `linear`; `type: 'corotational'` asks for nonlinear;
+ * - `segmentsPerFrame` fixes the beam elements (1 to 32), otherwise 1 for
+ *   linear and 2 for nonlinear;
+ * - a member `law` (frame or cable) supplies its properties; a cable law's
+ *   rest length maps exactly onto the Rust cable;
  * - there is no displacement limit unless one is given.
  *
  * **Local axes.** The two contracts name the same axes differently. In the
@@ -80,7 +84,7 @@ const SHORTHANDS: Record<MemberEndFixity, MemberEndConnection['laws']> = {
 const SHARED_AXIS_OF_RUST = [0, 2, 1, 3, 5, 4] as const;
 
 type Translation =
-  | { model: AnalysisModel; options: AnalysisOptions; displacementLimit?: number }
+  | { model: AnalysisModel; options: AnalysisOptions; displacementLimit?: number; segmentsPerFrame: number }
   | { unsupported: string }
   | { error: string };
 
@@ -133,7 +137,16 @@ function beamConnection(member: StructuralMember, end: 'start' | 'end'): MemberC
 export function toAnalysisModel(model: StructuralModel): Translation {
   if (model.units !== 'SI') return { unsupported: 'Only SI units are supported.' };
   const analysis = model.analysis ?? {};
-  const fidelity = analysis.fidelity ?? 'nonlinear';
+  // Nonlinear is opt-in: `fidelity: 'nonlinear'` or its alias
+  // `type: 'corotational'`. Without either the analysis is linear.
+  const fidelity = analysis.fidelity ?? (analysis.type === 'corotational' ? 'nonlinear' : 'linear');
+  const fixedSegments = analysis.segmentsPerFrame;
+  if (fixedSegments !== undefined && !(Number.isInteger(fixedSegments) && fixedSegments >= 1 && fixedSegments <= 32))
+    return { error: 'segmentsPerFrame must be a whole number from 1 to 32.' };
+  // A beam is exact with one element in a linear analysis under nodal and
+  // uniform loads; the nonlinear analysis uses the solver's default of two
+  // unless the request fixes the count.
+  const segmentsPerFrame = fixedSegments ?? (fidelity === 'linear' ? 1 : 2);
 
   // Several supports on one node act together; the detailed contract wants
   // one foundation per node.
@@ -154,19 +167,33 @@ export function toAnalysisModel(model: StructuralModel): Translation {
 
   const members: AnalysisMember[] = [];
   for (const member of model.members) {
-    const kind = member.kind ?? 'beam';
+    // A cable law makes the member a cable whatever its kind says; a frame
+    // law supplies its section properties.
+    const law = member.law;
+    const kind = law?.kind === 'cable' ? 'cable' : (member.kind ?? 'beam');
+    const properties: MemberProperties = law
+      ? {
+          elasticModulus: law.elasticModulus,
+          area: law.area,
+          shearModulus: law.kind === 'frame' ? law.shearModulus : 0,
+          inertiaY: law.kind === 'frame' ? law.iy : 0,
+          inertiaZ: law.kind === 'frame' ? law.iz : 0,
+          torsionConstant: law.kind === 'frame' ? law.torsionConstant : 0,
+          weightPerLength: member.properties?.weightPerLength ?? 0,
+        }
+      : (member.properties ?? STANDARD_SECTION);
     const base = {
       id: member.id,
       kind,
       startNodeId: member.startNodeId,
       endNodeId: member.endNodeId,
-      sectionId: sectionId(member.properties ?? STANDARD_SECTION),
+      sectionId: sectionId(properties),
       ...(member.orientation && { orientation: member.orientation }),
-      // A beam is exact with one element in a linear analysis under nodal and
-      // uniform loads; nonlinear analysis uses the solver's default of two.
-      ...(kind === 'beam' && fidelity === 'linear' && { subdivisions: 1 }),
+      ...(kind === 'beam' && { subdivisions: segmentsPerFrame }),
     };
     const strain = member.initialStrain ?? 0;
+    if (law?.kind === 'cable' && strain !== 0)
+      return { unsupported: `Member '${member.id}' gives both a cable rest length and an initial strain.` };
     if (kind === 'beam') {
       if (strain !== 0) return { unsupported: `Member '${member.id}': initial strain on a beam is not supported; use a brace or cable.` };
       const start = beamConnection(member, 'start');
@@ -186,7 +213,12 @@ export function toAnalysisModel(model: StructuralModel): Translation {
         if (shared.laws.slice(0, 3).some((law) => law !== 'locked'))
           return { unsupported: `Member '${member.id}': a ${kind} whose ${end} translations are not all locked is not supported by the Rust solver.` };
       }
-      members.push({ ...base, ...(strain !== 0 && { initialStrain: strain }) });
+      // A cable law's force is EA max(0, l / restLength − 1): the Rust
+      // cable with that rest length, exactly.
+      members.push({
+        ...base,
+        ...(law?.kind === 'cable' ? { restLength: law.restLength } : strain !== 0 && { initialStrain: strain }),
+      });
     }
   }
 
@@ -214,6 +246,7 @@ export function toAnalysisModel(model: StructuralModel): Translation {
       excessiveDisplacementRatio: 1e9,
     },
     ...(limit !== undefined && { displacementLimit: limit }),
+    segmentsPerFrame,
   };
 }
 
@@ -292,6 +325,7 @@ export function fromDetailedResult(
   model: StructuralModel,
   detailed: DetailedAnalysisResult,
   displacementLimit?: number,
+  segmentsPerFrame?: number,
 ): AnalysisResult {
   if (detailed.analysis.status === 'invalid')
     return { status: 'error', message: detailed.analysis.diagnostics[0]?.message ?? 'The model could not be analysed.' };
@@ -345,7 +379,7 @@ export function fromDetailedResult(
       torsion: Math.max(Math.abs(start[3]), Math.abs(end[3])),
       momentStart: Math.hypot(start[4], start[5]),
       momentEnd: Math.hypot(end[4], end[5]),
-      ...(member.kind === 'cable' && result.state && result.state !== 'failed' && { state: result.state }),
+      ...((member.kind === 'cable' || member.law?.kind === 'cable') && result.state && result.state !== 'failed' && { state: result.state }),
     };
   }
 
@@ -377,6 +411,33 @@ export function fromDetailedResult(
       `${stability.rotationalMechanisms} free spin mode(s) were held still: members can rotate about their own axis, but no load acts on that rotation.`,
     );
 
+  // Model nodes outside every component: nothing attached, nothing loading them.
+  const inactiveNodeIds = model.nodes.filter((node) => detailed.nodes[node.id]?.componentId == null).map((node) => node.id);
+
+  // The nonlinear report, for a nonlinear analysis whose every part was
+  // verified. Residuals are the largest over the components, in the solver's
+  // normalisation (relative to the applied load and largest element force).
+  const allValid = detailed.components.length > 0 && detailed.components.every((c) => c.resultsValid);
+  const largest = (pick: (c: DetailedComponent) => number | null | undefined) =>
+    detailed.components.reduce((most, c) => Math.max(most, pick(c) ?? 0), 0);
+  const cableState: Record<string, 'taut' | 'slack'> = {};
+  for (const member of model.members) {
+    const state = detailed.members[member.id]?.state;
+    if ((member.kind === 'cable' || member.law?.kind === 'cable') && (state === 'active' || state === 'slack'))
+      cableState[member.id] = state === 'active' ? 'taut' : 'slack';
+  }
+  const nonlinear =
+    detailed.analysis.fidelity === 'nonlinear' && allValid
+      ? {
+          segmentsPerFrame: segmentsPerFrame ?? 2,
+          steps: detailed.components.reduce((sum, c) => sum + (c.convergence.loadSteps ?? 0), 0),
+          forceResidual: largest((c) => c.convergence.forceImbalance),
+          momentResidual: largest((c) => c.convergence.momentImbalance),
+          nodalResidual: largest((c) => c.convergence.residual),
+          cableState,
+        }
+      : undefined;
+
   const body = {
     analysis: {
       fidelity: detailed.analysis.fidelity ?? ('nonlinear' as const),
@@ -391,6 +452,8 @@ export function fromDetailedResult(
     memberForces,
     stability,
     warnings,
+    ...(inactiveNodeIds.length > 0 && { inactiveNodeIds }),
+    ...(nonlinear && { nonlinear }),
   };
   if (components.some((c) => c.state === 'unstable')) return { status: 'unstable', message: unstableMessage(components), ...body };
   if (components.some((c) => c.state === 'unknown'))

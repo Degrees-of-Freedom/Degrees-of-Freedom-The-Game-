@@ -471,6 +471,7 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>, rem
                 object([
                     ("converged", outcome.converged.into()),
                     ("iterations", (outcome.iterations as usize).into()),
+                    ("loadSteps", (outcome.load_steps as usize).into()),
                     ("loadFractionReached", outcome.load_fraction_reached.into()),
                     ("residual", outcome.residual.into()),
                     ("forceImbalance", outcome.force_imbalance.into()),

@@ -147,10 +147,61 @@ describe('Rust WebAssembly solver, original contract', () => {
     expect(result.memberForces.right).toMatchObject({ state: 'active' });
     expect(result.memberForces.right.axial).toBeCloseTo(60e3, 0);
     expect(result.components[0].reasonCodes).toContain('cable_slack');
-    expect(result.analysis.fidelity).toBe('nonlinear');
+    // Nonlinear is opt-in, so this request was analysed linearly.
+    expect(result.analysis.fidelity).toBe('linear');
+    expect(result.nonlinear).toBeUndefined();
     const limited = await solver.analyze({ ...model, analysis: { displacementLimit: 1e-6 } });
     if (limited.status !== 'success') throw new Error(JSON.stringify(limited));
     expect(limited.components[0]).toMatchObject({ state: 'marginal', reasonCodes: expect.arrayContaining(['excessive_deformation']) });
+  });
+
+  it('takes nonlinear as opt-in, with the corotational alias, and reports how it solved', async () => {
+    const linear = await solver.analyze({ ...cantilever, analysis: undefined });
+    if (linear.status !== 'success') throw new Error(JSON.stringify(linear));
+    expect(linear.analysis.fidelity).toBe('linear');
+    expect(linear.nonlinear).toBeUndefined();
+
+    const corotational = await solver.analyze({ ...cantilever, analysis: { type: 'corotational', segmentsPerFrame: 4 } });
+    if (corotational.status !== 'success') throw new Error(JSON.stringify(corotational));
+    expect(corotational.analysis.fidelity).toBe('nonlinear');
+    expect(corotational.nonlinear).toMatchObject({ segmentsPerFrame: 4, cableState: {} });
+    expect(corotational.nonlinear!.steps).toBeGreaterThanOrEqual(1);
+    expect(corotational.nonlinear!.nodalResidual).toBeLessThan(1e-5);
+    expect(corotational.nonlinear!.forceResidual).toBeLessThan(1e-5);
+    // A small load: the nonlinear tip deflection is the linear one.
+    expect(corotational.displacements.b[2]).toBeCloseTo(linear.displacements.b[2], 7);
+
+    for (const segmentsPerFrame of [0, 33, 2.5])
+      expect(await solver.analyze({ ...cantilever, analysis: { type: 'corotational', segmentsPerFrame } })).toMatchObject({ status: 'error' });
+  });
+
+  it('maps frame and cable laws, with the cable force EA max(0, l/L0 - 1)', async () => {
+    // A frame law is the beam's section: same answer as the properties.
+    const framed = await solver.analyze({
+      ...cantilever,
+      members: [{ id: 'm', startNodeId: 'a', endNodeId: 'b', orientation: [0, 0, 1], law: { kind: 'frame', elasticModulus: 210e9, shearModulus: 81e9, area: ipe.area, iy: ipe.inertiaY, iz: ipe.inertiaZ, torsionConstant: ipe.torsionConstant } }],
+    });
+    if (framed.status !== 'success') throw new Error(JSON.stringify(framed));
+    expect(framed.displacements.b[2]).toBeCloseTo((-1000 * 27) / (3 * 210e9 * ipe.inertiaZ), 9);
+
+    // A 2 m vertical hanger with a 1.999 m rest length, carrying 10 kN.
+    const [E, A, rest] = [160e9, 3.6e-4, 1.999];
+    const loaded = await solver.analyze({
+      units: 'SI',
+      nodes: [{ id: 'top', position: [0, 0, 2] }, { id: 'n', position: [0, 0, 0] }, { id: 'spare', position: [9, 9, 9] }],
+      members: [{ id: 'c', kind: 'beam', startNodeId: 'top', endNodeId: 'n', law: { kind: 'cable', elasticModulus: E, area: A, restLength: rest } }],
+      supports: [{ nodeId: 'top', restrained: FIXED }, { nodeId: 'n', restrained: [true, true, false, true, true, true] }],
+      loads: [{ nodeId: 'n', force: [0, 0, -10e3], moment: [0, 0, 0] }],
+      analysis: { type: 'corotational' },
+    });
+    if (loaded.status !== 'success') throw new Error(JSON.stringify(loaded));
+    // The cable law decides the kind, and its force is EA (l / rest - 1).
+    expect(loaded.memberForces.c).toMatchObject({ state: 'active' });
+    expect(loaded.memberForces.c.axial).toBeCloseTo(10e3, 3);
+    const length = 2 - loaded.displacements.n[2];
+    expect(E * A * (length / rest - 1)).toBeCloseTo(10e3, 3);
+    expect(loaded.nonlinear!.cableState).toEqual({ c: 'taut' });
+    expect(loaded.inactiveNodeIds).toEqual(['spare']);
   });
 
   it('reports what the Rust solver cannot represent as unsupported', async () => {

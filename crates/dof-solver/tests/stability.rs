@@ -499,6 +499,8 @@ fn shared_frame_load_sharing_holds_in_the_nonlinear_analysis() {
             total += b;
         }
         close(total, p, 1e-8);
+    }
+}
 
 /// A spin that lives only in a connection, such as a member on ball joints
 /// at both ends turning about its own axis, moves no model node. It must not

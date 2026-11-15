@@ -193,7 +193,7 @@ export function createWasmSolver(config: WasmSource | WasmSolverConfig = {}): So
       if ('error' in translated) return { status: 'error', message: translated.error };
       if ('unsupported' in translated) return { status: 'unsupported', message: translated.unsupported };
       const detailed = await analyzeDetailed(translated.model, translated.options, signal);
-      return fromDetailedResult(model, detailed, translated.displacementLimit);
+      return fromDetailedResult(model, detailed, translated.displacementLimit, translated.segmentsPerFrame);
     },
   };
 }
