@@ -37,7 +37,7 @@ export function runPlanner(
   while (!last || !(last.done || last.truncated)) {
     if (!queue.length) {
       const started = performance.now();
-      const plan = planner.plan(env.scenario, cloneModel(env.currentModel));
+      const plan = planner.plan(env.activeScenario, cloneModel(env.currentModel));
       planMs += performance.now() - started;
       queue.push(...plan.actions);
       if (!queue.length) {

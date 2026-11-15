@@ -74,7 +74,7 @@ if (!["script", "graph", "erosion"].includes(demoPlanner)) {
 // The hand-written script only knows straight columns; planners also handle
 // keep-out zones, later stages and taller weights. A fixed scenario gives the
 // same planner run every time, so one run is enough there.
-const demoSeeds = GOAL_SCENARIOS[scenarioId].randomLoads
+const demoSeeds = GOAL_SCENARIOS[scenarioId].randomLoads || "layout" in GOAL_SCENARIOS[scenarioId]
   ? Array.from({ length: demoCount }, (_, i) => seed * 1000 + i)
   : [0];
 const demonstrations =

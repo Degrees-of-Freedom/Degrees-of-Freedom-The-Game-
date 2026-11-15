@@ -1,5 +1,6 @@
 import type { GameModel, GridPoint, Level, MemberType } from "../game/model";
 import type { VoxelAnalysis } from "../solver/voxel";
+import type { Random } from "./rng";
 
 /**
  * Actions an agent may take in the goal ("Load in space") mode. The set is
@@ -35,6 +36,14 @@ export interface LaterStage {
   weights: readonly [number, number, number, number][];
 }
 
+/** What one episode of a randomised scenario contains. */
+export interface EpisodeLayout {
+  /** Weights present from the start, as [i, j, k, kN]. */
+  weights: readonly [number, number, number, number][];
+  laterStages: readonly LaterStage[];
+  zones: readonly KeepOutZone[];
+}
+
 /** A goal level plus the episode limits an agent plays under. */
 export interface GoalScenario {
   id: string;
@@ -54,6 +63,11 @@ export interface GoalScenario {
    * structure and then extend it.
    */
   laterStages?: readonly LaterStage[];
+  /**
+   * Draw weights, stages and zones from the episode seed instead of using the
+   * fixed `laterStages`/`zones`/level loads, to test layouts not seen in training.
+   */
+  layout?: (random: Random) => EpisodeLayout;
 }
 
 /** Weights of the reward terms. See `reward.ts` for the exact definition. */

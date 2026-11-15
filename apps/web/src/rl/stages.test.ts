@@ -86,3 +86,41 @@ describe("staged goals", () => {
     expect(last.info.analysis.success).toBe(false);
   });
 });
+
+describe("randomised layouts", () => {
+  const layoutOf = (seed: number) => {
+    const env = new GoalEnv(GOAL_SCENARIOS.stagedR);
+    const obs = env.reset(seed);
+    return { env, obs, zones: env.activeScenario.zones };
+  };
+
+  it("are reproducible per seed and differ between seeds", () => {
+    const a = layoutOf(3);
+    expect(layoutOf(3).obs.targets).toEqual(a.obs.targets);
+    expect(layoutOf(3).zones).toEqual(a.zones);
+    expect(layoutOf(4).obs.targets).not.toEqual(a.obs.targets);
+  });
+
+  it("put a zone under the later weight, which then arrives and is reachable around it", () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const { env, zones } = layoutOf(seed);
+      expect(zones).toHaveLength(1);
+      for (let i = 0; i < 5; i++) env.step({ kind: "wait" });
+      const second = env.step({ kind: "wait" }).observation;
+      expect(second.targets).toHaveLength(2);
+      const later = second.targets.find((t) => t.key !== second.targets[0].key)!;
+      // The direct column under the new weight is blocked, but not the weight's own node.
+      expect(memberZone(zones, [later.at[0], later.at[1], 0], later.at)).toBeDefined();
+      expect(nodeZone(zones, later.at)).toBeUndefined();
+    }
+  });
+
+  it("do not leak the previous episode's zones or stages into the next", () => {
+    const env = new GoalEnv(GOAL_SCENARIOS.stagedR);
+    env.reset(1);
+    const first = env.activeScenario.zones;
+    env.reset(2);
+    expect(env.activeScenario.zones).not.toEqual(first);
+    expect(env.reset(2).pendingStages).toBe(1);
+  });
+});

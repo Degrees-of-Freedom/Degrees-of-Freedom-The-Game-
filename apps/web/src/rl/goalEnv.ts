@@ -8,6 +8,7 @@ import type {
   AnalysisSummary,
   GoalAction,
   GoalScenario,
+  KeepOutZone,
   LaterStage,
   Observation,
   RewardConfig,
@@ -30,6 +31,8 @@ export class GoalEnv {
   private cachedActions: GoalAction[] | null = null;
   /** Stages that have not arrived yet. */
   private pending: LaterStage[] = [];
+  /** Zones in force this episode (fixed, or drawn by the scenario's layout). */
+  private zones: readonly KeepOutZone[] = [];
   /** The latest analysis passed every check, ignoring pending stages. */
   private stageSolved = false;
 
@@ -43,16 +46,23 @@ export class GoalEnv {
       memberTypes: scenario.memberTypes,
       zones: scenario.zones,
     });
+    this.zones = scenario.zones ?? [];
   }
 
   /** Start a new episode. Only random scenarios use the seed for their loads. */
   reset(seed = 0): Observation {
-    const { level, randomLoads } = this.scenario;
-    this.model = initialModel(level, randomLoads ? createRandom(seed) : undefined);
+    const { level, randomLoads, layout } = this.scenario;
+    const drawn = layout?.(createRandom(seed));
+    this.model = initialModel(
+      drawn ? { ...level, loads: [...drawn.weights], random: false } : level,
+      randomLoads && !drawn ? createRandom(seed) : undefined,
+    );
     this.stepCount = 0;
     this.finished = false;
     this.cachedActions = null;
-    this.pending = [...(this.scenario.laterStages ?? [])];
+    this.pending = [...(drawn?.laterStages ?? this.scenario.laterStages ?? [])];
+    this.zones = drawn?.zones ?? this.scenario.zones ?? [];
+    this.enumerator.setZones(this.zones);
     this.summary = this.analyze();
     return this.observe();
   }
@@ -73,7 +83,7 @@ export class GoalEnv {
     const rejected = this.rejection(action);
     let invalid: string | null = rejected;
     if (!rejected) {
-      const result = applyAction(this.scenario.level, this.model, action, this.scenario.zones);
+      const result = applyAction(this.scenario.level, this.model, action, this.zones);
       invalid = result.issue;
       if (!invalid && action.kind === "wait" && !this.pending.length)
         invalid = "There is nothing to wait for";
@@ -118,6 +128,11 @@ export class GoalEnv {
       truncated,
       info: { invalid, analysis: this.summary, shaping, terminal },
     };
+  }
+
+  /** The scenario with this episode's zones filled in, for planners. */
+  get activeScenario(): GoalScenario {
+    return { ...this.scenario, zones: this.zones };
   }
 
   /** The model as the game would hold it. Callers must not mutate it. */

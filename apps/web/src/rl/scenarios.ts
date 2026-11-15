@@ -1,6 +1,7 @@
 import { LEVELS } from "../game/levels";
 import type { Level } from "../game/model";
-import type { GoalScenario, KeepOutZone } from "./types";
+import type { EpisodeLayout, GoalScenario, KeepOutZone } from "./types";
+import type { Random } from "./rng";
 
 /** pickup1 with only its first weight: the smallest solvable goal. */
 const SINGLE_LOAD_LEVEL: Level = {
@@ -37,6 +38,36 @@ const STAGED_LEVEL: Level = {
   loads: [[4, 4, 3, 40]],
   desc: "Hold one weight, then reach a second that appears later.",
 };
+
+/** A larger supply, since random layouts can need portals (see `ZONED_LEVEL`). */
+const RANDOM_LAYOUT_LEVEL: Level = {
+  ...LEVELS.pickup1,
+  name: "Pick-up · random staged layout",
+  inv: { ...LEVELS.pickup1.inv, joint: 10, glulam: 10, ipe: 6, found: 5 },
+  desc: "A first weight, then a second that appears later behind a keep-out zone.",
+};
+
+/**
+ * Random staged and zoned layout: a 40 kN weight 3 cells up, then after 5
+ * actions a second 40 kN weight 3 cells up at least 3 cells away, with a zone
+ * under it that blocks its direct column. Only the positions vary. A first
+ * version also varied height (2-3 cells) and load (30-50 kN); the graph planner
+ * solved 4 of 12 of those, because a weight 2 cells up has a much tighter
+ * movement limit (height/250), so they mostly measured infeasible layouts.
+ */
+export function stagedZonedLayout(random: Random): EpisodeLayout {
+  const pick = (lo: number, hi: number) => lo + Math.floor(random() * (hi - lo + 1));
+  const first: [number, number] = [pick(3, 8), pick(3, 8)];
+  let second: [number, number];
+  do second = [pick(3, 8), pick(3, 8)];
+  while (Math.hypot(first[0] - second[0], first[1] - second[1]) < 3);
+  const height = 3;
+  return {
+    weights: [[first[0], first[1], 3, 40]],
+    laterStages: [{ atStep: 5, weights: [[second[0], second[1], height, 40]] }],
+    zones: [{ id: "keep-out", min: [second[0] - 0.5, second[1] - 0.5, 0], max: [second[0] + 0.5, second[1] + 0.5, height - 1] }],
+  };
+}
 
 /**
  * Training scenarios, ordered as a curriculum. `pickup1` and `pickupR` are the
@@ -94,6 +125,15 @@ export const GOAL_SCENARIOS = {
     randomLoads: false,
     zones: [DOCK],
     laterStages: [{ atStep: 5, weights: [[7, 4, 3, 40]] }],
+  },
+  stagedR: {
+    id: "stagedR",
+    description: "Random layouts: a first weight, then a second behind a keep-out zone (seeded).",
+    level: RANDOM_LAYOUT_LEVEL,
+    maxSteps: 40,
+    memberTypes: ["shs", "glulam", "ipe"],
+    randomLoads: false,
+    layout: stagedZonedLayout,
   },
 } as const satisfies Record<string, GoalScenario>;
 

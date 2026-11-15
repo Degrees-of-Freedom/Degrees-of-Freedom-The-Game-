@@ -105,12 +105,20 @@ export interface EnumerateOptions {
 export class ActionEnumerator {
   private readonly geometry = new Map<string, boolean>();
   private readonly unlimited: Level;
+  private zones: readonly KeepOutZone[];
 
   constructor(
     private readonly level: Level,
     private readonly options: EnumerateOptions,
   ) {
     this.unlimited = { ...level, inv: null };
+    this.zones = options.zones ?? [];
+  }
+
+  /** Change the keep-out zones (a new episode); cached geometry no longer applies. */
+  setZones(zones: readonly KeepOutZone[]): void {
+    this.zones = zones;
+    this.geometry.clear();
   }
 
   /**
@@ -120,7 +128,7 @@ export class ActionEnumerator {
    */
   enumerate(model: GameModel, { canWait = false } = {}): GoalAction[] {
     const { level } = this;
-    const zones = this.options.zones ?? [];
+    const zones = this.zones;
     const actions: GoalAction[] = [{ kind: "finish" }];
     if (canWait) actions.push({ kind: "wait" });
 
@@ -175,7 +183,7 @@ export class ActionEnumerator {
     if (fits === undefined) {
       fits =
         memberIssue(this.unlimited, EMPTY_MODEL, a, b, type) === null &&
-        !memberZone(this.options.zones ?? [], a, b);
+        !memberZone(this.zones, a, b);
       this.geometry.set(key, fits);
     }
     return fits;
