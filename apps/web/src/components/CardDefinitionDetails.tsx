@@ -23,7 +23,7 @@ export function CardDefinitionDetails({ card }: { card: CardDefinition }) {
           ? `Resultant force limit ${CARD_STRENGTH.connections.ball.force} kN. Rotations are released.`
           : `Interaction limits ${CARD_STRENGTH.connections.fixed.force} kN resultant force and ${CARD_STRENGTH.connections.fixed.moment} kN·m resultant moment (elliptic interaction).`}</p>
       )}
-      {card.kind === 'element' && card.type !== 'cable' && section?.kind === 'beam' && (
+      {card.kind === 'element' && card.type !== 'cable' && card.type !== 'spring' && section?.kind === 'beam' && (
         <p>Printed tensile / compressive / bending / shear strengths {section.ft / 1000} / {section.fc / 1000} / {section.fm / 1000} / {section.fv / 1000} MPa.
           {' '}Torsion limit {CARD_STRENGTH.torsion[card.type]} kN·m · {CARD_STRENGTH.version}.</p>
       )}

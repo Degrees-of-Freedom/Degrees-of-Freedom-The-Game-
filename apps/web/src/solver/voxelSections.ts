@@ -1,9 +1,23 @@
 import type { VoxelMemberType } from './voxelInput';
-export type BeamType = Exclude<VoxelMemberType, 'cable'>;
+export type BeamType = Exclude<VoxelMemberType, 'cable' | 'spring'>;
 export type Section = (typeof ITEMS)[VoxelMemberType];
 export type BeamSection = (typeof ITEMS)[BeamType];
 export const S = 2; // voxel size [m]
+/** Provisional cartridge printing. The placed length is the unloaded length.
+ * The schematic coil does not determine its printed stiffness. The spring
+ * carries axial translation only; a collar needs external lateral restraint.
+ * The game assigns no self-weight to this idealized cartridge. */
+export const SPRING = {
+  stiffnessNPerM: 50000, initialExtensionM: 0, axialForceLimitN: 5000, strokeLimitM: 0.12,
+  coilDiameterM: 0.16, wireDiameterM: 0.012, turns: 8,
+} as const;
 export const ITEMS = {
+  spring: {
+    kind: 'spring', label: 'Axial spring', sub: 'Two-way · 50 kN/m',
+    color: '#a7afba', cost: 100, maxCells: 4, w: 0, shape: 'helix',
+    dim: [SPRING.coilDiameterM + SPRING.wireDiameterM, SPRING.coilDiameterM + SPRING.wireDiameterM],
+    ...SPRING,
+  },
   shs: {
     kind: 'beam',
     label: 'SHS 100×6',
@@ -154,6 +168,7 @@ export const ITEMS = {
  * section table's independently specified area, inertia or torsion constant.
  * Wall/web/flange values are provisional printed playtest dimensions. */
 export const SECTION_GEOMETRY = {
+  spring: {kind: 'helix', coilDiameter: SPRING.coilDiameterM, wireDiameter: SPRING.wireDiameterM},
   shs: { kind: 'rectangular-hollow', width: 0.100, depth: 0.100, wall: 0.006 },
   glulam: { kind: 'solid-rectangle', width: 0.200, depth: 0.400 },
   ipe: { kind: 'wide-flange', width: 0.150, depth: 0.300, web: 0.0071, flange: 0.0107 },
@@ -165,7 +180,7 @@ export const SECTION_GEOMETRY = {
  * moduli/stresses are kN/m²; areas and second moments are already in m²/m⁴.
  * Cable pretension is referenced to the straight, placed length and positive
  * in tension. An unstressed length is not the current deformed cable length. */
-export function resolveMemberLaw(type: VoxelMemberType, referenceLengthM: number) {
+export function resolveMemberLaw(type: Exclude<VoxelMemberType, 'spring'>, referenceLengthM: number) {
   if (!Number.isFinite(referenceLengthM) || referenceLengthM <= 0) {
     throw new RangeError('Physical reference length must be finite and positive.');
   }

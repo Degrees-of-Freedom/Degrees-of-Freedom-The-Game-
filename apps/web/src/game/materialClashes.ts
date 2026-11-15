@@ -3,13 +3,14 @@ import { originalPorts } from "./turnPorts";
 import { dot, localAxes } from "../solver/frameMath";
 import { SECTION_GEOMETRY } from "../solver/voxelSections";
 import { assemblyParts } from "./assembly";
+import { springParts } from "./springParts";
 
 type Placed = Member & { endTargets?: Partial<Record<"a" | "b", string>>; owner?: string };
 type Vector = number[];
 type Interval = [number, number];
 type SectionPart = { y: number; z: number; width: number; depth: number };
 type Prism = { origin: Vector; axes: Vector[]; half: Vector };
-type Solid = { member: Placed; start: Vector; axes: Vector[]; length: number; parts: SectionPart[]; bounds: Prism };
+type Solid = { member: Placed; start: Vector; axes: Vector[]; length: number; parts: SectionPart[]; bounds: Prism; springStation?: Interval };
 
 /** Playtest reference geometry, in metres. Touching faces are legal. A matching
  * end or explicitly selected original port can host a local fitting on either
@@ -19,6 +20,7 @@ export const CLASH_POLICY = { version: "reference-solids-1", toleranceM: 1e-6, f
 
 function sectionParts(type: Member["type"]): SectionPart[] {
   const s = SECTION_GEOMETRY[type];
+  if (s.kind === "helix") throw new Error("A spring clearance check requires its physical wire and collar pieces.");
   // A square clearance envelope circumscribes the legacy round cable.
   if (s.kind === "cable") return [{ y: 0, z: 0, width: s.diameter, depth: s.diameter }];
   if (s.kind === "solid-rectangle") return [{ y: 0, z: 0, width: s.width, depth: s.depth }];
@@ -42,14 +44,15 @@ function prism(start: Vector, axes: Vector[], span: Interval, part: SectionPart)
   };
 }
 
-function solid(member: Placed): Solid {
+function solid(member: Placed, springWidth?: number): Solid {
   const start = parseNodeKey(member.a).map(x => x * CELL_SIZE);
   const delta = parseNodeKey(member.b).map((x, i) => x * CELL_SIZE - start[i]);
   const length = Math.hypot(...delta);
   const axes = localAxes(delta.map(x => x / length));
-  const parts = sectionParts(member.type);
   const section = SECTION_GEOMETRY[member.type];
-  const size = section.kind === "cable" ? { width: section.diameter, depth: section.diameter } : section;
+  const size = section.kind === "helix" ? { width: springWidth!, depth: springWidth! }
+    : section.kind === "cable" ? { width: section.diameter, depth: section.diameter } : section;
+  const parts = springWidth ? [{y: 0, z: 0, ...size}] : sectionParts(member.type);
   const bounds = prism(start, axes, [0, length], { y: 0, z: 0, width: size.width, depth: size.depth });
   return { member, start, axes, length, parts, bounds };
 }
@@ -132,12 +135,40 @@ function pointAt(member: Placed, t: number) {
 }
 
 function physicalSolids(member: Placed) {
+  if (member.type === "spring") return springParts(member).map((p): Solid => ({
+    ...solid({...member, a:p.a.join(','), b:p.b.join(',')},p.width), springStation:[p.from,p.to],
+  }));
   if (!member.assembly) return [solid(member)];
   return assemblyParts(member).map(part => solid({
     id: part.id, a: part.a.point.join(','), b: part.b.point.join(','), type: member.type,
     endTargets: { ...(part.a.station === 0 && {a: member.endTargets?.a}),
       ...(part.b.station === 1 && {b: member.endTargets?.b}) },
   }));
+}
+
+/** A spring's collar occupies real material on both sides of its exact
+ * station. Clip each wire/collar by its parent's permitted fitting interval,
+ * including for an incoming fitting at an intermediate spring station. */
+function springClash(a: Solid, b: Solid, aParent: Placed, bParent: Placed, allow: boolean) {
+  if (!intersects(a.bounds,b.bounds) || !materialIntersects(a,[0,a.length],b,[0,b.length])) return false;
+  const [aFit,bFit] = contacts(aParent,bParent);
+  if (!allow || !aFit.length) return true;
+  function outside(s: Solid, parent: Placed, stations: number[]): Interval[] {
+    const length = printLength(parent);
+    const fits = outsideFittings(length,stations);
+    if (s.springStation) {
+      const [f,t] = s.springStation.map(n => n*length);
+      return fits.flatMap(([lo,hi]) => {
+        const a = Math.max(lo,f), b = Math.min(hi,t);
+        return a < b ? [[s.length*(a-f)/(t-f),s.length*(b-f)/(t-f)] as Interval] : [];
+      });
+    }
+    if (!parent.assembly) return fits;
+    const local = ([0,1] as const).filter(t => stations.some(p => pointAt(s.member,t) === pointAt(parent,p)));
+    return outsideFittings(s.length,local,length);
+  }
+  return outside(a,aParent,aFit).some(span => materialIntersects(a,span,b,[0,b.length])) ||
+    outside(b,bParent,bFit).some(span => materialIntersects(a,[0,a.length],b,span));
 }
 
 function printLength(member: Placed) {
@@ -164,7 +195,9 @@ export function findMaterialClash(candidate: Placed, others: readonly Placed[], 
       ? new Set(contacts(candidate, existing)[0].map(t => pointAt(candidate,t))) : undefined;
     const occupied = physicalSolids(existing);
     const occupiedLength = existing.assembly ? printLength(existing) : undefined;
-    if (incoming.some(a => occupied.some(b => clash(a, b, fittingAllowed, permitted, incomingLength, occupiedLength)))) {
+    if (incoming.some(a => occupied.some(b => a.springStation || b.springStation
+      ? springClash(a,b,candidate,existing,fittingAllowed)
+      : clash(a, b, fittingAllowed, permitted, incomingLength, occupiedLength)))) {
       return `Member ${candidate.id} (${candidate.type}) would intersect material in member ${existing.id} (${existing.type}). Choose a clear span or target an original attachment port.`;
     }
   }

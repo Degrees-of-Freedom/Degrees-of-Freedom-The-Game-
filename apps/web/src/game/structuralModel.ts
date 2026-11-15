@@ -47,6 +47,7 @@ export function toStructuralModel(game: GameModel, nonlinear = false): Structura
       };
     }),
     members: game.members.map((member) => {
+      if (member.type === 'spring') throw new Error('The separate OpenSees editor check cannot represent this axial spring printing. Use the Shared table applied analysis.');
       const cable = member.type === 'cable';
       const length = () => {
         const a = parseNodeKey(member.a), b = parseNodeKey(member.b);

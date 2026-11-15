@@ -98,7 +98,16 @@ export function verifyLinearResponse(
     const jointLocal = vecToLocal(ug, e.R);
     const translation = Math.hypot(end.ul[6] - end.ul[0], end.ul[7] - end.ul[1], end.ul[8] - end.ul[2]);
     const rotation = Math.max(Math.hypot(...end.ul.subarray(3, 6)), Math.hypot(...end.ul.subarray(9, 12)));
-    if (Math.max(translation / e.L, rotation) > smallMotion) return unknown('Member motion exceeds the linear verification envelope.');
+    if (e.it.kind === 'spring') {
+      // The printed axial law remains exact in straight extension. Transverse
+      // motion would rotate that axis and is still limited by the linear gate.
+      const span = e.m.parentSpan;
+      const fraction = span ? (span.toQuarter-span.fromQuarter)/4 : 1;
+      const stroke = Math.abs(end.ul[6]-end.ul[0]);
+      const lateral = Math.hypot(end.ul[7]-end.ul[1],end.ul[8]-end.ul[2]);
+      if (stroke > Math.min(e.it.strokeLimitM*fraction,e.L/2) || lateral/e.L > smallMotion)
+        return unknown('Spring stroke or lateral motion exceeds the printed verification envelope.');
+    } else if (Math.max(translation / e.L, rotation) > smallMotion) return unknown('Member motion exceeds the linear verification envelope.');
     const global = vecToGlobal(end.f, e.R);
     for (let i = 0; i < 12; i++) {
       const q = i % 6;

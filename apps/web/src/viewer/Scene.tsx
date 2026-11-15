@@ -11,6 +11,7 @@ import { bindSceneInteraction } from "./sceneInteraction";
 import { selectedTurnCard } from "./turnPicking";
 import { poseSection, wideFlangeGeometry } from "./sectionGeometry";
 import { assemblyGeometry } from "./assemblyGeometry";
+import { springGeometry } from "./springGeometry";
 import { sceneLevel } from "./sceneLevel";
 import type { SceneView } from "./sceneView";
 import { createSky, SCENE_STYLES } from "./sceneStyle";
@@ -366,12 +367,14 @@ export function Scene({
         const card = selectedTurnCard(state);
         const type = card?.kind === "element" ? card.type : state.tool;
         const assembly = card?.kind === "element" && card.assembly;
-        if (assembly && (lastGhostLine !== line || stickGhost.geometry !== assemblyGhost)) {
+        const physicalGhost = !!assembly || type === "spring";
+        if (physicalGhost && (lastGhostLine !== line || stickGhost.geometry !== assemblyGhost)) {
           const key = (i: number) => new THREE.Vector3().fromBufferAttribute(line, i).divideScalar(CELL_SIZE).toArray().join(",");
           assemblyGhost?.dispose();
-          assemblyGhost = assemblyGeometry({ id: 0, a: key(0), b: key(1), type: "shs", assembly });
+          assemblyGhost = assembly ? assemblyGeometry({ id: 0, a: key(0), b: key(1), type: "shs", assembly })
+            : springGeometry({a: key(0), b: key(1)}, 1.8);
         }
-        const geometry = assembly && assemblyGhost ? assemblyGhost :
+        const geometry = physicalGhost && assemblyGhost ? assemblyGhost :
           type === "ipe" || type === "heb" ? profileGhosts[type] : ordinaryGhost;
         if (lastGhostLine !== line || stickGhost.geometry !== geometry) {
           lastGhostLine = line;
@@ -379,7 +382,7 @@ export function Scene({
           ghostStart.fromBufferAttribute(line, 0);
           ghostEnd.fromBufferAttribute(line, 1);
           ghostDelta.subVectors(ghostEnd, ghostStart);
-          if (assembly) {
+          if (physicalGhost) {
             stickGhost.scale.setScalar(1);
             stickGhost.position.set(0,0,0);
             stickGhost.quaternion.identity();

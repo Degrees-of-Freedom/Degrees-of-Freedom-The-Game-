@@ -94,7 +94,7 @@ export function assessCardCapacity(
     const to = (m.parentSpan?.toQuarter ?? 4)/4;
     const e = elements.get(m.id), scope = scopes.get(m.id);
     const forces = e && combo?.ef?.get(e);
-    if (m.type === 'cable' || !e || e.it.kind !== 'beam' || !forces ||
+    if (m.type === 'cable' || !e || e.it.kind === 'cable' || !forces ||
         scope?.verification?.status !== 'verified-linear' || !forces.f.every(Number.isFinite)) {
       invalid.set(parent, scope?.verification?.reason ?? scope?.reason ?? 'Verified linear frame actions unavailable.');
       continue;
@@ -105,16 +105,21 @@ export function assessCardCapacity(
     // In-plane panel joints alone do not externally brace the two chords out
     // of plane. Posts have zero station difference and a real physical length.
     const length = m.parentSpan?.unbracedLengthM ?? (part ? e.L : e.L/(to-from));
-    const minI = Math.min(e.it.Iy, e.it.Iz);
-    const euler = Math.PI**2 * e.it.E * minI / (2*length)**2;
-    if (length/Math.sqrt(minI/e.it.A) > 300 || -forces.f[6] > euler/10) {
-      uncertainScopes.set(scope, `Original span of member ${parent} requires slender-member verification.`);
-      continue;
+    if (e.it.kind === 'beam') {
+      const minI = Math.min(e.it.Iy, e.it.Iz);
+      const euler = Math.PI**2 * e.it.E * minI / (2*length)**2;
+      if (length/Math.sqrt(minI/e.it.A) > 300 || -forces.f[6] > euler/10) {
+        uncertainScopes.set(scope, `Original span of member ${parent} requires slender-member verification.`);
+        continue;
+      }
     }
     for (const end of ['a', 'b'] as const) {
       const station = end === 'a' ? from : to;
       const actions = sectionCut(forces.f, end);
-      let check = memberCheck(m.type, e.it, actions, station);
+      let check: CapacityCheck = e.it.kind === 'spring'
+        ? { status: 'verified', utilization: Math.abs(actions.N) / (e.it.axialForceLimitN / 1000),
+          governing: 'Spring axial force', actions, station }
+        : memberCheck(m.type as BeamType, e.it, actions, station);
       if (part && m.endA === 'ball' && m.endB === 'ball') {
         // Each printed factory diagonal uses a pin fitting at either end.
         const pin = connectorCheck({ memberId: parent, end, profile: 'ball' }, actions, station);

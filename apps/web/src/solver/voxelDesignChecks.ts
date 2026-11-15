@@ -24,7 +24,7 @@ function memberDemandULS(e: Element, r: ElementForce, amp: number) {
     endF: [Math.hypot(f[0], f[1], f[2]), Math.hypot(f[6], f[7], f[8])],
     endM: [Math.hypot(f[4], f[5]), Math.hypot(f[10], f[11])],
   };
-  if (e.it.kind === 'cable') return out;
+  if (e.it.kind !== 'beam') return out;
   const gl = [0, 0, -e.it.w * GAMMA.ULS.G],
     qy = dot(e.R[1], gl),
     qz = dot(e.R[2], gl);
@@ -53,7 +53,7 @@ function memberDemandULS(e: Element, r: ElementForce, amp: number) {
   return out;
 }
 function memberDeflSLS(e: Element, r: ElementForce) {
-  if (e.it.kind === 'cable') return { dEIy: 0, dEIz: 0 };
+  if (e.it.kind !== 'beam') return { dEIy: 0, dEIz: 0 };
   const ul = r.ul,
     L = e.L,
     gl = [0, 0, -e.it.w],
@@ -79,6 +79,10 @@ export function checkMember(
   rB: boolean,
 ) {
   const c: Record<string, number> = {};
+  if (section.kind === 'spring') {
+    c.axial = Math.max(d.Nc, d.Nt) / (section.axialForceLimitN / 1000);
+    return c;
+  }
   if (section.kind === 'cable') {
     c.tension = d.Nt / section.NRd;
     return c;

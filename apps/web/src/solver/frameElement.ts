@@ -5,6 +5,7 @@ import {
   localAxes,
   frameK,
   trussK,
+  axialK,
   condense,
   toGlobal,
   vecToLocal,
@@ -25,14 +26,17 @@ export function makeElement(
   const ex = d.map((v) => v / L),
     R = localAxes(ex);
   const cable = it.kind === 'cable';
-  const rigidA = !cable && (m.endA ? m.endA === 'fixed' : !!model.attrs[m.a]?.joint),
-    rigidB = !cable && (m.endB ? m.endB === 'fixed' : !!model.attrs[m.b]?.joint);
+  const rigidA = it.kind === 'beam' && (m.endA ? m.endA === 'fixed' : !!model.attrs[m.a]?.joint),
+    rigidB = it.kind === 'beam' && (m.endB ? m.endB === 'fixed' : !!model.attrs[m.b]?.joint);
+  // Unused collars carry no external force. Combining their series segments
+  // gives k/fraction for the active piece, independently of its placed length.
+  const fraction = m.parentSpan ? (m.parentSpan.toQuarter - m.parentSpan.fromQuarter) / 4 : 1;
   const k =
-    it.kind === 'cable'
+    it.kind === 'spring' ? axialK(it.stiffnessNPerM / 1000 / fraction) : it.kind === 'cable'
       ? trussK(it.E, it.A, L)
       : frameK(it.E, it.G, it.A, it.Iy, it.Iz, it.J, L);
   const rel = [];
-  if (!cable) {
+  if (it.kind === 'beam') {
     // One end release eliminates the whole torsion spring. Releasing both in
     // recovery would introduce a redundant rigid-body rotation in its subsystem.
     if (m.endA === 'ball') rel.push(3);

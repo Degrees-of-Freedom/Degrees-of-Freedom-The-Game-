@@ -32,8 +32,9 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
       const key = connection?.jointId ?? `endpoint:${id}:${side}`;
       if (!connection) positions[key] = parseNodeKey(point);
       const profile = connection?.profile ?? 'fixed';
-      if (type !== 'cable' && profile === 'fixed') inactiveRotations.delete(key);
-      if (type === 'cable' && !connection) inactiveRotations.add(key);
+      const axial = type === 'cable' || type === 'spring';
+      if (!axial && profile === 'fixed') inactiveRotations.delete(key);
+      if (axial && !connection) inactiveRotations.add(key);
       return { key, profile };
     }
     const start = end('a', a), finish = end('b', b);
@@ -61,7 +62,7 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
     if (!ports.length) return [{ id, a: start.key, b: finish.key, type, endA: start.profile, endB: finish.profile }];
     // Parent continuity passes all six DOFs across internal stations, even if
     // a new external connector releases moment at that same location.
-    for (const port of ports) inactiveRotations.delete(port.id);
+    if (type !== 'spring') for (const port of ports) inactiveRotations.delete(port.id);
     const stations = [{ id: start.key, quarter: 0 }, ...ports, { id: finish.key, quarter: 4 }];
     return stations.slice(1).map((to, i) => {
       const from = stations[i];
