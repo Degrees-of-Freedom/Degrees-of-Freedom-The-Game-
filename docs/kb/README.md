@@ -22,6 +22,7 @@ validated_against:
   - docs/kb/solver-criteria-gap-analysis.md
   - docs/kb/development-and-testing.md
   - docs/kb/visualization-criteria.md
+  - docs/kb/structure-gan.md
 owner: unknown
 status: partial
 ---
@@ -48,6 +49,7 @@ This is the canonical entry point for durable project knowledge. The web prototy
 | [analysis-results.md](analysis-results.md) | Persisting versioned solver runs, validity and result provenance. |
 | [structural-state.md](structural-state.md) | Browser saves, experimental solver snapshots, and proposed general state and fixture design. |
 | [structure-library.md](structure-library.md) | Loading and cycling 20 voxel specimens, PNG previews, SQLite records and observed solver baselines. |
+| [structure-gan.md](structure-gan.md) | Training the adversarial generator of curved, organic, asymmetric, stable structures, its physics oracle, evidence, limits and the `evolved.sqlite` database. |
 | [solver-criteria.md](solver-criteria.md) | Reading the owner-supplied proposed solver requirements, acceptance gates, implementation order, and open gameplay decisions. |
 | [solver-criteria-gap-analysis.md](solver-criteria-gap-analysis.md) | Comparing current code and tests with the criteria and planning implementation milestones. |
 | [turn-criteria.md](turn-criteria.md) | Defining the two decks, turn phases, six-DOF connection cards, issue assessment and penalty decisions. |

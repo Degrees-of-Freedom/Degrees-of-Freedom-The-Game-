@@ -61,6 +61,8 @@ Run Cargo from the crate directory when calling it directly, because its `.cargo
 
 The OpenSees service in `services/opensees` is a Python project that needs [uv](https://docs.astral.sh/uv/); uv installs the pinned Python 3.12 and dependencies on first use. Start it with `npm run dev:opensees` (port 8000) and test it with `npm run test:opensees`. Its pytest suite compares results with closed-form cases and covers mechanisms, validation, and the HTTP layer; see [structural solver](structural-solver.md#opensees-service). `npm test` does not run the Python tests. The service Dockerfile has not been built or tested. To see the OpenSees stability check in the app, run the service in one terminal and the web app with `VITE_SOLVER=opensees` in another, and press Run analysis; the panel and its agreement with the voxel result on the Tower I example were checked by hand in a browser. Without that setting the panel shows the Rust solver's check.
 
+The structure generator in `tools/structure-gan` is a separate Python project (uv, Python 3.12, PyTorch, the OpenSees engine): run `uv run pytest` there (42 tests) and see [structure GAN](structure-gan.md). `apps/web/src/game/evolvedStructures.test.ts` checks its database against the game's loader and voxel solver as part of `npm test`.
+
 Run the maintained workspace with `npm run dev`. The [original prototype notes](../../prototypes/voxel-struct/README.md) link to the archived standalone implementation and describe its historical checks.
 
 ## Unified runtime integration validation — 2026-11-14

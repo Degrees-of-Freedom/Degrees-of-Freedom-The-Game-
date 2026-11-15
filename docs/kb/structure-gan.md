@@ -1,0 +1,65 @@
+---
+title: "Structure GAN"
+last_validated: 2026-11-15
+validated_against:
+  - tools/structure-gan/README.md
+  - tools/structure-gan/pyproject.toml
+  - tools/structure-gan/src/dof_structure_gan
+  - tools/structure-gan/tests
+  - apps/web/src/game/evolvedStructures.test.ts
+  - apps/web/public/structures/evolved.sqlite
+  - apps/web/src/solver/voxelSections.ts
+  - services/opensees/src/dof_opensees/engine.py
+  - .github/workflows/structure-gan.yml
+owner: unknown
+status: partial
+---
+
+# Structure GAN
+
+`tools/structure-gan` is an offline Python tool that trains an adversarial neural network to invent structures that are complex, curved, organic, asymmetric, three-dimensional and visually dynamic **and** stable, then stores the excellent ones in `apps/web/public/structures/evolved.sqlite`. It is a design aid; nothing in the game loads that database yet. Do not read this page as a claim that the stored forms are engineered, playable under the card rules, or independently validated.
+
+## Design
+
+| Part | Module | What it does |
+| --- | --- | --- |
+| Representation | `lattice.py` | 12×12×12 lattice of 2 m cells (inside the voxel save limit of 16×16×14). Members join nodes at the 49 *primitive* offsets with components in −2…2, so a member never passes through another node. Tensor of 49 member channels plus one load channel. |
+| Legality | `decode.py` | Deterministic repair of generator output: members must stay 0.35 cell apart unless they share a node, only the largest body touching the ground survives, at most 120 members, up to 6 supports, at most 5 loads (fallback: the highest node). The networks never need to learn these rules. |
+| Networks | `nets.py`, `trainer.py` | A 3D-convolutional VAE (encoder + generator), a spectrally normalised hinge **discriminator** and a **surrogate** that regresses the oracle's fitness from solver verdicts, giving the generator gradients from non-differentiable physics. Generated samples reach the discriminator and surrogate as binary tensors with sigmoid gradients (straight-through). |
+| Physics oracle | `physics.py` | `dof_opensees.engine.analyze` (the repository's OpenSees engine) with the game's `shs` card (SHS 100×6, S355), rigid joints, fixed foundations, self-weight and ULS partial factors (1.35 dead, 1.5 applied) plus a 3% notional lateral push. A structure passes only if it is stable, equilibrium residual < 1e-6, elastic utilisation ≤ 0.45 and maximum displacement ≤ 1/60 of its extent. |
+| Aesthetics | `metrics.py` | Six heuristics in [0, 1]: curvature, organic, asymmetry, dimensionality, complexity, dynamism. They are proxies, defined in the module docstrings, not measures of beauty. |
+| Archive | `archive.py` | MAP-Elites-style grid over curvature × dynamism × complexity (4 bins each). Each cell keeps its fittest passing structure; these are the discriminator's "real" samples, so quality ratchets up while diversity is kept. Duplicates are detected under footprint symmetry and horizontal translation. |
+| Database | `store.py` | Table `evolved_structures` with scores, oracle provenance, `source` (`seed` or `generator`) and a `dof-voxel-save` v1 document in `save_json` (all members `shs` with rigid joints, ground supports as foundations, loads in kN). |
+
+Fitness is 0 unless the oracle passes; otherwise `0.3 × structural margin + 0.7 × mean aesthetics`. A structure is **excellent** (and stored when it also improves its archive cell) if fitness ≥ 0.62, every aesthetic component ≥ 0.3 and it has ≥ 20 members. Real samples are bootstrapped from procedural seeds (`seeding.py`): spline-guided, laced twin ribs rasterised onto the lattice.
+
+## Evidence
+
+All numbers below are from one run (`--steps 700 --workers 3`, seed 0, CPU, about 32 minutes on 4 cores) and its database; they are observations, not guarantees.
+
+- **Oracle calibration.** The first oracle used a stiffer section than the game's and a game check flagged one stored structure as a mechanism. After switching to the game's section, self-weight and factored loads, 900 sampled seeds were run through both the oracle and the game's voxel analysis (`analyzeGame`): 0 of 114 oracle-passing seeds were game mechanisms (242 of 786 oracle-failing seeds were), and the two utilisations correlated at 0.84. With an oracle utilisation limit of 0.5, 41 of 42 passing seeds had game utilisation ≤ 1, so 0.45 is used.
+- **Metric defect found and fixed.** Curvature originally looked only at degree-2 nodes, so every stable (braced) seed scored 0. It now follows the straightest chord continuation through junctions; `test_curved_lattice_girder_counts_as_curved` covers this.
+- **Training outcome.** 1,000 seed candidates gave 8 archive cells and 5 excellent seeds. After 700 steps the archive held 40 of 64 cells (62%), best fitness 0.848 (seeds: 0.72), and the database held 88 distinct structures: 5 from seeds and 83 from the generator. Stored means: member count 108 (range 20–120), oracle utilisation 0.15, curvature 0.50, organic 0.84, asymmetry 0.97, dimensionality 0.96, complexity 0.95, dynamism 0.57.
+- **Independent game check.** `apps/web/src/game/evolvedStructures.test.ts` loads every row through the game's save validator and `analyzeGame`: all 88 load, fit the grid, and have no mechanism, floating body or solver error, and game maximum utilisation ≤ 1. The test fails if the database is empty or a row regresses.
+- **Tests.** 42 pytest tests (lattice, repair, physics, metrics, archive, store, networks, a deterministic training smoke test, CLI), 574 Vitest tests and `tsc -b` passed on the branch.
+
+## Limits and open decisions
+
+- Organic, asymmetry and complexity scores saturate near 1 for almost every stored structure, so they add little selection pressure; curvature and dynamism do the discriminating. Generated structures sit near the 120-member cap, i.e. complexity partly means "as big as allowed". Retune the metrics before treating the scores as a ranking of beauty.
+- One load case and a linear elastic analysis. No buckling, connection design, dynamic or nonlinear check beyond the game's own voxel analysis. The oracle's utilisation is a screening value, deliberately well below the game's limit.
+- Playability is not assessed: card inventory, placement rules, the 3-cell member length limit for `shs` (the longest primitive offset is exactly 3 cells), clashes with the game's own physical rules beyond the 0.35-cell clearance, and balance are all unchecked.
+- No preview images were rendered (the existing preview script needs Windows GDI+). The game UI does not list the evolved database; like `structures.sqlite` it is a downloadable file. Whether to surface it is an open product decision.
+- The training run is not resumable: networks and archive restart each run (only the database accumulates). Parallel workers use one OpenSees instance per process.
+- CI (`.github/workflows/structure-gan.yml`) was written but not run. The default PyPI torch wheel bundles CUDA libraries; a CPU-only index would shorten CI.
+
+## Commands
+
+```bash
+cd tools/structure-gan
+uv sync
+uv run pytest
+uv run dof-structure-gan train --steps 700 --workers 3
+uv run dof-structure-gan top --limit 10
+```
+
+From the repository root, verify stored structures with the game's own solver: `npx vitest run apps/web/src/game/evolvedStructures.test.ts` (needs Node ≥ 22.13 for `node:sqlite`).
