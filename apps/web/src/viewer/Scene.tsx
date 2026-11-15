@@ -747,6 +747,10 @@ export function Scene({
       bloom.dispose();
       gizmo.dispose();
       controls.removeEventListener("end", cameraChanged);
+      // Three r180 removes its root keydown in disconnect(), but leaves the
+      // temporary root keyup registered if Control is held during teardown.
+      const controlUp = (controls as OrbitControls & { _interceptControlUp?: EventListener })._interceptControlUp;
+      if (typeof controlUp === "function") renderer.domElement.getRootNode().removeEventListener("keyup", controlUp, true);
       controls.dispose();
       [terrain, structure, guides].forEach(disposeGroup);
       particles.dispose();

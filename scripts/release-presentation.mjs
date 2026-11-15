@@ -110,6 +110,22 @@ try {
       await activate(button("Inspect"));
       await activate(button("Inspect committed response"));
       await page.getByLabel("Board overlay").waitFor();
+      await choose(page.getByLabel("Board overlay"), 3);
+      await page.getByText(/^Frame displacement/).waitFor();
+      await page.getByText(/^Signed gravity transfer/).waitFor();
+      await activate(page.getByText("Foundation forces and moments", { exact: true }));
+      const reactions = page.getByRole("table", {name: "Signed global support reaction"});
+      assert.equal(await reactions.count(), 2);
+      for (const table of await reactions.all()) {
+        const values = await table.locator("tbody td").allTextContents();
+        assert.equal(values.length, 6);
+        assert.ok(values.every(value => value.trim() !== "" && Number.isFinite(Number(value.replaceAll(",", "")))));
+      }
+      await activate(page.getByText("Board force diagrams", { exact: true }));
+      await choose(page.getByLabel("Shear diagram"), 2);
+      await choose(page.getByLabel("Bending diagram"), 1);
+      await page.getByText(/kN · mint/).waitFor();
+      await page.getByText(/kN·m · pink/).waitFor();
       await choose(page.getByRole("combobox", { name: /^Inspect member/ }), 1);
       await choose(page.getByLabel("Section action"), 4);
       await page.getByRole("img", { name: /Moment My .* kN·m/ }).waitFor();
