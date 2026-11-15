@@ -3,13 +3,16 @@
  *
  *   npm run train:goal -- --scenario single --episodes 1000 --seed 1
  *   npm run train:goal -- --scenario pickup1 --demos 20     (imitate scripted solutions)
+ *   npm run train:goal -- --scenario holdAvoid --demos 1 --demo-planner graph   (imitate a planner)
  *   npm run train:goal -- --scenario pickup1 --init rl-runs/single-seed1/policy.json
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { evaluate, PolicyAgent, RandomAgent } from "../agents";
-import { recordDemonstrations } from "../demonstrations";
+import { recordDemonstrations, recordPlannerDemonstrations } from "../demonstrations";
+import { ErosionPlanner } from "../planning/erosionPlanner";
+import { GraphPlanner } from "../planning/graphPlanner";
 import { GoalEnv } from "../goalEnv";
 import { LinearSoftmaxPolicy } from "../policy";
 import { createRandom } from "../rng";
@@ -28,6 +31,7 @@ const { values } = parseArgs({
     out: { type: "string", default: "rl-runs" },
     init: { type: "string" },
     demos: { type: "string", default: "0" },
+    "demo-planner": { type: "string", default: "script" },
     "demo-weight": { type: "string", default: "1" },
   },
 });
@@ -62,7 +66,23 @@ console.log(`Scenario ${scenarioId}: ${GOAL_SCENARIOS[scenarioId].description}`)
 if (values.init) console.log(`Warm start from ${values.init}`);
 const started = Date.now();
 const demoCount = number("demos", values.demos!);
-const demonstrations = demoCount > 0 ? recordDemonstrations(env, demoCount, seed) : null;
+const demoPlanner = values["demo-planner"]!;
+if (!["script", "graph", "erosion"].includes(demoPlanner)) {
+  console.error(`--demo-planner must be script, graph or erosion, got "${demoPlanner}"`);
+  process.exit(2);
+}
+// The hand-written script only knows straight columns; planners also handle
+// keep-out zones, later stages and taller weights. A fixed scenario gives the
+// same planner run every time, so one run is enough there.
+const demoSeeds = GOAL_SCENARIOS[scenarioId].randomLoads
+  ? Array.from({ length: demoCount }, (_, i) => seed * 1000 + i)
+  : [0];
+const demonstrations =
+  demoCount <= 0
+    ? null
+    : demoPlanner === "script"
+      ? recordDemonstrations(env, demoCount, seed)
+      : recordPlannerDemonstrations(env, demoPlanner === "graph" ? new GraphPlanner() : new ErosionPlanner(), demoSeeds);
 if (demonstrations)
   console.log(`Demonstrations: ${demonstrations.solved}/${demonstrations.attempted} scripted solutions solved the level (${demonstrations.steps.length} decisions kept)`);
 let batches = 0;

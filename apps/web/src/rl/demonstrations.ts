@@ -1,6 +1,8 @@
 import { actionId } from "./actions";
 import { actionFeatures, kindBalancedPrior, stateContext } from "./features";
 import { GoalEnv } from "./goalEnv";
+import type { Planner } from "./planning/common";
+import { runPlanner } from "./planning/run";
 import { createRandom, type Random } from "./rng";
 import type { GoalAction, Observation } from "./types";
 
@@ -82,4 +84,39 @@ export function recordDemonstrations(
     }
   }
   return { steps, solved, attempted };
+}
+
+/**
+ * Record demonstrations from a planner's play, for scenarios the hand-written
+ * script cannot solve (keep-out zones, later stages, taller weights). Only runs
+ * the environment calls solved are kept, so a planner that fails teaches nothing.
+ */
+export function recordPlannerDemonstrations(
+  env: GoalEnv,
+  planner: Planner,
+  seeds: readonly number[],
+): { steps: DemonstrationStep[]; solved: number; attempted: number } {
+  const steps: DemonstrationStep[] = [];
+  let solved = 0;
+  for (const seed of seeds) {
+    const episode: DemonstrationStep[] = [];
+    const run = runPlanner(env, planner, seed, (obs, action) => {
+      const actions = env.legalActions();
+      const id = actionId(action);
+      const chosen = actions.findIndex((a) => actionId(a) === id);
+      // An illegal planned action is penalised by the environment; do not teach it.
+      if (chosen < 0) return;
+      const ctx = stateContext(obs);
+      episode.push({
+        rows: actions.map((a) => actionFeatures(ctx, a)),
+        prior: kindBalancedPrior(actions),
+        chosen,
+      });
+    });
+    if (run.solved) {
+      solved++;
+      steps.push(...episode);
+    }
+  }
+  return { steps, solved, attempted: seeds.length };
 }

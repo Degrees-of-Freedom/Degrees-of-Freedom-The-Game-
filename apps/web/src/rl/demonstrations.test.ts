@@ -32,3 +32,17 @@ describe("scripted demonstrations", () => {
     expect(() => scriptedSolution(tall, createRandom(1))).toThrow(/height 6/);
   });
 });
+
+describe("planner demonstrations", () => {
+  it("keep only solved runs and align with legal actions, including waits", async () => {
+    const { recordPlannerDemonstrations } = await import("./demonstrations");
+    const { GraphPlanner } = await import("./planning/graphPlanner");
+    const env = new GoalEnv(GOAL_SCENARIOS.staged);
+    const { steps, solved, attempted } = recordPlannerDemonstrations(env, new GraphPlanner(), [0]);
+    expect(solved).toBe(attempted);
+    expect(steps.length).toBeGreaterThanOrEqual(8);
+    const waitIndex = ACTION_FEATURE_NAMES.indexOf("isWait");
+    expect(steps.some((s) => s.rows[s.chosen][waitIndex] === 1)).toBe(true);
+    for (const s of steps) expect(s.chosen).toBeLessThan(s.rows.length);
+  });
+});
