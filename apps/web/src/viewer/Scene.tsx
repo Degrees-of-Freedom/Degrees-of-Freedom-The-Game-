@@ -14,6 +14,7 @@ import { getSettings } from "../menu/settings";
 import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
 import { addResultArrows, displayPoint } from "./sceneResults";
 import { updateChipFocus } from "./sceneLabels";
+import { projectIslet } from "./companionIslet";
 import { createFlowParticles } from "./flowParticles";
 import { buildStructure } from "./structureMeshes";
 import { bindSceneInteraction } from "./sceneInteraction";
@@ -207,6 +208,30 @@ export function Scene({
     renderer.domElement.addEventListener("pointermove", trackPointer);
     renderer.domElement.addEventListener("pointerdown", trackPointer);
     renderer.domElement.addEventListener("pointerleave", releasePointer);
+    /**
+     * Tell the page where the companion's islet is on screen. The companion is
+     * an HTML control outside this component, so the position is published as
+     * CSS variables on the workspace element and the stylesheet does the rest.
+     */
+    const workspace = element.closest<HTMLElement>(".environment");
+    let isletKey = "";
+    function anchorCompanion() {
+      if (!workspace) return;
+      const canvas = renderer.domElement;
+      const at = projectIslet(terrain, camera, canvas.clientWidth, canvas.clientHeight);
+      const key = at ? [Math.round(at.x), Math.round(at.y), Math.round(at.size), at.x > canvas.clientWidth - 330].join(",") : "";
+      if (key === isletKey) return;
+      isletKey = key;
+      if (!at) {
+        delete workspace.dataset.islet;
+        return;
+      }
+      // The speech cloud opens towards the side with more room.
+      workspace.dataset.islet = at.x > canvas.clientWidth - 330 ? "left" : "right";
+      workspace.style.setProperty("--islet-x", Math.round(at.x) + "px");
+      workspace.style.setProperty("--islet-y", Math.round(at.y) + "px");
+      workspace.style.setProperty("--islet-size", Math.round(at.size) + "px");
+    }
     function draw() {
       renderer.clear();
       renderer.render(scene, camera);
@@ -516,6 +541,7 @@ export function Scene({
           : 0;
       updateGrowthOverlays(state, time);
       updateChipFocus(structure, camera, pointer, renderer.domElement.clientWidth, renderer.domElement.clientHeight);
+      anchorCompanion();
       draw();
     });
     /**
@@ -685,6 +711,7 @@ export function Scene({
       }
     }
     return () => {
+      if (workspace) delete workspace.dataset.islet;
       refresh.current = () => {};
       refreshPermissions.current = () => {};
       glyphs.dispose();
