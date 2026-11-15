@@ -65,6 +65,8 @@ Show current reaction estimates as **provisional load share**, not banked points
 
 ## 5. Acceptance and open decisions
 
+The signed-uplift acceptance fixture uses two equal-section, perpendicular cantilevers sharing the main beam’s 75% port. With a 5 kN persistent tip load, the game solver gives approximately −2.23214 kN and +7.23214 kN at the two fixed player supports. The corresponding attraction shares are −44.64286% and +144.64286%. The reference follows from equal vertical displacement at the port. See [the scored game fixture](../../apps/web/src/game/foundationUplift.test.ts).
+
 | Scenario | Required result |
 | --- | --- |
 | 60/40 verified share, two penalties on first player | Final scores 58/40; share and penalty remain separately inspectable. |
