@@ -9,7 +9,22 @@
 }
 .companion-home { position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(18px, env(safe-area-inset-right)); }
 .companion-menu { margin-left: auto; --figure-size: 48px; }
-.companion-board { position: absolute; left: max(10px, env(safe-area-inset-left)); top: 38%; --figure-size: 54px; }
+/* On the board the companion stands on an islet in the water at the left edge,
+   above the view controls and the legend that occupy the lower left corner. */
+.companion-board {
+  position: absolute; left: max(14px, env(safe-area-inset-left)); top: 31%;
+  --figure-size: 74px; width: 156px; height: 124px; pointer-events: none;
+}
+.companion-island { position: absolute; left: 0; bottom: 0; width: 100%; height: auto; pointer-events: none; }
+.companion-board .companion-figure {
+  position: absolute; left: 50%; bottom: 27%; transform: translateX(-56%);
+  border: 0; padding: 0; background: none; pointer-events: auto;
+  filter: drop-shadow(0 3px 3px #0d171f66);
+}
+.companion-board .companion-figure > span:last-child {
+  position: absolute; left: 50%; top: calc(100% + 30px); transform: translateX(-44%);
+  padding: 2px 8px; border-radius: 999px; background: #22313fe6; white-space: nowrap;
+}
 .companion-drawer { --figure-size: 40px; margin-left: auto; }
 .companion .companion-figure {
   display: grid;
@@ -41,28 +56,114 @@
 .figure-stage[data-view="portrait"] canvas, .figure-stage[data-view="model"] img { visibility: hidden; }
 .companion-note {
   position: absolute; right: 0; top: calc(100% + 5px); z-index: 1;
-  width: min(238px, 77vw); padding: 12px;
+  width: min(238px, 77vw); padding: 12px 34px 12px 12px;
   border: 1px solid #f3ead866; border-radius: 12px;
   background: #293841; box-shadow: 0 4px 16px #10182155; color: #fff6e6;
 }
-.companion-board .companion-note { left: 0; right: auto; }
-.companion .companion-repair { max-height: min(39dvh, 350px); overflow: auto; overscroll-behavior: contain; }
+/* Help on the board is a speech cloud beside the islet. */
+.companion-board .companion-note {
+  left: calc(100% - 6px); right: auto; top: auto; bottom: 34%; pointer-events: auto;
+  width: min(250px, calc(100vw - 190px)); padding: 12px 36px 10px 14px;
+  border: 0; border-radius: 22px; background: #fff8ea; color: #24333d;
+  box-shadow: 0 6px 18px #080e1473;
+}
+.companion-board .companion-note::before, .companion-board .companion-note::after {
+  content: ""; position: absolute; border-radius: 50%; background: #fff8ea;
+}
+.companion-board .companion-note::before { width: 15px; height: 15px; left: -8px; bottom: 16px; }
+.companion-board .companion-note::after { width: 8px; height: 8px; left: -20px; bottom: 9px; }
+.companion.companion-board .companion-note button { background: #24333d; color: #fff8ea; border-radius: 7px; padding: 5px 10px; font-weight: 600; }
+.companion-board[data-foreman] .companion-note { box-shadow: 0 0 0 2px #f2b134, 0 6px 18px #080e1473; }
+@media (prefers-reduced-motion: no-preference) {
+  .companion-board[data-motion="system"] .companion-note { animation: cloud-arrival 200ms ease-out both; }
+  @keyframes cloud-arrival {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+/* The cloud grows to fit its explanation; it never scrolls. */
 .companion-repair strong { display: block; margin-bottom: 6px; }
 .companion-repair label { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .companion-repair select { font: inherit; }
 .companion-note p { font-size: 14px; margin: 0 0 8px; line-height: 1.35; }
 .companion-note button { background: #f3ead8; color: #24333d; border-radius: 6px; border: 0; padding: 5px 8px; margin: 2px; min-height: 28px; cursor: pointer; }
+/* The cloud closes from a small x in its corner. */
+.companion .companion-note .companion-close, .release-board .companion-note button.companion-close,
+.companion.companion-board .companion-note button.companion-close {
+  position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; min-height: 0; margin: 0; padding: 0;
+  border: 0; border-radius: 50%; background: #24333d1a; color: inherit;
+  font-size: 17px; font-weight: 500; line-height: 24px; text-align: center;
+}
+.companion .companion-note .companion-close:hover { background: #24333d33; }
+.companion-note:not(.companion-board *) .companion-close { background: #f3ead833; }
 @media (max-width: 600px), (max-height: 520px) {
   .companion { --figure-size: 40px; }
-  .companion-board { top: 37%; --figure-size: 36px; }
+  /* The islet shrinks before any control has to. */
+  .companion-board { --figure-size: 46px; width: 100px; height: 80px; top: 30%; }
+  .companion-board .companion-figure > span:last-child { top: calc(100% + 18px); font-size: 10px; }
   .companion-home { top: 10px; right: 10px; }
 }
 @media (max-width: 600px) {
   /* Keep the compact explanation beside Timburr, above the mobile hand tray. */
   .companion-board .companion-repair {
-    top: 0;
-    left: calc(100% + 6px);
-    width: min(300px, calc(100vw - 84px));
-    max-height: max(78px, calc(63dvh - 324px));
+    left: calc(100% - 4px);
+    width: min(300px, calc(100vw - 124px));
   }
+}
+
+/* When the 3D scene has an islet in the water, the companion stands on it:
+   the scene publishes the standing spot as --islet-x/-y and the figure height
+   as --islet-size on the host: the Workspace's `.environment` or the Shared
+   table board's `.release-stage`. Without them (other environments, or no
+   WebGL) the drawn islet at the screen edge above remains. */
+:is(.environment, .release-stage)[data-islet] .companion-board {
+  left: var(--islet-x); top: var(--islet-y); bottom: auto; width: 0; height: 0;
+  --figure-size: var(--islet-size);
+}
+:is(.environment, .release-stage)[data-islet] .companion-island { display: none; }
+:is(.environment, .release-stage)[data-islet] .companion-board .companion-figure {
+  left: 0; bottom: 0; transform: translateX(-50%);
+}
+:is(.environment, .release-stage)[data-islet] .companion-board .companion-figure > span:last-child {
+  top: calc(100% + 8px); transform: translateX(-50%);
+}
+/* The cloud opens above the islet, over the water, so it does not cover the board. */
+:is(.environment, .release-stage)[data-islet] .companion-board .companion-note {
+  left: -34px; top: auto; bottom: calc(var(--islet-size) + 16px);
+}
+:is(.environment, .release-stage)[data-islet] .companion-board .companion-note::before { left: 40px; bottom: -7px; }
+:is(.environment, .release-stage)[data-islet] .companion-board .companion-note::after { left: 34px; bottom: -17px; }
+:is(.environment, .release-stage)[data-islet="left"] .companion-board .companion-note { left: auto; right: -34px; }
+:is(.environment, .release-stage)[data-islet="left"] .companion-board .companion-note::before { left: auto; right: 40px; }
+:is(.environment, .release-stage)[data-islet="left"] .companion-board .companion-note::after { left: auto; right: 34px; }
+/* Near the top of the view there is no room above, so the cloud opens beside the
+   figure instead, level with its head and reaching toward the board. */
+:is(.environment, .release-stage)[data-islet-cloud="beside"] .companion-board .companion-note {
+  left: calc(var(--islet-size) * 0.5 + 12px); right: auto; top: calc(var(--islet-size) * -1); bottom: auto;
+}
+:is(.environment, .release-stage)[data-islet-cloud="beside"] .companion-board .companion-note::before { left: -8px; top: 14px; bottom: auto; }
+:is(.environment, .release-stage)[data-islet-cloud="beside"] .companion-board .companion-note::after { left: -20px; top: 25px; bottom: auto; }
+:is(.environment, .release-stage)[data-islet-cloud="beside"][data-islet="left"] .companion-board .companion-note {
+  left: auto; right: calc(var(--islet-size) * 0.5 + 12px);
+}
+:is(.environment, .release-stage)[data-islet-cloud="beside"][data-islet="left"] .companion-board .companion-note::before { left: auto; right: -8px; }
+:is(.environment, .release-stage)[data-islet-cloud="beside"][data-islet="left"] .companion-board .companion-note::after { left: auto; right: -20px; }
+
+/* With the companion's 3D model standing on the islet, the HTML figure is not
+   drawn. Its button stays as an invisible click and focus target laid over the
+   model, so a frame of lag while the view orbits is never visible. */
+:is(.environment, .release-stage)[data-islet-figure] .companion-board .figure-stage { display: none; }
+:is(.environment, .release-stage)[data-islet-figure] .companion-board .companion-figure {
+  width: calc(var(--islet-model) * 0.95); height: calc(var(--islet-model) * 1.1);
+  background: none; border: 0; filter: none; border-radius: 12px;
+}
+:is(.environment, .release-stage)[data-islet-figure] .companion-board .companion-figure > span:last-child {
+  width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%);
+}
+:is(.environment, .release-stage)[data-islet-figure] .companion-board .companion-note { bottom: calc(var(--islet-model) * 1.1 + 16px); }
+:is(.environment, .release-stage)[data-islet-figure][data-islet-cloud="beside"] .companion-board .companion-note {
+  left: calc(var(--islet-model) * 0.5 + 12px); top: calc(var(--islet-model) * -1.1); bottom: auto;
+}
+:is(.environment, .release-stage)[data-islet-figure][data-islet-cloud="beside"][data-islet="left"] .companion-board .companion-note {
+  left: auto; right: calc(var(--islet-model) * 0.5 + 12px);
 }

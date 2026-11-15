@@ -13,8 +13,9 @@ const FEET = -0.96;
 /** The attributed models have no skeleton or clips. Author a small, continuous
  * upper-body flex in model coordinates, including eyes and the carried prop,
  * so their original alignment survives the slight nod. Feet stay planted.
- * `motion.ts` drives its influence as the `bend` channel. */
-function poseTargets(model: THREE.Group, bounds: THREE.Box3) {
+ * `motion.ts` drives its influence as the `bend` channel. The islet figure
+ * (`viewer/companionFigure.ts`) builds the same flex for its model. */
+export function poseTargets(model: THREE.Group, bounds: THREE.Box3) {
   model.updateWorldMatrix(true, true);
   const height = bounds.max.y - bounds.min.y;
   const pivot = bounds.getCenter(new THREE.Vector3());
@@ -40,7 +41,8 @@ function poseTargets(model: THREE.Group, bounds: THREE.Box3) {
   return meshes;
 }
 
-function release(root: THREE.Object3D) {
+/** Free the geometry, materials and textures of a loaded model. */
+export function release(root: THREE.Object3D) {
   const materials = new Set<THREE.Material>();
   const textures = new Set<THREE.Texture>();
   root.traverse(node => {

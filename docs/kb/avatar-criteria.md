@@ -187,7 +187,7 @@ Timburr now plays short procedural clips chosen by public scenario. The models r
 | Conkeldurr foreman entrance (existing eligibility unchanged) | foreman | dramatic |
 | Final results | victory | dramatic |
 | Idle: release board | breathe, shift | idle |
-| Idle: launcher, menus and other workspaces | breathe, shift, glance, adjust | idle |
+| Idle: launcher, menus and other workspaces | breathe, shift, glance, adjust, stretch, tapFoot, peek | idle |
 
 Behavior guarantees, each covered by unit tests in `apps/web/src/companion/`:
 
@@ -196,7 +196,7 @@ Behavior guarantees, each covered by unit tests in `apps/web/src/companion/`:
 - **Still mode.** Reduced motion, *Skip effects* and hidden tabs settle the figure at rest and refuse clips; a figure swap only fades briefly.
 - **Truthful and public.** Cues carry only the public card family, never card identity. Unknown results are never cheered. After a reload, a remount or a different match only the routine perk plays; an old committed result is not reenacted. Foreman eligibility, cooldown and timing are unchanged.
 
-Modules: `motion.ts` contains the clip library, sampling, interruption, idle choice, scenario mapping and portrait transform. It is pure. `animator.ts` contains the frame/timer scheduler with an injectable host. `turnCues.ts` contains the committed-report policy. `figure.ts` applies poses to the 3D rig; `Companion.tsx` routes cues to whichever view is showing. Both portraits were regenerated with the new feet-anchored framing, which leaves headroom for hops. The [motion browser check](../evidence/companion-motion/check.mjs) renders every clip in 3D and in portrait form as a [contact sheet](../evidence/companion-motion/motion-sheet.png). It also plays a match through visible controls and asserts the scenario-to-clip sequence.
+Modules: `motion.ts` contains the clip library, sampling, interruption, idle choice, scenario mapping and portrait transform. It is pure. `animator.ts` contains the frame/timer scheduler with an injectable host. `turnCues.ts` contains the committed-report policy. `figure.ts` applies poses to the 3D rig; `Companion.tsx` routes cues to whichever view is showing. On the board the control also publishes every sampled pose through `boardPose.ts`, and `viewer/companionFigure.ts` applies it to the model standing on the islet in the 3D scene (see [unified runtime](unified-runtime.md)), so the islet figure plays the same clips as the badge; it adds only a small lean toward the viewer under the pointer or while its cloud is open. Both portraits were regenerated with the new feet-anchored framing, which leaves headroom for hops. The [motion browser check](../evidence/companion-motion/check.mjs) renders every clip in 3D and in portrait form as a [contact sheet](../evidence/companion-motion/motion-sheet.png). It also plays a match through visible controls and asserts the scenario-to-clip sequence.
 
 Clip amplitudes and timing are first-pass proposals pending owner playtesting. These are whole-figure motions, not articulated limb poses. Articulated poses still require rigging (see section 7).
 
