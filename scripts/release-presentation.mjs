@@ -102,7 +102,11 @@ try {
       async function drawFour() {
         for (const deck of ["members", "members", "connections", "loads"]) {
           const preferred = page.locator('[data-deck="' + deck + '"]');
+          const before = await page.locator("[data-card-id]").count();
           await activate(await preferred.isEnabled() ? preferred : page.locator("[data-deck]:enabled").first());
+          // Each separate draw owns a visible hand slot. Wait for that
+          // acknowledgement before advancing to the next deck choice.
+          await page.waitForFunction(prior => document.querySelectorAll("[data-card-id]").length === prior + 1, before);
         }
         await page.locator("[data-deck]").first().waitFor({state:"detached"});
       }
@@ -282,6 +286,27 @@ try {
           assert.equal(notes.length, scenario === "companion" ? 1 : 0);
           if (notes.length) assert.ok(notes[0] >= .15, "The foreman accent was released before its envelope finished");
           companionResult.foremanVoices = notes.length;
+          await activate(button("Dismiss"));
+          await drawFour();
+          await activate(button("Instability"));
+          const diagnostic = page.getByRole("complementary", {name:"Instability diagnostic"});
+          const modePicker = diagnostic.getByRole("combobox");
+          await modePicker.waitFor();
+          const returnedModes = await modePicker.locator("option").count();
+          assert.ok(returnedModes > 0, "The detached members need a returned solver mode");
+          assert.match(await diagnostic.innerText(), /illustrative normalized solver mode.*Joint-linear ghost/is);
+          await choose(modePicker, Math.min(1, returnedModes - 1));
+          const playback = diagnostic.getByRole("button", {name:"Play mode"});
+          if (layout.reducedMotion === "reduce") assert.ok(await playback.isDisabled());
+          else {
+            await activate(playback);
+            const pause = diagnostic.getByRole("button", {name:"Pause mode"});
+            assert.equal(await pause.getAttribute("aria-pressed"), "true");
+            await page.screenshot({path:resolve(output, "instability-diagnostic.png")});
+            await activate(pause);
+            assert.equal(await playback.getAttribute("aria-pressed"), "false");
+          }
+          companionResult.diagnostic = {returnedModes, playback:layout.reducedMotion === "reduce" ? "disabled" : "played and paused"};
           await page.reload(); await activate(ready);
           assert.equal(await page.getByRole("button", {name:"Talk to Conkeldurr"}).count(), 0);
         }
