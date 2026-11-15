@@ -17,7 +17,9 @@ The preliminary Chrome build used WASM SHA-256 `ecd098dd8d37366b58fb9b8f252b4393
 
 ## Observed integrated results
 
-The final production manifest identified clean commit `63ae1b499b65cdb9456417361dd2382f5a089e15`, assets SHA-256 `a779d41e7e638170b7a7dfb40c0ce6c9f879994b23b99a98d06771de0e8608e0` and WASM SHA-256 `e238263e5b5c3518b73e3bf9af39be0542191f5f8e51a8fa537bccf68744e744`. The final integrated diff from `3a2d4e3` covered 125 files and passed `git diff --check`. The four matches used separate Chrome 157.0.8103.51 profiles on Windows 11 at 1366 × 900, DPR 1, the normal Play entry and real solver workers. All moves and inspections used visible controls. Saved revisions were read for assertions. I repeated the fixtures across the spring/recovery correction and the subsequent physics and presentation changes.
+The immutable production package identified clean commit `ab93648cc39f7a1ce7160c8e91096f608bd8adad`, assets SHA-256 `ad712b19face490f6c4fc6fe78dffff484e63c065b9297a6d73995f9379fea0f` and WASM SHA-256 `e238263e5b5c3518b73e3bf9af39be0542191f5f8e51a8fa537bccf68744e744`. The integrated diff from `3a2d4e3` covered 128 files and passed `git diff --check`. I reviewed the runtime delta from `63ae1b4`, which removes Three's temporary root keyup listener during scene disposal while Control is held. The removal matches the bound listener and capture flag in the installed OrbitControls implementation.
+
+The four matches used separate Chrome 157.0.8103.51 profiles on Windows 11 at 1366 × 900, DPR 1, the normal Play entry and real solver workers. All moves and inspections used visible controls. Saved revisions were read for assertions. I repeated all four fixtures on clean `63ae1b4` with the same kernel. I repeated the signed-overhang match, mixed-evidence match, combined response layers, long-hand layout and complete storage fault suite against the immutable package after checking its served asset digest. The [combined inspector](seed-7-final-combined.png), [mixed-evidence result](seed-16-partial-final.png) and [fault results](independent-recovery.json) are from that package.
 
 | Walkthrough | Observed outcome |
 | --- | --- |
