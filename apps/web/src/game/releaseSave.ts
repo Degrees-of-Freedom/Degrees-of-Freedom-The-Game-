@@ -49,4 +49,3 @@ export function decodePrivateMatch(bytes: string): MatchRecord {
     throw new Error("The saved board, cards or receipts disagree with the recorded actions.");
   return { ...result.data, turn: replay.state };
 }
-

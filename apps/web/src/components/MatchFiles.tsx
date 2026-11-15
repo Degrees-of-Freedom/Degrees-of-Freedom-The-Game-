@@ -59,4 +59,3 @@ export function MatchFiles({onImported}: {onImported: () => void}) {
       {selected && <button className="btn mbtn" onClick={() => downloadMatch(selected, selected.name)}>Download original file</button>}</>}
   </div>;
 }
-

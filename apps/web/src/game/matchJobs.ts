@@ -31,4 +31,3 @@ export function runMatchJob(job: MatchJob, signal: AbortSignal): Promise<MatchRe
     worker.postMessage(job);
   });
 }
-

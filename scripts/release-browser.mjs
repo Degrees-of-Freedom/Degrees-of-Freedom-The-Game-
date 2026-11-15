@@ -14,7 +14,8 @@ const output = resolve(process.env.DOF_EVIDENCE_DIR ?? ".venv/release-evidence")
 const first = Number(process.env.DOF_FIRST_SEED ?? 0), last = Number(process.env.DOF_LAST_SEED ?? 19);
 assert.ok(Number.isInteger(first) && Number.isInteger(last) && first >= 0 && last >= first);
 const port = Number(process.env.DOF_PREVIEW_PORT ?? 0);
-const host = await preview({root, configFile: resolve(root, "vite.config.ts"), preview:{host:"127.0.0.1", port}});
+const host = await preview({root, configFile: resolve(root, "vite.config.ts"),
+  build:{outDir:resolve(process.env.DOF_TEST_DIST ?? resolve(root,"dist"))}, preview:{host:"127.0.0.1", port}});
 const base = host.resolvedUrls.local[0];
 let browser;
 try {
@@ -203,4 +204,3 @@ async function match(seed, passOnly) {
     throw error;
   } finally { await context.close(); }
 }
-

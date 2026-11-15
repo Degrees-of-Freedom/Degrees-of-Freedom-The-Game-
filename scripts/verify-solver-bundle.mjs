@@ -22,4 +22,3 @@ const changes = execFileSync("git", ["status", "--porcelain", "--untracked-files
 const build = {commit, dirtySource: !!changes, solverFile: modules[0], solverSha256:built,
   assetsSha256:createHash("sha256").update(JSON.stringify(files)).digest("hex")};
 await writeFile(new URL("apps/web/dist/release-build.json",root), JSON.stringify(build,null,2)+"\n");
-

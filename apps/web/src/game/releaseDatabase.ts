@@ -45,4 +45,3 @@ export async function openMatchDatabase(factory: IDBFactory = indexedDB) {
   return { read, replace, close: () => db.close() };
 }
 export type MatchDatabase = Awaited<ReturnType<typeof openMatchDatabase>>;
-

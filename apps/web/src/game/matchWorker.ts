@@ -23,4 +23,3 @@ self.onmessage = async ({ data }: MessageEvent<MatchJob>) => {
       message: error instanceof Error ? error.message : "Assessment unavailable." });
   }
 };
-

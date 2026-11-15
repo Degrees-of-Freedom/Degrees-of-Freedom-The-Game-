@@ -30,4 +30,3 @@ it("rotates one previous complete revision, preserving it while recovering a dam
   expect(await db.read("head")).toBe("restored");
   db.close();
 });
-
