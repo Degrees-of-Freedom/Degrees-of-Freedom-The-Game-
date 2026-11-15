@@ -1,0 +1,11 @@
+{
+  "command": "node scripts/physics/check-saved-solver.mjs 91d551b",
+  "applicationCommit": "ac2b7953c6008027b3aa7b92f55c39f13f1c215e",
+  "previous": "e238263e5b5c3518b73e3bf9af39be0542191f5f8e51a8fa537bccf68744e744",
+  "current": "3c391970e1863f5752538224a5280927246344b4caa4eb104d5d43281acbce17",
+  "seeds": 20,
+  "priorBrowserMatchesCompared": 20,
+  "confirmedRecordsReplayed": 660,
+  "privateRecordsByteIdentical": true,
+  "exitCode": 0
+}
