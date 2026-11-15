@@ -1,7 +1,5 @@
 import { SolverSetting } from "../components/SolverSetting";
 import { MenuShell } from "../components/MenuShell";
-import { HOW_ART } from "../menu/art";
-import { PLAYTEST_SETTINGS, TURN_RULES, TURN_RULES_NOTES } from "../menu/turnRules";
 import {
   DEFAULT_SETTINGS,
   resetSettings,
@@ -10,170 +8,46 @@ import {
   type Settings,
 } from "../menu/settings";
 
-const HOW_TOOLS = [
-  {
-    title: "Connection",
-    text: "A joint holds six degrees of freedom: it can move along three axes and turn about three. Decide which of them stay free and which are locked.",
-  },
-  {
-    title: "Member",
-    text: "A member joins two connections. You choose which two joints it links, and that sets how long it is.",
-  },
-  {
-    title: "Load",
-    text: "A load sits on a joint. You choose where it goes, which way it pushes, and how much force it carries.",
-  },
-];
-
 export function HowToPlay() {
-  return (
-    <MenuShell
-      title="How to play"
-      documentTitle="How to play"
-      parent="/"
-      parentLabel="Home"
-    >
-      <p className="lede">
-        You build a structure on a 3D grid with three tools, then see how load
-        travels through it.
-      </p>
-      <div className="tools">
-        {HOW_TOOLS.map((tool, index) => (
-          <div className="tool" key={tool.title}>
-            <div
-              aria-hidden="true"
-              dangerouslySetInnerHTML={{ __html: HOW_ART[index] }}
-            />
-            <h3>{tool.title}</h3>
-            <p>{tool.text}</p>
-          </div>
-        ))}
-      </div>
-      <div className="panel" style={{ marginTop: 16 }}>
-        <h2>What the game measures</h2>
-        <p style={{ margin: 0 }}>
-          Two things: whether every load has a connected path down to a
-          foundation, and, once you run the simulation, how the structure
-          responds: where it moves and how its members carry force.
-        </p>
-        <p className="quiet">
-          In Results you can show the deformed shape, with an adjustable scale,
-          colour members by utilization where design checks apply, and switch on a load-path overlay. The
-          team’s planned main view, the deflected shape coloured by deflection
-          magnitude, is not in the app yet. Every number shown comes from the
-          calculated results.
-        </p>
-      </div>
-      <div className="panel">
-        <h2>The loop</h2>
-        <div className="loop">
-          <div className="step">
-            <b>
-              <span>1</span>Setup
-            </b>
-            <small>Pick a mode and set it up.</small>
-          </div>
-          <span className="sep" aria-hidden="true">
-            &rarr;
-          </span>
-          <div className="step">
-            <b>
-              <span>2</span>Act
-            </b>
-            <small>Add members, loads and connections.</small>
-          </div>
-          <span className="sep" aria-hidden="true">
-            &rarr;
-          </span>
-          <div className="step">
-            <b>
-              <span>3</span>Simulate
-            </b>
-            <small>Choose Run simulation to see where load goes.</small>
-          </div>
-          <span className="sep" aria-hidden="true">
-            &rarr;
-          </span>
-          <div className="step">
-            <b>
-              <span>4</span>Read
-            </b>
-            <small>Open Results to read what the analysis found.</small>
-          </div>
-        </div>
-      </div>
-      <div className="panel">
-        <h2>Shared table rules</h2>
-        <ul className="rules">
-          {TURN_RULES.map((rule) => (
-            <li key={rule}>{rule}</li>
-          ))}
-        </ul>
-        <h3>Playtest settings</h3>
-        <ul className="rules">
-          {PLAYTEST_SETTINGS.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-        {TURN_RULES_NOTES.map((note) => (
-          <p className="quiet" key={note}>
-            {note}
-          </p>
-        ))}
-      </div>
-      <div className="panel">
-        <h2>Controls</h2>
-        <ul className="rules">
-          <li>
-            Click to place or select. Drag to orbit and use the wheel to zoom.
-          </li>
-          <li>
-            While growing a member, targets can overlap on screen. The nearest
-            to the camera is chosen; the mouse wheel or <kbd>[</kbd>{" "}
-            <kbd>]</kbd> steps through the stack, and the label beside the
-            member shows “2 of 3 overlapping”.
-          </li>
-          <li>
-            <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> choose the Member, Connection
-            or Load tool. <kbd>X</kbd> erases and <kbd>I</kbd> inspects.
-          </li>
-          <li>
-            Right-click, <kbd>Alt</kbd>+click, or point and press{" "}
-            <kbd>Delete</kbd> to remove a piece. The eraser button does the same
-            with a plain click.
-          </li>
-          <li>
-            <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes, <kbd>Ctrl</kbd>+<kbd>Y</kbd>{" "}
-            redoes. <kbd>H</kbd> shows the controls panel.
-          </li>
-          <li>
-            <kbd>P</kbd> opens the pause menu. <kbd>Esc</kbd> opens it when
-            nothing else needs Esc.
-          </li>
-        </ul>
-      </div>
-      <div className="panel callout">
-        <b>Run simulation is experimental and not for engineering design.</b>{" "}
-        It is an approximate analysis of the current model. Scoring is not
-        implemented yet.
-      </div>
-    </MenuShell>
-  );
+  return <MenuShell title="How to play" documentTitle="How to play" parent="/" parentLabel="Home">
+    <p className="lede">Build together. See how much gravity each foundation carries after eight rounds.</p>
+    <section className="panel"><h2>Your turn</h2>
+      <ol className="rules">
+        <li>Pass the device to the named player. Ready reveals their hand, including two cards from each deck. Unused cards stay in hand.</li>
+        <li>Select a card and choose its target. Each turn allows one element, one gravity load and two end connections. Endpoints and original quarter points are available on either player’s pieces.</li>
+        <li>Connect an end to transfer force. Ends at the same location stay separate until connected. Gravity cards go on an above-ground player-built tip or port.</li>
+        <li>End turn commits the draft. Pass commits an empty turn. The browser checks the structure and saves before handoff.</li>
+      </ol>
+    </section>
+    <section className="panel"><h2>Final score</h2>
+      <p>Each player receives their foundation’s verified signed share of all gravity cards, minus historical deductions. A newly caused or materially worsened verified issue costs at most one point per turn. Neutral repairs stay on the board. Their reactions earn neither player points.</p>
+      <p>Unavailable reactions remain unawarded. With no applied gravity, each player receives zero share. Scores within 0.01 point tie.</p>
+    </section>
+    <details className="panel"><summary>Controls and inspection</summary>
+      <p>Drag to orbit and pinch or scroll to zoom. Fit frames the structure. Focus centers the selected object. Use Inspect for member properties, joint freedoms, turn history and committed response.</p>
+      <p>Tab and Enter reach every card and target. Precise placement accepts grid coordinates or named original ports. Use [ and ] to cycle overlapping scene targets. Escape backs out of the current targeting step.</p>
+    </details>
+    <details className="panel"><summary>Creative and other modes</summary>
+      <p>Open More modes from the menu to build freely or try structural challenges. The editor offers member, joint, support and load tools. Use Results to inspect a simulation and the controls panel for editor shortcuts.</p>
+    </details>
+  </MenuShell>;
 }
 
-type ToggleKey = "sound" | "reducedMotion" | "showHelpOnStart";
+type ToggleKey = "sound" | "reducedMotion" | "showHelpOnStart" | "showCompanion" | "glow";
 
 const TOGGLES: { key: ToggleKey; title: string; text: string }[] = [
   {
     key: "sound",
     title: "Sound",
-    text: "Play game sound effects. Press M or use the ♪ button on the board to toggle sound.",
+    text: "Play short placement and result sounds.",
   },
   {
     key: "reducedMotion",
     title: "Reduced motion",
-    text: "Turns off animations and transitions on the menus.",
+    text: "Use still poses and static directional arrows.",
   },
+  { key: "showCompanion", title: "Show companion", text: "Show Timburr and public turn reactions." },
+  { key: "glow", title: "Selection glow", text: "Highlight a selected card with a warm accent." },
   {
     key: "showHelpOnStart",
     title: "Show help on start",

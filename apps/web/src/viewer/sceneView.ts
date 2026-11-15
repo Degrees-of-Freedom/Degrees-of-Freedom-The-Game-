@@ -12,6 +12,9 @@ export interface SceneHover {
 import type { JointLayer } from "./jointGlyphs";
 import type { DeformationField } from "./deformationField";
 export interface SceneView {
+  /** Kept in the workspace only, so privacy handoff can unmount every private scene resource. */
+  cameraMemory?: CameraMemory;
+  still?: boolean;
   jointLayer?: JointLayer;
   field?: DeformationField;
   reference?: boolean;
@@ -25,4 +28,7 @@ export interface SceneView {
   loadPath: boolean;
   onToggleLoadPath?: () => void;
   onMessage?: (message: string) => void;
+}
+export interface CameraMemory {
+  pose?: { seed: number; eye: GridPoint; target: GridPoint };
 }
