@@ -13,7 +13,12 @@ it("restores the active match across startup and mode changes, then persists a n
     getItem: (key: string) => entries.get(key) ?? null,
     setItem: (key: string, value: string) => entries.set(key, value),
   });
-  let { useGameStore } = await import("./store");
+  // As in main.tsx: the Rust turn solver is ready before the store loads.
+  const loadStore = async () => {
+    await (await import("./turnAnalysis")).prepareTurnSolver();
+    return import("./store");
+  };
+  let { useGameStore } = await loadStore();
   const { unavailableSolver } = await import("../solver/unavailable");
   useGameStore.setState({ turnSolver: unavailableSolver });
   useGameStore.getState().setMode("multiplayer");
@@ -23,7 +28,7 @@ it("restores the active match across startup and mode changes, then persists a n
   const turnAfterPass = useGameStore.getState().turn;
   expect(turnAfterPass?.turn).toBe(2);
   vi.resetModules();
-  ({ useGameStore } = await import("./store"));
+  ({ useGameStore } = await loadStore());
   useGameStore.setState({ turnSolver: (await import("../solver/unavailable")).unavailableSolver });
   expect(useGameStore.getState()).toMatchObject({
     mode: "multiplayer",

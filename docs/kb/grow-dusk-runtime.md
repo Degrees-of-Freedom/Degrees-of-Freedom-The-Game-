@@ -50,23 +50,9 @@ The header shows seat, round, remaining draws and deductions. The hand tray grou
 
 ### View modes and legends
 
-An eye button at the top right of the board (or **V**) opens **View modes**: eight toggle tiles that can be combined. `viewModes.ts` holds the presentation state and `useBoardView.ts` derives the overlays; none of it changes geometry, values, connectivity or scoring.
+Shared table uses the direct analysis controls described below, with deflection and load paths enabled together. They read only the exact last calculated checkpoint. Drawing, inspecting or toggling a layer does not assess pending turns. The inspector adds the upstream displacement-shadow alternatives to its Board overlay selector; a shadow leaves physical members at rest while displaying calculated travel. Shear and bending combine independently.
 
-| Mode | Draws | Legend reports |
-| --- | --- | --- |
-| Load path | Signed gravity-transfer arrows; member colour by tension, compression or mixed action, thickness by transfer | Colour keys and the largest transfer in kN |
-| Deflected shape | Members on the verified deflected centreline with the displacement contour and dashed reference | 0 mm to peak mm on the contour, displayed exaggeration |
-| Displacement shadow | Members stay at rest; a translucent contour-coloured ghost of the deflected shape and dashed joint-travel lines | As above |
-| Joint freedoms | The All joints glyph display (the persisted joint-display setting) | Axis colours and glyph vocabulary, joint count |
-| Loads & reactions | Card gravity and signed support reaction arrows | Colours and total applied card gravity |
-| Shear / bending diagram | Vy or Vz, My or Mz along verified frame sections, chosen on the tile | Component, peak value and positive direction |
-| Instability | Dashed witnessed region | Whether a witness exists |
-
-Deflected shape and displacement shadow are mutually exclusive; the other modes combine freely. The board solves the committed structure only when a response-backed mode is first pressed, as before. Until then, or while a draft is staged or the solve is pending or fails, each response legend states why it is not drawn; joint freedoms need no solve. The default is the earlier view: deflected shape with loads and reactions. **Clear** hides all overlays and returns joints to Selected; **Reset** restores the default.
-
-The **Labels** switch hides or shows every in-scene text label at once: load and reaction values, the largest load-path transfers (at most 16, above 5% of the peak), the peak deflection, diagram peaks, the instability tag and joint axis letters. Legends stay visible and can be folded to one chip; they start folded on screens up to 520 px tall. The contour runs dark blue, cyan, green, yellow and orange to red. The scene and legends share one palette (`viewPalette.ts`, `contourRamp.ts`), so a legend always matches the drawn colour. Values below 10⁻⁶ in display units read as zero.
-
-The Inspect drawer's **Board overlay**, displacement scale, diagram and instability controls drive the same state. The overlay keeps its first four options in their scripted order and adds the two shadow layers after them. While the view panel is open, Escape closes it before the board's own Escape handling or the pause menu (`data-owns-escape`, see `PauseMenu.tsx`).
+The upstream `ViewModesPanel`, shared palettes and legend helpers remain in the repository. Its on-demand `useBoardView` hook is not mounted on scheduled Shared table, because solving the unassessed current board there would bypass checkpoint timing. The independent reaction-label size/visibility preference applies to displayed reaction values; player/foundation ownership stays readable. `contourRamp.ts` supplies the same six displacement colours to the shape and shadow. Numerical values below 10⁻⁶ in display units read as zero in the shared upstream formatters; signed inspection tables retain their numerical precision.
 
 ## Running and hosting
 

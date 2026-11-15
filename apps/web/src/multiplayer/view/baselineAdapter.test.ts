@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GameModel } from '../../game/model';
-import type { Combo, Context, Element, VoxelAnalysis } from '../../solver/voxelResults';
-import { ITEMS } from '../../solver/voxelSections';
+import type { Combo, Context, Element, StructureEvaluation } from '../../evaluator/results';
+import { ITEMS } from '../../evaluator/sections';
 import { adaptBaselineGame } from './baselineAdapter';
 import type { BaselineAdapterOptions, BaselineAnalysisScope } from './baselineAdapter';
 import { buildPrimaryFlow } from './flow';
@@ -24,8 +24,7 @@ function analysisFixture(model = modelFixture()): BaselineAnalysisScope {
   const element: Element = {
     m: { ...member }, it: ITEMS[member.type], L: 4,
     R: [[0, 0, 1], [1, 0, 0], [0, 1, 0]], ex: [0, 0, 1],
-    a: 0, b: 1, k: new Float64Array(144), rel: [],
-    kgl: new Float64Array(144), dofs: [], cable: member.type === 'cable',
+    a: 0, b: 1, cable: member.type === 'cable',
     rigidA: true, rigidB: true,
   };
   const force = new Float64Array(12);
@@ -43,10 +42,10 @@ function analysisFixture(model = modelFixture()): BaselineAnalysisScope {
   };
   const ctx: Context = {
     keys: [member.a, member.b], pos: [[0, 0, 0], [0, 0, 4]], act: [0, 1],
-    NA: 2, eq: new Int32Array(12), nf: 6, els: [element], bw: 12,
+    NA: 2, els: [element],
     isF: [true, false], idx: new Map([[member.a, 0], [member.b, 1]]), aid: new Int32Array([0, 1]),
   };
-  const result: VoxelAnalysis = {
+  const result: StructureEvaluation = {
     mechanism: false, floating: [], unstable: new Set(), objectives: [],
     members: {}, found: {}, combos: [combo], nodes: {}, ctx,
   };

@@ -22,7 +22,7 @@ import {
   computeLoadPath,
   traceToGround,
   type LoadPathMember,
-} from "../solver/loadPath";
+} from "../evaluator/loadPath";
 import type { SceneView } from "./sceneView";
 export function buildStructure(
   structure: THREE.Group,

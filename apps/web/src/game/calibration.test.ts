@@ -14,18 +14,20 @@ const input = process.env.DOF_CALIBRATION_IN;
 const output = process.env.DOF_CALIBRATION_OUT;
 
 describe.skipIf(!input || !output)('structure-gan calibration', () => {
-  it('re-analyses exported structures with the game solver', () => {
+  it('re-analyses exported structures with the game solver', async () => {
     const items = JSON.parse(readFileSync(input!, 'utf8')) as { save: unknown }[];
-    const rows = items.map(item => {
+    const rows = [];
+    for (const item of items) {
       const { save } = readGameSave(item.save, 'library');
-      const result = analyzeGame(save.model, LEVELS.library);
-      return {
+      const result = await analyzeGame(save.model, LEVELS.library);
+      rows.push({
         mechanism: result.mechanism, floating: result.floating.length,
         error: result.error ?? null, maxU: result.maxU ?? null,
-        // Which part of the game's design check governs; see voxelDesignChecks.ts.
+        // Which part of the game's design check governs; see evaluator/designChecks.ts.
         connMax: result.connMax ?? null, foundMax: result.foundMax ?? null, failing: result.failing ?? null,
-      };
-    });
+        unresolved: result.unresolved ?? false,
+      });
+    }
     writeFileSync(output!, JSON.stringify(rows));
     expect(rows).toHaveLength(items.length);
   }, 900000);

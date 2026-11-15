@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { localAxes } from "../solver/frameMath";
-import { SECTION_GEOMETRY } from "../solver/voxelSections";
+import { localAxes } from "../evaluator/vector";
+import { SECTION_GEOMETRY } from "../evaluator/sections";
 
 export type WideFlange = "ipe" | "heb";
 export const READABLE_SECTION_SCALE = 1.5;

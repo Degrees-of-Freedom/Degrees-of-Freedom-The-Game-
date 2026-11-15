@@ -1,15 +1,15 @@
 import { readFile } from "node:fs/promises";
 import * as THREE from "three";
 import { beforeAll, expect, it } from "vitest";
-import { createTurnSolver } from "../solver/wasm/turnSolver";
-import type { VoxelModel } from "../solver/voxelInput";
-import { computeLoadPath } from "../solver/loadPath";
+import { createTurnSolver } from "../evaluator/engine/releaseTurn";
+import type { EvaluatorModel } from "../evaluator/model";
+import { computeLoadPath } from "../evaluator/loadPath";
 import { buildReleaseFlow } from "./releaseFlow";
 
 const solver = createTurnSolver(async () => Uint8Array.from(await readFile(new URL("../solver/wasm/dof_solver.wasm", import.meta.url))).buffer);
 beforeAll(solver.prepare);
 
-function branchedFrame(): VoxelModel {
+function branchedFrame(): EvaluatorModel {
   return {nextId:5, positions:{left:[0,0,0],lh:[0,0,2],mid:[2,0,2],rh:[4,0,2],right:[4,0,0]},
     attrs:{left:{found:true},right:{found:true},mid:{load:5}}, members:[
       {id:1,type:"heb",a:"left",b:"lh",endA:"fixed",endB:"fixed"},

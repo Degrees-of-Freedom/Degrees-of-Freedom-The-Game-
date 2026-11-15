@@ -1,12 +1,12 @@
 import { useId, useMemo, useState } from "react";
-import type { VoxelAnalysis } from "../solver/voxelResults";
+import type { StructureEvaluation } from "../evaluator/results";
 import { cutActions, sectionCuts } from "../viewer/sectionCuts";
 
 const short = new Intl.NumberFormat("en", { maximumSignificantDigits: 4 });
 
 /** The chart and its accessible station table consume the same local +x-face
  * samples. Axial-only members have no section shear or bending diagram. */
-export function MemberDiagram({ result, parent }: { result: VoxelAnalysis; parent: number }) {
+export function MemberDiagram({ result, parent }: { result: StructureEvaluation; parent: number }) {
   const [selected, setSelected] = useState(0);
   const [part, setPart] = useState("");
   const title = useId();

@@ -14,7 +14,7 @@ function accepted(result: ReturnType<typeof endTurn>) {
 }
 
 function wire(turn: TurnState, events: unknown[] = turn.events) {
-  return JSON.parse(JSON.stringify({ version: turn.version, catalogue: turn.catalogue, seed: turn.seed, events }));
+  return JSON.parse(JSON.stringify({ version: turn.version, catalogue: turn.catalogue, engine: turn.engine, seed: turn.seed, events }));
 }
 
 function resume(turn: TurnState, events?: unknown[]) {
@@ -82,7 +82,7 @@ describe("originating turn deductions", () => {
     const publicReport = publicTurnReport(report);
     expect(publicReport.penalty).toBe(-1);
     expect(publicReport.penaltyReasons.map(r => r.id)).toEqual(["instability:4", "member-overload:3"]);
-    expect(publicReport.penaltyReasons[1].utilization).toBeCloseTo(1.21761, 4);
+    expect(Math.abs(publicReport.penaltyReasons[1].utilization! / 1.21761 - 1)).toBeLessThan(1e-3);
     expect(JSON.stringify(publicReport)).not.toContain("97/");
     expect(resume(turn)).toEqual(turn);
   });

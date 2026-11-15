@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { readFile } from "node:fs/promises";
 import { beforeAll, expect, it } from "vitest";
-import { createTurnSolver } from "../solver/wasm/turnSolver";
-import type { VoxelModel } from "../solver/voxelInput";
+import { createTurnSolver } from "../evaluator/engine/releaseTurn";
+import type { EvaluatorModel } from "../evaluator/model";
 import { drawInstabilityMode, instabilityModes } from "./instabilityModes";
 import { deflectionColor } from "./deflectedGeometry";
 
@@ -10,7 +10,7 @@ const solver = createTurnSolver(async () => Uint8Array.from(await readFile(new U
 beforeAll(solver.prepare);
 
 it("projects real solver mechanism vectors independently of unavailable equilibrium response", () => {
-  const model: VoxelModel = {nextId:2, positions:{base:[0,0,0],tip:[0,0,2]},attrs:{base:{found:true}},
+  const model: EvaluatorModel = {nextId:2, positions:{base:[0,0,0],tip:[0,0,2]},attrs:{base:{found:true}},
     members:[{id:1,type:"heb",a:"base",b:"tip",endA:"ball",endB:"fixed"}]};
   const result = solver.analyze(model,"mode-fixture");
   const modes = instabilityModes(result);
@@ -56,7 +56,7 @@ it("does not substitute the reference shape when a returned mode has no nodal ve
 });
 
 it("draws an actual floating component mode even when equilibrium assembly omits its elements", () => {
-  const model: VoxelModel = {nextId:3,positions:{base:[0,0,0],tip:[0,0,1],looseA:[2,6,4],looseB:[2,7,4]},
+  const model: EvaluatorModel = {nextId:3,positions:{base:[0,0,0],tip:[0,0,1],looseA:[2,6,4],looseB:[2,7,4]},
     attrs:{base:{found:true}},members:[
       {id:1,type:"heb",a:"base",b:"tip",endA:"fixed",endB:"fixed"},
       {id:2,type:"heb",a:"looseA",b:"looseB",endA:"fixed",endB:"fixed"}]};

@@ -1,6 +1,6 @@
 import { describePrinting, physicalCatalogue, type CardDefinition } from '../game/cardCatalogue';
-import { ITEMS } from '../solver/voxelSections';
-import { CARD_STRENGTH } from '../solver/voxelCapacity';
+import { ITEMS } from '../evaluator/sections';
+import { CARD_STRENGTH } from '../evaluator/capacity';
 
 /** Inspect the same immutable printing used to generate this card's rules. */
 export function CardDefinitionDetails({ card, localConnectionAxes = false }: { card: CardDefinition; localConnectionAxes?: boolean }) {

@@ -1,7 +1,7 @@
 import {readFile} from 'node:fs/promises';
 import {beforeAll, expect, it} from 'vitest';
 import {createReleaseDecks, PLAY_REVISION, PLAY_SPRING_REFERENCE, RELEASE_CATALOGUE, connectionChoices} from './cardCatalogue';
-import {SPRING} from '../solver/voxelSections';
+import {SPRING} from '../evaluator/sections';
 import {createReleaseGame, createTurnGame, chooseTurnDraw, stageElement, stageConnection,
   cancelTurnDraft, undoLastPlacement, endTurn, parseTurnState, activeTurnHand, type TurnState} from './turns';
 import {prepareReleaseSolver} from './turnAnalysis';

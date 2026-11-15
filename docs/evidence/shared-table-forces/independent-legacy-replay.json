@@ -1,8 +1,19 @@
 {
   "command": "node scripts/physics/check-saved-solver.mjs 91d551b",
-  "applicationCommit": "ac2b7953c6008027b3aa7b92f55c39f13f1c215e",
+  "applicationSource": {
+    "head": "d8663ce65a282298cc69471257076d8591dcd234",
+    "incoming": "c41571db5d05d65e77b17b0f600ec098d9c55b9e",
+    "mergeInProgress": true,
+    "resolvedEvaluatorAndLocalReleaseConflicts": true
+  },
   "previous": "e238263e5b5c3518b73e3bf9af39be0542191f5f8e51a8fa537bccf68744e744",
-  "current": "3c391970e1863f5752538224a5280927246344b4caa4eb104d5d43281acbce17",
+  "current": "c1eba5e686626aa402c0b1685312ed0af4be7ebf3e42af19b7a5947ea4b78a90",
+  "priorSuccessfulEvidence": {
+    "applicationCommit": "ac2b7953c6008027b3aa7b92f55c39f13f1c215e",
+    "solverSha256": "3c391970e1863f5752538224a5280927246344b4caa4eb104d5d43281acbce17",
+    "confirmedRecordsReplayed": 660,
+    "privateRecordsByteIdentical": true
+  },
   "seeds": 20,
   "priorBrowserMatchesCompared": 20,
   "confirmedRecordsReplayed": 660,

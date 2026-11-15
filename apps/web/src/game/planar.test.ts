@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { PLANAR, assemblyParts } from './assembly';
 import { PLANAR_CATALOGUE, SCORED_CATALOGUE, printedCards } from './cardCatalogue';
 import { createTurnGame, endTurn, parseTurnState, stageConnection, stageElement, type TurnState } from './turns';
-import { analyzeTurn, toTurnVoxelInput } from './turnAnalysis';
-import { analyzeVoxel } from '../solver/voxel';
+import { analyzeTurn, toTurnEvaluatorInput } from './turnAnalysis';
+import { analyzeVoxel } from '../solver/voxel/analyze';
 import { findMaterialClash } from './materialClashes';
 import { findPort } from './turnPorts';
-import { displacementAt } from '../solver/voxelResults';
-import { ITEMS } from '../solver/voxelSections';
+import { displacementAt } from '../evaluator/results';
+import { ITEMS } from '../evaluator/sections';
 
 const parent = { id: 3, type: 'shs', assembly: PLANAR.id, a: '1,3,0', b: '3,3,0', owner: 'player-1' } as const;
 function fixture(quarter: number, load = 1) {
@@ -31,7 +31,7 @@ describe('four-panel welded planar card', () => {
   const lateral = [-0.00041952944883955534,-0.002831372753601817,-0.008708472776477285];
   for (const q of [1,2,3]) it('transfers the physical ' + q*25 + '% load, including transverse response', () => {
     const state = fixture(q);
-    const model = toTurnVoxelInput(state);
+    const model = toTurnEvaluatorInput(state);
     expect(model.members).toHaveLength(19);
     expect(new Set(model.members.map(m => m.id)).size).toBe(19);
     const port = 'port:3:' + q;
@@ -58,10 +58,17 @@ describe('four-panel welded planar card', () => {
       2*Math.hypot(...p.a.point.map((v,i) => v-p.b.point[i]))*ITEMS.shs.w, 0);
     expect(ordinary.combos[0].reac![ctx.aid[ctx.idx.get(parent.a)!]][2]).toBeCloseTo(1+weight, 8);
   });
-  it('keeps an excessive-motion assembly outside verified strength', () => {
+  // The legacy linear kernel withheld this capacity as outside its small-motion
+  // envelope. The nonlinear Rust equilibrium is verified even when it deforms
+  // excessively (the release's policy), so the overload is reported instead.
+  it('reports a grossly overloaded, excessively deformed assembly as overloaded', () => {
     const result = analyzeTurn(fixture(3, 500), 'card-gravity');
-    expect(result.capacity!.members[3].status).toBe('unavailable');
-    expect(result.combos[0].components?.[0].verification?.status).not.toBe('verified-linear');
+    const scope = result.combos[0].components![0];
+    expect(scope.excessiveDeformation).toBe(true);
+    expect(scope.reason).toContain('strengthExceeded');
+    const check = result.capacity!.members[3];
+    expect(check.status).toBe('verified');
+    if (check.status === 'verified') expect(check.utilization).toBeGreaterThan(10);
   });
   it('checks the upper chord and opening, allows only original physical external joints', () => {
     const incoming = {id:4,type:'shs' as const,a:'2,2,0.25',b:'2,4,0.25'};

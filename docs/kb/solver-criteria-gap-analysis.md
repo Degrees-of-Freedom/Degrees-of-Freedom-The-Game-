@@ -9,13 +9,13 @@ validated_against:
   - docs/kb/solver-criteria.md
   - packages/solver-contract/src/index.ts
   - apps/web/src/solver/unavailable.ts
-  - apps/web/src/solver/voxelInput.ts
-  - apps/web/src/solver/voxel.ts
-  - apps/web/src/solver/frameMath.ts
-  - apps/web/src/solver/loadPath.ts
-  - apps/web/src/solver/voxel.test.ts
-  - apps/web/src/solver/frameMath.test.ts
-  - apps/web/src/solver/loadPath.test.ts
+  - apps/web/src/evaluator/model.ts
+  - apps/web/src/solver/voxel/analyze.ts
+  - apps/web/src/solver/voxel/frameMath.ts
+  - apps/web/src/evaluator/loadPath.ts
+  - apps/web/src/solver/voxel/analyze.test.ts
+  - apps/web/src/solver/voxel/frameMath.test.ts
+  - apps/web/src/evaluator/loadPath.test.ts
   - apps/web/src/game/analysis.ts
   - apps/web/src/game/analysis.test.ts
   - apps/web/src/game/store.ts

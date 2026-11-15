@@ -1,6 +1,6 @@
 import type { StructuralSnapshot, Vector3 } from "@dof/solver-contract";
-import type { FrameConnection } from "../solver/frameConnections";
-import { localAxes } from '../solver/frameMath';
+import type { FrameConnection } from "../evaluator/connections";
+import { localAxes } from '../evaluator/vector';
 import { parseNodeKey, type Member } from './model';
 
 type ComponentLaw = StructuralSnapshot["connections"][number]["laws"][number];

@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { SCORED_CATALOGUE } from './cardCatalogue';
 import { activeTurnHand, createTurnGame, endTurn, parseTurnState, stageConnection, stageElement, stageLoad } from './turns';
 import { inspectIssues } from './turnIssues';
-import { toTurnVoxelInput } from './turnAnalysis';
+import { toTurnEvaluatorInput } from './turnAnalysis';
 
 function accepted(result: ReturnType<typeof endTurn>) {
   if (!result.ok) throw Error(result.reason);
@@ -53,7 +53,7 @@ it('uses an explicit neutral fitting on an unattached seed-1 member end and leav
   const sleeve = state.board.connections.find(c => c.memberId === 3 && c.system)!;
   expect(sleeve).toMatchObject({ end: 'a', profile: 'fixed', owner: 'neutral' });
   expect(state.board.connections.some(c => c.memberId === 3 && c.end === 'b')).toBe(false);
-  const model = toTurnVoxelInput(state);
+  const model = toTurnEvaluatorInput(state);
   expect(model.members.find(m => m.id === 3)?.a).toBe(sleeve.jointId);
   expect(model.attrs[sleeve.jointId].found).toBeUndefined();
   const anchor = state.board.joints.find(j => j.foundationOwner === 'neutral')!;

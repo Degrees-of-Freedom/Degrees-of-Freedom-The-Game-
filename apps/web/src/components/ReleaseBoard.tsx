@@ -20,7 +20,7 @@ import { jointAtSceneSelection, sharedJointPermissions } from "../viewer/jointPe
 import type { CameraMemory } from "../viewer/sceneView";
 import { instabilityModes } from "../viewer/instabilityModes";
 import { effectiveJointConnections } from "../game/jointCorrections";
-import { computeLoadPath } from "../solver/loadPath";
+import { computeLoadPath } from "../evaluator/loadPath";
 import "./releaseBoard.css";
 
 type Game = ReturnType<typeof useGameStore.getState>;

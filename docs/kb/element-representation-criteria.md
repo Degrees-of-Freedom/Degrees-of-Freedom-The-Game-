@@ -12,7 +12,7 @@ validated_against:
   - docs/kb/joint-dof-criteria.md
   - apps/web/src/viewer/structureMeshes.ts
   - apps/web/src/viewer/sceneGeometry.ts
-  - apps/web/src/solver/voxelSections.ts
+  - apps/web/src/evaluator/sections.ts
 owner: project owner
 status: needs-review
 ---

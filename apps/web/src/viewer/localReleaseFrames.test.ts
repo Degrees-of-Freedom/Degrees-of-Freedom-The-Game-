@@ -4,11 +4,11 @@ import {beforeAll, describe, expect, it} from "vitest";
 import {CONNECTION_PROFILES, conflictingJointAxes, connectionDefinition, connectionFrameFor,
   memberConnectionFrame, type ConnectionProfile} from "../game/jointFreedom";
 import {createReleaseGame, type TurnState} from "../game/turns";
-import {toTurnVoxelInput} from "../game/turnAnalysis";
-import {createTurnSolver} from "../solver/wasm/turnSolver";
-import {ITEMS} from "../solver/voxelSections";
-import type {VoxelModel} from "../solver/voxelInput";
-import {assessCardCapacity} from "../solver/voxelCapacity";
+import {toTurnEvaluatorInput} from "../game/turnAnalysis";
+import {createTurnSolver} from "../evaluator/engine/releaseTurn";
+import {ITEMS} from "../evaluator/sections";
+import type {EvaluatorModel} from "../evaluator/model";
+import {assessCardCapacity} from "../evaluator/capacity";
 import {sharedJointPermissions} from "./jointPermissions";
 import {poseSection, wideFlangeGeometry} from "./sectionGeometry";
 
@@ -41,7 +41,7 @@ describe("member-local release physical and graphical contract", () => {
     const law = connectionDefinition(profile,memberLocal ? axes : undefined);
     const member = {id:1,type:"heb" as const,...endpoints,endA:"fixed" as const,endB:"fixed" as const,
       ...(reversed ? {connectionB:law} : {connectionA:law})};
-    const input: VoxelModel = {nextId:2,attrs:{[base]:{found:true},[tip]:{load:5}},members:[member]};
+    const input: EvaluatorModel = {nextId:2,attrs:{[base]:{found:true},[tip]:{load:5}},members:[member]};
     return {input,axes,result:solver.analyze(input,"local-frame-fixture"),base,tip};
   }
 
@@ -108,7 +108,7 @@ describe("member-local release physical and graphical contract", () => {
       {memberId:4,end:"a",jointId:"port:3:2",profile:"lock-yz",owner:"player-2",axes,frameVersion:"member-local-1"});
     state.board.loads.push({cardId:"fixture-load",jointId:"endpoint:4:b",magnitude:1,owner:"player-2"});
     state.nextId = 5;
-    const model = toTurnVoxelInput(state);
+    const model = toTurnEvaluatorInput(state);
     const parentPieces = model.members.filter(member => member.parentSpan?.memberId === 3);
     expect(parentPieces).toHaveLength(2);
     expect(parentPieces[0].b).toBe("port:3:2");

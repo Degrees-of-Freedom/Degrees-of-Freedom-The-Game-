@@ -170,11 +170,11 @@ async function inspectSolverEnds(turn) {
   // WASM. Inspect the draft before any checkpoint correction can add a sleeve.
   const modules = await createServer({configFile:false, server:{middlewareMode:true, hmr:false, watch:null}, logLevel:'error'});
   try {
-    const {toTurnVoxelInput} = await modules.ssrLoadModule('/apps/web/src/game/turnAnalysis.ts');
-    const {prepareTurnGeometry} = await modules.ssrLoadModule('/apps/web/src/solver/voxel.ts');
-    const {turnReferenceModel} = await modules.ssrLoadModule('/apps/web/src/solver/wasm/turnSolver.ts');
-    const input = toTurnVoxelInput(turn);
-    const model = turnReferenceModel(input, prepareTurnGeometry(input).ctx, turn.catalogue);
+    const {toTurnEvaluatorInput} = await modules.ssrLoadModule('/apps/web/src/game/turnAnalysis.ts');
+    const {prepareGeometry} = await modules.ssrLoadModule('/apps/web/src/evaluator/geometry.ts');
+    const {turnReferenceModel} = await modules.ssrLoadModule('/apps/web/src/evaluator/engine/releaseTurn.ts');
+    const input = toTurnEvaluatorInput(turn);
+    const model = turnReferenceModel(input, prepareGeometry(input).ctx, turn.catalogue);
     const scenarios = [[3,'end','7,9,1','rff'], [4,'start','7,9,1','frf'],
       [5,'start','port:3:2','rfr'], [6,'start','port:3:2','frr']];
     const output = scenarios.map(([id,side,joint,rotations]) => {

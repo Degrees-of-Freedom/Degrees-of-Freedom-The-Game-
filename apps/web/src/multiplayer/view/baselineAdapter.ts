@@ -1,6 +1,6 @@
 import { CELL_SIZE } from '../../game/model';
 import type { GameModel, MemberType } from '../../game/model';
-import type { Combo, Context, VoxelAnalysis } from '../../solver/voxelResults';
+import type { Combo, Context, StructureEvaluation } from '../../evaluator/results';
 import type { FlowSegmentEvidence } from './flow';
 import type {
   CheckpointView, JointView, MaximumLength, MemberView, MultiplayerViewData,
@@ -19,7 +19,7 @@ export interface BaselineMemberMetadata {
 }
 
 export interface BaselineAnalysisScope {
-  readonly result: VoxelAnalysis;
+  readonly result: StructureEvaluation;
   /** Exact revision that was analyzed, including when displaying historical results. */
   readonly analyzedRevision: string;
   readonly checkpointId: string;

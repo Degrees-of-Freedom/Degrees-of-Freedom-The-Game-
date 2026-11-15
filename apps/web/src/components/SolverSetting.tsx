@@ -28,8 +28,9 @@ type Connection =
 
 /**
  * Chooses the backend of the workspace's structural check. Shared by the
- * Settings page and the pause menu. The voxel analysis is not affected: it
- * always runs, and this choice only fills the "Structural check" panel.
+ * Settings page and the pause menu. The structure evaluator (results panel,
+ * objectives, overlays) is not affected: it always uses the in-browser Rust
+ * solver, and this choice only fills the "Structural check" panel.
  */
 export function SolverSetting() {
   const settings = useSettings();

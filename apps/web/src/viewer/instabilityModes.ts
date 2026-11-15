@@ -1,9 +1,9 @@
 import * as THREE from "three";
-import type { VoxelAnalysis } from "../solver/voxelResults";
+import type { StructureEvaluation } from "../evaluator/results";
 
 /** Returned mode vectors are a basis supplied by the solver, not a count of
  * free connector axes or a prediction of the structure's collapse motion. */
-export function instabilityModes(result: VoxelAnalysis) {
+export function instabilityModes(result: StructureEvaluation) {
   return (result.combos[0]?.components ?? []).flatMap((scope, component) =>
     (scope.diagnosticModes ?? []).map((mode, index) => ({ ...mode, component, index,
       hasNodalMotion: Object.values(mode.displacements).some(values => values.length === 6 &&
@@ -15,7 +15,7 @@ export function instabilityModes(result: VoxelAnalysis) {
  * vectors and does not invent an internal beam/buckling deformation field.
  * Rotational vectors remain visible even for a spin with no nodal translation.
  * The caller owns disposal with the scene and calls animateInstability(time). */
-export function drawInstabilityMode(group: THREE.Group, result: VoxelAnalysis, index: number, playing = false) {
+export function drawInstabilityMode(group: THREE.Group, result: StructureEvaluation, index: number, playing = false) {
   const mode = instabilityModes(result)[index], ctx = result.ctx;
   if (!mode || !mode.hasNodalMotion || (!ctx && !result.diagnosticGeometry)) return;
   const ids = new Set(mode.memberIds);

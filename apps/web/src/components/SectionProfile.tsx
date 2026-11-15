@@ -1,10 +1,10 @@
 import { useId } from "react";
-import type { VoxelMemberType } from "../solver/voxelInput";
-import { SECTION_GEOMETRY } from "../solver/voxelSections";
+import type { EvaluatorMemberType } from "../evaluator/model";
+import { SECTION_GEOMETRY } from "../evaluator/sections";
 
 /** An end-on physical section, independent of readable board enlargement.
  * Even-odd fills preserve the bore instead of painting a solid end cap. */
-export function SectionProfile({type, assembled = false}: {type: VoxelMemberType; assembled?: boolean}) {
+export function SectionProfile({type, assembled = false}: {type: EvaluatorMemberType; assembled?: boolean}) {
   const title = useId();
   const section = SECTION_GEOMETRY[type];
   if (section.kind === "helix") return null;

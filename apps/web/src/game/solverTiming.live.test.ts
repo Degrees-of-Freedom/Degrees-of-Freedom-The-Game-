@@ -49,7 +49,7 @@ describe.skipIf(!url)('solver timing comparison (needs a running service)', () =
         model,
         level: LEVELS.library,
         contractCompatible: true,
-        analyzeVoxel: () => analyzeGame(model, LEVELS.library),
+        evaluate: () => analyzeGame(model, LEVELS.library),
       };
       const entry = {
         fixtureId: record.id,

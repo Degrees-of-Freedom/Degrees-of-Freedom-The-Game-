@@ -112,6 +112,7 @@ export function openSessionWriter(
       turn: session.turn && {
         version: session.turn.version,
         catalogue: session.turn.catalogue,
+        ...(session.turn.engine && { engine: session.turn.engine }),
         seed: session.turn.seed,
         events: session.turn.events,
       },

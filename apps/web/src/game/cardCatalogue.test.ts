@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ITEMS, resolveMemberLaw, SECTION_GEOMETRY } from '../solver/voxelSections';
+import { ITEMS, resolveMemberLaw, SECTION_GEOMETRY } from '../evaluator/sections';
 import { activeTurnHand, createTurnGame, parseTurnState, stageElement } from './turns';
 import {
   CARD_DEFINITION_VERSION, CANDIDATE_FAMILIES, describePrinting, LEGACY_CATALOGUE,
@@ -20,11 +20,12 @@ describe('versioned physical printings', () => {
       const stage = stageElement(original, member.id, '2,2,1', '2,2,2');
       if (!stage.ok) throw new Error(stage.reason);
       const restored = parseTurnState(JSON.parse(JSON.stringify({
-        version: 1, catalogue, seed: 5, events: stage.state.events,
+        version: 1, catalogue, engine: stage.state.engine, seed: 5, events: stage.state.events,
       })));
       expect(restored).toEqual(stage.state);
     }
-    expect(parseTurnState({ version: 1, seed: 5, events: [] })).toEqual(createTurnGame(5, LEGACY_CATALOGUE));
+    // A save without an engine predates the Rust migration: legacy kernel.
+    expect(parseTurnState({ version: 1, seed: 5, events: [] })).toEqual(createTurnGame(5, LEGACY_CATALOGUE, null));
     expect(parseTurnState({ version: 1, catalogue: 'unrecognized', seed: 5, events: [] })).toBeNull();
     expect(() => resolveCardDefinition('gravity/5kN', 'future')).toThrow(/Unsupported/);
     expect(() => resolveCardDefinition('candidate/spring', CARD_DEFINITION_VERSION)).toThrow(/Unsupported/);

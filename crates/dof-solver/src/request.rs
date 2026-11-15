@@ -275,6 +275,12 @@ fn parse_options(value: Option<&Json>) -> Parsed<Options> {
         excessive_displacement_ratio: f.num_or("excessiveDisplacementRatio", d.excessive_displacement_ratio)?,
         critical_load_search: f.flag_or("criticalLoadSearch", d.critical_load_search)?,
         stability_margin: f.num_or("stabilityMargin", d.stability_margin)?,
+        reserve_search: f.num_or("reserveSearch", d.reserve_search)?,
+        reserve_method: match f.text("reserveMethod")?.as_deref() {
+            None | Some("path") => ReserveMethod::Path,
+            Some("linearized") => ReserveMethod::Linearized,
+            Some(other) => return Err(format!("options.reserveMethod \"{other}\" is not path or linearized.")),
+        },
         failure: match f.text("failure")?.as_deref() {
             None | Some("report") => FailureMode::Report,
             Some("remove") => FailureMode::Remove,

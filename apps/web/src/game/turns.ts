@@ -10,7 +10,7 @@ import { conflictingJointAxes, connectionFrameFor, memberConnectionFrame, CONNEC
 import { findMaterialClash } from "./materialClashes";
 import { analysisLoadJoint, findPort, originalPorts, loadTargets, systemTarget, targetCoordinate, turnJoints } from "./turnPorts";
 import { analyzeTurn } from "./turnAnalysis";
-import { resolveMemberLaw, S } from "../solver/voxelSections";
+import { resolveMemberLaw, S } from "../evaluator/sections";
 import { correctTurnIssues, LEGACY_REPAIR_POLICY, NODE_REPAIR_POLICY, REPAIR_POLICY, type CorrectionReceipt, type RepairPolicy, type SystemProvenance } from "./turnRepair";
 import type { JointCorrection } from './jointCorrections';
 import { correctJointReleases } from './nodeRepair';
@@ -93,10 +93,20 @@ export type TurnReport = {
   correction?: CorrectionReceipt;
 };
 
+/** Analysis engine of a playtest match. Recorded so that a saved match
+ * replays on the engine that assessed it: new matches use the Rust turn
+ * solver; a match saved without the field was assessed by the legacy voxel
+ * kernel and replays on it. The release catalogue always uses Rust and
+ * never records the field. */
+export const RUST_TURN_ENGINE = "rust-1" as const;
+export type TurnEngine = typeof RUST_TURN_ENGINE;
+
 export interface TurnState {
   version: typeof KIT_PLAYTEST.version;
   catalogue: CatalogueId;
   rulesRevision?: typeof PLAY_REVISION;
+  /** Absent: legacy voxel kernel (saves from before the Rust migration). */
+  engine?: TurnEngine;
   seed: number;
   turn: number;
   playerIndex: number;
@@ -185,7 +195,12 @@ function draw(state: TurnState): TurnState {
   };
 }
 
-export function createTurnGame(seed = 1, catalogue: CatalogueId = LEGACY_CATALOGUE, rulesRevision?: typeof PLAY_REVISION): TurnState {
+/** The third argument accepts the revised release identity or the historical
+ * playtest engine selection. Release saves never acquire an engine field. */
+export function createTurnGame(seed = 1, catalogue: CatalogueId = LEGACY_CATALOGUE,
+  configuration: typeof PLAY_REVISION | TurnEngine | null = RUST_TURN_ENGINE): TurnState {
+  const rulesRevision = configuration === PLAY_REVISION ? configuration : undefined;
+  const engine = configuration === RUST_TURN_ENGINE ? configuration : null;
   const players = [
     { id: "player-1", score: 0, hand: [] },
     { id: "player-2", score: 0, hand: [] },
@@ -220,6 +235,7 @@ export function createTurnGame(seed = 1, catalogue: CatalogueId = LEGACY_CATALOG
     version: KIT_PLAYTEST.version,
     catalogue,
     ...(rulesRevision && {rulesRevision,checkpoints:createTurnCheckpoints()}),
+    ...(catalogue !== RELEASE_CATALOGUE && engine && { engine }),
     seed,
     turn: 1,
     playerIndex: 0,
@@ -890,7 +906,11 @@ export function replayTurnState(raw: unknown): Transition {
   }
   if (raw.rulesRevision !== undefined && (raw.rulesRevision !== PLAY_REVISION || catalogue !== RELEASE_CATALOGUE))
     return fail('Saved match requires an unsupported rules revision.');
-  let state = createTurnGame(raw.seed, catalogue, raw.rulesRevision as typeof PLAY_REVISION | undefined);
+  if (raw.engine !== undefined && raw.engine !== RUST_TURN_ENGINE)
+    return fail("Saved match requires an unsupported analysis engine.");
+  // A save without an engine was assessed by the legacy voxel kernel.
+  let state = createTurnGame(raw.seed, catalogue, raw.rulesRevision === PLAY_REVISION ? PLAY_REVISION :
+    raw.engine === RUST_TURN_ENGINE ? RUST_TURN_ENGINE : null);
   for (const event of raw.events) {
     const result = replayEvent(state, event);
     if (!result) return fail("Unrecognized saved turn action.");

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { SECTION_GEOMETRY } from "../solver/voxelSections";
+import { SECTION_GEOMETRY } from "../evaluator/sections";
 import { poseSection, READABLE_SECTION_SCALE, rectangularHollowGeometry, roundHollowGeometry, wideFlangeGeometry } from "./sectionGeometry";
 
 describe.each(["ipe", "heb"] as const)("%s wide flange", type => {
