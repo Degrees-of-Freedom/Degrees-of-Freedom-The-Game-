@@ -104,7 +104,7 @@ try {
       await ready.click();
     }
     if (cycle === 1) {
-      await page.getByLabel("Calculate every", {exact:true}).selectOption("1");
+      await page.getByLabel("Calculate every").selectOption("1");
       for (let draw = 0; draw < 4; draw++) {
         await page.locator('[data-deck="members"]').click();
         if (draw < 3) await page.getByText(`${draw + 1} of 4 drawn · any mix of decks`, {exact:true}).waitFor();

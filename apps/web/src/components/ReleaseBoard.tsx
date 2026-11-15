@@ -131,6 +131,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   const selectedMode = Math.min(instabilityMode, Math.max(0, modes.length - 1));
   const pathVisible = layer === "path" || layer === "combined";
   const flow = useMemo(() => result && pathVisible ? computeLoadPath(result, 0) : null, [result, pathVisible]);
+  const flowPeak = flow ? Math.max(0, ...Array.from(flow.members.values(), member => member.force)) : 0;
   const toggleLayer = (quantity: "shape" | "path") => {
     const shape = quantity === "shape" ? !deformed : deformed;
     const path = quantity === "path" ? !pathVisible : pathVisible;
@@ -204,7 +205,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
       {!turn.finished && <p className="release-status" key={action} role="status">{status}</p>}
       {!draftSize && result && !inspecting && <aside className="release-legend" aria-label="Analysis legend">
         {deformed && <p><span className="release-contour" aria-hidden="true" />Deflection · 0–{Number((1000 * (field?.peakM ?? 0)).toPrecision(3))} mm · ×{scale}<br />Dashed reference · exaggerated shape</p>}
-        {pathVisible && <p>→ Gravity transfer · peak {Number((flow?.maxForce ?? 0).toPrecision(3))} kN<br /><span className="release-tension">Blue · tension</span> / <span className="release-compression">Coral · compression</span><br />Violet · shear/bending · static load transfer</p>}
+        {pathVisible && <p>→ Gravity transfer · peak {Number(flowPeak.toPrecision(3))} kN<br />Arrows · <span className="release-tension">blue tension</span> / <span className="release-compression">coral compression</span><br />Violet · shear/bending · static load transfer</p>}
         {settings.releaseJointDisplay !== "off" && <p>Joint compass · bars lock, arrows release<br />Straight axes translate · arcs rotate</p>}
         {!!diagrams.length && diagrams.map(d => <p key={d.action}>{boardActions[d.action]} · peak {Number(d.peak.toPrecision(3))} {d.action < 3 ? "kN" : "kN·m"}</p>)}
         <button onClick={() => setInspecting(true)}>Inspect forces and signs</button>

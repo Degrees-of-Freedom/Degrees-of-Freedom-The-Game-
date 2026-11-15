@@ -23,7 +23,7 @@ try {
   const button=name=>page.getByRole("button",{name,exact:true});
   const ready=button("Ready · Reveal my hand");
   await page.goto(base+"match?seed=0");await ready.click();
-  await page.getByLabel("Calculate every", {exact:true}).selectOption("1");
+  await page.getByLabel("Calculate every").selectOption("1");
   const drawFour = async () => {
     for (const [index,deck] of ["members","loads","connections","connections"].entries()) {
       await page.locator('[data-deck="'+deck+'"]').click();

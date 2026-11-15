@@ -56,6 +56,7 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, draf
   const pathVisible = layer === "path" || layer === "combined";
   const shapeVisible = layer === "shape" || layer === "combined";
   const path = pathVisible && response ? computeLoadPath(response.result, 0) : null;
+  const pathPeak = path ? Math.max(0, ...Array.from(path.members.values(), member => member.force)) : 0;
   const submembers = response?.result.ctx?.els.filter(e => member && (e.m.parentSpan?.memberId ?? e.m.id) === member.id) ?? [];
   return <>
     {card && <CardDefinitionDetails card={card} />}
@@ -109,7 +110,7 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, draf
             <option value="0">Automatic</option>{[1, 10, 100, 500].map(n => <option key={n} value={n}>×{n}</option>)}
           </select></label>}
           {shapeVisible && <p>Frame displacement · blue 0 mm to red {units(1000 * (peakM ?? 0))} mm. Dashed lines show the reference shape.</p>}
-          {pathVisible && <p>Signed gravity transfer along each verified segment, scaled to {units(path?.maxForce ?? 0)} kN. Blue denotes tension, coral compression and violet mixed action. Zero and unavailable transfer have no arrows.</p>}
+          {pathVisible && <p>Signed gravity transfer along each verified segment, scaled to {units(pathPeak)} kN. Blue denotes tension, coral compression and violet mixed action. Zero and unavailable transfer have no arrows.</p>}
           {response.receipt.components.map((scope, i) => <p key={i}>{scope.verified ? "Verified" : "Unavailable"} · {scope.reason}</p>)}
           {!!shares?.length && <details><summary>Estimated foundation shares</summary>
             {shares.map(f => <p key={f.jointId}>{owner(turn.board.joints.find(j => j.id === f.jointId)?.foundationOwner ?? "neutral")}

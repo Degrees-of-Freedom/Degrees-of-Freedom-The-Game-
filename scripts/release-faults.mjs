@@ -80,7 +80,7 @@ export async function testOperationalCases(browser, base, saved) {
     const otherReady = other.getByRole("button",{name:"Ready · Reveal my hand"});
     await otherReady.waitFor();
     await page.bringToFront(); await ready.click(); await drawFour();
-    await page.getByLabel("Calculate every", {exact:true}).selectOption("1");
+    await page.getByLabel("Calculate every").selectOption("1");
     await button("Pass").dblclick();
     await ready.waitFor();
     await other.getByRole("heading",{name:"Saved session changed"}).waitFor();

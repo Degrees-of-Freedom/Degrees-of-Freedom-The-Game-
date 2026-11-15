@@ -45,7 +45,7 @@
 .release-legend { left: .75rem; bottom: 4rem; max-width: 16.5rem; pointer-events: auto; }
 .release-legend p { margin: .35rem 0; }
 .release-legend button { font-size: .75rem; padding: .3rem .5rem; min-height: 36px; }
-.release-contour { display: block; height: .35rem; border-radius: 5px; margin-bottom: .3rem; background: linear-gradient(to right,#123a9c,#00bfe8,#21b66f,#f4e445,#f79a32,#db372b); }
+.release-contour { display: block; height: .35rem; border-radius: 5px; margin-bottom: .3rem; background: linear-gradient(to right,#1e40af,#24c9ed,#43d68b,#f5e65b,#f19c38,#ef5548); }
 .release-tension { color: #a5d6ff; }
 .release-compression { color: #ffc0a8; }
 .release-mode-panel { right: .75rem; bottom: 4rem; width: min(20rem,calc(100% - 2rem)); }
