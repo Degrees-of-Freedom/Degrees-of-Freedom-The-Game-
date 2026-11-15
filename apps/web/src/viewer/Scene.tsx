@@ -17,8 +17,10 @@ import type { SceneView } from "./sceneView";
 import { createSky, SCENE_STYLES } from "./sceneStyle";
 import { buildTurnGuides } from "./turnGuides";
 import { buildGrowthGuides } from "./growthGuides";
+import { createJointGlyphs } from "./jointGlyphs";
 /** Three.js owns only presentation and picking; the game store owns the model and rules. */
 export function Scene({
+  jointLayer,
   result,
   combo,
   deformed,
@@ -31,6 +33,7 @@ export function Scene({
   baySize,
 }: SceneView) {
   const view = useRef<SceneView>({
+    jointLayer,
     result,
     combo,
     deformed,
@@ -43,6 +46,7 @@ export function Scene({
     baySize,
   });
   view.current = {
+    jointLayer,
     result,
     combo,
     deformed,
@@ -55,6 +59,10 @@ export function Scene({
     baySize,
   };
   const refresh = useRef<() => void>(() => {});
+  const refreshPermissions = useRef<() => void>(() => {});
+  useEffect(() => {
+    refreshPermissions.current();
+  }, [jointLayer, result, combo, deformed, scale]);
   useEffect(() => {
     refresh.current();
   }, [result, combo, deformed, scale, utilization, loads, loadPath]);
@@ -141,6 +149,10 @@ export function Scene({
     scene.add(preview, stickGhost);
     preview.visible = false;
     const point = (key: string) => displayPoint(key, view.current);
+    const glyphs = createJointGlyphs(scene);
+    refreshPermissions.current = () => glyphs.set(view.current.jointLayer, joint =>
+      point(view.current.result?.ctx?.idx.has(joint.id) ? joint.id : joint.point));
+    refreshPermissions.current();
     const particles = createFlowParticles(scene, point);
     let currentEnvironment = "";
     let orthoSpan = 20;
@@ -424,10 +436,13 @@ export function Scene({
         state.style === "grow-dusk" || state.style === "kit"
           ? Math.atan2(Math.max(0, camera.position.z + CELL_SIZE), 145)
           : 0;
+      glyphs.layout(camera, element.clientWidth, element.clientHeight);
       renderer.render(scene, camera);
     });
     return () => {
       refresh.current = () => {};
+      refreshPermissions.current = () => {};
+      glyphs.dispose();
       unsubscribe();
       observer.disconnect();
       renderer.setAnimationLoop(null);

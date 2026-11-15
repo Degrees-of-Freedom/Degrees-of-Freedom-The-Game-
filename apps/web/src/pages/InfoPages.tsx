@@ -155,7 +155,7 @@ export function HowToPlay() {
   );
 }
 
-const TOGGLES: { key: keyof Settings; title: string; text: string }[] = [
+const TOGGLES: { key: Exclude<keyof Settings, "jointDisplay">; title: string; text: string }[] = [
   {
     key: "sound",
     title: "Sound",

@@ -38,7 +38,7 @@ describe("menu settings", () => {
 
   it("round-trips through storage under dof.settings", () => {
     const storage = fakeStorage();
-    const settings = { sound: true, reducedMotion: true, showHelpOnStart: true };
+    const settings = { ...DEFAULT_SETTINGS, sound: true, reducedMotion: true, showHelpOnStart: true, jointDisplay: "all" as const };
     expect(writeSettings(settings, storage)).toBe(true);
     expect(JSON.parse(storage.raw!)).toEqual(settings);
     expect(readSettings(storage)).toEqual(settings);

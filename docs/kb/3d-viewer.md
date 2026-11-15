@@ -34,7 +34,7 @@ See [animation and sound criteria](animation-criteria.md) for the owner-confirme
 
 ## Joint DOF visualization requirements
 
-[Joint DOF criteria](joint-dof-criteria.md) specify a Selected joint / All joints / Off permissions overlay, global axes by default with a selectable local view, still translation/rotation glyphs with brief demonstrations, and a separate solver-instability overlay. All attached ends at a shared joint must use matching freedoms; foundations are fully fixed by default. These are new criteria, not current viewer or game-rule enforcement. Connection locks describe relative motion, not absolute stability. The current viewer does not establish compliance with this specification.
+Grow Dusk's **Build options → Joint permissions** controls Selected joint / All joints / Off and remembers the mode across reload. It draws an individual compass for each displayed intentional joint, with straight translation marks, rotational arcs, locked stops, free arrowheads and elastic zigzags. A separate striped base identifies ground restraints. The native selector exposes all joint identities, local-frame coordinates and six-axis tables, including world-axis coupling and different attached-end spring stiffnesses. The meanings, physical scope and verification are recorded in [Joint DOF criteria §10](joint-dof-criteria.md#10-open-decisions-and-current-gaps).
 
 ## Structural element geometry requirements
 

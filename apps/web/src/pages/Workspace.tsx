@@ -36,7 +36,9 @@ import {
 import { EngineeringOptions } from "../components/environment/EngineeringOptions";
 import { SceneBoundary } from "../components/environment/SceneBoundary";
 import { PauseMenu } from "../components/PauseMenu";
-import { getSettings } from "../menu/settings";
+import { getSettings, useSettings } from "../menu/settings";
+import { JointPermissions } from "../components/JointPermissions";
+import { editorJointPermissions, jointAtSceneSelection, sharedJointPermissions } from "../viewer/jointPermissions";
 import { StructureLibrary } from "../components/StructureLibrary";
 
 type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
@@ -44,6 +46,20 @@ type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 /** The environment variants compose the same store, scene and analysis boundary. */
 export function Workspace() {
   const game = useGameStore();
+  const { jointDisplay } = useSettings();
+  const board = game.mode === "multiplayer" ? game.turn?.board : undefined;
+  const editorModel = game.mode !== "multiplayer" ? game.model : undefined;
+  const joints = useMemo(() => game.style !== "grow-dusk" ? [] : board ? sharedJointPermissions(board)
+    : editorModel ? editorJointPermissions(editorModel) : [], [game.style, board, editorModel]);
+  const [permissionPick, setPermissionPick] = useState<{ id: string; selection: typeof game.selected; board: typeof board } | null>(null);
+  const selectedJoint = useMemo(() => {
+    if (permissionPick && permissionPick.selection === game.selected && permissionPick.board === board)
+      return joints.find(joint => joint.id === permissionPick.id);
+    if (game.selected?.type === "node") return jointAtSceneSelection(joints, game.selected.key, board ? game.turn : null);
+  }, [joints, permissionPick, game.selected, board, game.turn]);
+  const jointLayer = useMemo(() => game.style === "grow-dusk" && jointDisplay !== "off"
+    ? { joints: jointDisplay === "all" ? joints : selectedJoint ? [selectedJoint] : [], selected: selectedJoint?.id }
+    : undefined, [game.style, jointDisplay, joints, selectedJoint]);
   const stability = useStabilityCheck(game.model);
   // Multiplayer uses independent member-end connections, not the node model.
   const contractCompatible = game.mode !== "multiplayer";
@@ -312,6 +328,7 @@ export function Workspace() {
       <div id="stage">
         <SceneBoundary>
           <Scene
+            jointLayer={jointLayer}
             result={result}
             combo={combo}
             deformed={deformed}
@@ -582,6 +599,8 @@ export function Workspace() {
               )}
               {drawer === "build" && (
                 <>
+                  {style === "grow-dusk" && <JointPermissions joints={joints} selected={selectedJoint} mode={jointDisplay}
+                    select={id => setPermissionPick({ id, selection: game.selected, board })} />}
                   {game.mode === "challenge" && (
                     <label>
                       Challenge

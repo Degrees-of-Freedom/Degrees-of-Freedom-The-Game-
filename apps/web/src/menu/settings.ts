@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { JointDisplay } from "../viewer/jointPermissions";
 
 /**
  * Menu preferences, kept in `localStorage["dof.settings"]`.
@@ -14,6 +15,7 @@ export interface Settings {
   sound: boolean;
   reducedMotion: boolean;
   showHelpOnStart: boolean;
+  jointDisplay: JointDisplay;
 }
 
 export const SETTINGS_KEY = "dof.settings";
@@ -22,6 +24,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   sound: false,
   reducedMotion: false,
   showHelpOnStart: false,
+  jointDisplay: "selected",
 };
 
 export interface SettingsStorage {
@@ -39,7 +42,7 @@ export function parseSettings(raw: string | null): Settings {
   }
   const record =
     value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-  const pick = (key: keyof Settings) =>
+  const pick = (key: "sound" | "reducedMotion" | "showHelpOnStart") =>
     typeof record[key] === "boolean"
       ? (record[key] as boolean)
       : DEFAULT_SETTINGS[key];
@@ -47,6 +50,7 @@ export function parseSettings(raw: string | null): Settings {
     sound: pick("sound"),
     reducedMotion: pick("reducedMotion"),
     showHelpOnStart: pick("showHelpOnStart"),
+    jointDisplay: record.jointDisplay === "all" || record.jointDisplay === "off" ? record.jointDisplay : "selected",
   };
 }
 
