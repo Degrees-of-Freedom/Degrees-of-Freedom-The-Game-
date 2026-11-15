@@ -5,7 +5,7 @@ import { LEVELS } from './levels';
 
 // Check the same evaluator and objective result that the challenge workspace uses.
 describe('challenge reference structures', () => {
-  it.each(['tower1', 'bridge1', 'pickup1'] as const)('%s completes its objectives', async (id) => {
+  it.each(['tower1', 'tower2', 'bridge1', 'pickup1'] as const)('%s completes its objectives', async (id) => {
     const model = exampleModel(id);
     expect(model).not.toBeNull();
     const result = await analyzeGame(model!, LEVELS[id]);

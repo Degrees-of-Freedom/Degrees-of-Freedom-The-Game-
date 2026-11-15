@@ -8,6 +8,7 @@ import {
 import { LEVELS } from './levels';
 /** Reference structures supplied by the standalone prototype. */
 export function exampleModel(id: LevelId): GameModel | null {
+  if (id === 'tower2') return towerTwoExample();
   if (id !== 'tower1' && id !== 'bridge1' && id !== 'pickup1') return null;
   const m = initialModel(LEVELS[id]);
   const add = (a: string, b: string, type: MemberType) =>
@@ -82,4 +83,23 @@ export function exampleModel(id: LevelId): GameModel | null {
     add(nodeKey(12, 4, d), nodeKey(10, 6, t), 'shs');
   }
   return m;
+}
+
+/** A braced four-leg tower, with moment joints at its bases and mid-height. */
+function towerTwoExample(): GameModel {
+  const model = initialModel(LEVELS.tower2);
+  const legs = [[4, 4], [6, 4], [6, 6], [4, 6]];
+  const add = (a: string, b: string, type: MemberType) =>
+    model.members.push({ id: model.nextId++, a, b, type });
+  for (const [x, y] of legs) {
+    model.attrs[nodeKey(x, y, 0)] = { found: true, joint: true };
+    model.attrs[nodeKey(x, y, 6)] = { joint: true };
+  }
+  for (const z of [0, 3, 6, 9]) for (let n = 0; n < legs.length; n++) {
+    const [x, y] = legs[n], [u, v] = legs[(n + 1) % legs.length];
+    add(nodeKey(x, y, z), nodeKey(x, y, z + 3), z === 0 ? 'heb' : 'ipe');
+    add(nodeKey(x, y, z + 3), nodeKey(u, v, z + 3), 'shs');
+    add(nodeKey(x, y, z), nodeKey(u, v, z + 3), 'shs');
+  }
+  return model;
 }
