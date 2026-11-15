@@ -255,6 +255,15 @@ The option `maxRequestIterations`, which the Rust parser already accepted, is no
 
 Game-sized nonlinear runs measured 12–20 ms for both, within this container's noise. Natively the 12×12×14 frame with two elements per beam (57,512 equations) fell from 133 s to 5.9 s nonlinear and from 26.7 s to 1.07 s linear. Large nonlinear runs are now dominated by about four factorisations, roughly half of whose work is the final dense separator block (about 3e9 multiply-adds per second natively).
 
+**Relation to the structure-evaluator work (`nico/eager-maxwell-gsphds`, PR #21).** That branch, merged into `main` at `c41571d` before 0.3, added the opt-in stability reserve search (`path` and `linearized`, `tests/reserve.rs`). It moved the editor, levels, auto-design and structure library onto the Rust solver (`evaluator/engine/rustDesign.ts`) and new Shared table playtest matches onto the release turn solver (`engine: "rust-1"`). It also recorded the 2026-11-15 owner decisions, including the linearised α_cr method ([voxel retirement](voxel-retirement.md#owner-decisions-2026-11-15)). Solver 0.3 builds on it unchanged:
+
+- Its reserve search runs on both factorisations: the linearised method's tangent blend has a sparse counterpart, and `tests/large.rs` checks both methods on a large column grid.
+- The 1,500 reserve-search states of the native differential match its solver exactly.
+- Its evaluator and playtest tests, its structure-library baseline (refreshed, see [development and testing](development-and-testing.md#solver-03-sparse-factorisation--2026-11-15)) and its saved-solver replay check all pass on 0.3.
+- Its Rust playtest matches use the same release identity, so they accept 0.2.0 and 0.3.0 receipts like the release does.
+
+Because the evaluator now sends whole level and library structures with four load combinations to Rust, the larger of them are the first in-game users of the sparse path. In the library that is `12-midrise`.
+
 **Still open.** WebAssembly threads would need cross-origin isolation and a nightly toolchain, so all of this runs on one core. Load cases still each factorise their own stiffness. Element tangents are still formed by second-order forward differentiation; assembly becomes the larger share for mid-sized structures.
 
 ## Cross-check with OpenSees — 2026-11-15
