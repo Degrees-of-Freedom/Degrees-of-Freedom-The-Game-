@@ -130,14 +130,15 @@ export function TurnPanel({
             </button>
             <button
               className="primary-action"
+              disabled={game.turnAnalysing}
               onClick={() => {
-                const issue = game.endTurn();
-                onMessage(
-                  issue ?? "Turn committed. Pass the table to the next player.",
+                onMessage("Analysing the turn…");
+                void game.endTurn().then((issue) =>
+                  onMessage(issue ?? "Turn committed. Pass the table to the next player."),
                 );
               }}
             >
-              End turn / pass
+              {game.turnAnalysing ? "Analysing…" : "End turn / pass"}
             </button>
           </div>
         </>

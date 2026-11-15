@@ -69,7 +69,7 @@ type Event =
       end: "a" | "b";
       jointId?: string;
     }
-  | { kind: "end"; turn: number; status?: TurnReport["status"]; analysis?: StructuralAnalysisResult };
+  | { kind: "end"; turn: number; status?: TurnReport["status"]; analysis?: StructuralAnalysisResult; reason?: string };
 
 export type TurnReport = {
   turn: number;
@@ -394,6 +394,8 @@ export function endTurn(
   expectedTurn = state.turn,
   status: TurnReport["status"] = "unresolved",
   analysis?: StructuralAnalysisResult,
+  /** The analysis's own explanation; a generic one for the status otherwise. */
+  reason?: string,
 ): Transition {
   if (state.finished || expectedTurn !== state.turn)
     return fail("This turn has already ended.");
@@ -403,7 +405,7 @@ export function endTurn(
     turn: state.turn,
     playerId: player.id,
     status,
-    reason: {
+    reason: reason ?? {
       stable: "The experimental applied-load solve converged.",
       unstable: "The experimental solve indicates a mechanism or excessive displacement.",
       partial: "Supported geometry was analyzed. Floating components are excluded from the numerical solve.",
@@ -433,7 +435,7 @@ export function endTurn(
     },
     draft: emptyDraft(),
     reports: [...state.reports, report],
-    events: [...state.events, { kind: "end", turn: state.turn, status, ...(analysis && { analysis }) }],
+    events: [...state.events, { kind: "end", turn: state.turn, status, ...(analysis && { analysis }), ...(reason !== undefined && { reason }) }],
   };
   return { ok: true, state: finished ? committed : draw(committed) };
 }
@@ -489,7 +491,10 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
   if (event.kind === "end" && typeof event.turn === "number") {
     if (event.status !== undefined && event.status !== "stable" && event.status !== "unstable" &&
       event.status !== "partial" && event.status !== "unresolved") return null;
-    if (event.analysis === undefined) return endTurn(state, event.turn, event.status);
+    // The recorded reason replays with the turn, so a restored match shows
+    // what the deciding solver said rather than a generic sentence.
+    const reason = typeof event.reason === "string" ? event.reason : undefined;
+    if (event.analysis === undefined) return endTurn(state, event.turn, event.status, undefined, reason);
     const parsed = structuralAnalysisResultSchema.safeParse(event.analysis);
     if (!parsed.success) return null;
     const analysis = parsed.data;
@@ -507,7 +512,7 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
       snapshot.parentRevisionId !== prior?.revisionId ||
       (prior && prior.modelId !== snapshot.modelId)
     ) return null;
-    return endTurn(state, event.turn, event.status, analysis);
+    return endTurn(state, event.turn, event.status, analysis, reason);
   }
   if (typeof event.cardId !== "string") return null;
   if (

@@ -3,10 +3,12 @@ import type {
   AnalysisModel,
   AnalysisOptions,
   AnalysisResult,
+  ComponentResult,
   ConnectionLaws,
   DetailedAnalysisResult,
   MechanismMode,
   MemberForces,
+  ReasonCode,
   StabilityReport,
   StructuralModel,
   Vector6,
@@ -137,20 +139,34 @@ export function fromDetailedResult(model: StructuralModel, detailed: DetailedAna
       `${report.rotationalMechanisms} free spin mode(s) were held still: members can rotate about their own axis, but no load acts on that rotation.`,
     );
 
-  if (!report.stable) return { status: 'unstable', message: unstableMessage(detailed, report), stability: report, warnings };
-  const unresolved = detailed.components.find((component) => !component.resultsValid);
-  if (unresolved)
-    return { status: 'error', message: `The solver could not verify a result (${unresolved.reasonCodes.join(', ') || 'unknown reason'}).` };
+  // The original contract (v2) carries a result per component; entries for
+  // a component without verified results are left out, never zeroed.
+  const components: ComponentResult[] = detailed.components.map((component) => ({
+    id: component.id,
+    nodeIds: component.nodeIds,
+    memberIds: component.memberIds,
+    state: component.status,
+    reasonCodes: reasonCodesOf(component),
+    resultsValid: component.resultsValid,
+    stability: componentStability(component),
+    ...(component.criticalLoadFactor != null && { loadFactor: component.criticalLoadFactor }),
+    ...(component.convergence.residual != null && { residual: component.convergence.residual }),
+  }));
+  const valid = new Set(detailed.components.filter((component) => component.resultsValid).map((component) => component.id));
+  const validNode = (id: string) => valid.has(detailed.nodes[id]?.componentId ?? '');
 
   const displacements: Record<string, Vector6> = {};
-  for (const node of model.nodes) displacements[node.id] = detailed.nodes[node.id]?.displacement ?? ZERO;
+  for (const node of model.nodes)
+    if (validNode(node.id)) displacements[node.id] = detailed.nodes[node.id]?.displacement ?? ZERO;
 
   const reactions: Record<string, Vector6> = {};
   for (const support of model.supports)
-    reactions[support.nodeId] = detailed.foundations[foundationId(support.nodeId)]?.reaction ?? ZERO;
+    if (validNode(support.nodeId))
+      reactions[support.nodeId] = detailed.foundations[foundationId(support.nodeId)]?.reaction ?? ZERO;
 
   const memberForces: Record<string, MemberForces> = {};
   for (const member of model.members) {
+    if (!validNode(member.startNodeId)) continue;
     const forces = detailed.members[member.id]?.forces;
     const [start, end] = [forces?.start ?? ZERO, forces?.end ?? ZERO];
     memberForces[member.id] = {
@@ -161,5 +177,53 @@ export function fromDetailedResult(model: StructuralModel, detailed: DetailedAna
       momentEnd: Math.hypot(end[4], end[5]),
     };
   }
-  return { status: 'success', displacements, reactions, memberForces, stability: report, warnings };
+  const body = {
+    analysis: {
+      fidelity: detailed.analysis.fidelity ?? ('linear' as const),
+      solver: `Rust dof-solver ${detailed.analysis.solverVersion}`,
+      runtimeMs: detailed.analysis.runtimeMs ?? 0,
+      reasonCodes: [...new Set(components.flatMap((component) => component.reasonCodes))],
+      ...(model.version !== undefined && { modelVersion: model.version }),
+    },
+    components,
+    displacements,
+    reactions,
+    memberForces,
+    stability: report,
+    warnings,
+  };
+  if (!report.stable) return { status: 'unstable', message: unstableMessage(detailed, report), ...body };
+  if (components.some((component) => component.state === 'unknown'))
+    return { status: 'unresolved', message: 'The solver could not verify a result for every part of the structure.', ...body };
+  return { status: 'success', ...body };
+}
+
+/**
+ * The detailed contract names its reasons in camelCase and adds some the
+ * original contract does not have. Map what has an equivalent from the
+ * component flags; the rest stay in the detailed result.
+ */
+function reasonCodesOf(component: DetailedAnalysisResult['components'][number]): ReasonCode[] {
+  const codes: ReasonCode[] = [];
+  if (component.flags.unsupported) codes.push('unsupported_component');
+  else if (component.flags.mechanism)
+    codes.push(component.counts.rigidBodyModes > 0 && component.counts.internalMechanisms === 0 ? 'rigid_body_mechanism' : 'internal_mechanism');
+  if (component.flags.loadInducedInstability) codes.push('load_induced_instability');
+  if (component.flags.nearMechanism) codes.push('near_mechanism');
+  if (component.flags.excessiveDeformation) codes.push('excessive_deformation');
+  if (component.status === 'unknown' && !component.convergence.converged) codes.push('not_converged');
+  return codes;
+}
+
+function componentStability(component: DetailedAnalysisResult['components'][number]): StabilityReport {
+  return {
+    stable: component.status === 'stable' || component.status === 'marginal',
+    freeDofs: component.counts.freeDofs,
+    mechanisms: component.counts.mechanisms + component.counts.spinModes,
+    translationalMechanisms: component.counts.mechanisms,
+    rotationalMechanisms: component.counts.spinModes,
+    staticIndeterminacy: component.counts.staticIndeterminacy,
+    unstableNodeIds: component.unstableNodeIds,
+    modes: [],
+  };
 }

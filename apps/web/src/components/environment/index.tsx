@@ -17,6 +17,7 @@ type Props = { style: PresentationStyle; onMessage: (message: string) => void };
 type IconKind =
   | "member"
   | "connection"
+  | "foundation"
   | "load"
   | "erase"
   | "inspect"
@@ -25,6 +26,12 @@ type IconKind =
 
 /** The tool glyphs follow the Levels and Blocks prototype artwork. */
 function Icon({ kind, style }: { kind: IconKind; style: PresentationStyle }) {
+  if (kind === "foundation")
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M12 3v11M5 14h14M3 18h18M6 21l2-3m3 3 2-3m3 3 2-3" />
+      </svg>
+    );
   if (style === "kit") {
     if (kind === "member")
       return (
@@ -303,6 +310,13 @@ export function EnvironmentTools({ style, onMessage }: Props) {
       active: game.tool === "joint",
       action: () => game.setTool("joint"),
     },
+    ...(game.mode !== "multiplayer" ? [{
+      kind: "foundation" as const,
+      label: "Foundation",
+      key: "B",
+      active: game.tool === "found",
+      action: () => game.setTool("found"),
+    }] : []),
     {
       kind: "load",
       label: "Load",
@@ -508,7 +522,7 @@ export function EnvironmentTray({ style }: Props) {
           className={`token${game.tool === "found" ? " selected" : ""}`}
           onClick={() => game.setTool("found")}
         >
-          <Icon kind="connection" style={style} />
+          <Icon kind="foundation" style={style} />
           <small>Foundation</small>
         </button>
       </div>

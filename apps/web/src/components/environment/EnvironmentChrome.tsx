@@ -233,7 +233,7 @@ export function TurnBanner({
           disabled={turn.finished}
           title="End turn (Enter)"
           onClick={() =>
-            onMessage(game.endTurn() ?? "Turn committed · pass the table")
+            void game.endTurn().then((issue) => onMessage(issue ?? "Turn committed · pass the table"))
           }
         >
           End turn
@@ -260,7 +260,7 @@ export function TurnBanner({
         className="btn"
         disabled={turn.finished}
         onClick={() =>
-          onMessage(game.endTurn() ?? "Turn committed · pass the table")
+          void game.endTurn().then((issue) => onMessage(issue ?? "Turn committed · pass the table"))
         }
       >
         End turn

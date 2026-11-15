@@ -56,7 +56,7 @@ describe('Rust WebAssembly solver, original contract', () => {
     if (result.status !== 'success') throw new Error(JSON.stringify(result));
     expect(result.memberForces?.m.axial).toBeCloseTo(5000, 6);
     expect(result.reactions?.a[2]).toBeCloseTo(-5000, 6);
-    expect(result.displacements.lonely).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(result.displacements.lonely).toBeUndefined();
     expect(result.warnings.join(' ')).toContain('1 node(s) with no members');
   });
 

@@ -4,8 +4,20 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string');
+const isOneOf = (value: unknown, allowed: readonly string[]): boolean =>
+  typeof value === 'string' && allowed.includes(value);
 
 const STABILITY_COUNTS = ['freeDofs', 'mechanisms', 'translationalMechanisms', 'rotationalMechanisms', 'staticIndeterminacy'];
+const COMPONENT_STATES = ['stable', 'marginal', 'unstable', 'unknown'];
+const FIDELITIES = ['linear', 'nonlinear'];
+const REASON_CODES = [
+  'unsupported_component', 'rigid_body_mechanism', 'internal_mechanism', 'near_mechanism',
+  'load_induced_instability', 'geometrically_stiffened', 'excessive_deformation', 'cable_slack',
+  'not_converged', 'timeout', 'equilibrium_not_verified', 'non_finite_result', 'solver_error',
+];
+
+const isReasonCodes = (value: unknown): boolean =>
+  Array.isArray(value) && value.every((code) => isOneOf(code, REASON_CODES));
 
 function isStabilityReport(value: unknown): boolean {
   return (
@@ -14,6 +26,43 @@ function isStabilityReport(value: unknown): boolean {
     STABILITY_COUNTS.every((key) => Number.isFinite(value[key])) &&
     isStringArray(value.unstableNodeIds) &&
     Array.isArray(value.modes)
+  );
+}
+
+function isComponent(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    isStringArray(value.nodeIds) &&
+    isStringArray(value.memberIds) &&
+    isOneOf(value.state, COMPONENT_STATES) &&
+    isReasonCodes(value.reasonCodes) &&
+    typeof value.resultsValid === 'boolean' &&
+    isStabilityReport(value.stability)
+  );
+}
+
+function isAnalysisSummary(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    isOneOf(value.fidelity, FIDELITIES) &&
+    typeof value.solver === 'string' &&
+    Number.isFinite(value.runtimeMs) &&
+    isReasonCodes(value.reasonCodes)
+  );
+}
+
+/** The body shared by success, unstable and unresolved results. */
+function isAnalysisBody(value: Record<string, unknown>): boolean {
+  return (
+    isAnalysisSummary(value.analysis) &&
+    Array.isArray(value.components) &&
+    value.components.every(isComponent) &&
+    isRecord(value.displacements) &&
+    isRecord(value.reactions) &&
+    isRecord(value.memberForces) &&
+    isStabilityReport(value.stability) &&
+    isStringArray(value.warnings)
   );
 }
 
@@ -26,13 +75,10 @@ function isAnalysisResult(value: unknown): value is AnalysisResult {
   if (!isRecord(value)) return false;
   switch (value.status) {
     case 'success':
-      return (
-        isRecord(value.displacements) &&
-        isStringArray(value.warnings) &&
-        (value.stability === undefined || isStabilityReport(value.stability))
-      );
+      return isAnalysisBody(value);
     case 'unstable':
-      return typeof value.message === 'string' && isStringArray(value.warnings) && isStabilityReport(value.stability);
+    case 'unresolved':
+      return typeof value.message === 'string' && isAnalysisBody(value);
     case 'unsupported':
     case 'error':
       return typeof value.message === 'string';
@@ -91,7 +137,7 @@ export function createOpenSeesSolver(baseUrl: string, fetchImpl: typeof fetch = 
   const endpoint = `${baseUrl.replace(/\/+$/, '')}/analyze`;
   return {
     id: 'opensees',
-    name: 'OpenSees linear static',
+    name: 'OpenSees',
     async analyze(model: StructuralModel, signal?: AbortSignal): Promise<AnalysisResult> {
       let response: Response;
       try {

@@ -5,12 +5,12 @@ import { useGameStore } from "../game/store";
 import { analyzeGame } from "../game/analysis";
 import { analyzeTurn } from "../game/turnAnalysis";
 import { useStabilityCheck } from "../game/useStabilityCheck";
+import type { VoxelAnalysis } from "../solver/voxel";
 import { StabilityCheckPanel } from "../components/StabilityCheckPanel";
 import { modeProgress } from "../game/modes";
 import { environmentExample } from "../game/environmentExamples";
 import { useEditorSound } from "../game/useEditorSound";
 import { createGameSave } from "../game/structuralState";
-import type { VoxelAnalysis } from "../solver/voxel";
 import { AnalysisPanel } from "../components/AnalysisPanel";
 import { ConnectivityPanel } from "../components/ConnectivityPanel";
 import { CoordinateEditor, ModelIO } from "../components/RuntimeControls";
@@ -40,6 +40,8 @@ type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 /** The environment variants compose the same store, scene and analysis boundary. */
 export function Workspace() {
   const game = useGameStore();
+  // The structural solver is a setting: the game uses one solver at a time,
+  // for this check and to decide each completed shared-table turn.
   const stability = useStabilityCheck(
     game.model,
     LEVELS[game.levelId],
@@ -146,7 +148,7 @@ export function Workspace() {
         game.setSelected(null);
       }
       if (event.key === "Enter" && game.mode === "multiplayer")
-        setMessage(game.endTurn() ?? "Turn committed");
+        void game.endTurn().then((issue) => setMessage(issue ?? "Turn committed"));
     };
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
@@ -512,6 +514,8 @@ export function Workspace() {
                   ? "Choose the next point · Esc to release"
                   : game.tool === "joint"
                     ? "Click a joint to explore its degrees of freedom"
+                    : game.tool === "found"
+                      ? "Click solid ground to place or remove a foundation"
                     : game.tool === "load"
                       ? "Click a joint to place or edit a load"
                       : isBlocks
