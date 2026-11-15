@@ -1,6 +1,6 @@
 ---
 title: "Placement and Connection Legality Criteria"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
   - "Project owner completion-criteria request and follow-up decisions, 2026-11-14"
   - docs/kb/turn-criteria.md
@@ -8,6 +8,10 @@ validated_against:
   - docs/kb/element-representation-criteria.md
   - docs/kb/card-definition-criteria.md
   - docs/kb/solver-criteria.md
+  - docs/kb/cantilever-placement.md
+  - apps/web/src/game/turns.ts
+  - apps/web/src/game/materialClashes.ts
+  - apps/web/src/game/cantileverRules.test.ts
 owner: project owner
 status: needs-review
 ---
@@ -16,7 +20,7 @@ status: needs-review
 
 ## 1. Confirmed decisions and implementation status
 
-Criteria only; no new placement, clash, assembly or quarter-subdivision behavior is implemented here. The owner confirmed:
+This page records target criteria, historical decisions and the bounded implementation described below. The owner confirmed:
 
 - 3D grid endpoints, including diagonals, within printed card lengths/orientations.
 - Interior attachment only at **quarter points**: 25%, 50% and 75% of the original reference span.
@@ -24,7 +28,9 @@ Criteria only; no new placement, clash, assembly or quarter-subdivision behavior
 - Unconnected elements are permitted, but **physical clashes are not**.
 - One planar-truss or trichord assembly card places one complete assembly using one element play; each external attachment requires its own connection card. This explicitly supersedes the earlier one-member-only prohibition for those assembly cards.
 
-Existing shared access, immutable placed connectors, same connection freedoms at a joint, setup-only fixed player foundations (with the explicit neutral-system repair exception) and independent 1/1/2 play maxima remain in force. A legal structure may be unsupported, unstable or overloaded; physical adversity is not placement illegality. New numerical interpretations must satisfy [solver criteria](solver-criteria.md).
+Shared access, immutable original player connectors, compatible physical freedoms and setup-only player foundations remain in force. Earlier presets retain their 1/1/2 maxima; grow-dusk-play-2 removes those held-card caps and records system fitting corrections separately. The cantilever catalogue adds fixed source collars without reverting the revised three decks, local connection frames, checkpoint cadence or angle-dependent fitting policy. A legal structure may still be unsupported, unstable or overloaded; physical adversity is not placement illegality.
+
+**Implemented v2 addition, 2026-11-15.** `grow-dusk-release-2` permits a newly placed continuous frame's own original 25%, 50% or 75% source station to meet an existing shared joint or permitted original quarter port. A declared contact opens only the bounded fitting envelope; it adds no stiffness. One compatible Fixed connector then activates that source collar. Both overhangs belong to the same element, the whole Euclidean span counts against its printing, and both endpoints must remain legal. Existing receiving-joint fittings are preserved, and setup/neutral load exclusions follow explicit alias identity. End connections and existing target-quarter family laws retain their prior scope. Partial-lock, ball, elastic, axial-family and assembly interior **source** collars remain unavailable; this addition does not claim those general laws. The [implementation and evidence](cantilever-placement.md) distinguish the new v2 mechanics from unchanged v1 saves and card definitions.
 
 ## 2. Reference geometry and target identity
 
@@ -85,7 +91,7 @@ Open: grid/board preset and tolerances, actual clearance/fitting rules, quarter-
 
 ## 7. Explicit system-correction boundary
 
-The current Shared table implements original ¼, ½ and ¾ port identities for its scored prismatic frames. Scene and precise controls preserve the selected parent and fraction. The numerical model splits at activated ports with internal continuity and retains parent-span mapping. The turn spends the external connection card once. The [ledger](criteria-ledger.md) records the diagonal pointer and four-section analytical fixtures, plus the pending spring, cable and assembly laws.
+Shared table implements original ¼, ½ and ¾ port identities and preserves selected parent/fraction through scene and precise controls. The numerical model splits at activated ports with internal continuity and retains parent-span mapping. The turn spends the external connection card once. V2 adds fixed source collars at those stations on continuous frames; source collar demand and repair scope use their original identity instead of a synthetic end. The [cantilever implementation](cantilever-placement.md) records this bounded extension. The [ledger](criteria-ledger.md) retains family-specific target-port evidence and outstanding gates separately.
 
 The owner now authorizes recorded game-owned automatic repair for instability and overload, preserving player moves. It does not legalize an invalid player draft, delete loads, upgrade immutable player connectors or silently waive clash/quarter/common-freedom rules. System objects must have a declared physical/attachment policy, ownership and provenance; neutral ground anchors are now an explicit system-only exception to player setup-only foundations; accepted repairs remain permanent for the match. Direct player contacts stay local to the flagged element/interfaces and must be recorded; indirect redistribution is verified globally. Matching elastic freedom states/axes permit differing connector stiffness values, retained individually. See [repair transaction](failure-repair-criteria.md#6-automatic-correction-transaction).
 

@@ -2,6 +2,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
+import { addSculpturalStructures } from './sculptural-structures.mjs';
 
 const root = fileURLToPath(new URL('../apps/web/public/structures/', import.meta.url));
 mkdirSync(root, { recursive: true });
@@ -23,6 +24,7 @@ function build(id, name, family, purpose, construct, expectation = 'stable') {
   records.push({ format: 'dof-structure-record', version: 1, id, name, family, purpose,
     complexity: model.members.length <= 10 ? 'small' : model.members.length <= 60 ? 'medium' : 'large',
     nodeCount: points.length, memberCount: model.members.length, extentMetres: span,
+    foundationCount: Object.values(model.attrs).filter(a => a.found).length,
     expectation: { stability: expectation, basis: 'Qualitative design intent; not a verified numerical reference.' },
     preview: `previews/${id}.png`,
     save: { format: 'dof-voxel-save', version: 1, levelId: 'library', model } });
@@ -104,13 +106,14 @@ build('20-no-foundation', 'Unsupported cube', 'diagnostic', 'No-support error, r
   frame(c, 1, 1, 1); for (const p of [[2, 2, 0], [2, 4, 0], [4, 2, 0], [4, 4, 0]]) c.attr(p, { found: false });
 }, 'unsupported');
 
+addSculpturalStructures(build);
 const catalog = { format: 'dof-structure-library', version: 1, records };
 writeFileSync(`${root}/catalog.json`, JSON.stringify(catalog, null, 2) + '\n');
 for (const record of records) writeFileSync(`${root}/records/${record.id}.json`, JSON.stringify(record, null, 2) + '\n');
 // SQLite is a generated portable index, not an application persistence service.
 const db = new DatabaseSync(`${root}/structures.sqlite`);
-db.exec('DROP TABLE IF EXISTS structures; CREATE TABLE structures (id TEXT PRIMARY KEY, name TEXT NOT NULL, family TEXT NOT NULL, member_count INTEGER NOT NULL, node_count INTEGER NOT NULL, preview TEXT NOT NULL, record_json TEXT NOT NULL);');
-const insert = db.prepare('INSERT INTO structures VALUES (?, ?, ?, ?, ?, ?, ?)');
-for (const r of records) insert.run(r.id, r.name, r.family, r.memberCount, r.nodeCount, r.preview, JSON.stringify(r));
+db.exec('DROP TABLE IF EXISTS structures; CREATE TABLE structures (id TEXT PRIMARY KEY, name TEXT NOT NULL, family TEXT NOT NULL, member_count INTEGER NOT NULL, node_count INTEGER NOT NULL, foundation_count INTEGER NOT NULL, preview TEXT NOT NULL, record_json TEXT NOT NULL);');
+const insert = db.prepare('INSERT INTO structures VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+for (const r of records) insert.run(r.id, r.name, r.family, r.memberCount, r.nodeCount, r.foundationCount, r.preview, JSON.stringify(r));
 db.close();
 console.log(`Generated ${records.length} structure records and SQLite index.`);

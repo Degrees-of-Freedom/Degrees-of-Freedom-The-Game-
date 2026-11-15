@@ -25,6 +25,9 @@ import { drawBoardDiagram } from "./boardDiagrams";
 import { buildStructure } from "./structureMeshes";
 import { bindSceneInteraction } from "./sceneInteraction";
 import { selectedTurnCard } from "./turnPicking";
+import { placementCandidates } from "../game/cantileverPlacement";
+import { attachmentQuarter } from "../game/attachmentSites";
+import { targetCoordinate } from "../game/turnPorts";
 import { poseSection, wideFlangeGeometry } from "./sectionGeometry";
 import { assemblyGeometry } from "./assemblyGeometry";
 import { springGeometry } from "./springGeometry";
@@ -45,6 +48,7 @@ const trimLength = (value: number) =>
 import { createJointGlyphs } from "./jointGlyphs";
 /** Three.js owns only presentation and picking; the game store owns the model and rules. */
 export function Scene({
+  sharedFlow,
   diagrams,
   cameraMemory,
   still,
@@ -69,6 +73,7 @@ export function Scene({
   baySize,
 }: SceneView) {
   const view = useRef<SceneView>({
+    sharedFlow,
     diagrams,
     cameraMemory,
     still,
@@ -93,6 +98,7 @@ export function Scene({
     baySize,
   });
   view.current = {
+    sharedFlow,
     diagrams,
     cameraMemory,
     still,
@@ -125,7 +131,7 @@ export function Scene({
   useEffect(() => {
     refresh.current();
   }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath, trueScale, showInstability,
-    instabilityMode, playInstability, reactionLabels, diagrams, shadow, labels, still]);
+    instabilityMode, playInstability, reactionLabels, diagrams, shadow, labels, still, sharedFlow]);
   const workK = useGameStore((state) => state.workK);
   const style = useGameStore((state) => state.style);
   const host = useRef<HTMLDivElement>(null);
@@ -425,7 +431,7 @@ export function Scene({
       disposeGroup(structure);
       delete structure.userData.animateInstability;
       particles.reset();
-      const releaseFlow = !!view.current.cameraMemory && view.current.loadPath;
+      const releaseFlow = (!!view.current.cameraMemory || !!view.current.sharedFlow) && view.current.loadPath;
       buildStructure(structure, state, releaseFlow ? { ...view.current, loadPath: false } : view.current, point, particles.add);
       // Ownership remains visible independently of optional result-value labels.
       if (view.current.cameraMemory && state.turn) {
@@ -439,7 +445,7 @@ export function Scene({
       // Optional view-mode labels default to shown; reaction size/off remains
       // an independent release preference inside addResultArrows.
       const labels = view.current.labels !== false;
-      if (releaseFlow && view.current.result) buildReleaseFlow(structure, view.current.result, point, particles.add, labels);
+      if (releaseFlow && view.current.result) buildReleaseFlow(structure, view.current.result, point, particles.add, labels, view.current.combo);
       for (const diagram of view.current.diagrams ?? []) {
         drawBoardDiagram(structure, diagram, point, view.current.deformed ? view.current.field : undefined, view.current.scale, labels);
       }
@@ -449,9 +455,9 @@ export function Scene({
       }
       if (labels && field && (view.current.shadow || view.current.deformed)) labelPeakDisplacement(structure, field, view.current.scale);
       if (view.current.showInstability && view.current.result) {
-        markInstability(structure, view.current.result, point, labels);
+        markInstability(structure, view.current.result, point, labels, view.current.combo);
         drawInstabilityMode(structure, view.current.result, view.current.instabilityMode ?? 0,
-          !!view.current.playInstability && !view.current.still && !getSettings().reducedMotion);
+          !!view.current.playInstability && !view.current.still && !getSettings().reducedMotion, view.current.combo);
       }
       addResultArrows(structure, view.current, point, state.style !== 'engineering' && labels);
       refreshGuides();
@@ -753,7 +759,22 @@ export function Scene({
       const lengthLabel = labels?.querySelector<HTMLElement>("#growth-length");
       if (lengthLabel) {
         const role = target?.role ?? null;
-        if (target && role && chainPoint && stickGhost.visible) {
+        const chosenTip = state.mode === "multiplayer" && state.placementTip ? placementCandidates(state).find(candidate => candidate.key === state.placementTip) : undefined;
+        let turnHover = hover;
+        if (chosenTip && !turnHover) {
+          const a = parseNodeKey(targetCoordinate(state.model.members, chosenTip.a)), b = parseNodeKey(targetCoordinate(state.model.members, chosenTip.b));
+          const total = CELL_SIZE * Math.hypot(...a.map((value, axis) => b[axis] - value)), q = attachmentQuarter(state.attachmentSite)/4;
+          turnHover = {p: chosenTip.point, issue: null, role: null, stack: `${trimLength(total)} m total · ${trimLength(total*q)} m / ${trimLength(total*(1-q))} m from attachment · free tips`};
+        }
+        if (state.mode === "multiplayer" && turnHover && state.chainStart && selectedTurnCard(state)?.kind === "element") {
+          const at = toScreen(new THREE.Vector3(...turnHover.p).multiplyScalar(CELL_SIZE));
+          const text = lengthLabel.querySelector("span"), detail = lengthLabel.querySelector("small"), dot = lengthLabel.querySelector<HTMLElement>("i");
+          if (text) text.textContent = turnHover.issue ? "Choose another span" : "New element";
+          if (detail) detail.textContent = turnHover.issue ?? turnHover.stack;
+          if (dot) dot.style.background = turnHover.issue ? "#e75151" : "#f6ad49";
+          lengthLabel.style.display = at.ok ? "" : "none";
+          lengthLabel.style.transform = `translate(${Math.max(8, Math.min(width - 250, Math.round(at.x + 20)))}px, ${Math.max(8, Math.round(at.y - 34))}px)`;
+        } else if (target && role && chainPoint && stickGhost.visible) {
           const at = toScreen(
             new THREE.Vector3(...target.p).multiplyScalar(CELL_SIZE),
           );

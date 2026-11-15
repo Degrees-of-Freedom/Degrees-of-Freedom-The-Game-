@@ -3,6 +3,7 @@ import { RUST_TURN_ENGINE, type TurnState } from "./turns";
 import type { StructureEvaluation } from "../evaluator/results";
 import { CABLE_FORMULATION, RELEASE_SOLVER, verifiedResponse } from "../evaluator/evidence";
 import { analysisLoadJoint } from "./turnPorts";
+import { isReleaseCatalogue } from "./cardCatalogue";
 
 export const SCORE_POLICY = "signed-card-gravity-v1";
 export const TIE_TOLERANCE = 0.01;
@@ -58,7 +59,7 @@ function unknownScope(turn: TurnState, reason: string): ScopeEvidence {
 
 /** Only an independently checked component contributes signed physical reactions. */
 function solverFor(turn: TurnState) {
-  return turn.catalogue === "grow-dusk-release-1" || turn.engine === RUST_TURN_ENGINE ? RELEASE_SOLVER :
+  return isReleaseCatalogue(turn.catalogue) || turn.engine === RUST_TURN_ENGINE ? RELEASE_SOLVER :
     turn.board.members.some(m => m.restLengthM !== undefined) ? CABLE_FORMULATION : "voxel-linear-frame-v1";
 }
 

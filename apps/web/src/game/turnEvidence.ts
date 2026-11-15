@@ -9,6 +9,9 @@ import { ITEMS, S } from '../evaluator/sections';
 import type { StructureEvaluation } from '../evaluator/results';
 import { parseNodeKey } from './model';
 import { RUST_TURN_ENGINE, turnJoints, type TurnReport, type TurnState } from './turns';
+import { attachmentQuarter, isInteriorSite } from './attachmentSites';
+import { CARD_STRENGTH } from '../evaluator/capacity';
+import { CANTILEVER_CATALOGUE, isReleaseCatalogue } from './cardCatalogue';
 import { connectionDefinition, conflictingJointAxes, memberConnectionFrame } from './jointFreedom';
 import { effectiveJointConnections } from './jointCorrections';
 
@@ -32,6 +35,7 @@ function cardProvenance(instanceId: string | undefined, definitionId: string, ve
 
 /** Compile a whole turn directly from explicit attachments, never the render model. */
 export function buildTurnRequest(turn: TurnState, matchId: string): StructuralAnalysisRequest {
+  const selfWeight = turn.catalogue !== CANTILEVER_CATALOGUE;
   const entries = [...turn.board.members, ...turn.draft.members];
   const kinds = [...new Set(entries.map((entry) => entry.type))];
   const materials = kinds.map((id) => {
@@ -70,7 +74,9 @@ export function buildTurnRequest(turn: TurnState, matchId: string): StructuralAn
   });
   const byMember = new Map(members.map((member) => [member.id, member]));
   const originalConnections = [...turn.board.connections, ...turn.draft.connections];
-  const connections = effectiveJointConnections({...turn.board, connections: originalConnections}).map((connection, index) => {
+  const fittings = originalConnections;
+  const connections = effectiveJointConnections({...turn.board, connections: originalConnections}).flatMap((connection, index) => {
+    if (isInteriorSite(connection.end)) return [];
     const member = byMember.get(String(connection.memberId));
     if (!member) throw new Error('Connection refers to a missing member.');
     const endpoint = connection.end === 'a' ? member.start : member.end;
@@ -78,7 +84,7 @@ export function buildTurnRequest(turn: TurnState, matchId: string): StructuralAn
     const memberFrame = memberConnectionFrame({a: member.start.position.join(','), b: member.end.position.join(',')});
     if (!connection.axes && conflictingJointAxes(law.laws, law.laws, law.axes, memberFrame).length)
       throw new Error('The older snapshot adapter cannot encode this global connection frame along the member. Use the saved-frame browser solver.');
-    return {
+    return [{
       id: `connection:${endpoint.id}`,
       endpointId: endpoint.id,
       jointId: connection.jointId,
@@ -87,15 +93,34 @@ export function buildTurnRequest(turn: TurnState, matchId: string): StructuralAn
       capacities: [],
       state: 'active',
       ...cardProvenance(connection.cardId, `connection:${originalConnections[index].profile}`, turn.version),
-    };
+    }];
   });
+  const collars = fittings.filter(c => isInteriorSite(c.end)).map(connection => ({
+    id: `connection:port:${connection.memberId}:${attachmentQuarter(connection.end)}`,
+    definitionVersion: 'fixed-interior-collar-1',
+    source: { memberId: String(connection.memberId), quarter: attachmentQuarter(connection.end),
+      jointId: `port:${connection.memberId}:${attachmentQuarter(connection.end)}` },
+    jointId: connection.jointId,
+    capacities: [{ name: 'resultant-force', value: CARD_STRENGTH.connections.fixed.force * toSI, unit: 'N' },
+      { name: 'resultant-moment', value: CARD_STRENGTH.connections.fixed.moment * toSI, unit: 'N*m' }],
+    state: 'active',
+    ...cardProvenance(connection.cardId, `connection:${connection.profile}`, turn.version),
+  }));
   const joints = turnJoints(turn);
   const foundations = joints.flatMap(({ id, foundationOwner }) => foundationOwner ? [{
     id: `foundation:${id}`, jointId: id, ownerId: foundationOwner, restrained: Array(6).fill(true),
   }] : []);
   const loads = [...turn.board.loads, ...turn.draft.loads].map((load) => ({
     id: load.cardId,
-    target: { kind: 'joint', id: load.jointId },
+    target: turn.catalogue === CANTILEVER_CATALOGUE && /^endpoint:\d+:[ab]$/.test(load.jointId)
+      ? (() => {
+        const [, id, end] = /^endpoint:(\d+):([ab])$/.exec(load.jointId)!;
+        const attachment = fittings.find(c => c.memberId === Number(id) && c.end === end);
+        // A fitted end load acts at the original receiving interface. Keep a
+        // collar source port here rather than erasing its side via aliasing.
+        return attachment ? { kind: 'joint', id: attachment.jointId } : { kind: 'endpoint', id: load.jointId };
+      })()
+      : { kind: 'joint', id: load.jointId },
     force: [0, 0, -load.magnitude * toSI],
     moment: [0, 0, 0],
     persistent: true,
@@ -109,15 +134,16 @@ export function buildTurnRequest(turn: TurnState, matchId: string): StructuralAn
       modelId: matchId, revisionId: `turn-${turn.turn}`,
       ...(parentRevisionId && { parentRevisionId }),
       units: 'SI', globalAxes: 'right-handed-z-up',
-      joints: joints.map(({ id }) => ({ id, position: position(id) })),
+      joints: joints.map(({ id, point }) => ({ id, position: position(point ?? id) })),
       materials, sections, members, connections, foundations, loads,
+      ...(collars.length && { collars }),
       loadCases: [{ id: 'applied', loads: loads.map(({ id }) => ({ loadId: id, factor: 1 })) }],
-      // Match the current playtest's self-weight. Scored rules can choose a different policy.
-      selfWeight: { enabled: true, gravity: [0, 0, -gravity] },
+      // Preserve historical archives; the collar release uses card gravity.
+      selfWeight: selfWeight ? { enabled: true, gravity: [0, 0, -gravity] } : { enabled: false },
     },
     analysis: {
-      kind: turn.engine === RUST_TURN_ENGINE ? 'geometric-nonlinear-static' : 'linear-static',
-      loadPath: [{ selfWeightFactor: 1, factors: [{ caseId: 'applied', factor: 1 }] }],
+      kind: isReleaseCatalogue(turn.catalogue) || turn.engine === RUST_TURN_ENGINE ? 'geometric-nonlinear-static' : 'linear-static',
+      loadPath: [{ selfWeightFactor: selfWeight ? 1 : 0, factors: [{ caseId: 'applied', factor: 1 }] }],
     },
   });
 }
@@ -131,10 +157,12 @@ export function recordTurnAnalysis(
   const snapshot = request.snapshot;
   // The archive names the engine that ran. Either way these reactions are
   // playtest feedback, not scoring evidence (see `finalScore.ts`).
-  const rust = turn.engine === RUST_TURN_ENGINE;
+  const rust = isReleaseCatalogue(turn.catalogue) || turn.engine === RUST_TURN_ENGINE;
   const engine = rust
     ? { tag: 'rust-playtest', solver: { id: 'dof-rust', version: result?.reference?.solverVersion ?? 'unavailable', adapterId: 'shared-table', adapterVersion: '2', fidelity: 'nonlinear-applied-load' },
-      warning: 'Geometrically nonlinear solve on the Rust solver, with member self-weight. Use the turn summary for playtest feedback.' }
+      warning: turn.catalogue === CANTILEVER_CATALOGUE
+        ? 'Archived Shared table card-gravity response. Use the turn summary for verified scoring and connector checks.'
+        : 'Geometrically nonlinear solve on the Rust solver, with member self-weight. Use the turn summary for playtest feedback.' }
     : { tag: 'voxel-playtest', solver: { id: 'voxel-playtest', version: '2', adapterId: 'shared-table', adapterVersion: '1', fidelity: 'experimental-applied-load' },
       warning: 'Experimental whole-model solve with lumped member self-weight. Use the turn summary for playtest feedback.' };
   const componentId = rust ? 'rust-whole-model' : 'voxel-whole-model';

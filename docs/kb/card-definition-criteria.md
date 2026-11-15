@@ -1,6 +1,6 @@
 ---
 title: "Element and Card Definition Criteria"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
   - "Project owner completion-criteria request and follow-up decisions, 2026-11-14"
   - docs/kb/turn-criteria.md
@@ -8,6 +8,10 @@ validated_against:
   - docs/kb/placement-criteria.md
   - docs/kb/solver-criteria.md
   - docs/kb/saved-match-criteria.md
+  - docs/kb/cantilever-placement.md
+  - apps/web/src/game/cardCatalogue.ts
+  - apps/web/src/game/cantileverRules.test.ts
+  - packages/solver-contract/src/structural-state.ts
 owner: project owner
 status: needs-review
 ---
@@ -22,7 +26,9 @@ Separate a versioned card definition from its unique dealt instance, the physica
 
 ## 2. Minimum definition contract
 
-In the current playtest, every printing has a definition ID and version, and every dealt card has a separate instance ID. New Shared tables default to four implemented frame families with card-gravity verification. The optional planar and triangular truss catalogues add the verified printings described below. Presetless version-one saves replay their historical five-family deck, including experimental cables. The frame sections retain the existing voxel properties and expose SI physical definitions and nominal geometry. Candidate definitions in `game/cardCatalogue.ts` retain their separate authoring IDs. See the [criteria ledger](criteria-ledger.md).
+Every printing has a definition ID and version, and every dealt card has a separate instance ID. New normal-Play games combine the cantilever catalogue `grow-dusk-release-2` with the separate play revision `grow-dusk-play-2`. The revised three-deck printings use definition version `grow-dusk-play-2`, with the four member variants and independent draw choices specified in the later owner-revision section below. Historical v2 matches without that revision retain the frozen release-1 two-deck printings and former play limits. Historical frame, hollow, cable, spring, joint and assembly presets remain available under their own catalogue IDs; saves retain their original combination and engine. See the [criteria ledger](criteria-ledger.md).
+
+The v2 catalogue adds a source-placement capability orthogonal to that play revision: one Fixed connector may attach a continuous frame's original 25%, 50% or 75% station to its declared receiving joint/port. The explicit snapshot interpretation is `fixed-interior-collar-1`, preserving original parent and rational station, one connection instance, signed collar demand and internal beam continuity. Revised connection records keep their member-local frame. Partial-lock, ball and elastic interior source collars, and cable/spring/assembly sources, are unavailable. Existing end and target-quarter laws retain their family-specific behavior. See [cantilever placement](cantilever-placement.md).
 
 | Record | Required authored data |
 | --- | --- |

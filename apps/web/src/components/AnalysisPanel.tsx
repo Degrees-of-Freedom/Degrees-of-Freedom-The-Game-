@@ -3,6 +3,7 @@ import { computeLoadPath } from "../evaluator/loadPath";
 import type { DeformationField } from "../viewer/deformationField";
 interface AnalysisPanelProps {
   result: StructureEvaluation | null;
+  sharedViewControls?: boolean;
   message: string;
   combo: number;
   setCombo: (value: number) => void;
@@ -26,6 +27,7 @@ interface AnalysisPanelProps {
   selectMember: (id: number) => void;
 }
 export function AnalysisPanel({
+  sharedViewControls,
   result,
   message,
   combo,
@@ -192,7 +194,7 @@ export function AnalysisPanel({
                 ))}
               </select>
             </label>}
-            <label>
+            {!sharedViewControls && <><label>
               <input
                 type="checkbox"
                 disabled={result.mechanism || !result.combos[combo]?.u}
@@ -232,6 +234,7 @@ export function AnalysisPanel({
               />{" "}
               Load path (L)
             </label>
+            </>}
             {path && (
               <div>
                 <p>Force-weighted routes are illustrative.</p>
@@ -243,16 +246,16 @@ export function AnalysisPanel({
                 ))}
               </div>
             )}
-            <label>
+            {!sharedViewControls && <label>
               <input
                 type="checkbox"
                 checked={loads}
                 onChange={(e) => setLoads(e.target.checked)}
               />{" "}
               Loads and reactions
-            </label>
+            </label>}
           </div>
-          <p className="result-caption">Automatic scale exaggerates displacement for visibility. Choose true displacement or a fixed multiplier using Displacement scale. Read displacement in mm above.</p>
+          {sharedViewControls ? <p className="result-caption">Use View modes to choose overlays and displacement scale.</p> : <p className="result-caption">Automatic scale exaggerates displacement for visibility. Choose true displacement or a fixed multiplier using Displacement scale. Read displacement in mm above.</p>}
           <p>Approximate prototype results; not for engineering design.</p>
         </>
       )}

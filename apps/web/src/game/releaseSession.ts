@@ -1,4 +1,3 @@
-import { RELEASE_CATALOGUE } from "./cardCatalogue";
 import { openMatchDatabase, StaleMatch, type MatchDatabase } from "./releaseDatabase";
 import { InvalidMatch, runMatchJob } from "./matchJobs";
 import { matchRecord, type MatchRecord, type MatchPhase } from "./releaseSave";
@@ -70,7 +69,7 @@ class ReleaseSession {
       sessionConflict: false, sessionSave: this.damaged ? "invalid" : "idle",
       persistenceError: reason, savedRevision: this.record?.revision ?? null,
       hasSessionBackup: this.recovery !== null,
-      playElement: (card, a, b) => stage(stageElement(state().turn!, card, a, b)),
+      playElement: (card, a, b, contact) => stage(stageElement(state().turn!, card, a, b, contact)),
       playConnection: (card, member, end, joint, profile) => stage(stageConnection(state().turn!, card, member, end, joint, profile ?? state().selectedConnectionProfile)),
       playLoad: (card, joint) => stage(stageLoad(state().turn!, card, joint)),
       cancelDraft: () => stage(cancelTurnDraft(state().turn!)),
@@ -160,7 +159,8 @@ class ReleaseSession {
     const keepMember = turn.board === state().turn?.board && selected?.type === "member" &&
       [...turn.board.members, ...turn.draft.members].some(member => member.id === selected.id);
     return { turn, model: projectTurnModel(turn), selectedCardId: null, selectedConnectionProfile: undefined,
-      selected: keepMember ? selected : null, chainStart: null };
+      selected: keepMember ? selected : null, chainStart: null,
+      attachmentSite: "a" as const, placementTip: null, placementPlane: "horizontal" as const };
   }
   private setCandidate(turn: TurnState, phase: MatchPhase, matchId?: string) {
     const record = matchRecord(turn, this.record, phase, matchId);

@@ -2,6 +2,7 @@ import type { EvaluatorModel } from './model';
 import type { ComponentResponse, StructureEvaluation } from './results';
 import { ITEMS, type BeamSection, type BeamType } from './sections';
 import { verifiedResponse } from './evidence';
+import { attachmentQuarter, isInteriorSite, type AttachmentSite } from '../game/attachmentSites';
 import { connectionDefinition, type Frame } from '../game/jointFreedom';
 import { vecToGlobal } from './vector';
 
@@ -19,8 +20,16 @@ export const CARD_STRENGTH = {
     'lock-xy': {force:400, moment:80}, 'lock-yz': {force:400, moment:80}, 'lock-xz': {force:400, moment:80} },
 } as const;
 
-type AttachedEnd = { memberId: number; end: 'a' | 'b'; profile: keyof typeof CARD_STRENGTH.connections;
+type AttachedEnd = { memberId: number; end: AttachmentSite; profile: keyof typeof CARD_STRENGTH.connections; jointId?: string;
   axes?: Frame; transferProfile?: keyof typeof CARD_STRENGTH.connections };
+/** Applied on the source member at its original collar port, before analytical
+ * node aliasing. Receiving-joint loads do not belong here. Global kN and kN·m. */
+export interface CollarLoad {
+  memberId: number;
+  end: AttachmentSite;
+  force: readonly [number, number, number];
+  moment?: readonly [number, number, number];
+}
 export interface LocalActions { N: number; Vy: number; Vz: number; T: number; My: number; Mz: number }
 export type CapacityCheck =
   | { status: 'verified'; utilization: number; governing: string; station: number; actions: LocalActions }
@@ -102,10 +111,11 @@ function connectorCheck(attachment: AttachedEnd, actions: LocalActions, station:
 /** For the simultaneous nodal card-gravity case only. Between physical load
  * stations each section action is affine, and the printed convex interaction
  * reaches its maximum at an end. Preserve BOTH sides of an interior load in
- * that comparison. A released or absent external connector belongs only to its
- * own original end. Internal subdivision never creates another connector. */
+ * that comparison. External connectors belong to declared original ends or
+ * collar stations. Internal subdivision never creates another connector. */
 export function assessCardCapacity(
   model: EvaluatorModel, analysis: StructureEvaluation, attachments: readonly AttachedEnd[],
+  collarLoads: readonly CollarLoad[] = [],
 ): CardCapacity {
   const report: CardCapacity = { version: CARD_STRENGTH.version, members: {}, connections: {} };
   const attached = new Map(attachments.map(a => [`${a.memberId}:${a.end}`, a]));
@@ -114,7 +124,9 @@ export function assessCardCapacity(
   const elements = new Map(analysis.ctx?.els.map(e => [e.m.id, e]));
   const invalid = new Map<number, string>();
   const uncertainScopes = new Map<ComponentResponse, string>();
-  for (const [id] of attached) report.connections[id] = unavailable('No verified card-gravity response for this end.');
+  const collars = new Map<string, { global: number[]; frame: number[][]; sides: number; length: number }>();
+  const endpointActions = new Map<string, number[]>();
+  for (const [id] of attached) report.connections[id] = unavailable('No verified card-gravity response for this attachment.');
   for (const m of model.members) {
     const parent = m.parentSpan?.memberId ?? m.id;
     const from = (m.parentSpan?.fromQuarter ?? 0)/4;
@@ -170,7 +182,32 @@ export function assessCardCapacity(
       }
       if (station === 0 || station === 1) {
         const key = `${parent}:${end}`, attachment = attached.get(key);
-        if (attachment) report.connections[key] = connectorCheck(attachment, actions, station, e.R, e.L);
+        if (attachment) {
+          report.connections[key] = connectorCheck(attachment, actions, station, e.R, e.L);
+          const global = endpointActions.get(key) ?? Array<number>(6).fill(0);
+          const offset = end === 'a' ? 0 : 6;
+          for (let axis = 0; axis < 3; axis++) for (let local = 0; local < 3; local++) {
+            global[axis] += e.R[local][axis] * forces.f[offset + local];
+            global[axis + 3] += e.R[local][axis] * forces.f[offset + local + 3];
+          }
+          endpointActions.set(key, global);
+        }
+      } else if (!part && e.it.kind === 'beam') {
+        const quarter = station * 4;
+        const key = `${parent}:q${quarter}`;
+        if (attached.has(key)) {
+          const collar = collars.get(key) ?? { global: Array<number>(6).fill(0), frame: e.R, sides: 0, length };
+          const offset = end === 'a' ? 0 : 6;
+          // These are nodal actions on the parent, not signed section cuts.
+          // Sum the two sides before taking magnitudes, so opposite bending
+          // moments cancel rather than manufacturing a second connector.
+          for (let axis = 0; axis < 3; axis++) for (let local = 0; local < 3; local++) {
+            collar.global[axis] += e.R[local][axis] * forces.f[offset + local];
+            collar.global[axis + 3] += e.R[local][axis] * forces.f[offset + local + 3];
+          }
+          collar.sides++;
+          collars.set(key, collar);
+        }
       }
     }
   }
@@ -181,12 +218,70 @@ export function assessCardCapacity(
     const reason = scope && uncertainScopes.get(scope);
     if (reason) invalid.set(m.parentSpan?.memberId ?? m.id, reason);
   }
+  const incoming = new Map<string, string[]>();
+  for (const [key, attachment] of attached) if (attachment.jointId) {
+    incoming.set(attachment.jointId, [...(incoming.get(attachment.jointId) ?? []), key]);
+  }
+  type Demand = { global: number[] } | { reason: string };
+  const recovered = new Map<string, Demand>();
+  function recoverDemand(key: string, visiting: ReadonlySet<string> = new Set()): Demand {
+    const previous = recovered.get(key);
+    if (previous) return previous;
+    if (visiting.has(key)) return { reason: 'Cyclic interior collar load attribution is unavailable.' };
+    const attachment = attached.get(key)!;
+    const invalidReason = invalid.get(attachment.memberId);
+    if (invalidReason) return { reason: invalidReason };
+    if (!isInteriorSite(attachment.end)) {
+      const check = report.connections[key];
+      if (check.status === 'unavailable') return { reason: check.reason };
+      const global = endpointActions.get(key);
+      return global ? { global } : { reason: 'The incoming attachment has no verified nodal actions.' };
+    }
+    const collar = collars.get(key);
+    if (!collar || collar.sides !== 2 || attachment.profile !== 'fixed')
+      return { reason: 'A fixed interior collar requires verified continuous frame actions on both sides.' };
+    const applied = Array<number>(6).fill(0);
+    for (const load of collarLoads) {
+      if (load.memberId !== attachment.memberId || load.end !== attachment.end) continue;
+      for (let axis = 0; axis < 3; axis++) {
+        applied[axis] += load.force[axis];
+        applied[axis + 3] += load.moment?.[axis] ?? 0;
+      }
+    }
+    const global = collar.global.map((v, axis) => v - applied[axis]);
+    const sourcePort = `port:${attachment.memberId}:${attachmentQuarter(attachment.end)}`;
+    const path = new Set([...visiting, key]);
+    // Incoming members are attached to the source side of this collar. Their
+    // action must cross it as well; aliasing to the receiving node otherwise
+    // hides that load path. Nested fixed collars retain the same provenance.
+    for (const incomingKey of incoming.get(sourcePort) ?? []) {
+      const demand = recoverDemand(incomingKey, path);
+      if ('reason' in demand) return demand;
+      for (let axis = 0; axis < 6; axis++) global[axis] += demand.global[axis];
+    }
+    const result: Demand = global.every(Number.isFinite) ? { global }
+      : { reason: 'Interior collar load attribution is unavailable.' };
+    recovered.set(key, result);
+    return result;
+  }
+  for (const [key, attachment] of attached) {
+    if (!isInteriorSite(attachment.end)) continue;
+    const demand = recoverDemand(key);
+    if ('reason' in demand) { report.connections[key] = unavailable(demand.reason); continue; }
+    const collar = collars.get(key)!;
+    // A direct source-port load also crosses the collar. Its force is applied
+    // on the aliased node and is absent from the two beam-end action sums.
+    const local = [0, 3].flatMap(offset => collar.frame.map(row =>
+      row.reduce((sum, value, axis) => sum + value * demand.global[offset + axis], 0)));
+    const [N, Vy, Vz, T, My, Mz] = local;
+    const check = connectorCheck(attachment, { N, Vy, Vz, T, My, Mz }, attachmentQuarter(attachment.end) / 4,
+      collar.frame, collar.length);
+    report.connections[key] = check.status === 'verified' ? { ...check, governing: 'Fixed collar force and moment' } : check;
+  }
   for (const [id, reason] of invalid) {
     report.members[id] = unavailable(reason);
-    for (const end of ['a', 'b']) {
-      const key = `${id}:${end}`;
-      if (attached.has(key)) report.connections[key] = unavailable(reason);
-    }
+    for (const [key, attachment] of attached)
+      if (attachment.memberId === id) report.connections[key] = unavailable(reason);
   }
   return report;
 }

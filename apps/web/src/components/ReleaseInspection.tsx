@@ -4,6 +4,7 @@ import { activeTurnHand, type TurnState } from "../game/turns";
 import { parseNodeKey } from "../game/model";
 import { originalPorts, portLabel } from "../game/turnPorts";
 import { connectionFrameFor, connectionLabel } from "../game/jointFreedom";
+import { attachmentLabel, isInteriorSite, type AttachmentSite } from "../game/attachmentSites";
 import { publicTurnReport } from "../game/publicTurnModel";
 import { repairReaction } from "../game/publicRepairReport";
 import { useSettings, updateSettings } from "../menu/settings";
@@ -71,17 +72,21 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, draf
       <SectionProfile type={member.type} assembled={!!member.assembly} />
       {turn.draft.members.includes(member) ? <DraftMemberEdit key={member.id} member={member} save={game.editPlacement} /> : <p>Committed member · read only</p>}
       <p>{units(2 * Math.hypot(...parseNodeKey(member.a).map((n, i) => n - parseNodeKey(member.b)[i])))} m · ({member.a}) → ({member.b})</p>
-      <dl>{(["a", "b"] as const).map(end => {
+      <dl>{(["a", "b", "q1", "q2", "q3"] as const).filter(end =>
+        !isInteriorSite(end) || member.interiorTargets?.[end] ||
+        [...turn.board.connections, ...turn.draft.connections].some(c => c.memberId === member.id && c.end === end)
+      ).map((end: AttachmentSite) => {
         const conn = [...turn.board.connections, ...turn.draft.connections].find(c => c.memberId === member.id && c.end === end);
+        const contact = isInteriorSite(end) ? member.interiorTargets?.[end] : undefined;
         const effective = conn && effectiveJointConnections(turn.board).find(c => c.memberId === conn.memberId && c.end === end);
-        return <div key={end}><dt>End {end.toUpperCase()}</dt><dd>{conn ? <>
+        return <div key={end}><dt>{attachmentLabel(end)}</dt><dd>{conn ? <>
           Original · {connectionLabel(conn.profile)} · {conn.jointId}
-          <details><summary>End {end.toUpperCase()} connection axes</summary>
+          <details><summary>{attachmentLabel(end)} connection axes</summary>
             <p>{conn.axes ? "Member-local axes, expressed in global X, Y, Z" : "Original global connection frame"}</p>
             {connectionFrameFor(conn).map((axis, i) => <p key={i}>{"XYZ"[i]} ({axis.map(value => Number(value.toFixed(3))).join(", ")})</p>)}
           </details>
           {jointCorrectionMask(turn.board, conn.jointId) > 0 && <p>System fitting · effective {connectionLabel(effective?.profile ?? conn.profile)}. Original card retained.</p>}
-        </> : "Unattached"}</dd></div>;
+        </> : contact ? `Unconnected · contact at ${contact}` : "Unattached"}</dd></div>;
       })}</dl>
       <details><summary>Original ports</summary>{originalPorts(member).map(p => <p key={p.id}>{portLabel(p)} · ({p.point.join(", ")})</p>)}</details>
       {response && <MemberDiagram key={member.id} result={response.result} parent={member.id} />}

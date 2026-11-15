@@ -5,7 +5,7 @@ import { useGameStore } from "../game/store";
 import { useSettings, updateSettings } from "../menu/settings";
 import { Scene } from "../viewer/Scene";
 import { SceneBoundary } from "./environment/SceneBoundary";
-import { ReleaseTargets } from "./ReleaseTargets";
+import { ReleaseTargets, StagedAttachmentActions } from "./ReleaseTargets";
 import { ReleaseInspection } from "./ReleaseInspection";
 import { useReleaseInspection } from "../viewer/useReleaseInspection";
 import { deformationField } from "../viewer/deformationField";
@@ -46,11 +46,12 @@ function Hand({ game, turn, choose, notify, onEnd, react }: {
   return <section className="release-tray" aria-label="Active hand">
     {selected && <div className="release-targetbar" aria-label="Card targeting">
       <span className="release-prompt">{selected.kind === "element"
-        ? game.chainStart ? "Choose the end point." : "Choose the start point."
-        : selected.kind === "connection" ? "Attach a loose end." : "Choose a load target."}</span>
+        ? game.chainStart ? "Choose a free tip. The whole element stays in the preview." : "Choose an attachment point, or start on the grid."
+        : selected.kind === "connection" ? "Choose an unconnected end or collar." : "Choose a load target."}</span>
       <ReleaseTargets key={selected.id} card={selected} game={game} notify={notify} onRejected={() => react({ kind: "invalid" })} />
       <button className="release-back" aria-label="Cancel targeting" onClick={() => { game.selectCard(null); react({ kind: "cancel" }); }}>×</button>
     </div>}
+    <StagedAttachmentActions game={game} notify={notify} onRejected={() => react({ kind: "invalid" })} />
     <div className="release-handline">
       <div className="release-cards" aria-label="Cards">
         {hand.map(card => <button key={card.id} data-card-id={card.id} data-kind={card.kind}

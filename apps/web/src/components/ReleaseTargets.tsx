@@ -1,14 +1,23 @@
 import { useState } from "react";
-import { connectionChoices } from "../game/cardCatalogue";
+import { CANTILEVER_CATALOGUE, connectionChoices } from "../game/cardCatalogue";
+import { attachmentLabel, attachmentQuarter, type AttachmentSite, type InteriorContact } from "../game/attachmentSites";
+import { placementAnchorTargets, placementCandidates, placementFromTip } from "../game/cantileverPlacement";
 import { connectionLabel, memberConnectionFrame, type ConnectionProfile } from "../game/jointFreedom";
+import { CELL_SIZE, nodeKey, parseNodeKey } from "../game/model";
 import { useGameStore } from "../game/store";
-import { findPort, loadTargets, originalPorts, portLabel, systemTarget } from "../game/turnPorts";
-import { stageConnection, type TurnCard, type TurnState } from "../game/turns";
+import { findPort, loadTargets, originalPorts, portLabel, systemTarget, targetCoordinate } from "../game/turnPorts";
+import { activeTurnHand, stageConnection, type TurnCard, type TurnState } from "../game/turns";
 import { turnConnectionTargets } from "../viewer/turnPicking";
 
 type Game = ReturnType<typeof useGameStore.getState>;
+type ElementCard = Extract<TurnCard, { kind: "element" }>;
+type Notify = (message: string) => void;
+const sites: readonly { value: AttachmentSite; label: string }[] = [
+  { value: "a", label: "End A" }, { value: "q1", label: "¼" },
+  { value: "q2", label: "Middle" }, { value: "q3", label: "¾" }, { value: "b", label: "End B" },
+];
 
-function ElementCoordinates({ turn, stage }: { turn: TurnState; stage(a: string, b: string): void }) {
+function ElementCoordinates({ turn, stage, support }: { turn: TurnState; stage(a: string, b: string): void; support?: string }) {
   const [a, setA] = useState("");
   const [b, setB] = useState("");
   const members = [...turn.board.members, ...turn.draft.members];
@@ -17,6 +26,9 @@ function ElementCoordinates({ turn, stage }: { turn: TurnState; stage(a: string,
   return <details className="release-precision">
     <summary>Precise placement</summary>
     <form onSubmit={event => { event.preventDefault(); if (a.trim() && b.trim()) stage(a.trim(), b.trim()); }}>
+      <p className="release-placement-note">{support
+        ? `Choose both endpoints while keeping the selected ${support}. The element remains unconnected until you play a fixed connector.`
+        : "Enter two endpoints. For an overhang, choose an attachment point and free tip above."}</p>
       {([{ name: "A", value: a, change: setA }, { name: "B", value: b, change: setB }]).map(end =>
         <fieldset key={end.name}>
           <legend>End {end.name}</legend>
@@ -33,6 +45,136 @@ function ElementCoordinates({ turn, stage }: { turn: TurnState; stage(a: string,
   </details>;
 }
 
+/** The select controls use the same geometry and authority as scene picks. */
+export function ElementPlacementControls({ game, card, notify, onRejected }: { game: Game; card: ElementCard; notify: Notify; onRejected?(): void }) {
+  const [coordinates, setCoordinates] = useState("");
+  const turn = game.turn!;
+  const anchors = placementAnchorTargets(turn);
+  const anchor = anchors.find(target => target.id === game.chainStart);
+  const candidates = game.chainStart ? placementCandidates(game) : [];
+  const candidate = candidates.find(target => target.key === game.placementTip);
+  const members = [...turn.board.members, ...turn.draft.members];
+  const pointA = candidate ? parseNodeKey(targetCoordinate(members, candidate.a)) : null;
+  const pointB = candidate ? parseNodeKey(targetCoordinate(members, candidate.b)) : null;
+  const lengthM = pointA && pointB ? CELL_SIZE * Math.hypot(...pointB.map((value, axis) => value - pointA[axis])) : 0;
+  const fraction = attachmentQuarter(game.attachmentSite) / 4;
+  const lengthLabel = (value: number) => Number(value.toPrecision(4)) + " m";
+  const supportedSource = turn.catalogue === CANTILEVER_CATALOGUE && card.type !== "cable" && card.type !== "spring" && !card.assembly;
+  const canChooseStation = supportedSource && !!anchor;
+  const quarter = attachmentQuarter(game.attachmentSite);
+  const contact: InteriorContact | undefined = canChooseStation && anchor && (quarter === 1 || quarter === 2 || quarter === 3)
+    ? { quarter, target: anchor.id } : undefined;
+  const report = (error: string | null) => {
+    notify(error ?? "Element staged. Choose a connector to attach it.");
+    if (error) onRejected?.();
+  };
+  const stage = (a: string, b: string) => report(game.playElement(card.id, a, b, contact));
+  const useCoordinates = () => {
+    const value = coordinates.trim();
+    const point = parseNodeKey(value);
+    if (point.length !== 3 || !point.every(Number.isFinite) || nodeKey(...point) !== value) {
+      report("Enter a free tip as x,y,z, for example 8,7,1.");
+      return;
+    }
+    const placement = placementFromTip(game, point);
+    if ("issue" in placement) { report(placement.issue); return; }
+    report(game.playElement(card.id, placement.a, placement.b, placement.contact));
+  };
+  return <div className="release-placement-controls">
+    <div className="release-targets">
+      <label>Attachment point
+        <select aria-label="Element attachment point" value={anchor?.id ?? ""} onChange={event => {
+          game.setChainStart(event.target.value || null); game.setPlacementTip(null); setCoordinates("");
+        }}>
+          <option value="">Choose on the board or start on the grid</option>
+          {anchors.map(target => <option key={target.id} value={target.id}>{target.label}</option>)}
+        </select>
+      </label>
+      {game.chainStart && <>
+        {canChooseStation && <fieldset className="release-station-controls">
+          <legend>Attach at</legend>
+          <div role="group" aria-label="Attachment on new element">
+            {sites.map(site => <button key={site.value} type="button" aria-pressed={game.attachmentSite === site.value}
+              aria-label={`Attach at ${site.label}`} onClick={() => { game.setAttachmentSite(site.value); game.setPlacementTip(null); }}>
+              {site.label}
+            </button>)}
+          </div>
+        </fieldset>}
+        <label>Build plane
+          <select aria-label="Element build plane" value={game.placementPlane} onChange={event => {
+            const plane = event.target.value;
+            if (plane === "horizontal" || plane === "xz" || plane === "yz") game.setPlacementPlane(plane);
+            game.setPlacementTip(null);
+          }}>
+            <option value="horizontal">Horizontal</option><option value="xz">Vertical XZ</option><option value="yz">Vertical YZ</option>
+          </select>
+        </label>
+        <label>Free tip
+          <select aria-label="Element free tip" value={candidate?.key ?? ""} onChange={event => game.setPlacementTip(event.target.value || null)}>
+            <option value="">Choose on the board or select a point</option>
+            {candidates.map(target => <option key={target.key} value={target.key}>{anchors.find(anchor => anchor.id === target.key)?.label ?? target.point.join(", ")}</option>)}
+          </select>
+        </label>
+        <button type="button" disabled={!candidate} onClick={() => {
+          if (candidate) report(game.playElement(card.id, candidate.a, candidate.b, candidate.contact));
+        }}>Place element</button>
+      </>}
+    </div>
+    {candidate && <p className="release-placement-note" role="status">
+      Whole element · {lengthLabel(lengthM)}{fraction > 0 && fraction < 1 && ` · Overhangs ${lengthLabel(lengthM * fraction)} + ${lengthLabel(lengthM * (1 - fraction))}`}
+      {" · "}{pointA?.join(",")} → {pointB?.join(",")} · Geometry only; attach with a connection card.
+    </p>}
+    {game.chainStart && !candidates.length && <p className="release-placement-note" role="status">
+      No legal grid tips on this plane. Choose another plane or attachment position.
+    </p>}
+    {game.chainStart && <details className="release-precision">
+      <summary>Enter free tip coordinates</summary>
+      <form onSubmit={event => { event.preventDefault(); useCoordinates(); }}>
+        <label>Free tip x,y,z<input aria-label="Element free tip grid x,y,z" autoComplete="off" value={coordinates}
+          placeholder="8,7,1" onChange={event => setCoordinates(event.target.value)} required /></label>
+        <button type="submit" disabled={!coordinates.trim()}>Place at coordinates</button>
+      </form>
+    </details>}
+    <ElementCoordinates turn={turn} stage={stage} support={contact ? `${attachmentLabel(game.attachmentSite)} attachment at ${anchor?.label}` : undefined} />
+  </div>;
+}
+
+/** A deliberate click spends the named hand card; geometry alone stays loose. */
+export function StagedAttachmentActions({ game, notify, onRejected }: { game: Game; notify: Notify; onRejected?(): void }) {
+  const turn = game.turn;
+  if (!turn || !turn.draft.members.length) return null;
+  const anchors = placementAnchorTargets(turn);
+  const connections = [...turn.board.connections, ...turn.draft.connections];
+  const cards = activeTurnHand(turn).filter(card => card.kind === "connection" && connectionChoices(card).includes("fixed"));
+  const rows = turn.draft.members.flatMap(member => {
+    const interior = sites.filter(site => site.value !== "a" && site.value !== "b" && member.interiorTargets?.[site.value]);
+    const contacts = interior.length ? interior : sites.filter(site => {
+      const end = site.value;
+      if (end !== "a" && end !== "b") return false;
+      return anchors.some(anchor => anchor.id === member.endTargets?.[end] || nodeKey(...anchor.point) === member[end]);
+    });
+    return contacts.map(site => {
+      const attached = connections.some(connection => connection.memberId === member.id && connection.end === site.value);
+      const option = attached ? undefined : cards.flatMap(card => {
+        const target = turnConnectionTargets({ ...game, selectedCardId: card.id, selectedConnectionProfile: "fixed" })
+          .find(target => target.memberId === member.id && target.end === site.value);
+        return target ? [{ card, target }] : [];
+      })[0];
+      return <div className="release-staged-attachment" key={`${member.id}:${site.value}`}>
+        <span>Member {member.id} · {attachmentLabel(site.value)} · <strong>{attached ? "Attached" : "Unconnected"}</strong></span>
+        {option && <button type="button" data-attachment-card-id={option.card.id} onClick={() => {
+          const error = game.playConnection(option.card.id, member.id, site.value, option.target.key, "fixed");
+          notify(error ?? "Connection staged.");
+          if (error) onRejected?.();
+        }}>Attach with {option.card.label}</button>}
+        {!attached && !option && <small>{!turn.rulesRevision && turn.draft.connections.length >= 2 ? "No connections remaining this turn."
+          : "No compatible fixed connector is available. You can leave this element unconnected."}</small>}
+      </div>;
+    });
+  });
+  return rows.length ? <div className="release-attachment-actions" aria-label="Staged element attachments">{rows}</div> : null;
+}
+
 /** Selects the same physical identities as scene picking, including coincident loose ends. */
 export function ReleaseTargets({ game, card, notify, onRejected }: {
   game: Game; card: TurnCard; notify(message: string): void;
@@ -42,8 +184,7 @@ export function ReleaseTargets({ game, card, notify, onRejected }: {
   const [choice, setChoice] = useState("");
   const report = (error: string | null, staged: string) => { notify(error ?? staged); if (error) onRejected?.(); };
   const turn = game.turn!;
-  if (card.kind === "element") return <ElementCoordinates turn={turn}
-    stage={(a, b) => report(game.playElement(card.id, a, b), "Element staged.")} />;
+  if (card.kind === "element") return <ElementPlacementControls game={game} card={card} notify={notify} onRejected={onRejected} />;
   if (card.kind === "load") {
     const targets = loadTargets(turn);
     if (!targets.length) return <span>Place a member above ground to give this load a target.</span>;
@@ -72,15 +213,15 @@ export function ReleaseTargets({ game, card, notify, onRejected }: {
       </select></label>}
     {target ? <>
       <label>Connection target<select value={key(target)} onChange={event => setChoice(event.target.value)}>
-        {targets.map(item => <option key={key(item)} value={key(item)}>Member {item.memberId} · end {item.end.toUpperCase()} · {item.key}</option>)}
+        {targets.map(item => <option key={key(item)} value={key(item)}>Member {item.memberId} · {attachmentLabel(item.end)} · {item.key}</option>)}
       </select></label>
       {axes && <div className="release-connection-axes" aria-label="Member local axes">
         <strong>Member {member!.id} local axes · X along A → B</strong>
         <span>Directions in global X, Y, Z</span>
         {axes.map((axis, i) => <span key={i}><b>{"XYZ"[i]}</b> ({axis.map(value => Number(value.toFixed(3))).join(", ")})</span>)}
       </div>}
-      <button disabled={!attachment?.ok} onClick={() => report(game.playConnection(card.id, target.memberId, target.end, target.key, profile), "Connection staged.")}>Attach end</button>
+      <button disabled={!attachment?.ok} onClick={() => report(game.playConnection(card.id, target.memberId, target.end, target.key, profile), "Connection staged.")}>{target.end === "a" || target.end === "b" ? "Attach end" : "Attach collar"}</button>
       {attachment && !attachment.ok && <span role="status">{attachment.reason}</span>}
-    </> : profile && <span>No compatible loose end. Place a member or choose another card.</span>}
+    </> : profile && <span>No compatible attachment point. Place a member or choose another card.</span>}
   </div>;
 }

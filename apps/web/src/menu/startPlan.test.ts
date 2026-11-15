@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { planStart, runStart, type StartActions } from "./startPlan";
+import { CANTILEVER_CATALOGUE, SCORED_CATALOGUE } from "../game/cardCatalogue";
 
 function recorder(overrides: Partial<StartActions> = {}) {
   const calls: string[] = [];
@@ -110,9 +111,52 @@ describe("against the real store", () => {
     runStart({ mode: "multiplayer", begin: "continue" }, store.getState());
     expect(store.getState().mode).toBe("multiplayer");
     expect(store.getState().turn?.players).toHaveLength(2);
-    // A match in progress cannot be replaced; the store says so.
-    expect(runStart({ mode: "multiplayer", begin: "new" }, store.getState())).toMatch(
-      /Finish/,
-    );
+    // Current Shared table uses the same explicit restart as normal Play.
+    expect(runStart({ mode: "multiplayer", begin: "new" }, store.getState())).toBeNull();
+  });
+
+  it("starts the cantilever preset with release board dimensions", async () => {
+    const { store, runStart } = await freshStore();
+    expect(runStart({ mode: "multiplayer", begin: "continue", catalogue: CANTILEVER_CATALOGUE }, store.getState())).toBeNull();
+    const turn = store.getState().turn!;
+    const { boardLimits } = await import("../game/turns");
+    expect(turn.catalogue).toBe(CANTILEVER_CATALOGUE);
+    expect(turn.rulesRevision).toBe("grow-dusk-play-2");
+    expect(turn.decks).toHaveLength(3);
+    expect(turn.players[0].hand).toHaveLength(0);
+    const {remainingTurnDraws} = await import("../game/turns");
+    expect(remainingTurnDraws(turn)).toBe(4);
+    expect(boardLimits(turn)).toEqual([15, 15, 12]);
+    expect(turn.board.members.map(member => [member.a, member.b])).toEqual([
+      ["5,7,0", "5,7,1"], ["10,7,0", "10,7,1"],
+    ]);
+  });
+
+  it("keeps four independent deck choices at each turn and after restart", async () => {
+    const {store, runStart} = await freshStore();
+    expect(runStart({mode:"multiplayer", begin:"continue", catalogue:CANTILEVER_CATALOGUE}, store.getState())).toBeNull();
+    const {remainingTurnDraws} = await import("../game/turns");
+    for (const source of ["members", "loads", "connections", "members"] as const)
+      expect(store.getState().drawCard(source)).toBeNull();
+    expect(remainingTurnDraws(store.getState().turn!)).toBe(0);
+    expect(store.getState().turn!.players[0].hand).toHaveLength(4);
+    expect(await store.getState().endTurn()).toBeNull();
+    expect(store.getState().turn!.turn).toBe(2);
+    expect(store.getState().turn!.reports[0].status).toBe("pending");
+    expect(remainingTurnDraws(store.getState().turn!)).toBe(4);
+    expect(store.getState().newMatch()).toBeNull();
+    expect(store.getState().turn!.rulesRevision).toBe("grow-dusk-play-2");
+    expect(remainingTurnDraws(store.getState().turn!)).toBe(4);
+    expect(store.getState().turn!.players[0].hand).toHaveLength(0);
+  });
+
+  it("preserves an existing historical match when setup continues it", async () => {
+    const { store, runStart } = await freshStore();
+    store.getState().setMode("multiplayer", SCORED_CATALOGUE);
+    const saved = structuredClone(store.getState().turn);
+    store.getState().setMode("creative");
+    expect(runStart({ mode: "multiplayer", begin: "continue", catalogue: CANTILEVER_CATALOGUE }, store.getState())).toBeNull();
+    expect(store.getState().turn).toEqual(saved);
+    expect(store.getState().turn?.catalogue).toBe(SCORED_CATALOGUE);
   });
 });

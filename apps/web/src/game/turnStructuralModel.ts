@@ -1,6 +1,7 @@
 import type { AnalysisFidelity, StructuralMember, StructuralModel, StructuralNode } from '@dof/solver-contract';
 import { catalogMember, gridPosition, type StructuralModelTranslation } from './structuralModel';
 import { turnJoints, type TurnState } from './turns';
+import { isInteriorSite } from './attachmentSites';
 
 /** Game load cards are in kN; the contract uses newtons. */
 const NEWTONS_PER_KILONEWTON = 1e3;
@@ -30,6 +31,8 @@ export function toTurnStructuralModel(
   turn: TurnState,
   fidelity: AnalysisFidelity = 'nonlinear',
 ): StructuralModelTranslation {
+  if ([...turn.board.connections, ...turn.draft.connections].some(c => isInteriorSite(c.end)))
+    throw new Error('The standalone contract adapter does not translate interior collars. Use the Shared table solver.');
   const connections = new Map(
     [...turn.board.connections, ...turn.draft.connections].map((connection) => [
       `${connection.memberId}:${connection.end}`,

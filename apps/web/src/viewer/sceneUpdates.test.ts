@@ -10,6 +10,9 @@ describe("scene invalidation", () => {
     expect(sceneUpdateKind({...selected, selectedCardId: null}, selected)).toBe("guides");
     expect(sceneUpdateKind({...selected, chainStart: "1,2,3"}, selected)).toBe("guides");
     expect(sceneUpdateKind({...selected, selectedConnectionProfile: "ball"}, selected)).toBe("guides");
+    expect(sceneUpdateKind({...selected, attachmentSite: "q2"}, selected)).toBe("guides");
+    expect(sceneUpdateKind({...selected, placementPlane: "xz"}, selected)).toBe("guides");
+    expect(sceneUpdateKind({...selected, placementTip: "4,5,2"}, selected)).toBe("guides");
   });
   it("invalidates geometry and highlights for physical edits, inspected selection and handoffs", () => {
     const previous = useGameStore.getState();

@@ -3,16 +3,17 @@ import { connectionLocations, originalPorts, systemTarget } from "../game/turnPo
 import {
   activeTurnHand,
   stageConnection,
-  stageElement,
   stageLoad,
 } from "../game/turns";
 import type { useGameStore } from "../game/store";
-import { connectionChoices, RELEASE_CATALOGUE, PLAY_REVISION } from "../game/cardCatalogue";
+import { connectionChoices, isReleaseCatalogue, PLAY_REVISION } from "../game/cardCatalogue";
+import { placementFromTip } from "../game/cantileverPlacement";
+import type { AttachmentSite } from "../game/attachmentSites";
 
 type GameState = ReturnType<typeof useGameStore.getState>;
 export type ConnectionTarget = {
   memberId: number;
-  end: "a" | "b";
+  end: AttachmentSite;
   key: string;
 };
 
@@ -28,12 +29,11 @@ export function turnPointIssue(state: GameState, position: GridPoint, target?: s
   if (!state.turn || !card || card.kind === "connection")
     return "Choose a card from the active hand.";
   const key = target ?? nodeKey(...position);
-  const transition =
-    card.kind === "load"
-      ? stageLoad(state.turn, card.id, key)
-      : state.chainStart
-        ? stageElement(state.turn, card.id, state.chainStart, key)
-        : null;
+  if (card.kind === "element" && state.chainStart) {
+    const placement = placementFromTip(state, position, target);
+    return "issue" in placement ? placement.issue : null;
+  }
+  const transition = card.kind === "load" ? stageLoad(state.turn, card.id, key) : null;
   return transition && !transition.ok ? transition.reason : null;
 }
 
@@ -43,10 +43,10 @@ export function turnConnectionTargets(state: GameState): ConnectionTarget[] {
   const turn = state.turn;
   const profiles = connectionChoices(card);
   const profile = profiles.length === 1 ? profiles[0] : state.selectedConnectionProfile;
-  if (turn.catalogue === RELEASE_CATALOGUE && !profile && turn.rulesRevision !== PLAY_REVISION) return [];
+  if (isReleaseCatalogue(turn.catalogue) && !profile && turn.rulesRevision !== PLAY_REVISION) return [];
   const members = [...turn.board.members, ...turn.draft.members];
   return members.flatMap((member) =>
-    (["a", "b"] as const).flatMap((end) => {
+    (["a", "b", "q1", "q2", "q3"] as const).flatMap((end) => {
       return connectionLocations(members, member, end).flatMap(key => {
         const available = profile ? [profile] : turn.rulesRevision === PLAY_REVISION ? profiles : [undefined];
         return available.some(choice => stageConnection(turn, card.id, member.id, end, key, choice).ok)

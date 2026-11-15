@@ -8,6 +8,12 @@ validated_against:
   - apps/web/src/game/turns.ts
   - apps/web/src/game/turnAnalysis.ts
   - apps/web/src/components/ReleaseBoard.tsx
+  - apps/web/src/components/ReleaseTargets.tsx
+  - apps/web/src/pages/ModeSetup.tsx
+  - apps/web/src/game/cantileverPlacement.ts
+  - apps/web/src/game/cantileverRelease.test.ts
+  - docs/kb/cantilever-placement.md
+  - docs/evidence/cantilevers/results.json
   - scripts/release-browser.mjs
   - apps/web/src/components/viewModes
   - apps/web/src/viewer/viewModes.ts
@@ -18,7 +24,7 @@ status: partial
 
 # Shared table in Grow Dusk
 
-**Play** starts or resumes Shared table in Grow Dusk at `/match`. Each player gets eight turns and a deliberate private reveal. New matches use `rulesRevision: grow-dusk-play-2`. Existing saved matches replay their recorded rules. To start the revised three-deck rules from an older match, choose Menu → Restart and confirm replacement. **More modes** exposes the other workspaces and historical presets.
+**Play** starts or resumes Shared table in Grow Dusk at `/match`. Each player gets eight turns and a deliberate private reveal. New matches combine `rulesRevision: grow-dusk-play-2` with `catalogue: grow-dusk-release-2`: revised three-deck play plus fixed interior frame collars. Catalogue/source capability and play revision are separate version fields. Existing saved matches replay their recorded combination, including earlier two-deck v1/v2 matches. To start the revised rules from an older match, choose Menu → Restart and confirm replacement. **More modes** exposes the other workspaces, the cantilever preset and historical catalogues.
 
 ## Turn and assessment
 
@@ -27,6 +33,8 @@ Three independently shuffled finite decks appear at the beginning of each turn. 
 Member reach is a Euclidean maximum of 5, 7 or 10 game units, with shorter legal spans allowed. The board has 15×15 horizontal cells, coordinates 0–15 inclusive in X/Y and 0–12 in Z, at 2 m per game unit. Each player has one immutable fully fixed foundation and starting column. Load targets identify player-built tips and original quarters. Explicit end-to-port selection preserves identity even when geometry coincides. A unique quarter selected by its exact typed coordinate resolves to that same parent port. Deliberate joint contacts allow angle-dependent local fitting clearance; overlapping spans and interior crossings still undergo material checks. Connector cards establish actual force transfer. Setup and system repair objects are inspection-only.
 
 The four member variants are one axial/bending beam-column, one tension-only cable and two axial springs. The authored reference `SPRING.stiffnessNPerM` is 50,000 N/m, documented in the card criteria. Quarter and half springs are 12,500 and 25,000 N/m, independently of span. This reuses the existing authored game constitutive data.
+
+The cantilever catalogue permits a continuous frame's original 25%, 50% or 75% source station to meet an existing joint or permitted quarter port. Place the whole element, then explicitly spend one compatible Fixed connector to activate the collar. A declared contact adds no stiffness; both beam arms retain internal continuity and the receiving member's original fittings remain unchanged. Full Euclidean reach, exact endpoints and the active revision's fitting/clash policy still apply. Partial/elastic, cable, spring and assembly interior source collars are unavailable. This capability changes neither the four-choice draw process nor the revised unlimited held-card plays or checkpoint interval. See [cantilever placement](cantilever-placement.md).
 
 Release choices use the selected member's local section frame. X follows A → B and Y/Z use the same basis as the rendered section and numerical member. The target and its three directions are shown before attachment. New connection actions store `axes` in global coordinates and `frameVersion: member-local-1`. Shared-joint compatibility compares actual physical permitted subspaces, so different local axis names can match at nonparallel members. Inspect exposes the recorded frame, effective system restraint and optional global-coupled/local view. Existing connections without an axes field retain their original global-frame interpretation during replay. Editing a provisional member recomputes its provisional connection frames and rechecks compatibility; committed frames are read-only.
 
@@ -42,11 +50,15 @@ New matches assess after three completed **player turns**, including passes, by 
 
 Reloading a pending assessment reconstructs the frozen turn and completes its existing intent. Closing the route terminates its worker and aborts stale result delivery. Restoring a private file requires an 8 MiB byte-limit check, a supported header and successful versioned replay against the full snapshot. Files rejected during import remain downloadable unchanged. An unreadable stored head can be exported and explicitly replaced by its validated previous revision or a fresh match. An unavailable solver on restore has a retry screen and original-byte export. Existing playtest saves remain available through their own modes.
 
+Private match headers validate catalogue, play revision and materialized turn against deterministic replay. Interior contact events and q1/q2/q3 source identities require the cantilever catalogue. Revised three-deck actions and printings require grow-dusk-play-2; earlier v1/v2 records without that revision retain their original two-deck definitions, draws and cadence. Restoring an old record does not upgrade its rules or infer attachments from coincident geometry.
+
 Private hands, deck order, draw identities, seed and the draft are absent from the handoff screen. Pausing, backgrounding and reloading conceal the hand. The menu offers separately labelled **Export public summary** and **Export private match**. Public summaries are field-by-field projections of the committed structure and reports. Only the private file can resume play.
 
 ## Board and presentation
 
-The header shows seat, round, remaining draws and deductions. The compact hand tray groups cards with blue members, purple connections and amber gravity, retaining labels and symbols. Selecting a card exposes targeting. Original-quarter and precise coordinate controls supplement the 3D board. Inspect exposes engineering evidence for the current scope. GPU fallback keeps the precision controls available. Settings control companion, glow, reduced motion and opt-in sound. The board draws the companion on an islet using locally attributed models and the public scenario's sampled pose. A screen control and matching portrait carry the same interaction when the scene actor is unavailable. Every third distinct verified deduction for one player can trigger the 800 ms foreman clip, subject to a 45-second cooldown. The same clip changes from Timburr to Conkeldurr at its 160 ms crouch peak. A verified instability complaint identifies the member and originating turn in a red speech cloud. Final scoring and privacy take priority. [Companion policy and timing](avatar-criteria.md)
+Fresh Shared table matches opened through setup, normal Play, recovery or Restart use the current three-deck rules. Each turn starts with four independent Members/Connections/Loads choices and an empty new-turn draw receipt; held cards remain available after those choices. The setup store now uses the same current-match constructor and scheduled checkpoint transition as normal Play, rather than the historical automatic-deal constructor. Existing saved matches keep their recorded rules; Menu → Restart explicitly begins a current-rules match without rewriting the saved history in place.
+
+The header shows seat, round, remaining draws and deductions. The compact hand tray groups cards with blue members, purple connections and amber gravity, retaining labels and symbols. Selecting a card exposes targeting. Cantilever targeting adds optional End A/¼/Middle/¾/End B source choices, explicit Horizontal/Vertical XZ/Vertical YZ planes, a whole-member preview and an Unconnected/Attached status tied to the deliberate connector action. Original-quarter and precise coordinate controls supplement the 3D board. Inspect exposes engineering evidence for the current scope. GPU fallback keeps the precision controls available. Settings control companion, glow, reduced motion and opt-in sound. The board draws the companion on an islet using locally attributed models and the public scenario's sampled pose. A screen control and matching portrait carry the same interaction when the scene actor is unavailable. Every third distinct verified deduction for one player can trigger the 800 ms foreman clip, subject to a 45-second cooldown. The same clip changes from Timburr to Conkeldurr at its 160 ms crouch peak. A verified instability complaint identifies the member and originating turn in a red speech cloud. Final scoring and privacy take priority. [Companion policy and timing](avatar-criteria.md)
 
 ### View modes and legends
 
@@ -69,6 +81,8 @@ Serve the contents of `apps/web/dist` at an HTTPS origin root, with history fall
 Run `npm run typecheck`, `npm test`, `npm run test:solver`, `npm run test:opensees`, `npm run build:solver`, `npm run build` and `npm run bench:solver`. The Python suite uses uv and independently assembled OpenSees models. Setting `VITE_OPENSEES_URL` to a running reference service also enables the live TypeScript adapter cross-checks.
 
 After a production build, install Playwright Chromium with `npx playwright install chromium` or set `DOF_BROWSER_CHANNEL` to `chrome` or `msedge`. Run `npm run test:release` for seeds 0–19 plus a separate all-pass match. `npm run test:release -- --faults` exercises storage and worker interruptions. `node scripts/release-presentation.mjs` checks controls, zoom and presentation fallbacks. `DOF_FIRST_SEED`, `DOF_LAST_SEED`, `DOF_INPUT=keyboard`, `DOF_BROWSER_EXECUTABLE` and `DOF_EVIDENCE_DIR` select a shorter range, actual keyboard input, browser binary and output directory. Use `DOF_CAPTURE_TURNS=1` for turn-by-turn screenshots of seeds 0–2. A new browser profile can select a deterministic initial deal through `/match?seed=6`; the route removes the query and an existing record takes precedence.
+
+`node scripts/cantilever-browser.mjs` provides the fixed-collar walkthrough. The [recorded run](../evidence/cantilevers/README.md) passed all six cases in Chromium 156.0.8078.79: pointer controls, production scene picking, precise endpoint entry, keyboard, touch emulation and unavailable-WebGL fallback, including draft reload and assessed private handoff. Focused unit and numerical coverage and remaining platform limits are listed in [cantilever placement](cantilever-placement.md#verification-and-remaining-scope).
 
 Run `node scripts/release-performance.mjs` for default-decoration frame and input timing, and `node scripts/release-resources.mjs` for repeated route and scene resets. The performance report includes the active graphics renderer, CPU, installed memory, browser, build and individual timing samples. The [release criteria ledger](criteria-ledger.md) records measured results, unavailable platforms and acceptance status.
 # Shared table display menu integration

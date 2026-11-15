@@ -1,0 +1,23 @@
+{
+  "oneEndCantilever": {
+    "accepted": true,
+    "connectionsSpent": 1,
+    "analyticalBeam": {
+      "id": 3,
+      "a": "5,7,1",
+      "b": "endpoint:3:b",
+      "type": "heb",
+      "endA": "fixed",
+      "endB": "fixed"
+    },
+    "note": "A fixed member-end law at an independent tip node does not restrain that node to ground."
+  },
+  "newBeamSupportedAtOwnQuarter": {
+    "accepted": false,
+    "reason": "Member 3 (heb) would intersect material in member 1 (heb). Choose a clear span or target an original attachment port."
+  },
+  "interiorConnectionSource": {
+    "accepted": false,
+    "reason": "Choose one end of an existing or staged member."
+  }
+}

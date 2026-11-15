@@ -8,7 +8,7 @@ import { KIT_PLAYTEST } from "../game/turns";
  */
 
 /** Confirmed rules. */
-export const TURN_RULES = [
+export const LEGACY_TURN_RULES = [
   "Draw two cards from the element-and-load deck and two from the connection deck.",
   "Play up to one member, one load and two connections, or pass. These limits are independent.",
   "One connection card attaches one member end to a shared joint. A placed connection cannot be changed.",
@@ -16,6 +16,17 @@ export const TURN_RULES = [
   "Loads are persistent downward gravity loads.",
   "Each player has only their starting foundation. Foundations are fully fixed and are not cards.",
   "The first connection establishes a joint’s freedoms. Every later end attached there must match. An incompatible card stays in your hand.",
+];
+
+/** Current Shared table rules; old saved presets retain their original deal. */
+export const TURN_RULES = [
+  "At the start of every turn, choose four cards in any mix from the Members, Connections and Loads decks.",
+  "Play any number of held members, connections and loads, or pass. Unplayed cards stay in hand.",
+  "One connection card attaches one original member interface to a shared joint. Committed pieces stay read-only.",
+  "Connections restrain one, two or three member-local rotational axes; connected translations stay compatible.",
+  "You may load and attach to other players’ structures. Loads are persistent downward gravity loads.",
+  "Each player has only their starting fully fixed foundation and column. Additional foundations are not cards.",
+  "Calculation occurs every three completed player turns by default; the board shows the countdown and interval setting.",
 ];
 
 /** Approved match format and current deck configuration. */

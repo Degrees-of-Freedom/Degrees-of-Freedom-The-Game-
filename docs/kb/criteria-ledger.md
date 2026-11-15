@@ -5,6 +5,10 @@ validated_against:
   - docs/kb/grow-dusk-runtime.md
   - docs/kb/game-completion-criteria.md
   - docs/kb/release-acceptance-criteria.md
+  - docs/kb/cantilever-placement.md
+  - docs/kb/voxel-retirement.md
+  - docs/evidence/cantilevers/README.md
+  - docs/evidence/cantilevers/main-integration-results.json
   - docs/kb/animation-criteria.md
   - docs/kb/avatar-criteria.md
   - docs/kb/visualization-criteria.md
@@ -24,7 +28,7 @@ status: partial
 
 ## Shared table play 2
 
-The owner's later implementation instructions supersede the earlier release-1 draw limits, catalogue mix, repair and assessment cadence for **new** Shared table matches. The implementation branch is `codex/shared-table-forces`, with `rulesRevision: grow-dusk-play-2`. Earlier private saves replay their own version. This section tracks the active work; earlier release evidence below remains scoped to its original build.
+The owner's later implementation instructions supersede the earlier release-1 draw limits, catalogue mix, repair and assessment cadence for **new** Shared table matches. The later main work introduced `rulesRevision: grow-dusk-play-2`. Normal Play now combines that revision with `catalogue: grow-dusk-release-2`, adding fixed original-quarter source collars while preserving the three-deck choices, local release frames and checkpoint cadence. Earlier private saves replay their own version. This section tracks the active work; earlier release evidence below remains scoped to its original build.
 
 | Owner requirement | Implementation and acceptance |
 | --- | --- |
@@ -54,13 +58,32 @@ The earlier revised `ac2b795` package completed 20 full games and four separate 
 
 The initial quiet-host run on `2f99141` measured 214.1 ms card click-to-next-frame p95, missing the ≤100 ms target. The rendering follow-up `13e9785` retains meshes and label textures during targeting-only changes. Its clean production run on the same Chrome 157/Core Ultra 9 185H/63.45 GiB/Intel Arc Pro host measured **25.5 ms input p95**, 161.9 mean fps and 6.2 ms frame p95. A complete match, an all-pass control, 101 viewer regression tests and ten lifecycle cycles passed. This satisfies the input target on the measured host; the named reference-hardware gates remain separate. [Current timings](../evidence/shared-table-forces/performance.json) · [Preserved baseline](../evidence/shared-table-forces/performance-2f99141.json)
 
-## Grow Dusk release 1
+
+## Cantilever catalogue integration — historical baselines
+
+Before the later `grow-dusk-play-2` owner revision, `grow-dusk-release-2` added fixed source collars to the preceding two-deck match. The evidence in this section retains those historical rules and source revisions. The active revised match combines the cantilever catalogue with the separate play revision described above; it does not reinstate the old draw limits or per-turn caps.
+
+Integration baselines are cantilever feature `fca92ab`, fetched main `cca5702` and concurrent main `533e1af`. The integration retains main's Rust-backed evaluator, versioned `rust-1` playtest engines, companion motion/islet, View modes, wiki, AI lab, structure-generator work and compact coloured cards. The feature evidence below predates that integration; it does not substitute for a check of the combined source or establish a new hardware/platform acceptance result.
+
+The final combined source, recorded on local main at `6c8b1ea`, passed TypeScript checking, **872 tests with 12 skipped** (101 passed files, 3 skipped files), and shared-contract/web production builds. All six Chromium scenarios also passed on this source, including draft reload, explicit connector consumption, a 5 kN load and assessed private handoff. [Integrated raw results and screenshot](../evidence/cantilevers/README.md) retain their own provenance; the original feature's browser and test evidence remains separately versioned. This records local integration and validation, not remote publication.
+
+| Scoped check | Recorded evidence |
+| --- | --- |
+| Original source quarters, exact geometry and explicit cards | Rule/placement suites cover all three stations, full-span and board bounds, declared fitting envelopes, matching freedoms, one piece/connector, immutable fittings and unchanged v1 replay. |
+| Continuous response and collar demand | Independent asymmetric-arm references, signed reactions, adjacent-segment resultant, source-versus-receiving load attribution, branches, nested collars and unavailable response; source IDs persist through evidence, issue comparison and repair. |
+| Match and saved-state integration | Genuine dealt 5 kN quarter-supported game through 16 turns, final Rust reaction share, draft/final private replay and retained historical save rules. |
+| Feature verification at `323e8be` | 608 tests passed, 9 skipped across 87 files; shared-contract and web production builds passed. Cargo was unavailable for the feature's top-level rebuild; the feature changed no Rust source. Main brings its separately validated Rust/evaluator changes and binary. |
+| Browser controls | Six Linux Chromium 156.0.8078.79 scenarios passed: pointer controls, actual scene picks, precise endpoint entry, keyboard, touch emulation and unavailable-WebGL fallback. Each checked explicit card consumption, exact draft reload, 5 kN load, assessed private handoff and no horizontal overflow. [Source provenance, screenshot and raw results](../evidence/cantilevers/README.md) |
+
+The older release's mandatory physical-device, assistive-technology and performance gates below remain open where recorded. The current feature evidence is scoped to fixed frame source collars.
+
+## Grow Dusk release 1 — historical baseline
 
 On 2026-11-15 the owner clarified that all release criteria apply to **Shared table**. Grow Dusk is its release presentation. Existing secondary modes retain their navigation and historical saves.
 
 Integration starts at `3a2d4e3` on `Complete-Grow-Dusk-Release`. The rows below track the frozen appendices and the numerical gates they retain. The earlier playtest evidence below belongs to its original rules and solver versions.
 
-The normal Play entry uses the `grow-dusk-release-1` rules and physical catalogue, `dof-rust-0.2.0-nonlinear-1` assessment, and version 1 private IndexedDB files. The [runtime guide](grow-dusk-runtime.md) describes implementation and reproduction. Evidence below applies to that version. Each row names the module owner responsible for any outstanding check.
+The Play entry at this baseline used the `grow-dusk-release-1` rules and physical catalogue, `dof-rust-0.2.0-nonlinear-1` assessment, and version 1 private IndexedDB files. The [runtime guide](grow-dusk-runtime.md) describes current implementation and reproduction. Evidence below applies to its original version. Each row names the module owner responsible for any outstanding check.
 
 | Requirement and source | Owner and implementation | Acceptance and remaining work |
 | --- | --- | --- |

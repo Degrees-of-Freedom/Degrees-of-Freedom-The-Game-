@@ -11,9 +11,14 @@ $font = [Drawing.Font]::new('Segoe UI', 22, [Drawing.FontStyle]::Bold)
 $small = [Drawing.Font]::new('Segoe UI', 12)
 $ink = [Drawing.SolidBrush]::new([Drawing.ColorTranslator]::FromHtml('#233D4D'))
 $muted = [Drawing.SolidBrush]::new([Drawing.ColorTranslator]::FromHtml('#617680'))
-$sheet = [Drawing.Bitmap]::new(1600, 1500)
+$sheet = [Drawing.Bitmap]::new(1600, [Math]::Ceiling($catalog.records.Count / 4) * 300)
 $sg = [Drawing.Graphics]::FromImage($sheet)
 $sg.Clear([Drawing.Color]::White)
+$sculpturalRecords = @($catalog.records | Where-Object { [int]$_.id.Substring(0, 2) -ge 21 })
+$sculpturalSheet = [Drawing.Bitmap]::new(1200, [Math]::Max(1, [Math]::Ceiling($sculpturalRecords.Count / 2)) * 450)
+$sculpturalGraphics = [Drawing.Graphics]::FromImage($sculpturalSheet)
+$sculpturalGraphics.Clear([Drawing.Color]::White)
+$sculpturalIndex = 0
 $index = 0
 foreach ($r in $catalog.records) {
   $bmp = [Drawing.Bitmap]::new(960, 720)
@@ -40,7 +45,7 @@ foreach ($r in $catalog.records) {
     $screen[$key] = [Drawing.PointF]::new(480 + ($p[0]-($xmin+$xmax)/2)*$scale, 390 + ($p[1]-($ymin+$ymax)/2)*$scale)
   }
   $g.DrawString($r.name, $font, $ink, 36, 24)
-  $g.DrawString("$($r.memberCount) members   /   $($r.nodeCount) nodes   /   $($r.extentMetres -join ' x ') m", $small, $muted, 38, 65)
+  $g.DrawString("$($r.memberCount) members   /   $($r.nodeCount) nodes   /   $($r.foundationCount) foundations   /   $($r.extentMetres -join ' x ') m", $small, $muted, 38, 65)
   foreach ($m in $r.save.model.members) {
     $pen = [Drawing.Pen]::new([Drawing.ColorTranslator]::FromHtml($colors[$m.type]), $(if ($m.type -eq 'cable') { 2.5 } else { 5 }))
     $g.DrawLine($pen, $screen[$m.a], $screen[$m.b]); $pen.Dispose()
@@ -59,8 +64,14 @@ foreach ($r in $catalog.records) {
   $g.DrawString("$($r.id)   /   intent: $($r.expectation.stability)   /   not a solved result", $small, $muted, 36, 677)
   $bmp.Save((Join-Path $out "$($r.id).png"), [Drawing.Imaging.ImageFormat]::Png)
   $sg.DrawImage($bmp, [Drawing.Rectangle]::new(($index % 4)*400, [Math]::Floor($index/4)*300, 400, 300))
+  if ([int]$r.id.Substring(0, 2) -ge 21) {
+    $sculpturalGraphics.DrawImage($bmp, [Drawing.Rectangle]::new(($sculpturalIndex % 2)*600, [Math]::Floor($sculpturalIndex/2)*450, 600, 450))
+    $sculpturalIndex++
+  }
   $g.Dispose(); $bmp.Dispose(); $index++
 }
 $sheet.Save((Join-Path $root 'contact-sheet.png'), [Drawing.Imaging.ImageFormat]::Png)
+$sculpturalSheet.Save((Join-Path $root 'sculptural-contact-sheet.png'), [Drawing.Imaging.ImageFormat]::Png)
+$sculpturalGraphics.Dispose(); $sculpturalSheet.Dispose()
 $sg.Dispose(); $sheet.Dispose(); $font.Dispose(); $small.Dispose(); $ink.Dispose(); $muted.Dispose()
 Write-Output "Rendered $index previews and contact sheet."

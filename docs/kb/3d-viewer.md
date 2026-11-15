@@ -21,7 +21,7 @@ status: partial
 
 # 3D Viewer
 
-The [structure library](structure-library.md) adds 20 selectable specimens with PNG previews and previous/next loading. Loading fits the camera to the specimen's bounds; these previews show undeformed geometry, while the interactive scene uses the usual analysis controls.
+The [structure library](structure-library.md) adds 30 selectable specimens with PNG previews and previous/next loading. Loading fits the camera to the specimen's bounds; these previews show undeformed geometry, while the interactive scene uses the usual analysis controls.
 
 The React workspace uses Three.js for a Z-up structural scene with terrain, orbit and zoom, build planes, member and node picking, and placement. The viewer consumes the Zustand game model; edit validity is checked by game rules. Shared table renders verified Rust/WASM checkpoint response with deflection, signed gravity-transfer arrows, shear/moment diagrams and support reactions. Its separate instability diagnostic draws returned normalized solver modes with explicit scope and scale limitations. Legacy experimental views retain their own result interpretation. These educational visualizations are not engineering design evidence; the separate OpenSees panel does not supply the Shared table animation.
 
@@ -54,3 +54,8 @@ Selected joint / All joints / Off is persisted. Revised Shared table uses its se
 ## Controls, physical clashes and repair feedback
 
 [Controls/camera criteria](controls-camera-criteria.md) define input parity, target disambiguation, reference-grid/quarter selection, safe navigation and accessible inspection. [Placement](placement-criteria.md) distinguishes physical reference clash geometry from enlarged meshes and intentional port contacts. [Failure/repair](failure-repair-criteria.md) requires clear resolved/improved/persistent/unknown markers while retained structures continue in play. The viewer must not infer these rules or claim physical validity from mesh contact.
+
+
+## Creative view modes
+
+Creative exposes the Shared table view-mode panel (eye button or V): load path, deflected shape or displacement shadow, joint freedoms, loads and reactions, shear and bending diagrams, and witnessed instability. Run simulation to produce results; changing the model invalidates them. The Results drawer selects the load case used for the overlays. Visualizations are experimental and show only available solver response.

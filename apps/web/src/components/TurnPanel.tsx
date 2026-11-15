@@ -5,7 +5,8 @@ import { FinalScorePanel } from "./FinalScorePanel";
 import { RepairHistory } from "./RepairHistory";
 import { publicTurnReport } from "../game/publicTurnModel";
 import { CardDefinitionDetails } from "./CardDefinitionDetails";
-import { connectionLocations, findPort, portLabel, systemTarget } from "../game/turnPorts";
+import { attachmentLabel } from "../game/attachmentSites";
+import { ReleaseTargets, StagedAttachmentActions } from "./ReleaseTargets";
 
 type Game = ReturnType<typeof useGameStore.getState>;
 export function TurnPanel({
@@ -22,7 +23,6 @@ export function TurnPanel({
   const player = turn.players[turn.playerIndex];
   const hand = activeTurnHand(turn);
   const selectedCard = hand.find((card) => card.id === game.selectedCardId);
-  const members = [...turn.board.members, ...turn.draft.members];
   const connections = [...turn.board.connections, ...turn.draft.connections];
   const report = turn.reports.at(-1);
   const deductions = turn.reports.filter(entry => entry.penalty < 0).map(publicTurnReport);
@@ -45,7 +45,7 @@ export function TurnPanel({
               <ul>
                 {entry.penaltyReasons.map(item => (
                   <li key={item.id}>
-                    Member {item.memberId}{item.end && ` end ${item.end.toUpperCase()}`} · {item.change}{" "}
+                    Member {item.memberId}{item.end && ` ${attachmentLabel(item.end)}`} · {item.change}{" "}
                     {item.category.replace("-", " ")}. {item.reason}
                     {item.utilization !== undefined && ` · utilization ${item.utilization.toFixed(3)}`}
                   </li>
@@ -58,7 +58,7 @@ export function TurnPanel({
       <RepairHistory reports={turn.reports} />
       {!turn.finished && <p>
         {KIT_PLAYTEST.description} Draw two cards from each deck. Play up to one
-        member, one gravity load and two end connections, or pass. This is an
+        member, one gravity load and two connections, or pass. This is an
         experimental local playtest.
       </p>}
       {!turn.finished && <p>
@@ -96,51 +96,17 @@ export function TurnPanel({
           </div>
           <p>
             {selectedCard?.kind === "element"
-              ? "Choose two points in the scene or use Precise placement to stage this member."
+              ? "Choose an attachment point and a free tip. Placing geometry leaves it unconnected until you play a connector."
               : selectedCard?.kind === "load"
                 ? "Click an existing joint to stage this gravity load."
                 : selectedCard?.kind === "connection"
-                  ? "Choose an unconnected member end below. Other players’ ends are available too."
+                  ? "Choose an unconnected end or collar below. Either player’s pieces are available."
                   : "Select a card to play it."}
           </p>
           {selectedCard && <CardDefinitionDetails card={selectedCard} />}
           {selectedCard && <TurnQuarterTargets key={selectedCard.id} game={game} card={selectedCard} onMessage={onMessage} />}
-          {selectedCard?.kind === "connection" && (
-            <div className="turn-cards">
-              {members.filter(member => !member.system).flatMap((member) =>
-                (["a", "b"] as const)
-                  .filter(
-                    (end) =>
-                      !connections.some(
-                        (connection) =>
-                          connection.memberId === member.id &&
-                          connection.end === end,
-                      ),
-                  )
-                  .flatMap((end) => connectionLocations(members, member, end).filter(target => !systemTarget(turn, target)).map(target => {
-                    const port = findPort(members, target);
-                    return (
-                    <button
-                      key={`${member.id}-${end}-${target}`}
-                      className="turn-card"
-                      onClick={() =>
-                        onMessage(
-                          game.playConnection(
-                            selectedCard.id,
-                            member.id,
-                            end,
-                            target,
-                          ) ?? "End connection staged.",
-                        )
-                      }
-                    >
-                      Member {member.id} · end {end.toUpperCase()}
-                      <small>{port ? portLabel(port) : `Joint ${target}`}</small>
-                    </button>
-                  ); })),
-              )}
-            </div>
-          )}
+          {selectedCard?.kind === "connection" && <ReleaseTargets game={game} card={selectedCard} notify={onMessage} />}
+          <StagedAttachmentActions game={game} notify={onMessage} />
           <div className="workspace-actions">
             <button
               onClick={() =>
@@ -184,7 +150,7 @@ export function TurnPanel({
         <ul>
           {connections.map((connection) => (
             <li key={`${connection.memberId}-${connection.end}`}>
-              Member {connection.memberId}, end {connection.end.toUpperCase()}:{" "}
+              Member {connection.memberId}, {attachmentLabel(connection.end)}:{" "}
               {connection.profile} → {connection.jointId}
             </li>
           ))}
