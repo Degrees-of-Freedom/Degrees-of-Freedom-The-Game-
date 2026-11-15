@@ -76,7 +76,8 @@ pub struct Seg {
     pub geom: SegGeom,
     /// Equation of each connection variable, or negative when rigid.
     pub q_eq: [i32; 12],
-    /// Consistent nodal loads of the self-weight on this element, global.
+    /// Consistent nodal loads of the self-weight and uniform member loads on
+    /// this element, global.
     pub self_weight: [f64; 12],
     /// Derivatives at the undeformed state: the linear stiffness matrix.
     pub linear: SegDerivatives,
@@ -191,7 +192,13 @@ impl System {
             let dx = sub(&xb, &xa);
             let length = norm(&dx);
             total_length += length;
-            let weight = options.gravity.map_or([0.0; 3], |g| g.map(|v| v * section.density * section.a));
+            // Self-weight plus any uniform member loads, N/m, global.
+            let mut weight = options.gravity.map_or([0.0; 3], |g| g.map(|v| v * section.density * section.a));
+            for load in model.member_loads.iter().filter(|l| l.member_id == member.id) {
+                for i in 0..3 {
+                    weight[i] += load.force[i];
+                }
+            }
 
             if member.kind != MemberKind::Beam {
                 let rest = match (member.rest_length, member.initial_strain) {

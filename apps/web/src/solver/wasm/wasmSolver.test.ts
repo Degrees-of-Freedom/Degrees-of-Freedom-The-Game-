@@ -1,10 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
-import type { AnalysisModel, AnalysisSection, StructuralModel } from '@dof/solver-contract';
+import type { AnalysisLoadCase, AnalysisModel, AnalysisOptions, AnalysisSection, StructuralModel } from '@dof/solver-contract';
 import { exampleModel } from '../../game/examples';
 import type { LevelId } from '../../game/model';
 import { toStructuralModel } from '../../game/structuralModel';
 import { createWasmSolver } from './wasmSolver';
+import { handleRequest, type WorkerLike } from './workerProtocol';
 
 /** Node cannot `fetch` a file path, so the tests read the module from disk. */
 const fromDisk = () => readFile(new URL('./dof_solver.wasm', import.meta.url));
@@ -165,5 +166,131 @@ describe('Rust WebAssembly solver, detailed contract', () => {
     const failed = await flaky.analyzeDetailed(mast);
     expect(failed.analysis.reasonCodes).toEqual(['solverUnavailable']);
     expect((await flaky.analyzeDetailed(mast)).analysis.status).toBe('ok');
+  });
+});
+
+describe('Rust WebAssembly solver, deflection and load cases', () => {
+  const fixedMast: AnalysisModel = { ...mast, members: [{ ...mast.members[0], start: undefined }, ...mast.members.slice(1)] };
+
+  it('reports stations along a beam and none along a cable', async () => {
+    const result = await solver.analyzeDetailed(fixedMast, { fidelity: 'linear', subdivisions: 4 });
+    const deflection = result.members.mast.deflection!;
+    expect(deflection.stations.map((s) => s.at)).toEqual([0, 0.25, 0.5, 0.75, 1]);
+    expect(deflection.length).toBeCloseTo(6, 12);
+    // The end stations are the nodes.
+    expect(deflection.stations[4].displacement).toEqual(result.nodes.top.displacement);
+    expect(deflection.maxFromChord).toBeGreaterThan(0);
+    expect(result.members['guy-west'].deflection).toBeNull();
+  });
+
+  it('gives each load case the result of a separate call', async () => {
+    const options: AnalysisOptions = { fidelity: 'linear', gravity: [0, 0, -9.81] };
+    const calm: AnalysisLoadCase = { id: 'calm', loads: [] };
+    const gust: AnalysisLoadCase = { id: 'gust', loadFactor: 1.5 };
+    const { cases, runtimeMs } = await solver.analyzeCases(fixedMast, [calm, gust], options);
+    expect(runtimeMs).toBeGreaterThanOrEqual(0);
+    expect(cases.map((c) => c.id)).toEqual(['calm', 'gust']);
+    const separate = [
+      await solver.analyzeDetailed({ ...fixedMast, loads: [] }, options),
+      await solver.analyzeDetailed(fixedMast, { ...options, loadFactor: 1.5 }),
+    ];
+    for (const [i, { result }] of cases.entries()) {
+      delete separate[i].analysis.runtimeMs;
+      expect(result).toEqual(separate[i]);
+    }
+  });
+
+  it('gives every case the rejection when the request as a whole is rejected', async () => {
+    const { cases } = await solver.analyzeCases(mast, [{ id: 'a' }, { id: 'a' }]);
+    expect(cases).toHaveLength(2);
+    for (const { result } of cases) expect(result.analysis.reasonCodes).toEqual(['invalidInput']);
+  });
+});
+
+/**
+ * A stand-in for the browser worker: it runs the real module in-process,
+ * through the same message handler as `solverWorker.ts`. `hang` swallows the
+ * answer, as a worker stuck in a long analysis would.
+ */
+function fakeWorkers(behaviour: 'answer' | 'hang' = 'answer') {
+  const log = { spawned: 0, terminated: 0 };
+  /** Called when a worker reports that an analysis has started. */
+  const events: { onStarted?: () => void } = {};
+  const spawn = (): WorkerLike => {
+    log.spawned++;
+    const cache = {};
+    let alive = true;
+    const worker: WorkerLike = {
+      onmessage: null,
+      onerror: null,
+      postMessage(message) {
+        setTimeout(() =>
+          void handleRequest(message, cache, (reply) => {
+            if (!alive) return;
+            if (reply.kind === 'started') setTimeout(() => events.onStarted?.());
+            if (behaviour === 'hang' && reply.kind !== 'started') return;
+            worker.onmessage?.({ data: reply });
+          }),
+        );
+      },
+      terminate() {
+        alive = false;
+        log.terminated++;
+      },
+    };
+    return worker;
+  };
+  return { spawn, log, events };
+}
+
+describe('Rust WebAssembly solver on a worker', () => {
+  it('gives the same results as the inline solver, reusing one worker', async () => {
+    const { spawn, log } = fakeWorkers();
+    const onWorker = createWasmSolver({ source: fromDisk, worker: spawn });
+    const [a, b] = await Promise.all([
+      onWorker.analyzeDetailed(mast, { fidelity: 'linear' }),
+      onWorker.analyzeDetailed(mast, { fidelity: 'nonlinear' }),
+    ]);
+    const inline = await solver.analyzeDetailed(mast, { fidelity: 'linear' });
+    for (const result of [a, inline]) delete result.analysis.runtimeMs;
+    expect(a).toEqual(inline);
+    expect(b.analysis.fidelity).toBe('nonlinear');
+    expect(log).toEqual({ spawned: 1, terminated: 0 });
+  });
+
+  it('stops an analysis that exceeds the time limit and recovers on a fresh worker', async () => {
+    const hanging = fakeWorkers('hang');
+    const slow = createWasmSolver({ source: fromDisk, worker: hanging.spawn, timeLimitMs: 30 });
+    const result = await slow.analyzeDetailed(mast);
+    expect(result.analysis.status).toBe('invalid');
+    expect(result.analysis.reasonCodes).toEqual(['timeLimitExceeded']);
+    expect(result.analysis.diagnostics[0].message).toContain('30 ms');
+    expect(hanging.log).toEqual({ spawned: 1, terminated: 1 });
+    // Every case of a timed-out multi-case call carries the timeout.
+    const { cases } = await slow.analyzeCases(mast, [{ id: 'x' }, { id: 'y' }]);
+    expect(cases.map((c) => c.result.analysis.reasonCodes[0])).toEqual(['timeLimitExceeded', 'timeLimitExceeded']);
+    expect(hanging.log).toEqual({ spawned: 2, terminated: 2 });
+  });
+
+  it('terminates the worker when the caller aborts mid-analysis', async () => {
+    const hanging = fakeWorkers('hang');
+    const solverOnWorker = createWasmSolver({ source: fromDisk, worker: hanging.spawn, timeLimitMs: 60_000 });
+    const controller = new AbortController();
+    const pending = solverOnWorker.analyzeDetailed(mast, {}, controller.signal);
+    hanging.events.onStarted = () => controller.abort();
+    await expect(pending).rejects.toThrow();
+    expect(hanging.log.terminated).toBe(1);
+  });
+
+  it('lets queued calls run after an aborted one', async () => {
+    const { spawn, log } = fakeWorkers();
+    const onWorker = createWasmSolver({ source: fromDisk, worker: spawn });
+    const controller = new AbortController();
+    const first = onWorker.analyzeDetailed(mast, {}, controller.signal);
+    const second = onWorker.analyzeDetailed(mast, { fidelity: 'linear' });
+    controller.abort();
+    await expect(first).rejects.toThrow();
+    expect((await second).analysis.status).toBe('ok');
+    expect(log.spawned).toBeLessThanOrEqual(2);
   });
 });

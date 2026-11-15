@@ -6,7 +6,7 @@ import { prepareTurnGeometry } from '../voxel';
 import type { VoxelMember, VoxelModel } from '../voxelInput';
 import type { Combo, ComponentResponse, Context, Element, VoxelAnalysis } from '../voxelResults';
 import { RELEASE_SOLVER } from '../voxelVerification';
-import { createWasmSolver, type WasmSource } from './wasmSolver';
+import { createPreparedWasmSolver, type WasmSource } from './wasmSolver';
 
 const fixed = [true, true, true, true, true, true] as const;
 const ball = ['rigid', 'rigid', 'rigid', 'free', 'free', 'free'] as const;
@@ -135,7 +135,7 @@ function project(input: VoxelModel, ctx: Context, result: DetailedAnalysisResult
 }
 
 export function createTurnSolver(source?: WasmSource) {
-  const solver = createWasmSolver(source);
+  const solver = createPreparedWasmSolver(source);
   // A pass, retry or before/after comparison may have identical physical
   // inputs. Reuse only a byte-for-byte match of the complete SI model. The
   // cache is scoped to this WASM instance and holds just the last response.
