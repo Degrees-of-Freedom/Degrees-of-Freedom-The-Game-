@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { RUST_TURN_ENGINE, type TurnState } from "./turns";
 import type { StructureEvaluation } from "../evaluator/results";
-import { CABLE_FORMULATION, RELEASE_SOLVER, verifiedResponse } from "../evaluator/evidence";
+import { CABLE_FORMULATION, RELEASE_SOLVER, RELEASE_SOLVERS, isReleaseSolver, verifiedResponse } from "../evaluator/evidence";
 import { analysisLoadJoint } from "./turnPorts";
 
 export const SCORE_POLICY = "signed-card-gravity-v1";
@@ -28,7 +28,7 @@ const componentEvidence = z.strictObject({
 });
 const receiptSchema = z.strictObject({
   policy: z.literal(SCORE_POLICY),
-  solver: z.enum(["voxel-linear-frame-v1", CABLE_FORMULATION, RELEASE_SOLVER]),
+  solver: z.enum(["voxel-linear-frame-v1", CABLE_FORMULATION, ...RELEASE_SOLVERS]),
   modelId: z.string(),
   components: z.array(componentEvidence).min(1).max(2048),
 });
@@ -101,12 +101,14 @@ export function readFinalReceipt(turn: TurnState, raw: unknown): ScoreReceipt | 
   const parsed = receiptSchema.safeParse(raw);
   if (!parsed.success || parsed.data.modelId !== modelId(turn)) return null;
   const { board } = turn;
-  if (parsed.data.solver !== solverFor(turn)) return null;
+  // A Rust receipt keeps the id of the release solver that wrote it.
+  const expected = solverFor(turn);
+  if (parsed.data.solver !== expected && !(expected === RELEASE_SOLVER && isReleaseSolver(parsed.data.solver))) return null;
   const foundations = new Map(board.joints.filter(j => j.foundationOwner).map(j => [j.id, j.foundationOwner]));
   const seen = new Set<string>();
   const seenSupports = new Set<string>();
   for (const scope of parsed.data.components) {
-    if (scope.verified && parsed.data.solver === RELEASE_SOLVER) {
+    if (scope.verified && isReleaseSolver(parsed.data.solver)) {
       if (!scope.nonlinear || Math.max(...Object.values(scope.nonlinear)) > 1e-5) return null;
     } else if (scope.verified) {
       const r = scope.residuals;
@@ -153,6 +155,14 @@ const savedFinal = z.strictObject({
   })).max(4), winners: z.array(z.string()).max(4), totalGravityKN: z.number().finite(),
   unknownGravityKN: z.number().finite(), neutralShare: z.number().finite(), partial: z.boolean(),
 });
+
+/** A replayed Rust award keeps the solver id of the saved award it
+ * reproduces, when that id is an accepted release solver: the record still
+ * names the solver that wrote it. The evidence itself is compared in full. */
+export function withSavedReleaseSolver(score: FinalScore, saved: unknown): FinalScore {
+  const id = (saved as { receipt?: { solver?: unknown } } | null | undefined)?.receipt?.solver;
+  return score.receipt.solver === RELEASE_SOLVER && isReleaseSolver(id) ? { ...score, receipt: { ...score.receipt, solver: id } } : score;
+}
 
 export function recoverFinalScore(turn: TurnState, raw: unknown): FinalScore | null {
   const stored = savedFinal.safeParse(raw);

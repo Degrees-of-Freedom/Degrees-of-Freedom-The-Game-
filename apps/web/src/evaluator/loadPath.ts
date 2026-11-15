@@ -1,5 +1,5 @@
 import type { StructureEvaluation } from './results';
-import { RELEASE_SOLVER } from './evidence';
+import { isReleaseSolver } from './evidence';
 
 /** A visual interpretation of member forces, not a separate structural analysis. */
 export interface LoadPathMember {
@@ -38,7 +38,7 @@ export function computeLoadPath(
   )
     return null;
   const members = new Map<number, LoadPathMember>();
-  const release = c.components?.some(scope => scope.verification?.formulation === RELEASE_SOLVER);
+  const release = c.components?.some(scope => isReleaseSolver(scope.verification?.formulation));
   if (!release && (result.mechanism || result.unresolved)) return null;
   let maxForce = 1e-9;
   for (const e of ctx.els) {

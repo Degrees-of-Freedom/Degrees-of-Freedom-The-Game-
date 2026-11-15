@@ -14,7 +14,7 @@ import { resolveMemberLaw, S } from "../evaluator/sections";
 import { correctTurnIssues, LEGACY_REPAIR_POLICY, REPAIR_POLICY, type CorrectionReceipt, type RepairPolicy, type SystemProvenance } from "./turnRepair";
 import { assessTurnOutcome, matchesIssueEvidence, type IssueAssessment } from "./turnIssues";
 import { decidePenalty, type PenaltyDecision } from "./turnPenalty";
-import { awardFinalScore, finalReceipt, recoverFinalScore, type FinalScore } from "./finalScore";
+import { awardFinalScore, finalReceipt, recoverFinalScore, withSavedReleaseSolver, type FinalScore } from "./finalScore";
 export { turnJoints } from "./turnPorts";
 export { CONNECTION_PROFILES } from "./jointFreedom";
 
@@ -608,6 +608,7 @@ function commitTurn(
         // A failed solve leaves the full gravity denominator and historical penalties intact.
       }
       finalScore = awardFinalScore(committed, finalReceipt(committed, analysis));
+      if (replay) finalScore = withSavedReleaseSolver(finalScore, replay.final);
       if (replay && !matchesIssueEvidence(finalScore, replay.final))
         return fail("The saved final award does not match the verified reactions and deductions.");
     }

@@ -6,7 +6,7 @@ import { localAxes, vecToLocal } from '../vector';
 import { prepareGeometry } from '../geometry';
 import type { EvaluatorMember, EvaluatorModel } from '../model';
 import type { Combo, ComponentResponse, Context, Element, StructureEvaluation } from '../results';
-import { RELEASE_SOLVER } from '../evidence';
+import { RELEASE_COMPARISON, RELEASE_SOLVER, RELEASE_SOLVER_VERSIONS } from '../evidence';
 import { createPreparedWasmSolver, type WasmSource } from '../../solver/wasm/wasmSolver';
 
 const fixed = [true, true, true, true, true, true] as const;
@@ -94,7 +94,7 @@ function scopeResponse(scope: AnalysisComponent, result: DetailedAnalysisResult,
     const byId = (a:{id:string}, b:{id:string}) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
     const members = model.members.filter(m => ids.has(Number(m.id))).sort(byId);
     members.forEach(m => sections.add(m.sectionId));
-    const topology = JSON.stringify([RELEASE_SOLVER, model.nodes.filter(n => nodeIds.has(n.id)).sort(byId), members,
+    const topology = JSON.stringify([RELEASE_COMPARISON, model.nodes.filter(n => nodeIds.has(n.id)).sort(byId), members,
       model.sections.filter(s => sections.has(s.id)).sort(byId), model.foundations.filter(s => nodeIds.has(s.nodeId)).sort(byId)]);
     comparison = {topology, ...tangent};
   }
@@ -177,7 +177,8 @@ export function createTurnSolver(source?: WasmSource) {
       model.version = version + '/' + (hash >>> 0).toString(16);
       const result = solver.analyzePrepared(model, {fidelity: 'nonlinear', subdivisions: 2, failure: 'report', residualGate: 1e-5, memberFields:true,
         ...(selfWeight && { gravity: [0, 0, -GRAVITY] as [number, number, number] })});
-      if (result.analysis.status === 'ok' && result.analysis.solverVersion !== '0.2.0') throw new Error('Unsupported browser solver version.');
+      if (result.analysis.status === 'ok' && !(RELEASE_SOLVER_VERSIONS as readonly string[]).includes(result.analysis.solverVersion))
+        throw new Error('Unsupported browser solver version.');
       if (result.analysis.status === 'ok') previous = {key, result};
       return project(input, ctx, result, model, selfWeight);
     },

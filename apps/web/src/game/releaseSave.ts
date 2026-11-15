@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { RELEASE_CATALOGUE } from "./cardCatalogue";
 import { SCORE_POLICY } from "./finalScore";
-import { RELEASE_SOLVER } from "../evaluator/evidence";
+import { RELEASE_SOLVER, RELEASE_SOLVERS } from "../evaluator/evidence";
 import { matchesIssueEvidence } from "./turnIssues";
 import { replayTurnState, type TurnState } from "./turns";
 
@@ -15,7 +15,8 @@ const header = z.strictObject({
   catalogue: z.literal(RELEASE_CATALOGUE),
   scoring: z.literal(SCORE_POLICY),
   penalty: z.literal("issue-penalty-1"),
-  solver: z.literal(RELEASE_SOLVER),
+  // Saves written by any accepted release solver load; new commits write the current one.
+  solver: z.enum(RELEASE_SOLVERS),
   matchId: id, commitId: id, parentId: id.nullable(),
   revision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
   phase: z.enum(["planning", "assessing", "final"]),
