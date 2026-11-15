@@ -1,6 +1,6 @@
 ---
 title: "Saved Match and Recovery Criteria"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
   - "Project owner completion-criteria request and follow-up decisions, 2026-11-14"
   - docs/kb/structural-state.md
@@ -8,6 +8,12 @@ validated_against:
   - docs/kb/card-definition-criteria.md
   - docs/kb/scoring-match-criteria.md
   - docs/kb/multiplayer-criteria.md
+  - docs/kb/cantilever-placement.md
+  - apps/web/src/game/releaseSave.ts
+  - apps/web/src/game/releaseSession.ts
+  - apps/web/src/game/turns.ts
+  - apps/web/src/game/session.ts
+  - apps/web/src/game/cantileverRelease.test.ts
 owner: project owner
 status: needs-review
 ---
@@ -16,7 +22,9 @@ status: needs-review
 
 ## 1. Scope and authority
 
-Proposed complete-match persistence requirements. The existing structural snapshot, voxel saves and local turn replay are partial building blocks; none alone certifies compliance. Save the game needed to resume correctly, not just a renderable structural model. Keep the analytical snapshot distinct from UI preferences and private/public export scopes.
+This page records complete-match persistence requirements and the implemented version boundaries below. An analytical snapshot alone does not certify compliance. Save the game needed to resume correctly, not just a renderable structural model. Keep the analytical snapshot distinct from UI preferences and private/public export scopes.
+
+The release `/match` runtime stores complete private records in IndexedDB with atomic head/previous rotation, while secondary workspaces retain the versioned local-session path. Private release files keep format version 1 and accept `grow-dusk-release-1` or `grow-dusk-release-2` only when header rules, catalogue and replayed turn agree. V2 stores the selected interior contact, original `q1`/`q2`/`q3` source and fixed collar identity; replay reconstructs their exact topology, card use, load aliases and physical receipts. Existing v1 records are not upgraded or given inferred quarter connections. Both rulesets retain the same immutable v1 card printings. See [runtime and recovery](grow-dusk-runtime.md#privacy-persistence-and-recovery) and [cantilever evidence](cantilever-placement.md#verification-and-remaining-scope).
 
 ## 2. Versioned match envelope
 
@@ -33,7 +41,7 @@ A save must contain resolved definitions or an immutable retrievable definition 
 
 ## 3. Atomicity and crash recovery
 
-The new local session envelope stores revision and parent. A short origin-wide Web Lock guards the comparison with the tab's expected head and replacement of the complete envelope. A losing tab conceals private state and reloads the winning revision through handoff. Version-one sessions remain readable. The [implementation ledger](criteria-ledger.md) records the two-tab fixture and queued-write interruption coverage.
+The secondary-workspace local session envelope stores revision and parent. A short origin-wide Web Lock guards the comparison with the tab's expected head and replacement of that complete envelope. The release uses an IndexedDB compare-and-write transaction instead. A losing tab conceals private state and reloads the winning revision through handoff. Version-one sessions remain readable; playtest matches preserve their recorded analysis engine, with no engine field retaining the legacy replay path and new `rust-1` matches using Rust. The [implementation ledger](criteria-ledger.md) records the two-tab fixture and queued-write interruption coverage.
 
 Treat an accepted turn as one logical commit: structure, card/pile changes, evidence/issue scope, penalty event and turn advancement either all belong to the committed revision or none do. Persist a validated revision and update a current-head pointer using a documented transactional or recoverable journaling protocol. A succession of unrelated localStorage writes is not by itself atomic. Detect orphan/incomplete writes and recover the last complete revision; preserve the incomplete copy for diagnosis/export.
 

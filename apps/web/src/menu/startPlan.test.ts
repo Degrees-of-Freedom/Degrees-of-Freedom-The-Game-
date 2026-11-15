@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { planStart, runStart, type StartActions } from "./startPlan";
+import { CANTILEVER_CATALOGUE, SCORED_CATALOGUE } from "../game/cardCatalogue";
 
 function recorder(overrides: Partial<StartActions> = {}) {
   const calls: string[] = [];
@@ -114,5 +115,27 @@ describe("against the real store", () => {
     expect(runStart({ mode: "multiplayer", begin: "new" }, store.getState())).toMatch(
       /Finish/,
     );
+  });
+
+  it("starts the cantilever preset with release board dimensions", async () => {
+    const { store, runStart } = await freshStore();
+    expect(runStart({ mode: "multiplayer", begin: "continue", catalogue: CANTILEVER_CATALOGUE }, store.getState())).toBeNull();
+    const turn = store.getState().turn!;
+    const { boardLimits } = await import("../game/turns");
+    expect(turn.catalogue).toBe(CANTILEVER_CATALOGUE);
+    expect(boardLimits(turn)).toEqual([15, 15, 12]);
+    expect(turn.board.members.map(member => [member.a, member.b])).toEqual([
+      ["5,7,0", "5,7,1"], ["10,7,0", "10,7,1"],
+    ]);
+  });
+
+  it("preserves an existing historical match when setup continues it", async () => {
+    const { store, runStart } = await freshStore();
+    store.getState().setMode("multiplayer", SCORED_CATALOGUE);
+    const saved = structuredClone(store.getState().turn);
+    store.getState().setMode("creative");
+    expect(runStart({ mode: "multiplayer", begin: "continue", catalogue: CANTILEVER_CATALOGUE }, store.getState())).toBeNull();
+    expect(store.getState().turn).toEqual(saved);
+    expect(store.getState().turn?.catalogue).toBe(SCORED_CATALOGUE);
   });
 });

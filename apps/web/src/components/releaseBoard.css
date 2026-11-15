@@ -31,6 +31,9 @@
 .release-stage { position: relative; overflow: hidden; min-height: 0; isolation: isolate; }
 .release-stage > .scene, .release-stage > .scene-host, .release-stage > [class^="scene-wrap"] { position: absolute; inset: 0; width: 100%; height: 100%; }
 .release-stage canvas { display: block; }
+.release-board #growth-length { position: absolute; left: 0; top: 0; max-width: min(28rem, calc(100% - 1rem));
+  padding: .45rem .7rem; border: 1px solid #918369; border-radius: .55rem; color: var(--ink); background: #14212cf2; font-size: .85rem; }
+.release-board #growth-length small { display: block; margin-top: .15rem; color: var(--muted); }
 .release-stage .scene-fallback { max-width: min(95%, 32rem); margin: 1rem auto; padding: 1rem; border: 1px solid var(--edge); background: var(--surface); border-radius: .75rem; }
 .release-stage [aria-label="Camera controls"] button { background: #19252eef; color: var(--ink); min-width: 44px; }
 .release-stage .scene-axes { position: absolute; left: .75rem; bottom: 4rem; width: 58px; height: 58px; pointer-events: none; }
@@ -50,6 +53,7 @@
 .release-turn-actions { display: flex; align-items: center; gap: .5rem; }
 .release-board .release-end { background: var(--gold); color: #271c10; border-color: var(--gold); font-weight: 750; min-width: 6rem; }
 .release-targetbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: 0 .25rem .5rem; }
+.release-targetbar > .release-prompt { flex-basis: 100%; font-size: .9rem; }
 .release-targetbar > .release-back { margin-inline-start: auto; }
 .release-targets, .release-precision form { display: flex; align-items: end; gap: .5rem; flex-wrap: wrap; }
 .release-targets label, .release-drawer label { display: grid; font-size: .875rem; color: var(--muted); }
@@ -57,6 +61,24 @@
 .release-board summary { display: list-item; padding: .65rem .2rem; min-height: 44px; color: var(--gold); }
 .release-precision fieldset { display: flex; align-items: center; gap: .3rem; border: 0; margin: 0; padding: 0; }
 .release-precision :is(input, select) { width: clamp(5rem, 11vw, 10rem); }
+.release-placement-controls { min-width: 0; flex: 1 1 40rem; }
+.release-placement-controls > .release-targets { align-items: end; }
+.release-placement-controls > .release-targets > label:first-child { flex: 1 1 15rem; }
+.release-placement-controls select { max-width: 100%; }
+.release-placement-controls > .release-targets > label:first-child select { width: 100%; }
+.release-station-controls { border: 0; margin: 0; padding: 0; }
+.release-station-controls legend { font-size: .875rem; color: var(--muted); padding: 0; }
+.release-station-controls [role="group"] { display: flex; gap: .2rem; }
+.release-station-controls button { min-width: 44px; padding-inline: .55rem; }
+.release-station-controls button[aria-pressed="true"] { color: #271c10; background: var(--gold); border-color: var(--gold); }
+.release-placement-controls > .release-precision { display: inline-block; margin-inline-end: 1rem; vertical-align: top; }
+.release-placement-controls .release-precision[open] { display: block; }
+.release-placement-controls .release-precision[open] form { padding-block: .2rem .5rem; }
+.release-placement-note { flex-basis: 100%; margin: .3rem 0; font-size: .85rem; color: var(--muted); }
+.release-attachment-actions { display: flex; flex-wrap: wrap; gap: .4rem 1rem; padding: .2rem .25rem .55rem; }
+.release-staged-attachment { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .7rem; font-size: .875rem; }
+.release-staged-attachment strong { color: var(--gold); }
+.release-staged-attachment small { color: var(--muted); }
 .release-stage > .release-skip { position: absolute; right: .75rem; bottom: .75rem; background: #15212ae6; font-size: .82rem; min-width: 44px; }
 .release-drawer { position: absolute; z-index: 4; right: .75rem; top: .75rem; bottom: .75rem; overflow: auto;
   width: min(25rem, calc(100% - 1.5rem)); background: #1e2a36fc; border: 1px solid var(--edge); border-radius: .85rem; padding: 1rem 1.15rem; }

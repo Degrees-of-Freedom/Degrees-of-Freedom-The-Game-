@@ -1,6 +1,7 @@
 import { allNodeKeys, CELL_SIZE, parseNodeKey, type GameModel } from "./model";
 import { turnJoints, type TurnState } from "./turns";
 import { findPort } from "./turnPorts";
+import { isInteriorSite } from "./attachmentSites";
 
 export interface ConnectivityReport {
   groundedMembers: Set<number>;
@@ -58,7 +59,8 @@ export function analyzeConnectivity(
       ...turn.board.connections,
       ...turn.draft.connections,
     ]) {
-      link(memberEnd(connection.memberId, connection.end), connection.jointId);
+      // An interior collar is on the continuous parent, not a third free end.
+      link(memberEnd(connection.memberId, isInteriorSite(connection.end) ? "a" : connection.end), connection.jointId);
     }
   }
   const supports = turn

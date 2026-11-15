@@ -80,7 +80,7 @@ export const structuralAnalysisResultSchema = z.strictObject({
   const memberIds = new Set(model.members.map((v) => v.id));
   const endpointIds = new Set(model.members.flatMap((v) => [v.start.id, v.end.id]));
   const foundationIds = new Set(model.foundations.map((v) => v.id));
-  const connectionIds = new Set(model.connections.map((v) => v.id));
+  const connectionIds = new Set([...model.connections, ...(model.collars ?? [])].map((v) => v.id));
   const components = new Map(result.components.map((v) => [v.id, v]));
   if (components.size !== result.components.length) error('Duplicate component ID.');
   const assignedJoints = new Set<string>(), assignedEnds = new Set<string>(), assignedMembers = new Set<string>();
@@ -123,7 +123,10 @@ export const structuralAnalysisResultSchema = z.strictObject({
   for (const m of result.members) { checkEntry('member', m.memberId, m.componentId, memberIds, c => c.memberIds.includes(m.memberId)); equilibrium(m.componentId, m.endForces); equilibrium(m.componentId, m.utilization); equilibrium(m.componentId, m.activeState); if (m.governingLimitState) equilibrium(m.componentId, m.governingLimitState); if (m.failure) equilibrium(m.componentId, m.failure); }
   for (const x of result.connections) {
     const source = model.connections.find(v => v.id === x.connectionId);
-    checkEntry('connection', x.connectionId, x.componentId, connectionIds, c => !!source && c.endpointIds.includes(source.endpointId) && c.jointIds.includes(source.jointId));
+    const collar = model.collars?.find(v => v.id === x.connectionId);
+    checkEntry('connection', x.connectionId, x.componentId, connectionIds, c => source
+      ? c.endpointIds.includes(source.endpointId) && c.jointIds.includes(source.jointId)
+      : !!collar && c.memberIds.includes(collar.source.memberId) && c.jointIds.includes(collar.source.jointId) && c.jointIds.includes(collar.jointId));
     equilibrium(x.componentId, x.force); equilibrium(x.componentId, x.relativeMotion); equilibrium(x.componentId, x.utilization); if (x.governingLimitState) equilibrium(x.componentId, x.governingLimitState); if (x.failure) equilibrium(x.componentId, x.failure);
   }
   const modeIds = new Set<string>();

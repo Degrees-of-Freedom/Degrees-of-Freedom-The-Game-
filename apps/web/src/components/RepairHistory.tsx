@@ -1,5 +1,6 @@
 import { publicRepairReport, repairContactLabel as contactLabel, repairReaction, type PublicRepairReport } from "../game/publicRepairReport";
 import type { TurnReport } from "../game/turns";
+import { attachmentLabel } from "../game/attachmentSites";
 
 const seat = (id: string) => id === "neutral" ? "Neutral" : id.replace(/^player-(\d+)$/, "Player $1");
 const issueNames = { instability: "instability", "connection-overload": "connector overload", "member-overload": "member overload" };
@@ -18,7 +19,7 @@ function RepairEntry({ entry }: { entry: PublicRepairReport }) {
     <p><strong>{!entry.policy ? "No repair recorded" : entry.pending.length ? "Repair pending" : "Verified repair"}</strong>
       {" · "}{accepted.length} installed · {rejected} rejected</p>
     {entry.issues.map(issue => <p key={issue.id}>
-      Member {issue.memberId}{issue.end && " end " + issue.end.toUpperCase()} · {issueNames[issue.category]}.
+      Member {issue.memberId}{issue.end && " · " + attachmentLabel(issue.end)} · {issueNames[issue.category]}.
       {" "}{issue.reason}{issue.contacts.length > 0 && " Contact at " + issue.contacts.map(contactLabel).join(", ") + "."}
       {issue.utilization !== undefined && " Utilization before repair " + issue.utilization.toFixed(3) + "."}
       {issue.finalUtilization !== undefined && " After repair " + issue.finalUtilization.toFixed(3) + "."}
@@ -31,7 +32,7 @@ function RepairEntry({ entry }: { entry: PublicRepairReport }) {
     </p>)}
     {entry.pending.length > 0 && <p>Pending after this turn · {entry.pending.map(id => {
       const issue = entry.issues.find(item => item.id === id);
-      return issue ? "member " + issue.memberId + (issue.end ? " end " + issue.end.toUpperCase() : "") + " " + issueNames[issue.category] : id;
+      return issue ? "member " + issue.memberId + (issue.end ? " · " + attachmentLabel(issue.end) : "") + " " + issueNames[issue.category] : id;
     }).join(", ")}.</p>}
     <details>
       <summary>Verification details · turn {entry.turn}</summary>
@@ -40,7 +41,7 @@ function RepairEntry({ entry }: { entry: PublicRepairReport }) {
         {" "}{a.reason}
       </li>)}</ol>
       {entry.checks.length > 0 && <ul>{entry.checks.map(check => <li key={check.id}>
-        Member {check.memberId}{check.end && " end " + check.end.toUpperCase()} · {check.reason}.
+        Member {check.memberId}{check.end && " · " + attachmentLabel(check.end)} · {check.reason}.
         {" "}Utilization {check.utilization?.toFixed(3)}{check.station !== undefined && " at " + check.station * 100 + "%"}.
       </li>)}</ul>}
       <table>

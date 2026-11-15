@@ -1,12 +1,17 @@
 ---
 title: "Controls and Camera Criteria"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
   - "Project owner completion-criteria request and follow-up decisions, 2026-11-14"
   - docs/kb/placement-criteria.md
   - docs/kb/joint-dof-criteria.md
   - docs/kb/animation-criteria.md
   - docs/kb/multiplayer-criteria.md
+  - docs/kb/cantilever-placement.md
+  - apps/web/src/components/ReleaseTargets.tsx
+  - apps/web/src/viewer/sceneInteraction.ts
+  - apps/web/src/game/cantileverPlacement.test.ts
+  - docs/evidence/cantilevers/results.json
 owner: project owner
 status: needs-review
 ---
@@ -17,7 +22,7 @@ status: needs-review
 
 **Updated owner scope.** Grow Dusk is the release presenter. Validate the camera and complete input workflow there. The additional four presenters are preserved historical variants. In Creative/editor, the Foundation tool must be reachable and allow placement on the ground grid. Shared table uses preset foundations.
 
-Proposed interaction requirements for future implementation; no new controls are implemented here. All five environments should expose equivalent legal game actions while retaining their distinct placement styles. Creative/editor conveniences must not bypass Shared table card, turn or immutability rules.
+This page combines target interaction requirements with the implemented Shared table controls described below. The four additional presenters remain historical variants; equivalent behavior there is a target rather than evidence that every new release control was implemented in each one. Creative/editor conveniences must not bypass Shared table card, turn or immutability rules.
 
 ## 2. Complete input workflow
 
@@ -61,6 +66,10 @@ A blurred/background tab, lost pointer capture or touch cancellation must stop t
 | Quarter attachment and opposite-end selection | Correct original-member reference position and interface, including diagonal elements. |
 
 ### Shared table input evidence
+
+The v2 release board now uses **Attachment point → optional Attach at station → Free tip → Place element → explicit connection card**. End A is the default; supported frame cards expose End A, ¼, Middle, ¾ and End B after selecting an existing interface. The whole-member preview retains both tips and the pinned point. Visible Horizontal, Vertical XZ and Vertical YZ controls select a stable plane rather than following camera orientation. Select controls and free-tip coordinate entry use the same authority and exact geometry as scene picking. Staged interior contacts remain Unconnected until a compatible Fixed connector is deliberately spent. Inspection and repair descriptions identify the original source station. See [current cantilever controls and numerical scope](cantilever-placement.md).
+
+`cantileverPlacement.test.ts` covers exact source geometry and stable plane candidates; `cantileverRelease.test.ts` covers private reload and complete scored replay. The [2026-11-15 v2 browser run](../evidence/cantilevers/README.md) passed all six scenarios in Chromium 156.0.8078.79: pointer controls, actual scene support/tip clicks, precise endpoint entry, keyboard, touch emulation and unavailable-WebGL fallback. Each checked an explicit connector spend, exact draft reload, 5 kN load, assessed private handoff, committed geometry and no horizontal overflow. These results do not establish hardware-touch or assistive-technology coverage. The historical evidence below applies to its original preset.
 
 In the scored frame preset, Turn details provides grid and original-quarter element placement, explicit member-end connection choices, and persistent gravity placement on any playable shared joint. Input uses the same stage and commit operations as the board. Browser controls own their keyboard events. Enter opens a disclosure or activates its focused button. At narrow widths the Grow Dusk hand tray leaves the turn controls reachable.
 

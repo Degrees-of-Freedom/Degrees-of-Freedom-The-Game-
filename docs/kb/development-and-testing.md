@@ -35,6 +35,9 @@ validated_against:
   - apps/web/src/viewer/viewModes.test.ts
   - apps/web/src/components/viewModes/viewModes.test.tsx
   - apps/web/src/solver/wasm/crossCheck.test.ts
+  - docs/kb/cantilever-placement.md
+  - docs/evidence/cantilevers/README.md
+  - scripts/cantilever-browser.mjs
 owner: unknown
 status: partial
 ---
@@ -62,6 +65,21 @@ The structure evaluator runs on that module in tests too. `apps/web/test/setup.t
 After changing the evaluator or the solver binary, refresh the structure-library baseline deliberately (see [structure library](structure-library.md#regenerate-and-verify)). After rebuilding the binary, also run `node scripts/physics/check-saved-solver.mjs <revision with the previous binary>` to confirm that the release's saved matches reproduce.
 
 Grow Dusk view modes have Vitest coverage in `viewModes.test.ts` (reducer, exclusivity, drawer mapping, on-demand response, scale) and `viewLegends.test.ts` (content, colours, unavailable states). `contourRamp.test.ts`, `viewFormat.test.ts`, `displacementShadow.test.ts` (against the analytical cantilever) and `components/viewModes/viewModes.test.tsx` (static panel and legend markup) cover the rest. On 2026-11-15 the panel was also checked in headless Chromium with SwiftShader through the Vite dev server: a six-turn seed 0 match at 1366 × 900, plus 683 × 384 and 412 × 915 touch layouts. The checks covered each mode, the label switch, Escape handling, drawer synchronisation and no horizontal overflow. After a production build, `release-presentation.mjs` passed all nine scenarios, `release-resources.mjs` passed, and `release-browser.mjs` passed seed 0 and its all-pass match, with `DOF_SOFTWARE_GL=1` on Linux Chromium. That build compiled the solver with Rust 1.97.0, and the rebuilt WASM was not committed. The presentation script first found a legend accessible name colliding with the drawer's **Shear diagram** label; the legend cards no longer carry one.
+
+## Cantilever feature and main integration — 2026-11-15
+
+The integration baselines are cantilever feature `fca92ab` and fetched main `cca5702`. Main's Rust-backed structure evaluator, new-playtest `rust-1` engine selection, legacy replay boundary, companion motion, View modes and other added work are preserved. The records below describe the original feature validation; their counts are not presented as a rerun against the combined source.
+
+On the combined source after resolving the evaluator, solver and presenter conflicts, `npm run typecheck` passed. The full suite passed **869 tests, with 12 skipped** (881 total), across **100 passed files and 3 skipped files**. Shared solver-contract and web production builds also passed. These integrated results are distinct from the earlier 608-test feature run below. The existing upstream physical-device and assistive-technology gates retain their separate acceptance status.
+
+| Feature-source check | Result and scope |
+| --- | --- |
+| `npm test` at `323e8be` | 608 passed, 9 skipped, 87 files. Includes original-source stations, declared fitting rules, exact pinned geometry, signed collar capacity, aliases, full scored match/replay and v1 preservation. |
+| Shared-contract and web production builds | Passed against the feature source and its checked-in WASM. |
+| Full root production rebuild on the feature host | Cargo was unavailable (`ENOENT`). The feature changed no Rust source. Main's later solver/evaluator changes and updated module retain their separately recorded evidence below. |
+| `DOF_BROWSER_EXECUTABLE=/usr/bin/chromium node scripts/cantilever-browser.mjs` | Six scenarios passed in Linux Chromium 156.0.8078.79, genuine seed 6: pointer controls, scene picking, precise endpoint entry, keyboard, touch emulation and unavailable-WebGL fallback. Each checked one explicit connector, exact draft reload, persistent 5 kN load, assessed private handoff and no horizontal overflow. |
+
+[Raw browser results, representative screenshot and exact source provenance](../evidence/cantilevers/README.md) distinguish the UI rerun from the final source-authoring guard. These checks do not establish hardware-touch, Safari or assistive-technology acceptance. The older dated validation records below remain evidence for their own source revisions.
 
 ## Rust solver
 

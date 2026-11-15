@@ -16,10 +16,15 @@ export const JOINT_CATALOGUE = 'shared-table-joints-1' as const;
 export const CABLE_CATALOGUE = 'shared-table-cables-1' as const;
 export const HOLLOW_CATALOGUE = 'shared-table-hollow-1' as const;
 export const RELEASE_CATALOGUE = 'grow-dusk-release-1' as const;
-export type ScoredCatalogue = typeof HOLLOW_CATALOGUE | typeof RELEASE_CATALOGUE | typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE | typeof TRUSS_CATALOGUE | typeof SPRING_CATALOGUE | typeof JOINT_CATALOGUE | typeof CABLE_CATALOGUE;
+/** Same immutable card printings; new rules explicitly permit fixed interior collars. */
+export const CANTILEVER_CATALOGUE = 'grow-dusk-release-2' as const;
+export function isReleaseCatalogue(catalogue: unknown): catalogue is typeof RELEASE_CATALOGUE | typeof CANTILEVER_CATALOGUE {
+  return catalogue === RELEASE_CATALOGUE || catalogue === CANTILEVER_CATALOGUE;
+}
+export type ScoredCatalogue = typeof HOLLOW_CATALOGUE | typeof CANTILEVER_CATALOGUE | typeof RELEASE_CATALOGUE | typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE | typeof TRUSS_CATALOGUE | typeof SPRING_CATALOGUE | typeof JOINT_CATALOGUE | typeof CABLE_CATALOGUE;
 export type CatalogueId = typeof LEGACY_CATALOGUE | ScoredCatalogue;
 export function isScoredCatalogue(catalogue: unknown): catalogue is ScoredCatalogue {
-  return catalogue === HOLLOW_CATALOGUE || catalogue === RELEASE_CATALOGUE || catalogue === SCORED_CATALOGUE || catalogue === PLANAR_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === SPRING_CATALOGUE || catalogue === JOINT_CATALOGUE || catalogue === CABLE_CATALOGUE;
+  return catalogue === HOLLOW_CATALOGUE || isReleaseCatalogue(catalogue) || catalogue === SCORED_CATALOGUE || catalogue === PLANAR_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === SPRING_CATALOGUE || catalogue === JOINT_CATALOGUE || catalogue === CABLE_CATALOGUE;
 }
 
 const legacyTypes = ['shs', 'glulam', 'ipe', 'heb', 'cable'] as const;
@@ -27,7 +32,7 @@ const scoredTypes = ['shs', 'glulam', 'ipe', 'heb'] as const;
 
 export function memberDeckTypes(catalogue: CatalogueId): readonly (MemberType | AssemblyId)[] {
   if (catalogue === HOLLOW_CATALOGUE) return ['chs','shs'];
-  if (catalogue === RELEASE_CATALOGUE) return ['heb', 'cable', 'spring'];
+  if (isReleaseCatalogue(catalogue)) return ['heb', 'cable', 'spring'];
   if (catalogue === CABLE_CATALOGUE) return legacyTypes;
   if (catalogue === SPRING_CATALOGUE) return [...scoredTypes, 'spring'];
   if (catalogue === TRUSS_CATALOGUE) return [...scoredTypes, PLANAR.id, TRICHORD.id];
@@ -144,7 +149,7 @@ export function resolveCardDefinition(definitionId: string, version: string): Re
 }
 
 export function printedCards(index: number, catalogue: CatalogueId) {
-  if (catalogue === RELEASE_CATALOGUE) throw new Error('The release uses its finite authored decks.');
+  if (isReleaseCatalogue(catalogue)) throw new Error('The release uses its finite authored decks.');
   const types = memberDeckTypes(catalogue);
   const type = types[index % types.length];
   // Even-sized catalogues shift the reach after each pass through the families

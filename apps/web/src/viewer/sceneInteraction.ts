@@ -15,6 +15,7 @@ import { createPicker } from "./scenePicking";
 import { selectedTurnCard } from "./turnPicking";
 import { targetCoordinate } from "../game/turnPorts";
 import { isGrowthStyle } from "./sceneStyle";
+import { placementFromTip } from "../game/cantileverPlacement";
 export function bindSceneInteraction(
   canvas: HTMLCanvasElement,
   getCamera: () => THREE.Camera,
@@ -32,6 +33,11 @@ export function bindSceneInteraction(
   const buildPlane = (): BuildPlane => {
     const s = useGameStore.getState(),
       start = s.chainStart ? parseNodeKey(targetCoordinate(s.model.members, s.chainStart)) : null;
+    if (s.mode === "multiplayer") {
+      const axis = s.placementPlane === "xz" ? "y" : s.placementPlane === "yz" ? "x" : "z";
+      const index = axis === "x" ? 0 : axis === "y" ? 1 : 2;
+      return {axis, value: start ? start[index] : axis === "z" ? s.workK : 0};
+    }
     if (s.style === "levels" || s.style === "blocks")
       return { axis: "z", value: s.workK };
     if (!start || shiftDown)
@@ -125,8 +131,10 @@ export function bindSceneInteraction(
         const target = hit.target ?? nodeKey(...hit.p);
         if (!issue && card.kind === "load") issue = s.playLoad(card.id, target);
         else if (!issue && card.kind === "element") {
-          if (s.chainStart)
-            issue = s.playElement(card.id, s.chainStart, target);
+          if (s.chainStart) {
+            const placement = placementFromTip(s, hit.p, hit.target);
+            issue = "issue" in placement ? placement.issue : s.playElement(card.id, placement.a, placement.b, placement.contact);
+          }
           else s.setChainStart(target);
         }
       } else if (card && !hit) {

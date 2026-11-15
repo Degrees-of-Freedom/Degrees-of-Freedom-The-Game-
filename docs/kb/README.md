@@ -23,6 +23,7 @@ validated_against:
   - docs/kb/solver-criteria-gap-analysis.md
   - docs/kb/development-and-testing.md
   - docs/kb/visualization-criteria.md
+  - docs/kb/cantilever-placement.md
   - docs/kb/structure-gan.md
 owner: unknown
 status: partial
@@ -32,9 +33,9 @@ status: partial
 
 ## Purpose and status
 
-On the release integration branch, **Play** opens the versioned, two-player Grow Dusk match. Its turn worker uses in-browser Rust/WASM and commits through IndexedDB. The operating instructions and acceptance status are in the [release runtime](grow-dusk-runtime.md) and [criteria ledger](criteria-ledger.md). The playtest descriptions below document the preceding presets and secondary modes.
+**Play** opens the versioned, two-player Grow Dusk match. New matches use `grow-dusk-release-2`, adding fixed source collars at a continuous frame's original quarter or midpoint; existing v1 matches keep their rules and card printings. More modes → Shared table exposes the same fresh cantilever preset alongside historical catalogues. Its turn worker uses in-browser Rust/WASM and commits `/match` through IndexedDB. The operating instructions and acceptance status are in the [release runtime](grow-dusk-runtime.md), [cantilever placement](cantilever-placement.md) and [criteria ledger](criteria-ledger.md). The playtest descriptions below document the preceding presets and secondary modes.
 
-The secondary workspaces retain their playable presets, editor and earlier environment implementations. The editor can request linear or bounded nonlinear analysis through the OpenSees adapter. The [criteria ledger](criteria-ledger.md) records the current Shared table findings separately from the earlier preset walkthroughs.
+The secondary workspaces retain their playable presets, editor and earlier environment implementations. New analysis uses the Rust-backed structure evaluator; the legacy voxel kernel remains only for older saved playtest replay. The editor can also request linear or bounded nonlinear structural checks through the OpenSees adapter. The [criteria ledger](criteria-ledger.md) records the current Shared table findings separately from the earlier preset walkthroughs.
 
 ## Pages
 
@@ -61,6 +62,7 @@ The app's `/wiki` companion offers six introductory lessons, a searchable glossa
 | [game-completion-criteria.md](game-completion-criteria.md) | Entry point for eight completion specifications, confirmed decisions, proposals and implementation dependencies. |
 | [scoring-match-criteria.md](scoring-match-criteria.md) | Defining fixed rounds, final-only load share minus penalties, outcome validity and ties. |
 | [placement-criteria.md](placement-criteria.md) | Defining grid/diagonal placement, quarter attachments, clashes, assembly plays and external connections. |
+| [cantilever-placement.md](cantilever-placement.md) | Building v2 fixed cantilevers and quarter/midpoint overhangs, preserving original source identity, and checking implementation limits and evidence. |
 | [card-definition-criteria.md](card-definition-criteria.md) | Authoring versioned physical properties, spring/assembly/cable laws, catalogue capabilities and decks. |
 | [failure-repair-criteria.md](failure-repair-criteria.md) | Assessing verified issues, recording one-point penalties, retaining geometry and clearly reporting repair. |
 | [controls-camera-criteria.md](controls-camera-criteria.md) | Specifying mouse/keyboard/touch workflows, precision targeting, camera behavior and accessibility. |
@@ -123,4 +125,3 @@ They freeze `grow-dusk-release-1`: two players/eight rounds, finite authored dec
 ## Complete-release implementation prompt
 
 [Complete Grow Dusk release implementation prompt](../implementation-prompts/complete-grow-dusk-release.md) provides the implementation handoff for the frozen release decisions: criteria precedence, coordinated agents, integrated milestones, minimal UI, numerical verification, full-game tests and final review. It is an execution prompt, not evidence of completed implementation.
-

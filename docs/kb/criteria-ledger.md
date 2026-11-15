@@ -5,19 +5,40 @@ validated_against:
   - docs/kb/grow-dusk-runtime.md
   - docs/kb/game-completion-criteria.md
   - docs/kb/release-acceptance-criteria.md
+  - docs/kb/cantilever-placement.md
+  - docs/kb/voxel-retirement.md
+  - docs/evidence/cantilevers/README.md
   - "Read-only audits of cdd5c9a and independent integrated checks recorded below"
 status: partial
 ---
 
 # Criteria ledger
 
-## Grow Dusk release 1
+## Shared table cantilevers — release 2
+
+New `/match` games and the fresh **Shared table · cantilevers** setup use `grow-dusk-release-2`. It reuses the immutable v1 card printings and adds a declared contact and explicitly fitted fixed collar at a continuous frame's original 25%, 50% or 75% source station. The source remains one continuous element; fitting spends one connector and preserves the old receiving-joint connections. Partial-lock, ball, elastic, cable, spring and assembly interior source collars remain unavailable. Existing family-specific end and target-quarter capabilities are unchanged. See [current implementation and limits](cantilever-placement.md).
+
+Integration baselines are cantilever feature `fca92ab` and fetched main `cca5702`. The integration retains main's Rust-backed evaluator, versioned `rust-1` playtest engines, companion motion/islet, View modes, wiki, AI lab and structure-generator work. The feature evidence below predates that integration; it does not substitute for a check of the combined source or establish a new hardware/platform acceptance result.
+
+The combined source passed TypeScript checking, **869 tests with 12 skipped** (100 passed files, 3 skipped files), and shared-contract/web production builds. These results apply after the evaluator, solver and presenter conflict resolution; the original feature's browser and test evidence below remains separately versioned.
+
+| Scoped check | Recorded evidence |
+| --- | --- |
+| Original source quarters, exact geometry and explicit cards | Rule/placement suites cover all three stations, full-span and board bounds, declared fitting envelopes, matching freedoms, one piece/connector, immutable fittings and unchanged v1 replay. |
+| Continuous response and collar demand | Independent asymmetric-arm references, signed reactions, adjacent-segment resultant, source-versus-receiving load attribution, branches, nested collars and unavailable response; source IDs persist through evidence, issue comparison and repair. |
+| Match and saved-state integration | Genuine dealt 5 kN quarter-supported game through 16 turns, final Rust reaction share, draft/final private replay and retained historical save rules. |
+| Feature verification at `323e8be` | 608 tests passed, 9 skipped across 87 files; shared-contract and web production builds passed. Cargo was unavailable for the feature's top-level rebuild; the feature changed no Rust source. Main brings its separately validated Rust/evaluator changes and binary. |
+| Browser controls | Six Linux Chromium 156.0.8078.79 scenarios passed: pointer controls, actual scene picks, precise endpoint entry, keyboard, touch emulation and unavailable-WebGL fallback. Each checked explicit card consumption, exact draft reload, 5 kN load, assessed private handoff and no horizontal overflow. [Source provenance, screenshot and raw results](../evidence/cantilevers/README.md) |
+
+The older release's mandatory physical-device, assistive-technology and performance gates below remain open where recorded. The current feature evidence is scoped to fixed frame source collars.
+
+## Grow Dusk release 1 — historical baseline
 
 On 2026-11-15 the owner clarified that all release criteria apply to **Shared table**. Grow Dusk is its release presentation. Existing secondary modes retain their navigation and historical saves.
 
 Integration starts at `3a2d4e3` on `Complete-Grow-Dusk-Release`. The rows below track the frozen appendices and the numerical gates they retain. The earlier playtest evidence below belongs to its original rules and solver versions.
 
-The normal Play entry uses the `grow-dusk-release-1` rules and physical catalogue, `dof-rust-0.2.0-nonlinear-1` assessment, and version 1 private IndexedDB files. The [runtime guide](grow-dusk-runtime.md) describes implementation and reproduction. Evidence below applies to that version. Each row names the module owner responsible for any outstanding check.
+The Play entry at this baseline used the `grow-dusk-release-1` rules and physical catalogue, `dof-rust-0.2.0-nonlinear-1` assessment, and version 1 private IndexedDB files. The [runtime guide](grow-dusk-runtime.md) describes current implementation and reproduction. Evidence below applies to its original version. Each row names the module owner responsible for any outstanding check.
 
 | Requirement and source | Owner and implementation | Acceptance and remaining work |
 | --- | --- | --- |
@@ -51,7 +72,7 @@ The packaged Windows verification build came from clean source `9df8c9c5b94c34b7
 | WASM stress and reference budgets | **Pass for ordinary preview, ordinary turn and difficult nonlinear workloads. Stress preview exceeds target.** Ordinary 46-member p95 was 6.5 ms linear and 18.2 ms nonlinear. At 504 members and 4,124 DOFs, linear p95 was **78.2 ms** against 50 ms, nonlinear p95 was 390.0 ms against two seconds. Profiling the preceding solver located 65.4% of CPU samples in skyline factorization. | [Profiling, workload definitions and reproduction](rust-solver.md#timings) |
 | Required physical hardware and assistive technology | **Not run** on current/previous macOS Safari with VoiceOver, actual landscape iPad Safari/touch, the specified 16 GB Arc profile and i5-1135G7/8 GB reduced-decoration profile. **NVDA/Chrome attempt incomplete.** The isolated Windows desktop launched both apps but did not deliver foreground events for spoken game navigation. | [Device scenarios](../evidence/grow-dusk-release/independent-review.md#platform-reproduction) · [NVDA observations and interactive steps](../evidence/grow-dusk-release/nvda.md) |
 
-**Release acceptance is incomplete.** The mandatory device and assistive-technology checks remain open, and the larger linear stress preview exceeds its budget. The integration PR remains open for review. [Pull request #14](https://github.com/Degrees-of-Freedom/Degrees-of-Freedom-The-Game-/pull/14)
+**Release acceptance is incomplete.** The mandatory device and assistive-technology checks remain open, and the larger linear stress preview exceeds its budget. These measurements were recorded for the integration reviewed in [pull request #14](https://github.com/Degrees-of-Freedom/Degrees-of-Freedom-The-Game-/pull/14); they retain their original source and package provenance.
 
 ## Historical playtest evidence
 

@@ -1,6 +1,7 @@
 import { allNodeKeys, type GameModel } from "../game/model";
 import { CONNECTION_PROFILES, conflictingJointAxes, connectionDefinition, connectionLabel, type ConnectionProfile } from "../game/jointFreedom";
 import type { TurnState } from "../game/turns";
+import { attachmentId, attachmentLabel, isInteriorSite } from "../game/attachmentSites";
 
 export type JointDisplay = "selected" | "all" | "off";
 export type JointState = "locked" | "free" | "elastic" | "coupled" | "unavailable" | "conflict" | "inactive";
@@ -57,10 +58,14 @@ function globalComponents(profile: ConnectionProfile): JointComponents {
  * endpoints, inactive original ports and internal subdivision nodes are absent. */
 export function sharedJointPermissions(board: TurnState["board"]): JointPermission[] {
   const connections = new Map<string, Connection[]>();
+  const add = (id: string, connection: Connection) => {
+    const group = connections.get(id);
+    if (group) group.push(connection);
+    else connections.set(id, [connection]);
+  };
   for (const end of board.connections) {
-    const group = connections.get(end.jointId);
-    if (group) group.push(end);
-    else connections.set(end.jointId, [end]);
+    add(end.jointId, end);
+    if (isInteriorSite(end.end)) add(attachmentId(end.memberId, end.end), end);
   }
   return board.joints.map(joint => {
     const attached = connections.get(joint.id) ?? [];
@@ -91,7 +96,7 @@ export function sharedJointPermissions(board: TurnState["board"]): JointPermissi
       ground: joint.foundationOwner ? CONNECTION_PROFILES.fixed : undefined,
       attachments: attached.map(end => {
         const label = Object.hasOwn(CONNECTION_PROFILES, end.profile) ? connectionLabel(end.profile) : "Unavailable";
-        return `Member ${end.memberId} end ${end.end.toUpperCase()} · ${label}`;
+        return `Member ${end.memberId} ${attachmentLabel(end.end)} · ${label}`;
       }),
       parent: port ? `Member ${port[1]} · original ${Number(port[2]) * 25}% port. The parent continues through this port.` : undefined,
     };
