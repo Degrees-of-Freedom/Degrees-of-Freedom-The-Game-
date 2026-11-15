@@ -40,6 +40,28 @@ try {
       const errors = [];
       let companionResult;
       page.on("pageerror", error => errors.push(error.message));
+      if (scenario === "companion" || scenario === "model-failure") {
+        // Observe actual Web Audio node retirement across navigation. The
+        // 185 Hz accent is distinct from selection and placement tones.
+        await page.addInitScript(() => {
+          window.foremanNotes = [];
+          const create = BaseAudioContext.prototype.createOscillator;
+          BaseAudioContext.prototype.createOscillator = function(...args) {
+            const oscillator = create.apply(this, args), tune = oscillator.frequency.setValueAtTime.bind(oscillator.frequency);
+            let start;
+            oscillator.frequency.setValueAtTime = (value, at) => {
+              if (value === 185) start = at;
+              return tune(value, at);
+            };
+            const disconnect = oscillator.disconnect.bind(oscillator);
+            oscillator.disconnect = (...options) => {
+              if (start !== undefined) window.foremanNotes.push(this.currentTime - start);
+              return disconnect(...options);
+            };
+            return oscillator;
+          };
+        });
+      }
       const blocked = scenario === "model-failure" ? "**/companion/timburr.glb"
         : scenario === "decoder-failure" ? "**/companion/draco/**" : undefined;
       let blockedRequests = 0;
@@ -90,6 +112,11 @@ try {
       assert.equal(await page.locator("[data-card-id]").count(), 0);
       await activate(ready);
       await drawFour();
+      if (scenario === "companion") {
+        await activate(button("Menu")); await activate(button("Settings"));
+        await page.getByRole("checkbox", { name: /^Sound/ }).first().check();
+        await page.keyboard.press("Escape"); await page.keyboard.press("Escape"); await activate(ready);
+      }
       await page.getByRole("region", { name: "Active hand" }).waitFor();
       assert.equal(await page.locator(".release-board").getAttribute("data-still"), String(layout.reducedMotion === "reduce"));
       const width = await page.evaluate(() => ({ body: document.documentElement.scrollWidth, viewport: innerWidth }));
@@ -125,42 +152,47 @@ try {
         await page.getByRole("heading", { name: "The 3D view could not start." }).waitFor();
         assert.equal(await page.locator(".figure-stage").getAttribute("data-view"), "portrait");
       }
+      const companionTrial = scenario === "companion" || scenario === "model-failure";
+      const passes = scenario === "full-hand" ? 6 : companionTrial ? 0 : 3;
+      for (let i = 0; i < passes; i++) { await activate(button("Pass")); await activate(ready); await drawFour(); }
       if (scenario === "full-hand") {
-        for (let i = 0; i < 6; i++) { await activate(button("Pass")); await activate(ready); await drawFour(); }
         await activate(page.locator("[data-card-id]").last());
         await activate(button("Cancel targeting"));
         assert.ok(await page.locator(".release-cards").evaluate(el => el.scrollWidth > el.clientWidth && el.scrollLeft > 0));
       }
-      await activate(button("Inspect"));
-      const boardOverlay = page.getByRole("combobox", {name:/^Board overlay/});
-      await boardOverlay.waitFor();
-      await choose(boardOverlay, 3);
-      await page.getByText(/^Frame displacement/).waitFor();
-      await page.getByText(/^Signed gravity transfer/).waitFor();
-      await activate(page.getByText("Foundation forces and moments", { exact: true }));
-      const reactions = page.getByRole("table", {name: "Signed global support reaction"});
-      assert.equal(await reactions.count(), 2);
-      for (const table of await reactions.all()) {
-        const values = await table.locator("tbody td").allTextContents();
-        assert.equal(values.length, 6);
-        assert.ok(values.every(value => value.trim() !== "" && Number.isFinite(Number(value.replaceAll(",", "")))));
+      async function inspectResponse() {
+        await activate(button("Inspect"));
+        const boardOverlay = page.getByRole("combobox", {name:/^Board overlay/});
+        await boardOverlay.waitFor();
+        await choose(boardOverlay, 3);
+        await page.getByText(/^Frame displacement/).waitFor();
+        await page.getByText(/^Signed gravity transfer/).waitFor();
+        await activate(page.getByText("Foundation forces and moments", { exact: true }));
+        const reactions = page.getByRole("table", {name: "Signed global support reaction"});
+        assert.equal(await reactions.count(), 2);
+        for (const table of await reactions.all()) {
+          const values = await table.locator("tbody td").allTextContents();
+          assert.equal(values.length, 6);
+          assert.ok(values.every(value => value.trim() !== "" && Number.isFinite(Number(value.replaceAll(",", "")))));
+        }
+        await activate(page.getByText("Board force diagrams", { exact: true }));
+        await choose(page.getByLabel("Shear diagram"), 2);
+        await choose(page.getByLabel("Bending diagram"), 1);
+        await page.getByText(/kN · mint/).waitFor();
+        await page.getByText(/kN·m · pink/).waitFor();
+        await choose(page.getByRole("combobox", { name: /^Inspect member/ }), 1);
+        await choose(page.getByLabel("Section action"), 4);
+        await page.getByRole("img", { name: /Moment My .* kN·m/ }).waitFor();
+        await activate(page.getByText("Signed station readings", { exact: true }));
+        for (const selector of [".release-header", ".release-stage", ".release-tray", ".release-end"]) {
+          const fits = await page.locator(selector).evaluate(el => {
+            const rect = el.getBoundingClientRect(); return rect.left >= -1 && rect.right <= innerWidth + 1;
+          });
+          assert.ok(fits, selector + " left the viewport while inspecting this hand");
+        }
+        await activate(button("Close inspection"));
       }
-      await activate(page.getByText("Board force diagrams", { exact: true }));
-      await choose(page.getByLabel("Shear diagram"), 2);
-      await choose(page.getByLabel("Bending diagram"), 1);
-      await page.getByText(/kN · mint/).waitFor();
-      await page.getByText(/kN·m · pink/).waitFor();
-      await choose(page.getByRole("combobox", { name: /^Inspect member/ }), 1);
-      await choose(page.getByLabel("Section action"), 4);
-      await page.getByRole("img", { name: /Moment My .* kN·m/ }).waitFor();
-      await activate(page.getByText("Signed station readings", { exact: true }));
-      for (const selector of [".release-header", ".release-stage", ".release-tray", ".release-end"]) {
-        const fits = await page.locator(selector).evaluate(el => {
-          const rect = el.getBoundingClientRect(); return rect.left >= -1 && rect.right <= innerWidth + 1;
-        });
-        assert.ok(fits, selector + " left the viewport while inspecting this hand");
-      }
-      await activate(button("Close inspection"));
+      if (!companionTrial) await inspectResponse();
       const frame = page.locator('[data-kind="element"]').first();
       await activate(frame);
       await activate(page.getByText("Precise placement", { exact: true }));
@@ -222,6 +254,7 @@ try {
             await activate(ready);
             if (turn === 3 || turn === 6) await warning.waitFor();
             else assert.equal(await warning.count(), 0);
+            if (turn === 3) await inspectResponse();
             if (turn < 6) assert.equal(await page.locator(".companion-board").getAttribute("data-foreman"), null);
             if (turn === 4) {
               await page.reload();
@@ -230,7 +263,7 @@ try {
             }
           }
           await page.getByText("Conkeldurr has a foreman report for turn 5.", { exact: true }).waitFor();
-          await page.getByText(/Player 1 has 3 deductions/).waitFor();
+          await page.getByText(/Player 1 has 3 verified deductions/).waitFor();
           const phases = await page.evaluate(() => window.companionPhases);
           companionResult = { checkpoint:6, originatingTurn:5, player:1, chargedTurns:3, phases };
           if (layout.reducedMotion === "reduce") {
@@ -245,6 +278,10 @@ try {
             await page.screenshot({path:resolve(output, "conkeldurr.png")});
           }
           await button("Talk to Timburr").waitFor({timeout:7000});
+          const notes = await page.evaluate(() => window.foremanNotes);
+          assert.equal(notes.length, scenario === "companion" ? 1 : 0);
+          if (notes.length) assert.ok(notes[0] >= .15, "The foreman accent was released before its envelope finished");
+          companionResult.foremanVoices = notes.length;
           await page.reload(); await activate(ready);
           assert.equal(await page.getByRole("button", {name:"Talk to Conkeldurr"}).count(), 0);
         }

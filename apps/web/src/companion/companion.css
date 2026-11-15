@@ -26,6 +26,7 @@
 }
 .companion button:focus-visible { outline: 3px solid #ffbf57; outline-offset: 2px; }
 .companion:is([data-foreman="shrink"], [data-foreman="reaction"]) .companion-figure { border-color: #ffbf57; }
+.companion-board[data-release][data-foreman="reaction"] { --figure-size: clamp(60px, 7vw, 94px); }
 .figure-motion { display: block; transform-origin: center 85%; pointer-events: none; }
 .companion-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 @media (prefers-reduced-motion: no-preference) {

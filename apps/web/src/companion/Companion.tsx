@@ -118,7 +118,7 @@ export function Companion({ area, repairs, announceRepair = false, announceFromT
   const [failed, setFailed] = useState(false), [retry, setRetry] = useState(0);
   const [selectedTurn, setSelectedTurn] = useState<number | null>(null);
   const presented = useRef<string | null>(null);
-  const stopAccent = useRef<(() => void) | null>(null);
+  const accentPending = useRef(false);
   const latest = repairs?.at(-1);
   const repair = repairs?.find(entry => entry.turn === selectedTurn) ?? repairs?.at(-1);
   const currentNotice = repairs && release && announceFromTurn !== undefined ? checkpointNotice(repairs, announceFromTurn) : latest;
@@ -132,12 +132,12 @@ export function Companion({ area, repairs, announceRepair = false, announceFromT
       setSelectedTurn(currentNotice.turn);
       const eligible = settings.showCompanion && !document.hidden && !final && !skip &&
         (release ? takeForemanCue(mistakeCount(repairs ?? [], currentNotice)) : currentNotice.foreman);
+      accentPending.current = eligible && settings.sound;
       setForeman(eligible ? release && !still ? "shrink" : "reaction" : null);
-      if (eligible && settings.sound) stopAccent.current = onForemanAccent?.() ?? null;
       setOpen(!final && !skip && settings.showCompanion);
       onPresented?.();
     }
-  }, [announceRepair, currentNotice, repairs, onPresented, onForemanAccent, settings.sound, settings.showCompanion, final, skip, still, release]);
+  }, [announceRepair, currentNotice, repairs, onPresented, settings.sound, settings.showCompanion, final, skip, still, release]);
   useEffect(() => {
     if (foreman !== "shrink") return;
     if (still) { setForeman("reaction"); return; }
@@ -158,15 +158,15 @@ export function Companion({ area, repairs, announceRepair = false, announceFromT
       document.removeEventListener("visibilitychange", hidden);
     };
   }, [foreman, release]);
+  const automatic = foreman === "shrink" || foreman === "reaction";
   useEffect(() => {
-    if (!foreman) { stopAccent.current?.(); stopAccent.current = null; }
-  }, [foreman]);
+    if (!automatic || !settings.sound || !accentPending.current || document.hidden) return;
+    accentPending.current = false;
+    const stop = onForemanAccent?.();
+    return () => stop?.();
+  }, [automatic, settings.sound, onForemanAccent]);
   useEffect(() => { if (final || skip || !settings.showCompanion) { setForeman(null); setOpen(false); } },
     [final, skip, settings.showCompanion]);
-  useEffect(() => {
-    if (!settings.sound) stopAccent.current?.();
-    return () => { stopAccent.current?.(); };
-  }, [settings.sound]);
   const evolved = foreman === "preview" || foreman === "reaction";
   const name = evolved ? "Conkeldurr" : "Timburr";
   const instability = release && !final && repair?.charge?.unstableMemberId !== undefined;
@@ -200,7 +200,7 @@ export function Companion({ area, repairs, announceRepair = false, announceFromT
     {open && <div id={id} data-instability={instability || undefined} className={"companion-note" + (repair && foreman !== "preview" ? " companion-repair" : "")}>
       {instability && <p className="companion-warning" role="status"><b aria-hidden="true">!</b>
         <strong>Whoa, a wobble!<small>Instability · member {repair?.charge?.unstableMemberId} · turn {repair?.turn}</small></strong></p>}
-      {release && evolved && repair && <p><strong>Foreman check</strong>Player {repair.playerId.replace("player-", "")} has {count} deductions.</p>}
+      {release && evolved && repair && <p><strong>Foreman check</strong>Player {repair.playerId.replace("player-", "")} has {count} verified deductions.</p>}
       {foreman === "reaction" && <span className="companion-announcement" role="status">Conkeldurr has a foreman report for turn {repair?.turn}.</span>}
       {release ? <p>{final ? "The final scores are in." : fitting ? `A joint fitting was installed at ${fitting.jointId}. ${repair?.pending.length ? "Inspect the remaining issue." : "Inspect the updated joint."}`
         : repair ? repair.attempts.some(a => a.status === "verified")
