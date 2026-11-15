@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CELL_SIZE, parseNodeKey, type GridPoint } from '../game/model';
 import { addSceneLabel, forceLabel } from './sceneLabels';
 import type { SceneView } from './sceneView';
+import { RESULT_ARROWS } from './viewPalette';
 export const basePoint = (key: string) =>
   new THREE.Vector3(
     ...(parseNodeKey(key).map((v) => v * CELL_SIZE) as GridPoint),
@@ -52,7 +53,7 @@ export function addResultArrows(
           dir,
           p.clone().addScaledVector(dir, -length),
           length,
-          load.kind === 'Q' ? labelForces ? 0xf2b134 : 0xe74e50 : 0x58aacf,
+          load.kind === 'Q' ? labelForces ? RESULT_ARROWS.load : 0xe74e50 : 0x58aacf,
           0.4,
           0.22,
         ),
@@ -72,7 +73,7 @@ export function addResultArrows(
           dir,
           p,
           length,
-          0x3aab72,
+          RESULT_ARROWS.reaction,
           0.4,
           0.22,
         ),

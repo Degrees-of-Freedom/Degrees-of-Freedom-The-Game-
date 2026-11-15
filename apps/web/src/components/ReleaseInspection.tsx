@@ -17,8 +17,8 @@ import { computeLoadPath } from "../solver/loadPath";
 import { SectionProfile } from "./SectionProfile";
 import { effectiveJointConnections, jointCorrectionMask } from "../game/jointCorrections";
 import { memberName } from "../game/cardCatalogue";
+import { DISPLACEMENT_SCALES, OVERLAY_LAYERS, type OverlayLayer as Layer } from "../viewer/viewModes";
 
-type Layer = "reference" | "shape" | "path" | "combined";
 type Game = ReturnType<typeof useGameStore.getState>;
 const units = (n: number) => Number(n.toPrecision(4)).toLocaleString("en", { maximumSignificantDigits: 4 });
 const owner = (id: string) => id === "neutral" ? "Neutral repair" : id.replace("player-", "Player ");
@@ -53,8 +53,8 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, draf
   const last = turn.reports.at(-1);
   const gravity = turn.board.loads.reduce((sum, load) => sum + load.magnitude, 0);
   const shares = response?.receipt.components.flatMap(scope => scope.foundations);
-  const pathVisible = layer === "path" || layer === "combined";
-  const shapeVisible = layer === "shape" || layer === "combined";
+  const pathVisible = layer === "path" || layer === "combined" || layer === "shadow-path";
+  const shapeVisible = layer === "shape" || layer === "combined" || layer === "shadow" || layer === "shadow-path";
   const path = pathVisible && response ? computeLoadPath(response.result, 0) : null;
   const pathPeak = path ? Math.max(0, ...Array.from(path.members.values(), member => member.force)) : 0;
   const submembers = response?.result.ctx?.els.filter(e => member && (e.m.parentSpan?.memberId ?? e.m.id) === member.id) ?? [];
@@ -111,14 +111,15 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, draf
             <p>Response model {response.receipt.modelId}</p>
           </details>
           <label>Board overlay<select value={layer} onChange={event => setLayer(event.target.value as Layer)}>
-            <option value="reference">Reference geometry</option><option value="shape">Deflected shape</option><option value="path">Load transfer</option>
-            <option value="combined">Deflected shape and load transfer</option>
+            {/* Option order is relied on by the release browser scripts: keep new layers after "combined". */}
+            {(Object.keys(OVERLAY_LAYERS) as Layer[]).map(id => <option key={id} value={id}>{OVERLAY_LAYERS[id]}</option>)}
           </select></label>
           {shapeVisible && <label>Displacement scale · ×{scale}<select value={amplification} onChange={event => setAmplification(Number(event.target.value))}>
-            <option value="0">Automatic</option>{[1, 10, 100, 500].map(n => <option key={n} value={n}>×{n}</option>)}
+            <option value="0">Automatic</option>{DISPLACEMENT_SCALES.map(n => <option key={n} value={n}>×{n}</option>)}
           </select></label>}
-          {shapeVisible && <p>Frame displacement · blue 0 mm to red {units(1000 * (peakM ?? 0))} mm. Dashed lines show the reference shape.</p>}
-          {pathVisible && <p>Signed gravity transfer along each verified segment, scaled to {units(pathPeak)} kN. Blue denotes tension, coral compression and violet mixed action. Zero and unavailable transfer have no arrows.</p>}
+          {shapeVisible && <p>Frame displacement · dark blue 0 mm through cyan, green, yellow and orange to red {units(1000 * (peakM ?? 0))} mm.
+            {layer.startsWith("shadow") ? " Members stay in place; the translucent shadow and dashed joint travel show the deflected shape." : " Dashed lines show the reference shape."}</p>}
+          {pathVisible && <p>Illustrative combined gravity transfer along each verified segment, scaled to {units(pathPeak)} kN. Blue denotes tension, coral compression and violet mixed action. Zero and unavailable transfer have no arrows. This view does not attribute forces to individual loads.</p>}
           {response.receipt.components.map((scope, i) => <p key={i}>{scope.verified ? "Verified" : "Unavailable"} · {scope.reason}</p>)}
           {!!shares?.length && <details><summary>Estimated foundation shares</summary>
             {shares.map(f => <p key={f.jointId}>{owner(turn.board.joints.find(j => j.id === f.jointId)?.foundationOwner ?? "neutral")}

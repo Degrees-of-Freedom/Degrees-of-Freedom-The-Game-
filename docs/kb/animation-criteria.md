@@ -182,7 +182,7 @@ Update this page, [3D viewer](3d-viewer.md) and [development and testing](develo
 
 ## 11. Avatar-specific criteria
 
-The release companion plays a 360 ms hop on a card action or direct interaction. Its idle weight shift is limited to one small hop per eight seconds. A verified instability complaint appears in red with a visible exclamation mark and a written member/turn reference. Every third eligible charge for one player can trigger a 240 ms shrink followed by 560 ms of growth and local character shake. A still Conkeldurr carries the same message with reduced motion. The GLB and portrait share the character control, so animation and asset failure leave the camera and board anchored. See [Timburr avatar criteria](avatar-criteria.md) for the public event source, cooldown, skip, handoff and historical-save behavior.
+The release companion uses the procedural clip library in `motion.ts`. Timburr perks up at a turn change, measures a selected member, nods after attachment and breathes or shifts weight while idle. A charged instability opens a red bubble with an exclamation mark and the originating member and turn. Every third eligible deduction for one player can start the 800 ms `foreman` clip. Timburr begins its crouch, then Conkeldurr takes over at the first squash peak, 160 ms into the same clip, and finishes the rise and turn. The sampler drives the model and matching portrait. Reduced motion shows the character and report with a short fade. The board and camera retain their positions. [Companion event policy and clip table](avatar-criteria.md)
 
 ## 12. Joint DOF overlays
 

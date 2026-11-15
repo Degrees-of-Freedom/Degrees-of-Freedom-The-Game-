@@ -2,16 +2,13 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { assemblySectionGeometry } from "./assemblyGeometry";
 import { SHAPE_INTERVALS, spanDisplacement, spanPoint, type DeflectedSpan, type DeformationField } from "./deformationField";
+import { displacementColor } from "./contourRamp";
+import { REFERENCE_COLOR } from "./viewPalette";
 import { READABLE_SECTION_SCALE, roundHollowGeometry, wideFlangeGeometry } from "./sectionGeometry";
 
-const contourColors = ["#1e40af", "#24c9ed", "#43d68b", "#f5e65b", "#f19c38", "#ef5548"].map(c => new THREE.Color(c));
-
-/** SAP-style displacement magnitude contour, independent of deformation scale. */
-export function deflectionColor(fraction: number) {
-  const location = Math.max(0, Math.min(1, fraction)) * (contourColors.length - 1);
-  const lower = Math.min(contourColors.length - 2, Math.floor(location));
-  return contourColors[lower].clone().lerp(contourColors[lower + 1], location - lower);
-}
+/** Keep the release's public helper name while sharing its exact contour
+ * with the view-mode legend and displacement-shadow renderer. */
+export { displacementColor as deflectionColor } from "./contourRamp";
 
 /** Sweep the existing section along sampled analytical centrelines. The
  * recovered axial twist rotates the section about the deformed tangent. */
@@ -38,7 +35,7 @@ export function deflectedFrameGeometry(spans: DeflectedSpan[], scale: number, ra
         .multiply(new THREE.Quaternion().setFromAxisAngle(ex, roll));
       const fraction = contourPeak ? Math.min(1, spanDisplacement(span, t).length() / contourPeak) : 0;
       return { center, y: ey.clone().applyQuaternion(orientation), z: ez.clone().applyQuaternion(orientation),
-        color: deflectionColor(fraction) };
+        color: displacementColor(fraction) };
     });
     for (let i = 0; i < position.count; i++) {
       const t = Math.max(0, Math.min(1, position.getZ(i)+0.5));
@@ -61,7 +58,7 @@ export function undeformedReference(field: DeformationField) {
   const endpoints: THREE.Vector3[] = [];
   for (const spans of field.spans.values()) for (const span of spans) endpoints.push(span.a, span.b);
   const line = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(endpoints),
-    new THREE.LineDashedMaterial({ color: 0xffefd4, transparent: true, opacity: 0.72, dashSize: 0.22,
+    new THREE.LineDashedMaterial({ color: REFERENCE_COLOR, transparent: true, opacity: 0.72, dashSize: 0.22,
       gapSize: 0.12, depthWrite: false }));
   line.name = "Undeformed reference";
   line.computeLineDistances();

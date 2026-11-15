@@ -1,13 +1,22 @@
 import * as THREE from 'three';
 
-type LabelPaint = 'load' | 'reaction' | 'selection' | 'player1' | 'player2';
+export type LabelPaint = 'load' | 'reaction' | 'selection' | 'player1' | 'player2'
+  | 'tension' | 'compression' | 'bending' | 'deflection' | 'shear' | 'moment' | 'warning';
 
+/** Background, ink and outline per label kind; each matches its overlay colour in `viewPalette`. */
 const PAINT: Record<LabelPaint, [string, string, string]> = {
   load: ['#f2b134', '#22313f', '#704e19'],
   reaction: ['#d2ecc9', '#264a39', '#597965'],
   selection: ['#233442', '#fff6e4', '#ae9c81'],
   player1: ['#efb0a1', '#3e2424', '#a86155'],
   player2: ['#b1cfee', '#23354d', '#617da6'],
+  tension: ['#cfe8ff', '#123458', '#4da3ff'],
+  compression: ['#ffd9cf', '#5a1a0c', '#ff6b4a'],
+  bending: ['#efe0ff', '#3c1a5c', '#c58cff'],
+  deflection: ['#fff3b8', '#3a2e05', '#d8b51c'],
+  shear: ['#d6f7e7', '#103b29', '#80e6b6'],
+  moment: ['#ffe0f3', '#4d1036', '#ff94d5'],
+  warning: ['#ffd3e0', '#5a0b25', '#ff477e'],
 };
 
 export function addSceneLabel(group: THREE.Group, position: THREE.Vector3, text: string, style: LabelPaint, size = 1) {

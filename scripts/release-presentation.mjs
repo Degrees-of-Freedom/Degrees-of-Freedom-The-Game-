@@ -236,6 +236,8 @@ try {
             await drawFour();
             if (turn < 6) {
               await activate(page.locator('[data-kind="element"]').first());
+              if (scenario === "companion" && turn === 5)
+                await page.locator('.companion-board .figure-stage[data-clip="measure"]').waitFor();
               await activate(page.getByText("Precise placement", { exact: true }));
               await page.getByLabel("End A grid x,y,z").fill(`${turn*2},6,4`);
               await page.getByLabel("End B grid x,y,z").fill(`${turn*2},7,4`);
@@ -247,13 +249,20 @@ try {
             if (turn === 6) {
               await page.evaluate(() => {
                 window.companionPhases = [];
+                let firstStage;
                 const watch = new MutationObserver(() => {
                   const actor = document.querySelector(".companion-board[data-foreman]");
-                  if (!actor || window.companionPhases.at(-1)?.phase === actor.dataset.foreman) return;
-                  window.companionPhases.push({phase:actor.dataset.foreman,
-                    motion:getComputedStyle(actor.querySelector(".figure-motion")).animationName});
+                  const stage = actor?.querySelector(".figure-stage");
+                  if (!stage) return;
+                  firstStage ??= stage;
+                  const phase = actor.dataset.foreman, current = window.companionPhases.at(-1);
+                  const clip = stage.dataset.clip ?? null;
+                  if (current?.phase === phase) {
+                    if (clip) current.clip = clip;
+                  } else window.companionPhases.push({phase, clip, sameStage:stage === firstStage,
+                    figure:stage.querySelector("img").getAttribute("src").split("/").at(-1)});
                 });
-                watch.observe(document.body, {subtree:true, attributes:true, attributeFilter:["data-foreman"], childList:true});
+                watch.observe(document.body, {subtree:true, attributes:true, attributeFilter:["data-foreman","data-clip","src"], childList:true});
               });
             }
             await activate(ready);
@@ -272,14 +281,12 @@ try {
           const phases = await page.evaluate(() => window.companionPhases);
           companionResult = { checkpoint:6, originatingTurn:5, player:1, chargedTurns:3, phases };
           if (layout.reducedMotion === "reduce") {
-            assert.deepEqual(phases, [{ phase:"reaction", motion:"none" }]);
+            assert.deepEqual(phases, [{phase:"reaction", figure:"conkeldurr.png", clip:null, sameStage:true}]);
             await activate(button("Skip transformation"));
           } else {
-            assert.deepEqual(phases, [{phase:"shrink",motion:"foreman-shrink"}, {phase:"reaction",motion:"foreman-arrival"}]);
-            await page.locator('.companion-board[data-foreman="reaction"] .figure-motion').evaluate(async el => {
-              await Promise.all(el.getAnimations().map(animation => animation.finished));
-            });
-            await page.locator('.companion-board[data-foreman="reaction"] .figure-stage[data-view="model"]').waitFor();
+            assert.deepEqual(phases, [{phase:"shrink",figure:"timburr.png",clip:"foreman",sameStage:true},
+              {phase:"reaction",figure:"conkeldurr.png",clip:"foreman",sameStage:true}]);
+            await page.locator('.companion-board[data-foreman="reaction"] .figure-stage[data-view="model"]:not([data-clip])').waitFor();
             await page.screenshot({path:resolve(output, "conkeldurr.png")});
           }
           await button("Talk to Timburr").waitFor({timeout:7000});

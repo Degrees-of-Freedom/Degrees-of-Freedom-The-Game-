@@ -12,8 +12,9 @@ import {
 } from "../game/model";
 import { getSettings } from "../menu/settings";
 import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
-import { addResultArrows, displayPoint } from "./sceneResults";
+import { addResultArrows, displayPoint, viewBasePoint } from "./sceneResults";
 import { addSceneLabel } from "./sceneLabels";
+import { buildDisplacementShadow, labelPeakDisplacement } from "./displacementShadow";
 import { createFlowParticles } from "./flowParticles";
 import { buildReleaseFlow, markInstability } from "./releaseFlow";
 import { drawInstabilityMode } from "./instabilityModes";
@@ -58,6 +59,8 @@ export function Scene({
   loads,
   loadPath,
   onToggleLoadPath,
+  shadow,
+  labels,
   onMessage,
   baySize,
 }: SceneView) {
@@ -80,6 +83,8 @@ export function Scene({
     loads,
     loadPath,
     onToggleLoadPath,
+    shadow,
+    labels,
     onMessage,
     baySize,
   });
@@ -102,6 +107,8 @@ export function Scene({
     loads,
     loadPath,
     onToggleLoadPath,
+    shadow,
+    labels,
     onMessage,
     baySize,
   };
@@ -110,10 +117,11 @@ export function Scene({
   const refreshPermissions = useRef<() => void>(() => {});
   useEffect(() => {
     refreshPermissions.current();
-  }, [jointLayer, result, combo, deformed, scale, field]);
+  }, [jointLayer, result, combo, deformed, scale, field, labels]);
   useEffect(() => {
     refresh.current();
-  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath, trueScale, showInstability, instabilityMode, playInstability, reactionLabels, diagrams]);
+  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath, trueScale, showInstability,
+    instabilityMode, playInstability, reactionLabels, diagrams, shadow, labels, still]);
   const workK = useGameStore((state) => state.workK);
   const style = useGameStore((state) => state.style);
   const host = useRef<HTMLDivElement>(null);
@@ -207,8 +215,11 @@ export function Scene({
     preview.visible = false;
     const point = (key: string) => displayPoint(key, view.current);
     const glyphs = createJointGlyphs(scene);
-    refreshPermissions.current = () => glyphs.set(view.current.jointLayer, joint =>
-      point(view.current.result?.ctx?.idx.has(joint.id) ? joint.id : joint.point));
+    refreshPermissions.current = () => {
+      const layer = view.current.jointLayer;
+      glyphs.set(layer ? {...layer,labels:layer.labels !== false && view.current.labels !== false} : undefined,
+        joint => point(view.current.result?.ctx?.idx.has(joint.id) ? joint.id : joint.point));
+    };
     refreshPermissions.current();
     const particles = createFlowParticles(scene, point);
     let currentEnvironment = "";
@@ -366,6 +377,7 @@ export function Scene({
       particles.reset();
       const releaseFlow = !!view.current.cameraMemory && view.current.loadPath;
       buildStructure(structure, state, releaseFlow ? { ...view.current, loadPath: false } : view.current, point, particles.add);
+      // Ownership remains visible independently of optional result-value labels.
       if (view.current.cameraMemory && state.turn) {
         for (const joint of state.turn.board.joints) {
           const owner = state.turn.players.findIndex(player => player.id === joint.foundationOwner);
@@ -374,16 +386,24 @@ export function Scene({
             `Player ${owner + 1} · ${owner === 0 ? "Coral" : "Blue"}`, owner === 0 ? "player1" : "player2", .8);
         }
       }
-      if (releaseFlow && view.current.result) buildReleaseFlow(structure, view.current.result, point, particles.add);
+      // Optional view-mode labels default to shown; reaction size/off remains
+      // an independent release preference inside addResultArrows.
+      const labels = view.current.labels !== false;
+      if (releaseFlow && view.current.result) buildReleaseFlow(structure, view.current.result, point, particles.add, labels);
       for (const diagram of view.current.diagrams ?? []) {
-        drawBoardDiagram(structure, diagram, point, view.current.field, view.current.scale);
+        drawBoardDiagram(structure, diagram, point, view.current.deformed ? view.current.field : undefined, view.current.scale, labels);
       }
+      const field = view.current.field;
+      if (view.current.shadow && field) {
+        structure.add(buildDisplacementShadow(field, view.current.scale, key => viewBasePoint(key, view.current), view.current.trueScale));
+      }
+      if (labels && field && (view.current.shadow || view.current.deformed)) labelPeakDisplacement(structure, field, view.current.scale);
       if (view.current.showInstability && view.current.result) {
-        markInstability(structure, view.current.result, point);
+        markInstability(structure, view.current.result, point, labels);
         drawInstabilityMode(structure, view.current.result, view.current.instabilityMode ?? 0,
           !!view.current.playInstability && !view.current.still && !getSettings().reducedMotion);
       }
-      addResultArrows(structure, view.current, point, state.style !== 'engineering');
+      addResultArrows(structure, view.current, point, state.style !== 'engineering' && labels);
       buildGuides(
         guides,
         level,
@@ -602,6 +622,9 @@ export function Scene({
           ? Math.atan2(Math.max(0, camera.position.z + CELL_SIZE), 145)
           : 0;
       updateGrowthOverlays(state, time);
+      // Joint glyphs keep a constant on-screen size and avoid each other, so
+      // they are positioned against the current camera before each draw.
+      glyphs.layout(camera, element.clientWidth, element.clientHeight);
       draw();
     });
     /**

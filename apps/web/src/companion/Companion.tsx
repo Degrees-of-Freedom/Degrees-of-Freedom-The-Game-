@@ -1,5 +1,8 @@
-import { useEffect, useId, useRef, useState } from "react";
-import type { FigureName, FigurePose } from "./figure";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import type { FigureName } from "./figure";
+import { createAnimator, type Animator } from "./animator";
+import { AMBIENT_IDLE, CLIPS, REST as REST_POSE, RELEASE_IDLE, motionForCue, portraitTransform, type CompanionCue,
+  type CompanionCueEvent, type MotionName } from "./motion";
 import type { PublicRepairReport } from "../game/publicRepairReport";
 import { RepairExplanation } from "./RepairExplanation";
 import { updateSettings, useSettings } from "../menu/settings";
@@ -7,37 +10,68 @@ import { checkpointNotice, mistakeCount, takeForemanCue } from "./reactions";
 import "./companion.css";
 
 type Area = "home" | "menu" | "board" | "drawer";
+type Stage = ReturnType<typeof import("./figure").createFigure>;
 
 /** Keep the matching portrait available throughout lazy import/decoding. A
- * context loss replaces the canvas immediately and offers an explicit retry. */
-function Figure({ name, retry, onFailure, pose, sequence, still }: {
+ * context loss replaces the canvas immediately and offers an explicit retry.
+ *
+ * One animator per mounted figure samples `motion.ts` clips and applies each
+ * pose to whichever view is showing: the 3D rig, or the portrait's CSS
+ * transform. `entrance` plays once when the figure mounts (Conkeldurr's
+ * foreman arrival); `cue` plays whenever its identity changes. */
+function Figure({ name, retry, onFailure, cue, entrance, idle, still }: {
   name: FigureName; retry: number; onFailure: (failed: boolean) => void;
-  pose?: FigurePose; sequence?: number; still: boolean;
+  cue?: { motion: MotionName; id: number }; entrance?: MotionName;
+  idle: readonly MotionName[] | null; still: boolean;
 }) {
   const host = useRef<HTMLSpanElement>(null);
-  const actor = useRef<ReturnType<typeof import("./figure").createFigure> | undefined>(undefined);
-  const currentPose = useRef({ pose, still });
-  currentPose.current = { pose, still };
-  useEffect(() => {
-    if (pose) actor.current?.pose(pose, still);
-    else actor.current?.settle();
-    // The portrait shares the hop with the GLB. Repeated actions restart
-    // only this transform; they never recreate a decoder or a WebGL context.
-    if (pose !== "nod" || still || document.hidden) return;
-    const hop = host.current?.animate?.([
-      { transform: "translateY(0) scale(1)" },
-      { transform: "translateY(2px) scale(1.08,.89)", offset: .18 },
-      { transform: "translateY(-8px) rotate(-5deg) scale(.97,1.05)", offset: .48 },
-      { transform: "translateY(1px) scale(1.05,.95)", offset: .78 },
-      { transform: "translateY(0) scale(1)" },
-    ], { duration: 360, easing: "ease-in-out" });
-    return () => hop?.cancel();
-  }, [pose, sequence, still]);
+  const portrait = useRef<HTMLImageElement>(null);
+  const actor = useRef<Stage | undefined>(undefined);
+  const animator = useRef<Animator | undefined>(undefined);
   const [view, setView] = useState<"portrait" | "model">("portrait");
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  useEffect(() => {
+    const motion = createAnimator({ apply(pose, playing) {
+      if (viewRef.current === "model" && actor.current) actor.current.apply(pose);
+      else if (portrait.current) portrait.current.style.transform = portraitTransform(pose);
+      const element = host.current;
+      if (element && element.dataset.clip !== (playing ?? undefined)) {
+        if (playing) element.dataset.clip = playing; else delete element.dataset.clip;
+      }
+    } });
+    animator.current = motion;
+    return () => { motion.dispose(); animator.current = undefined; };
+  }, []);
+  useEffect(() => {
+    const motion = animator.current!;
+    const sync = () => motion.still(still || document.hidden);
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    return () => document.removeEventListener("visibilitychange", sync);
+  }, [still]);
+  useEffect(() => { animator.current!.idle(idle); }, [idle]);
+  useEffect(() => { if (entrance) animator.current!.play(entrance); }, [entrance]);
+  // A remount (Timburr ⇄ Conkeldurr, privacy cover) must not replay a stale cue.
+  const played = useRef(cue?.id);
+  useEffect(() => {
+    if (cue && cue.id !== played.current) {
+      played.current = cue.id;
+      animator.current!.play(cue.motion);
+    }
+  }, [cue]);
+  // Hand any in-progress pose over when the 3D view replaces the portrait.
+  useEffect(() => {
+    if (view === "model" && portrait.current) portrait.current.style.transform = "";
+    if (!animator.current?.current) actor.current?.apply(REST_POSE);
+  }, [view]);
   useEffect(() => {
     const element = host.current!;
+    // The foreman cue can change the character while the same sampler is
+    // running. Keep posing the matching portrait as its GLB becomes ready.
+    setView("portrait");
     let active = true, visible = false, generation = 0;
-    let stage: ReturnType<typeof import("./figure").createFigure> | undefined;
+    let stage: Stage | undefined;
     const drop = () => {
       generation++;
       if (!stage) return;
@@ -65,7 +99,6 @@ function Figure({ name, retry, onFailure, pose, sequence, still }: {
         await stage.show(name);
         if (active && token === generation) {
           actor.current = stage;
-          if (currentPose.current.pose) stage.pose(currentPose.current.pose, currentPose.current.still);
           setView("model"); onFailure(false);
         }
       } catch {
@@ -89,7 +122,7 @@ function Figure({ name, retry, onFailure, pose, sequence, still }: {
     };
   }, [name, retry, onFailure]);
   return <span className="figure-stage" data-view={view} ref={host} aria-hidden="true">
-    <img src={import.meta.env.BASE_URL + "companion/" + name + ".png"} alt="" />
+    <img ref={portrait} src={import.meta.env.BASE_URL + "companion/" + name + ".png"} alt="" />
   </span>;
 }
 
@@ -101,15 +134,18 @@ export interface CompanionProps {
   onPresented?: () => void;
   onForemanAccent?: () => void | (() => void);
   release?: boolean;
-  action?: number;
+  /** Latest public gameplay scenario. Each new `id` plays its motion once. */
+  cue?: CompanionCueEvent;
   final?: boolean;
   skip?: boolean;
 }
 
 // Cosmetic cooldowns survive privacy unmounts. No cards, seed or topology are recorded.
 let lastActivation = -Infinity;
+// The welcome wave plays once per page load, not on every route or reopen.
+let greeted = false;
 export function Companion({ area, repairs, announceRepair = false, announceFromTurn, onPresented, onForemanAccent,
-  release = false, action = 0, final = false, skip = false }: CompanionProps) {
+  release = false, cue, final = false, skip = false }: CompanionProps) {
   const id = useId();
   const settings = useSettings();
   const button = useRef<HTMLButtonElement>(null);
@@ -119,6 +155,21 @@ export function Companion({ area, repairs, announceRepair = false, announceFromT
   const [selectedTurn, setSelectedTurn] = useState<number | null>(null);
   const presented = useRef<string | null>(null);
   const accentPending = useRef(false);
+  const [motion, setMotion] = useState<{ motion: MotionName; id: number }>();
+  const react = useCallback((next: CompanionCue) =>
+    setMotion(previous => ({ motion: motionForCue(next), id: (previous?.id ?? 0) + 1 })), []);
+  // A reopened drawer can retain the preceding board cue. Only consume
+  // events emitted while this companion is on screen.
+  const seenCue = useRef(cue?.id);
+  useEffect(() => {
+    if (cue && cue.id !== seenCue.current) { seenCue.current = cue.id; react(cue); }
+  }, [cue, react]);
+  useEffect(() => { if (final) react({ kind: "victory" }); }, [final, react]);
+  useEffect(() => {
+    if (greeted || (area !== "home" && area !== "menu")) return;
+    greeted = true;
+    react({ kind: "greet" });
+  }, [area, react]);
   const latest = repairs?.at(-1);
   const repair = repairs?.find(entry => entry.turn === selectedTurn) ?? repairs?.at(-1);
   const currentNotice = repairs && release && announceFromTurn !== undefined ? checkpointNotice(repairs, announceFromTurn) : latest;
@@ -135,13 +186,21 @@ export function Companion({ area, repairs, announceRepair = false, announceFromT
       accentPending.current = eligible && settings.sound;
       setForeman(eligible ? release && !still ? "shrink" : "reaction" : null);
       setOpen(!final && !skip && settings.showCompanion);
+      if (!eligible && !final && !skip) {
+        const repaired = [...currentNotice.attempts, ...currentNotice.jointAttempts].some(a => a.status === "verified");
+        if (repaired && !currentNotice.pending.length) react({ kind: "repair" });
+        else if (currentNotice.charge) react({ kind: "issue" });
+      }
       onPresented?.();
     }
-  }, [announceRepair, currentNotice, repairs, onPresented, settings.sound, settings.showCompanion, final, skip, still, release]);
+  }, [announceRepair, currentNotice, repairs, onPresented, settings.sound, settings.showCompanion, final, skip, still, release, react]);
   useEffect(() => {
     if (foreman !== "shrink") return;
     if (still) { setForeman("reaction"); return; }
-    const timer = window.setTimeout(() => setForeman("reaction"), 240);
+    // Swap at the first authored crouch. One upstream clip drives both
+    // characters through the crouch, rise and turn, on mesh or portrait.
+    const foremanClip = CLIPS.foreman;
+    const timer = window.setTimeout(() => setForeman("reaction"), foremanClip.duration * foremanClip.tracks.squash[1][0]);
     return () => window.clearTimeout(timer);
   }, [foreman, still]);
   useEffect(() => {
@@ -181,6 +240,7 @@ export function Companion({ area, repairs, announceRepair = false, announceFromT
   </aside>;
   return <aside className={"companion companion-" + area} aria-label="Site companion"
     data-foreman={foreman ?? undefined} data-motion={still ? "reduced" : "system"} data-release={release || undefined}
+    data-still={skip || undefined}
     onKeyDown={e => {
       if (open && e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); }
     }}>
@@ -189,12 +249,12 @@ export function Companion({ area, repairs, announceRepair = false, announceFromT
       onClick={() => {
         if (open) close();
         else if (!release || performance.now() - lastActivation >= 5000) {
-          lastActivation = performance.now(); setOpen(true);
+          lastActivation = performance.now(); setOpen(true); react({ kind: "activate" });
         }
       }}>
-      <span className="figure-motion"><Figure key={name} name={evolved ? "conkeldurr" : "timburr"} retry={retry} onFailure={setFailed}
-        pose={final ? "victory" : foreman === "reaction" ? "foreman" : !foreman && (action || open) ? "nod" : undefined}
-        sequence={action} still={!!still} /></span>
+      <Figure key={automatic ? "foreman-reaction" : name} name={evolved ? "conkeldurr" : "timburr"} retry={retry} onFailure={setFailed}
+        cue={motion} entrance={foreman ? "foreman" : undefined}
+        idle={foreman || final ? null : release ? RELEASE_IDLE : AMBIENT_IDLE} still={still} />
       <span>{name}</span>
     </button>
     {open && <div id={id} data-instability={instability || undefined} className={"companion-note" + (repair && foreman !== "preview" ? " companion-repair" : "")}>

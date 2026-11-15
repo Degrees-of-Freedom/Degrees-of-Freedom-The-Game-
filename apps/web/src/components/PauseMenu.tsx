@@ -13,6 +13,9 @@ import "./PauseMenu.css";
 
 type View = "main" | "settings" | "confirm" | "files";
 
+/** Attribute an open pop-over sets so Esc closes it rather than opening the pause menu. */
+export const ESCAPE_OWNER = "data-owns-escape";
+
 /** Elements the focus trap may land on. */
 const FOCUSABLE = "button:not([disabled]), input:not([disabled]), a[href]";
 
@@ -21,6 +24,8 @@ const FOCUSABLE = "button:not([disabled]), input:not([disabled]), a[href]";
  *
  * - Opens with the Menu button or `P`; `Esc` opens it only when nothing else in
  *   the workspace is using Esc (see `escapeBusy` and the store checks below).
+ *   An open overlay that closes on Esc marks itself with `data-owns-escape`
+ *   (see {@link ESCAPE_OWNER}); its own handler then gets the key.
  * - While open the app root is `inert` (no pointer, focus or scene input) and a
  *   capture-phase key listener swallows every key for the rest of the app, so
  *   scene shortcuts such as `R` or `1` cannot fire behind it.
@@ -91,6 +96,7 @@ export function PauseMenu({
         if (event.ctrlKey || event.metaKey || event.altKey) return;
         // Let Escape dismiss the focused companion conversation first.
         if (key === "Escape" && target?.closest?.(".companion")?.querySelector('[aria-expanded="true"]')) return;
+        if (key === "Escape" && document.querySelector(`[${ESCAPE_OWNER}]`)) return;
         if (target?.closest?.("input, textarea, select, [contenteditable]"))
           return;
         const state = useGameStore.getState();

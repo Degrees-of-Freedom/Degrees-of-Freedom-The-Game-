@@ -1,0 +1,25 @@
+name: Structure GAN
+on:
+  pull_request:
+    paths:
+      - 'tools/structure-gan/**'
+      - 'services/opensees/**'
+      - '.github/workflows/structure-gan.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/structure-gan/**'
+      - 'services/opensees/**'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      # The PyPI torch wheel bundles CUDA libraries; the job only needs CPU. Pin a CPU index here if CI time matters.
+      - run: uv sync --project tools/structure-gan
+      - run: uv run --project tools/structure-gan pytest tools/structure-gan/tests

@@ -12,6 +12,10 @@ validated_against:
   - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria.md
   - prototypes/timburr-companion/README.md
+  - apps/web/src/companion/motion.ts
+  - apps/web/src/companion/animator.ts
+  - apps/web/src/companion/turnCues.ts
+  - docs/evidence/companion-motion/check.mjs
 owner: project owner
 status: needs-review
 ---
@@ -167,6 +171,39 @@ Recommended order for a later implementation run:
 
 The launcher, setup, information pages, workspace and open drawers display Timburr. Activating his control opens a tip and lets the player inspect the Conkeldurr foreman preview. The private handoff and session recovery screens suppress the companion. The local loader draws the displayed GLB once and uses a matching PNG portrait during decoding or GPU failure; retry is available in the companion panel. Both source assets are unrigged static meshes with zero embedded clips. Their resting arms and detached props reflect the preserved authored poses. Articulated reaction poses and final art approval remain open.
 
+### Scenario motion (implemented 2026-11-15)
+
+Timburr now plays short procedural clips chosen by public scenario. The models remain unrigged, so every clip animates the whole figure about its feet (hop, squash/stretch, lean, sideways tilt, yaw) plus the existing upper-body flex morph, which also moves the carried timber. The same sampled pose drives the portrait fallback through a CSS transform, so motion survives WebGL failure.
+
+| Scenario (source) | Clip | Priority |
+| --- | --- | --- |
+| First welcome on launcher/menus, once per page load (`Companion`) | wave | routine |
+| Direct activation (`Companion`) | wave | routine |
+| First sight of a turn, or a new seat after handoff (`turnCues.ts`) | perk | routine |
+| Select element / connection / gravity card (`ReleaseBoard`) | measure / point / brace | routine |
+| Stage a member / attach an end / stage a load | measure / nod / brace | routine |
+| Cancel targeting, deselect or cancel draft | stepBack | routine |
+| Rejected target from the precise form or board picking | puzzled | routine |
+| Newly committed report with a deduction (this page session only) | concern | reaction |
+| Newly committed verified-stable report without deduction | cheer | reaction |
+| Partial, unresolved or persistent issue without a new deduction | perk only | routine |
+| Repair announcement: verified with nothing pending / otherwise | dance / concern | reaction |
+| Third eligible deduction for the same player | foreman, shared by Timburr and Conkeldurr | dramatic |
+| Final results | victory | dramatic |
+| Idle: release board | breathe, shift | idle |
+| Idle: launcher, menus and other workspaces | breathe, shift, glance, adjust | idle |
+
+Behavior guarantees, each covered by unit tests in `apps/web/src/companion/`:
+
+- **Bounded and interruptible.** One clip plays at a time (0.5–2.4 s). A cue may replace a clip of equal or lower priority, so routine chatter never overwrites a result reaction or Conkeldurr. Every clip starts and ends exactly at rest; hop, tilt and squash stay inside the badge's headroom.
+- **Sparse idle.** Nothing renders while resting. One fidget plays after a random 6–12 s pause and never repeats the previous one. This replaces the earlier "zero idle draw calls" behavior when motion is enabled; under reduced motion it still holds.
+- **Still mode.** Reduced motion, *Skip effects* and hidden tabs settle the figure at rest and refuse clips; a figure swap only fades briefly.
+- **Public result cues.** Routine cues carry the public card family. A verified stable result can earn a cheer. A reload can introduce the current seat with a perk. The three-deduction policy below governs the foreman entrance.
+
+Modules: `motion.ts` contains the clip library, sampling, interruption, idle choice, scenario mapping and portrait transform. It is pure. `animator.ts` contains the frame/timer scheduler with an injectable host. `turnCues.ts` contains the committed-report policy. `figure.ts` applies poses to the 3D rig; `Companion.tsx` routes cues to whichever view is showing. Both portraits were regenerated with the new feet-anchored framing, which leaves headroom for hops. The [motion browser check](../evidence/companion-motion/check.mjs) renders every clip in 3D and in portrait form as a [contact sheet](../evidence/companion-motion/motion-sheet.png). It also plays a match through visible controls and asserts the scenario-to-clip sequence.
+
+Clip amplitudes and timing are first-pass proposals pending owner playtesting. These are whole-figure motions, not articulated limb poses. Articulated poses still require rigging (see section 7).
+
 The [browser runner](../evidence/companion/check.mjs) also regenerates both fallback portraits and verifies the preserved GLBs' hashes. The models by nguyenlouis32 are licensed under CC BY 4.0. Their attribution and pinned sources are preserved in [the distributed credits](../../apps/web/public/companion/CREDITS.md).
 
 The owner authorized the two preserved, attributed GLBs for playtesting and a labelled Conkeldurr transformation preview. Automatic serious-event eligibility and final pose approval remain distinct from that asset decision. Use the recorded issue/repair event for explanations.
@@ -204,8 +241,8 @@ The owner's subsequent three-mistake rule supersedes the earlier single-event tr
 
 After a calculation checkpoint settles and the incoming seat selects Ready, a charged instability gets a red dialogue bubble, an exclamation mark and a written member/turn reference. The explanation reports the recorded fitting, legacy prop or pending issue. Each player's third and sixth qualifying turns can call Conkeldurr. A checkpoint that assessed several earlier turns presents one notice. A three-charge milestone has first priority, followed by a charged instability and then an ordinary repair. Among equal priorities the most recent turn wins. The notice names the original acting player and turn. The 45-second cooldown suppresses a second spectacle during that interval. The count comes from the match's committed history and survives reload. The cue requires a newly settled checkpoint in the current workspace, so reopening a save stays quiet. Victory takes priority. The companion contributes no inputs to scoring, repair or hand generation.
 
-Normal motion gives Timburr a short squash and a hop on direct interaction or card actions, with a smaller weight shift after idle time. During the 800 ms introduction Timburr shrinks for 240 ms, then Conkeldurr grows, overshoots and shakes within the character control for 560 ms. Conkeldurr holds for three seconds. The model and matching fallback portrait share these transforms. Reduced motion shows a still character and the same text. Dismiss and Skip transformation settle the cue immediately. Camera and board framing stay anchored throughout.
+The owner's animation choice uses the procedural library described above. In the 800 ms `foreman` clip Timburr starts the crouch. At its first squash peak, 160 ms in, the sampler switches to Conkeldurr in a larger character control and continues the same rise, flex and turn. Conkeldurr then holds for under three seconds. The sampler applies these poses to the GLB or its matching PNG. Reduced motion shows a still Conkeldurr and the same text. Dismiss and Skip transformation return to Timburr immediately. The board and camera retain their positions.
 
-The normal-motion and model-failure cases in [the production browser runner](../../scripts/release-presentation.mjs) build five separate loose members in alternating seats and pass turn six. Player 1 has three verified deductions and Player 2 has two. The runner reloads between checkpoints, checks the turn-five source of the cue, records both motion phases, and observes Web Audio oscillator retirement. The companion unit tests cover repeated event IDs, earlier checkpoints, mixed players and cooldown suppression.
+The production browser fixture builds five loose members in alternating seats and passes turn six. Player 1 has three verified deductions and Player 2 has two. The fixture reloads between checkpoints, checks the turn-five source of the cue, and samples the displayed character and active clip on each side of the swap. It also observes Web Audio oscillator retirement. The companion unit tests cover repeated event IDs, earlier checkpoints, mixed players and cooldown suppression. The previous clean-build report verified the earlier two-part wrapper animation. The combined procedural build awaits its production rerun. [Production browser runner](../../scripts/release-presentation.mjs)
 
 Keep Show companion, motion and audio settings in the main settings disclosure, with a small restore control when hidden. Reduced motion uses a still pose/brief fade. Missing 3D/audio never blocks play or substitutes the wrong character. Deduplicate by committed event IDs on reload. Celebrate a verified repair without claiming the entire structure is safe.

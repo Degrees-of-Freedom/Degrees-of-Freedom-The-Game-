@@ -23,6 +23,7 @@ validated_against:
   - docs/kb/solver-criteria-gap-analysis.md
   - docs/kb/development-and-testing.md
   - docs/kb/visualization-criteria.md
+  - docs/kb/structure-gan.md
 owner: unknown
 status: partial
 ---
@@ -36,6 +37,8 @@ On the release integration branch, **Play** opens the versioned, two-player Grow
 The secondary workspaces retain their playable presets, editor and earlier environment implementations. The editor can request linear or bounded nonlinear analysis through the OpenSees adapter. The [criteria ledger](criteria-ledger.md) records the current Shared table findings separately from the earlier preset walkthroughs.
 
 ## Pages
+
+The app's `/wiki` companion offers six introductory lessons, a searchable glossary and exercises linking to the existing workspace. Its frame graphic is illustrative, not solver output. The wiki is an introductory foundation rather than an exhaustive engineering reference; see [Rust solver](rust-solver.md), [structural solver](structural-solver.md), and [unified runtime](unified-runtime.md) for implementation and limitations.
 
 | Page | Use this when |
 | --- | --- |
@@ -51,9 +54,10 @@ The secondary workspaces retain their playable presets, editor and earlier envir
 | [analysis-results.md](analysis-results.md) | Persisting versioned solver runs, validity and result provenance. |
 | [structural-state.md](structural-state.md) | Browser saves, experimental solver snapshots, and proposed general state and fixture design. |
 | [structure-library.md](structure-library.md) | Loading and cycling 20 voxel specimens, PNG previews, SQLite records and observed solver baselines. |
+| [structure-gan.md](structure-gan.md) | Training the adversarial generator of curved, organic, asymmetric, stable structures, its physics oracle, evidence, limits and the `evolved.sqlite` database. |
 | [solver-criteria.md](solver-criteria.md) | Reading the owner-supplied proposed solver requirements, acceptance gates, implementation order, and open gameplay decisions. |
 | [solver-criteria-gap-analysis.md](solver-criteria-gap-analysis.md) | Comparing current code and tests with the criteria and planning implementation milestones. |
-| [turn-criteria.md](turn-criteria.md) | Defining the two decks, turn phases, six-DOF connection cards, issue assessment and penalty decisions. |
+| [turn-criteria.md](turn-criteria.md) | Defining the current three-deck/four-choice Shared table turns, member-local rotational locks, scheduled assessment and historical turn rules. |
 | [game-completion-criteria.md](game-completion-criteria.md) | Entry point for eight completion specifications, confirmed decisions, proposals and implementation dependencies. |
 | [scoring-match-criteria.md](scoring-match-criteria.md) | Defining fixed rounds, final-only load share minus penalties, outcome validity and ties. |
 | [placement-criteria.md](placement-criteria.md) | Defining grid/diagonal placement, quarter attachments, clashes, assembly plays and external connections. |
@@ -63,6 +67,7 @@ The secondary workspaces retain their playable presets, editor and earlier envir
 | [multiplayer-criteria.md](multiplayer-criteria.md) | Specifying first-release local hot-seat, private handoff, information visibility and future authority boundaries. |
 | [saved-match-criteria.md](saved-match-criteria.md) | Saving/recovering complete matches, atomic commits, replay, migration and private exports. |
 | [release-acceptance-criteria.md](release-acceptance-criteria.md) | Validating a complete playable match with evidence, numerical/performance gates and supported scope. |
+| [ai-turn-lab.md](ai-turn-lab.md) | Running and understanding the experimental trainable turn agents. |
 | [game-dynamics.md](game-dynamics.md) | Working on game state, turns, rules, or modes. |
 | [avatar-criteria.md](avatar-criteria.md) | Defining Timburr’s personality, compact presence, reactions, Conkeldurr transformation, model sources and deferred implementation handoff. |
 | [animation-criteria.md](animation-criteria.md) | Defining all-action animation and sound requirements, optional structural glow/pulse, accessibility, timing and acceptance scenarios. |
@@ -88,7 +93,7 @@ The [completion decision register](game-completion-criteria.md#2-owner-confirmed
 
 ## Avatar and preserved prototype
 
-[Timburr avatar criteria](avatar-criteria.md) describe the compact companion and reactions. The active Grow Dusk playtest uses the two original attributed models preserved in the [prototype handoff](../../prototypes/timburr-companion/README.md), including a deliberately activated Conkeldurr preview and static portrait fallback. The models have no embedded animation clips. See [presentation acceptance](criteria-ledger.md#viewer-controls-and-presentation) for verified controls and remaining reactions.
+[Timburr avatar criteria](avatar-criteria.md) describe the compact companion and reactions. The active Grow Dusk playtest uses the two original attributed models preserved in the [prototype handoff](../../prototypes/timburr-companion/README.md), including a deliberately activated Conkeldurr preview and static portrait fallback. The models have no embedded animation clips; Timburr instead plays short procedural whole-figure clips chosen by public scenario, documented under [scenario motion](avatar-criteria.md#scenario-motion-implemented-2026-11-15). See [presentation acceptance](criteria-ledger.md#viewer-controls-and-presentation) for verified controls and remaining reactions.
 
 ## Joint freedoms and graphical representation
 
@@ -118,3 +123,4 @@ They freeze `grow-dusk-release-1`: two players/eight rounds, finite authored dec
 ## Complete-release implementation prompt
 
 [Complete Grow Dusk release implementation prompt](../implementation-prompts/complete-grow-dusk-release.md) provides the implementation handoff for the frozen release decisions: criteria precedence, coordinated agents, integrated milestones, minimal UI, numerical verification, full-game tests and final review. It is an execution prompt, not evidence of completed implementation.
+

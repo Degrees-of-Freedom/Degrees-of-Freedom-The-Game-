@@ -1,6 +1,6 @@
 ---
 title: "Solver Criteria Gap Analysis and Milestones"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
   - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
@@ -25,6 +25,8 @@ validated_against:
   - docs/kb/rust-solver.md
   - crates/dof-solver/src
   - crates/dof-solver/tests
+  - apps/web/src/solver/wasm/crossCheck.test.ts
+  - services/opensees/tests/test_release_wasm_reference.py
 owner: unknown
 status: partial
 ---
@@ -32,6 +34,8 @@ status: partial
 # Solver Criteria Gap Analysis and Milestones
 
 ## Baseline and interpretation
+
+**Current status (15 November 2026, `main` at `39508f0`).** The Rust solver and the OpenSees v2 service on `main` are the current solver implementations. Read their status on the [Rust solver page](rust-solver.md) and the [structural solver page](structural-solver.md), not in the historical coverage table below. On this date the Rust suite (82 tests), the OpenSees suite (719 passed, 7 documented skips) and the live Rust–OpenSees cross-check all passed. The cross-check covered 46 runs over the reference examples and library structures. Linear results agree to rounding except for prestressed cables. Nonlinear results agree within 5.3e-4 against the 1 % gate. Two nonlinear verdicts differ: Rust reports `unresolved` where OpenSees reports `unstable`. See [Cross-check with OpenSees](rust-solver.md#cross-check-with-opensees--2026-11-15). No milestone has owner acceptance.
 
 For the implementation branch, the [criteria ledger](criteria-ledger.md) records a new audit at `cdd5c9a` and subsequent game and service checks. The voxel path now isolates independent supported mechanisms and checks residuals and end laws for small-motion frame reactions. The service test suite includes 10,000 seeded linear, unstable and invalid structural states. The historical table below retains its original baseline.
 
@@ -72,7 +76,7 @@ After the OpenSees service, a Rust solver was added in `crates/dof-solver`, writ
 
 - It implements M01 to M04, M06 to M08, A01 to A07 and the section 5 result contract, with a passing test for every row of the section 7 acceptance table, including 10,000 seeded states.
 - M05 and M09 are partly met: there are no general constraints or prescribed displacements to detect incompatibility in, and interior attachment is left to the game. A08 is met in the browser, where the analysis runs on a worker that is terminated on abort or after a wall-clock limit; in Node it still runs inline with only its iteration limits.
-- Turn resolution (section 4) and the surrogate (section 6) are outside it. Timings exist for one synthetic frame on one machine.
+- Turn resolution (section 4) is integrated in the Grow Dusk release; the surrogate (section 6) does not exist. Timings exist for one synthetic frame, measured on two machines.
 - The game now sends the detailed contract to it, with gravity loads only: no wind and no load combinations. The workspace panel shows the result, checked by hand in a browser on one example only, and the 3D viewer does not use it. See [Game integration](rust-solver.md#game-integration).
 
 The coverage table below describes the voxel experiment and the original contract. It was not rewritten for the Rust solver; read the two together. The milestone table has a column for it.
@@ -114,7 +118,7 @@ Follow [criteria section 8](solver-criteria.md#8-implementation-order-and-scope-
 | --- | --- | --- | --- |
 | 1. Contract and linear kernel | Immutable/versioned analytical input; explicit units, axes, connections, constraints, properties and result validity; axial bar, cantilever, simply supported beam, torsion and unequal support reaction fixtures. Report errors against analytical solutions and documented zero tolerances. | Not complete; preliminary types and limited linear evidence only. | Implemented with evidence: detailed contract, conventions and the linear fixtures at 1e-9. Zero tolerances and scales are documented in the crate README. Not owner-accepted. |
 | 2. Stability and isolation | Relevant DOF selection, exact constraint diagnostics, scaled stiffness modes and component-scoped results. Test unloaded/loaded mechanisms, coincident unconnected members, trusses, disconnected parts and unrelated stable components. | Not complete. | Implemented with evidence for every listed fixture. Constraint diagnostics are limited to redundant foundations. Not owner-accepted. |
-| 3. Nonlinear frame/cable physics | Validated large-displacement frame/axial formulation, consistent tangent, adaptive increments/recovery and unresolved handling. Report column/sway/cable reference errors, force/moment residuals and buckling mesh convergence. | Not complete. | Implemented with evidence: errors and mesh convergence are recorded on the Rust solver page. No independent nonlinear program was used. Not owner-accepted. |
+| 3. Nonlinear frame/cable physics | Validated large-displacement frame/axial formulation, consistent tangent, adaptive increments/recovery and unresolved handling. Report column/sway/cable reference errors, force/moment residuals and buckling mesh convergence. | Not complete. | Implemented with evidence: errors and mesh convergence are recorded on the Rust solver page. Independent OpenSeesPy references agree on sway (0.098 %), perfect-column buckling and cable tension (`test_release_wasm_reference.py`). The live cross-check agrees within 5.3e-4 on 18 nonlinear library and example runs. Rust leaves 2 runs `unresolved` that OpenSees classifies as unstable. Not owner-accepted. |
 | 4. Turns, reactions and capacities | Completed-turn transaction with persistent-load policy and stable model ID; signed six-component reactions and unavailable scopes; card limit states/utilization; deterministic replay and preview-mutation tests. | Not complete. | Solver side only: model version echo, signed reactions, unavailable scopes, utilisation, repeatable results. Turn transactions and the load policy are game work and do not exist. |
 | 5. Optional failures / connection behaviors | Owner-defined permanent failure policy, bounded deterministic release/removal events and redistribution; overloaded member/connection and redundant-member-removal fixtures. | Not complete; policy requires confirmation before enabling. | A remove-or-release policy is implemented behind an option, off by default, with overload and redundant-removal fixtures. The policy itself is an implementation choice awaiting confirmation. |
 | 6. Optional surrogate | Reference-generated diverse dataset, topology-family evaluation, preview error distribution and instability false negatives; OOD/confidence fallback and physics verification. | Not started. | Not started. |

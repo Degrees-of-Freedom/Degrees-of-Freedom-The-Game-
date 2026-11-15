@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { activeTurnHand, nextAnalysisInTurns, remainingTurnDraws, turnJoints, type TurnCard, type TurnState } from "../game/turns";
 import { matchesIssueEvidence } from "../game/turnIssues";
 import { useGameStore } from "../game/store";
@@ -11,7 +11,11 @@ import { useReleaseInspection } from "../viewer/useReleaseInspection";
 import { deformationField } from "../viewer/deformationField";
 import { boardActions, boardDiagram, type SectionAction } from "../viewer/boardDiagrams";
 import { FinalScorePanel } from "./FinalScorePanel";
+import { ESCAPE_OWNER } from "./PauseMenu";
 import { Companion, type CompanionProps } from "../companion/Companion";
+import type { CompanionCue, CompanionCueEvent } from "../companion/motion";
+import { sightTurn, turnTransitionCue, type TurnSighting } from "../companion/turnCues";
+import type { OverlayLayer } from "../viewer/viewModes";
 import { jointAtSceneSelection, sharedJointPermissions } from "../viewer/jointPermissions";
 import type { CameraMemory } from "../viewer/sceneView";
 import { instabilityModes } from "../viewer/instabilityModes";
@@ -24,9 +28,12 @@ const order = { element: 0, connection: 1, load: 2 };
 const symbols = { element: "Ι", connection: "⊕", load: "↓" };
 const kinds = { element: "Element", connection: "Connection", load: "Gravity" };
 const seat = (id: string) => id.replace("player-", "Player ");
+/** Last public turn shown in this page session; cosmetic state across handoff. */
+let lastSighting: TurnSighting | null = null;
 
-function Hand({ game, turn, choose, notify, onEnd }: {
+function Hand({ game, turn, choose, notify, onEnd, react }: {
   game: Game; turn: TurnState; choose(card: TurnCard): void; notify(message: string): void; onEnd(): void;
+  react(cue: CompanionCue): void;
 }) {
   const hand = activeTurnHand(turn).sort((a, b) => order[a.kind] - order[b.kind]);
   const selected = hand.find(c => c.id === game.selectedCardId);
@@ -39,8 +46,8 @@ function Hand({ game, turn, choose, notify, onEnd }: {
       <span className="release-prompt">{selected.kind === "element"
         ? game.chainStart ? "Choose the end point." : "Choose the start point."
         : selected.kind === "connection" ? "Attach a loose end." : "Choose a load target."}</span>
-      <ReleaseTargets key={selected.id} card={selected} game={game} notify={notify} />
-      <button className="release-back" aria-label="Cancel targeting" onClick={() => game.selectCard(null)}>×</button>
+      <ReleaseTargets key={selected.id} card={selected} game={game} notify={notify} onRejected={() => react({ kind: "invalid" })} />
+      <button className="release-back" aria-label="Cancel targeting" onClick={() => { game.selectCard(null); react({ kind: "cancel" }); }}>×</button>
     </div>}
     <div className="release-handline">
       <div className="release-cards" aria-label="Cards">
@@ -52,7 +59,7 @@ function Hand({ game, turn, choose, notify, onEnd }: {
       </div>
       <div className="release-turn-actions">
         {staged && <button disabled={game.sessionSave !== "idle"} title="Undo last placement (Ctrl+Z)" onClick={() => notify(game.undoPlacement() ?? "Last placement undone.")}>Undo</button>}
-        {staged && <button disabled={game.sessionSave !== "idle"} onClick={() => notify(game.cancelDraft() ?? "Draft cancelled.")}>Cancel draft</button>}
+        {staged && <button disabled={game.sessionSave !== "idle"} onClick={() => { notify(game.cancelDraft() ?? "Draft cancelled."); react({ kind: "cancel" }); }}>Cancel draft</button>}
         <button className="release-end" disabled={game.turnAnalysing || game.sessionSave !== "idle" || drawsLeft > 0} onClick={onEnd} onKeyDown={e => { if (e.repeat) e.preventDefault(); }}>{game.turnAnalysing ? "Calculating…" : staged ? "End turn" : "Pass"}</button>
       </div>
     </div>
@@ -65,7 +72,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   cameraMemory: CameraMemory; cue(event: "select" | "place" | "attach" | "result"): void;
 }) {
   const [inspecting, setInspecting] = useState(false);
-  const [layer, setLayer] = useState<"reference" | "shape" | "path" | "combined">("combined");
+  const [layer, setLayer] = useState<OverlayLayer>("combined");
   const [shear, setShear] = useState<SectionAction | 0>(0);
   const [moment, setMoment] = useState<SectionAction | 0>(0);
   const [amplification, setAmplification] = useState(0);
@@ -75,7 +82,10 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   const [playInstability, setPlayInstability] = useState(false);
   const [focusJoint, setFocusJoint] = useState<string>();
   const [skip, setSkip] = useState(false);
+  // Status-line animation and scenario motion have independent event identities.
   const [action, setAction] = useState(0);
+  const [companionCue, setCompanionCue] = useState<CompanionCueEvent>();
+  const react = useCallback((next: CompanionCue) => setCompanionCue(previous => ({ ...next, id: (previous?.id ?? 0) + 1 })), []);
   const settings = useSettings();
   useEffect(() => { setPlayInstability(false); }, [turn.board, settings.reducedMotion, skip]);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -83,15 +93,25 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   const picked = game.selected;
   const draftSize = turn.draft.members.length + turn.draft.connections.length + turn.draft.loads.length;
   const drawsLeft = remainingTurnDraws(turn);
-  const prior = useRef({ draftSize, connections: turn.draft.connections.length });
+  const counts = { members: turn.draft.members.length, connections: turn.draft.connections.length, loads: turn.draft.loads.length };
+  const prior = useRef({ draftSize, ...counts });
   useEffect(() => {
     if (draftSize > prior.current.draftSize) {
-      cue(turn.draft.connections.length > prior.current.connections ? "attach" : "place");
+      const attached = counts.connections > prior.current.connections;
+      cue(attached ? "attach" : "place");
+      react({ kind: attached ? "attach" : counts.loads > prior.current.loads ? "stage-load" : "stage-member" });
       setAction(n => n + 1);
       notify("Placement staged.");
     }
-    prior.current = { draftSize, connections: turn.draft.connections.length };
-  }, [draftSize, turn.draft.connections.length, cue, notify]);
+    prior.current = { draftSize, ...counts };
+  }, [draftSize, counts.members, counts.connections, counts.loads, cue, notify, react]);
+  // The board unmounts behind the private handoff. Only the public sighting
+  // survives that boundary, never the concealed active hand.
+  useEffect(() => {
+    const next = turnTransitionCue(lastSighting, turn);
+    lastSighting = sightTurn(turn);
+    if (next) react(next);
+  }, [turn, turn.turn, turn.reports, turn.finished, react]);
   useEffect(() => { if (picked) setInspecting(true); }, [picked]);
   useEffect(() => { if (inspecting) heading.current?.focus({ preventScroll: true }); }, [inspecting]);
   useEffect(() => {
@@ -103,6 +123,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
         return;
       }
       if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (document.querySelector(`[${ESCAPE_OWNER}]`)) return;
       if (inspecting) { event.preventDefault(); setInspecting(false); game.setSelected(null); inspectButton.current?.focus(); }
       else if (game.chainStart) { event.preventDefault(); game.setChainStart(null); }
       else if (game.selectedCardId) { event.preventDefault(); game.selectCard(null); }
@@ -117,26 +138,29 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   const jointLayer = useMemo(() => settings.releaseJointDisplay === "off" ? undefined :
     { joints: settings.releaseJointDisplay === "all" ? joints : joint ? [joint] : [], selected: joint?.id }, [settings.releaseJointDisplay, joint, joints]);
   const calculated = turn.checkpoints?.lastAnalysis;
+  // Shared table uses accepted checkpoint snapshots. The general view-mode
+  // hook can solve on demand, so it must not drive this scheduled route.
   const analysisTurn = useMemo(() => calculated ? { ...turn, board: calculated.board, nextId: calculated.nextId, turn: calculated.turn + 1 } : turn, [turn, calculated]);
   const currentResponse = !turn.rulesRevision || !!calculated && matchesIssueEvidence(turn.board, calculated.board);
   const reading = useReleaseInspection(analysisTurn, (!turn.rulesRevision || !!calculated) && !draftSize && !game.turnAnalysing);
   const result = draftSize || !currentResponse ? null : reading?.response?.result ?? null;
   const turnsToAnalysis = turn.rulesRevision ? nextAnalysisInTurns(turn) : 1;
   const deformed = layer === "shape" || layer === "combined";
-  const field = useMemo(() => result && deformed ? deformationField(result, 0) : undefined, [result, deformed]);
+  const shadow = layer === "shadow" || layer === "shadow-path";
+  const field = useMemo(() => result && (deformed || shadow) ? deformationField(result, 0) : undefined, [result, deformed, shadow]);
   const diagrams = useMemo(() => result ? [shear, moment].flatMap(action => action ? [boardDiagram(result, action)] : []) : [], [result, shear, moment]);
   const scale = amplification || (field?.peakM ? Math.max(1, Math.min(500, Math.round(1.2 / field.peakM))) : 1);
   const report = turn.reports.at(-1);
   const modes = useMemo(() => result ? instabilityModes(result) : [], [result]);
   const selectedMode = Math.min(instabilityMode, Math.max(0, modes.length - 1));
   const nodalMode = modes[selectedMode]?.hasNodalMotion ?? false;
-  const pathVisible = layer === "path" || layer === "combined";
+  const pathVisible = layer === "path" || layer === "combined" || layer === "shadow-path";
   const flow = useMemo(() => result && pathVisible ? computeLoadPath(result, 0) : null, [result, pathVisible]);
   const flowPeak = flow ? Math.max(0, ...Array.from(flow.members.values(), member => member.force)) : 0;
   const toggleLayer = (quantity: "shape" | "path") => {
-    const shape = quantity === "shape" ? !deformed : deformed;
+    const shape = quantity === "shape" ? !(deformed || shadow) : deformed || shadow;
     const path = quantity === "path" ? !pathVisible : pathVisible;
-    setLayer(shape ? path ? "combined" : "shape" : path ? "path" : "reference");
+    setLayer(shape ? shadow ? path ? "shadow-path" : "shadow" : path ? "combined" : "shape" : path ? "path" : "reference");
   };
   const scopes = reading?.response?.receipt.components;
   const phase = game.turnAnalysing ? "Calculating forces and checking stability…"
@@ -147,9 +171,11 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
     : scopes?.some(scope => !scope.verified) ? "Results ready · some components unavailable" : "Results ready · committed structure";
   const status = message || (report ? `Turn ${report.turn} · ${report.status}${report.penalty ? " · −1 point" : ""}`
     : "Select a card to build, or pass.");
+  const boardMessage = (text: string) => { notify(text); if (text && game.selectedCardId) react({ kind: "invalid" }); };
   const choose = (card: TurnCard) => {
     setInspecting(false); game.setSelected(null); game.selectCard(game.selectedCardId === card.id ? null : card.id);
     cue("select"); setAction(n => n + 1); notify("");
+    react(game.selectedCardId === card.id ? { kind: "cancel" } : { kind: "select", family: card.kind });
   };
   return <main className="release-board" data-style="grow-dusk" data-still={settings.reducedMotion || skip}
     data-glow={settings.glow} aria-label="Grow Dusk">
@@ -174,7 +200,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
       </div>
       {!turn.rulesRevision && <span className="release-legacy">Earlier saved rules · restart from Menu for three decks and checkpoints.</span>}
       <div className="release-layer-buttons" aria-label="Board overlays">
-        <button aria-pressed={deformed} onClick={() => toggleLayer("shape")}>Deformation</button>
+        <button aria-pressed={deformed || shadow} onClick={() => toggleLayer("shape")}>Deformation</button>
         <button aria-pressed={pathVisible} onClick={() => toggleLayer("path")}>Load paths</button>
         <button aria-pressed={!!shear} onClick={() => setShear(shear ? 0 : 2)}>Shear</button>
         <button aria-pressed={!!moment} onClick={() => setMoment(moment ? 0 : 4)}>Bending</button>
@@ -190,11 +216,11 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
         {Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1} player turn{i ? "s" : ""}</option>)}
       </select></label>}
     </section>
-    <section className="release-stage" aria-label="Structure board">
+    <section className="release-stage" aria-label="Structure board" data-drawer={inspecting}>
       <SceneBoundary release><Scene cameraMemory={cameraMemory} trueScale={trueScale} showInstability={showInstability}
         instabilityMode={selectedMode} playInstability={playInstability && nodalMode && !skip && !settings.reducedMotion} reactionLabels={settings.reactionLabels}
-        still={skip || settings.reducedMotion} jointLayer={jointLayer} combo={0} deformed={deformed}
-        diagrams={diagrams} reference field={field} scale={scale} loads utilization={false} loadPath={layer === "path" || layer === "combined"} result={result} onMessage={notify} /></SceneBoundary>
+        still={skip || settings.reducedMotion} jointLayer={jointLayer} combo={0} deformed={deformed} shadow={shadow}
+        diagrams={diagrams} reference field={field} scale={scale} loads utilization={false} loadPath={pathVisible} result={result} onMessage={boardMessage} /></SceneBoundary>
       {!turn.finished && drawsLeft > 0 && <section className="release-decks" aria-label="Draw four cards">
         <header><strong>Choose your four cards</strong><span role="status">{4 - drawsLeft} of 4 drawn · any mix of decks</span></header>
         <div>{(["members", "connections", "loads"] as const).map((deck, i) => <button key={deck} data-deck={deck}
@@ -205,8 +231,8 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
       </section>}
       {!turn.finished && <p className="release-status" key={action} role="status">{status}</p>}
       {!draftSize && result && !inspecting && <aside className="release-legend" aria-label="Analysis legend">
-        {deformed && <p><span className="release-contour" aria-hidden="true" />Deflection · 0–{Number((1000 * (field?.peakM ?? 0)).toPrecision(3))} mm · ×{scale}<br />Dashed reference · exaggerated shape</p>}
-        {pathVisible && <p>→ Gravity transfer · peak {Number(flowPeak.toPrecision(3))} kN<br />Arrows · <span className="release-tension">blue tension</span> / <span className="release-compression">coral compression</span><br />Violet · shear/bending · static load transfer</p>}
+        {(deformed || shadow) && <p><span className="release-contour" aria-hidden="true" />Deflection · 0–{Number((1000 * (field?.peakM ?? 0)).toPrecision(3))} mm · ×{scale}<br />{shadow ? "Ground shadow · exaggerated displacement" : "Dashed reference · exaggerated shape"}</p>}
+        {pathVisible && <p>→ Gravity transfer · peak {Number(flowPeak.toPrecision(3))} kN<br />Illustrative combined gravity transfer.<br />No individual-load attribution.<br />Arrows · <span className="release-tension">blue tension</span> / <span className="release-compression">coral compression</span><br />Violet · shear/bending · static load transfer</p>}
         {settings.releaseJointDisplay !== "off" && <p>Joint compass · bars lock, arrows release<br />Straight axes translate · arcs rotate</p>}
         {!!diagrams.length && diagrams.map(d => <p key={d.action}>{boardActions[d.action]} · peak {Number(d.peak.toPrecision(3))} {d.action < 3 ? "kN" : "kN·m"}</p>)}
         <button onClick={() => setInspecting(true)}>Inspect forces and signs</button>
@@ -220,7 +246,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
         </> : <p>{draftSize ? "End turn to calculate the staged structure." : "No solver mode vector is available for this board."}</p>}
       </aside>}
       {turn.finished && turn.finalScore && !inspecting && <div className="release-final"><FinalScorePanel score={turn.finalScore} /></div>}
-      {!inspecting && <Companion area="board" {...companion} release action={action} final={turn.finished} skip={skip} />}
+      {!inspecting && <Companion area="board" {...companion} release cue={companionCue} final={turn.finished} skip={skip} />}
       {inspecting && <aside className="release-drawer" aria-label="Inspect structure">
         <header><h2 ref={heading} tabIndex={-1}>Inspect structure</h2><button aria-label="Close inspection" onClick={() => {
           setInspecting(false); game.setSelected(null); inspectButton.current?.focus();
@@ -250,7 +276,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
       </aside>}
       {!skip && <button className="release-skip" onClick={() => setSkip(true)}>Skip effects</button>}
     </section>
-    {!turn.finished && <Hand game={game} turn={turn} choose={choose} notify={notify} onEnd={onEnd} />}
+    {!turn.finished && <Hand game={game} turn={turn} choose={choose} notify={notify} onEnd={onEnd} react={react} />}
     {menu}
   </main>;
 }
