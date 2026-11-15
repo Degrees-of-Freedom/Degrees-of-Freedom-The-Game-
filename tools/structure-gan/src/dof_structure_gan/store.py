@@ -17,7 +17,7 @@ from .lattice import CELL_METRES, Structure
 from .preview import render_svg
 
 SCHEMA_VERSION = 2
-ORACLE = "dof_opensees.engine.analyze; steel SHS 200x200x10, fixed joints, fixed foundations"
+ORACLE = "dof_opensees.engine.analyze; game shs card (SHS 100x6, S355), fixed joints, fixed foundations, self-weight, ULS-factored loads"
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_info (key TEXT PRIMARY KEY, value TEXT NOT NULL);

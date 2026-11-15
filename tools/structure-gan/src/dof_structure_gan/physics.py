@@ -18,21 +18,28 @@ import math
 from dataclasses import dataclass
 
 from dof_opensees.engine import analyze
-from dof_opensees.properties import MemberProperties
 from dof_opensees.schema import StructuralModel
 
 from .lattice import CELL_METRES, Structure
 
-# Game card ``shs`` (kN/m units converted to SI): see voxelSections.ts.
-SHS = MemberProperties(
-    elastic_modulus=210e9, shear_modulus=81e9, area=2.24e-3, second_moment=3.2e-6, torsion_constant=5.13e-6
-)
+# Game card ``shs`` (kN/m units converted to SI): see voxelSections.ts. The engine takes
+# per-member properties in the contract; self-weight is added here as factored nodal loads, so the
+# engine's own ``selfWeight`` option stays off.
+ELASTIC_MODULUS_PA = 210e9
+SHEAR_MODULUS_PA = 81e9
+AREA_M2 = 2.24e-3
+SECOND_MOMENT_M4 = 3.2e-6
+TORSION_CONSTANT_M4 = 5.13e-6
+SHS_PROPERTIES = {
+    "elasticModulus": ELASTIC_MODULUS_PA, "shearModulus": SHEAR_MODULUS_PA, "area": AREA_M2,
+    "inertiaY": SECOND_MOMENT_M4, "inertiaZ": SECOND_MOMENT_M4, "torsionConstant": TORSION_CONSTANT_M4,
+}
 YIELD_STRESS_PA = 355e6
 SECTION_MODULUS_M3 = 6.4e-5
 SELF_WEIGHT_N_PER_M = 176.0
-AXIAL_CAPACITY_N = YIELD_STRESS_PA * SHS.area
+AXIAL_CAPACITY_N = YIELD_STRESS_PA * AREA_M2
 MOMENT_CAPACITY_NM = YIELD_STRESS_PA * SECTION_MODULUS_M3
-EULER_COEFFICIENT = math.pi**2 * SHS.elastic_modulus * SHS.second_moment
+EULER_COEFFICIENT = math.pi**2 * ELASTIC_MODULUS_PA * SECOND_MOMENT_M4
 """pi^2 E I: divide by the member length squared for the pinned-pinned Euler load."""
 DEAD_FACTOR = 1.35
 LIVE_FACTOR = 1.5
@@ -108,7 +115,7 @@ def build_model(structure: Structure, case: LoadCase, wind: float = 1.0) -> dict
         "units": "SI",
         "nodes": [{"id": ids[n], "position": list(p)} for n, p in sorted(positions.items())],
         "members": [
-            {"id": f"m{i}", "startNodeId": ids[a], "endNodeId": ids[b]}
+            {"id": f"m{i}", "startNodeId": ids[a], "endNodeId": ids[b], "properties": SHS_PROPERTIES}
             for i, (a, b) in enumerate(sorted(structure.edges))
         ],
         "supports": [{"nodeId": ids[n], "restrained": [True] * 6} for n in sorted(structure.supports)],
@@ -137,7 +144,7 @@ def analyse(structure: Structure, case: LoadCase = LoadCase()) -> PhysicsResult:
 
 
 def _analyse_once(structure: Structure, case: LoadCase, wind: float) -> PhysicsResult:
-    result = analyze(StructuralModel.model_validate(build_model(structure, case, wind)), SHS)
+    result = analyze(StructuralModel.model_validate(build_model(structure, case, wind)))
     status = str(result.get("status"))
     stability = result.get("stability", {})
     if status != "success" or not stability.get("stable", False):
