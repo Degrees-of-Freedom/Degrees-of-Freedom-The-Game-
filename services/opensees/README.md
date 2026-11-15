@@ -34,6 +34,16 @@ Configuration, by environment variable:
 | `DOF_OPENSEES_MAX_MEMBERS` | `8000` | Largest accepted member count. |
 | `DOF_OPENSEES_WORKERS` | `2` | Worker processes in the Docker image. |
 
+The capabilities response includes a 2,688-equation dense linear budget (the
+largest benchmarked grid) and a 1,200-equation nonlinear tangent budget. Both
+include the free rotations of released ends. A larger system returns
+`unresolved` before dense matrix allocation. The engine checks finite
+combined nodal loads, representable spans, section products, actual mesh
+stations and finite result fields. A requested geometry or law beyond the
+numeric range returns `error`. Unavailable native results and a linear
+force or moment imbalance above the normalized 1e-5 tolerance return
+`unresolved`. Such responses carry a reason and omit physical fields.
+
 OpenSees holds one global model per process, so each process analyses one model at a time. Concurrency comes from worker processes.
 
 ## What is modelled

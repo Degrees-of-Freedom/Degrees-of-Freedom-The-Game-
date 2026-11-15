@@ -25,6 +25,7 @@ from __future__ import annotations
 import math
 import threading
 from dataclasses import dataclass, field
+from fractions import Fraction
 
 import numpy as np
 import openseespy.opensees as ops
@@ -56,6 +57,9 @@ class Limits:
     max_members: int = 8000
     #: Maximum number of mechanism shapes returned; counts are never truncated.
     max_modes: int = 12
+    #: Dense linear extraction is benchmarked through the 2,688-DOF lattice.
+    #: Count released end rotations too, before allocating any dense matrix.
+    max_linear_equations: int = 2688
 
 
 @dataclass
@@ -131,8 +135,11 @@ def _prepare(model: StructuralModel, limits: Limits) -> tuple[list[_Node], list[
         seen.add(item.id)
         start = node_for(item.startNodeId, f"Member '{item.id}'")
         end = node_for(item.endNodeId, f"Member '{item.id}'")
-        if start is end or math.dist(start.position, end.position) < MIN_MEMBER_LENGTH:
+        length = math.dist(start.position, end.position)
+        if start is end or length < MIN_MEMBER_LENGTH:
             raise ModelError(f"Member '{item.id}' has zero length.")
+        if not math.isfinite(length * length):
+            raise ModelError(f"Member '{item.id}' has a reference span outside the numeric range of OpenSees.")
         if item.law and not model.analysis:
             raise ModelError("An explicit member law requires the corotational analysis option.")
         if isinstance(item.law, CableLaw) and (item.startFixity != "pinned" or item.endFixity != "pinned"):
@@ -146,11 +153,58 @@ def _prepare(model: StructuralModel, limits: Limits) -> tuple[list[_Node], list[
     for support in model.supports:
         node = node_for(support.nodeId, "A support")
         node.restrained = [a or b for a, b in zip(node.restrained, support.restrained)]
+    loads_by_node: dict[str, list[tuple[float, ...]]] = {}
     for load in model.loads:
         node = node_for(load.nodeId, "A load")
-        node.load = [a + b for a, b in zip(node.load, (*load.force, *load.moment))]
+        loads_by_node.setdefault(node.id, []).append((*load.force, *load.moment))
+    for node_id, vectors in loads_by_node.items():
+        try:
+            nodes[node_id].load = [_sum_component(values) for values in zip(*vectors)]
+        except OverflowError:
+            raise ModelError(f"The combined force or moment at node '{node_id}' exceeds the numeric range.") from None
 
     return list(nodes.values()), members
+
+
+def _sum_component(values: tuple[float, ...]) -> float:
+    # Equal/opposite loads can follow an intermediate sum larger than a double.
+    # Accumulate those rare cases exactly before rounding the final SI component.
+    try:
+        return math.fsum(values)
+    except OverflowError:
+        return float(sum(map(Fraction.from_float, values), Fraction()))
+
+
+def _check_element_range(member: _Member, properties: MemberProperties) -> None:
+    """Check the actual derived coefficients supplied to the native element.
+
+    Finite authored scalars can still overflow or underflow at a short element
+    or after frame subdivision at a large coordinate offset.
+    """
+    length = math.dist(member.start.position, member.end.position)
+    if length == 0:
+        raise ModelError(f"Member '{member.id}' has coincident mesh stations at the supplied coordinate precision.")
+    p = member.law
+    e = p.elasticModulus if p else properties.elastic_modulus
+    area = p.area if p else properties.area
+    ea = e * area
+    values = [length * length, ea, ea / length]
+    if isinstance(p, CableLaw):
+        ratio = length / p.restLength
+        if ratio == 0:
+            raise ModelError(f"Cable '{member.id}' has an unrepresentable length ratio.")
+        values.extend((ratio, 1 / ratio, e * ratio, ea / p.restLength))
+        if not math.isfinite(ea * (ratio - 1)):
+            raise ModelError(f"Cable '{member.id}' has an unrepresentable reference force.")
+    elif not member.is_truss:
+        gj = p.shearModulus * p.torsionConstant if p else properties.shear_modulus * properties.torsion_constant
+        inertias = (p.iy, p.iz) if p else (properties.second_moment,)
+        values.extend((gj, gj / length, length * length * length))
+        for inertia in inertias:
+            ei = e * inertia
+            values.extend((ei, 4 * ei / length, 12 * ei / length / length / length))
+    if not all(value > 0 and math.isfinite(value) for value in values):
+        raise ModelError(f"Member '{member.id}' has geometry or section stiffness outside the OpenSees numeric range.")
 
 
 def _build(active: list[_Node], members: list[_Member], properties: MemberProperties, corotational=False) -> tuple[int, int]:
@@ -178,6 +232,7 @@ def _build(active: list[_Node], members: list[_Member], properties: MemberProper
 
     next_node = len(active)
     for tag, member in enumerate(members, start=1):
+        _check_element_range(member, properties)
         member.tag = tag
         start, end = member.start, member.end
         law = member.law
@@ -233,7 +288,7 @@ def _discretize(nodes: list[_Node], members: list[_Member], segments: int, limit
             raise ModelError("Requested nonlinear mesh exceeds the service node or member limit.")
         stations = [member.start]
         for station in range(1, count):
-            position = tuple(a + (b-a)*station/count for a, b in zip(member.start.position, member.end.position))
+            position = tuple(a + (b-a)*(station/count) for a, b in zip(member.start.position, member.end.position))
             node = _Node(f"mesh:{member.id}:{station}", position, has_member=True, has_fixed_end=True)
             mesh_nodes.append(node)
             stations.append(node)
@@ -266,6 +321,8 @@ def _stiffness(active: list[_Node]) -> np.ndarray:
     ops.analyze(1, 0.0)
     size = ops.systemSize()
     matrix = np.array(ops.printA("-ret"), dtype=float).reshape((size, size))
+    if not np.all(np.isfinite(matrix)):
+        raise FloatingPointError("Nonfinite assembled stiffness matrix.")
     for node in active:
         node.equations = list(ops.nodeDOFs(node.tag))
     ops.reset()
@@ -293,10 +350,20 @@ def _mode_shape(vector: np.ndarray, active: list[_Node], rows: slice) -> dict[st
 def _stability_report(
     assessment: stability.Assessment, active: list[_Node], members: list[_Member], limits: Limits
 ) -> dict:
-    translational = [("translation", _mode_shape(v, active, slice(0, 3))) for v in assessment.translational_modes]
-    rotational = [("rotation", _mode_shape(v, active, slice(3, 6))) for v in assessment.rotational_modes]
-    blocking = translational + (rotational if assessment.rotation_loaded else [])
-    unstable_ids = {node_id for _, shape in blocking for node_id in shape}
+    modes = []
+    unstable_ids: set[str] = set()
+    for kind, vectors, rows, blocks in (
+        ("translation", assessment.translational_modes, slice(0, 3), True),
+        ("rotation", assessment.rotational_modes, slice(3, 6), assessment.rotation_loaded),
+    ):
+        for vector in vectors:
+            if len(modes) >= limits.max_modes and not blocks:
+                break
+            shape = _mode_shape(vector, active, rows)
+            if blocks:
+                unstable_ids.update(shape)
+            if len(modes) < limits.max_modes:
+                modes.append({"kind": kind, "displacements": shape})
     # Each truss carries one independent internal force and each beam six;
     # the duplicate-node rotations of pinned beam ends are already counted in
     # the free DOFs, so they cancel the released moments.
@@ -305,14 +372,11 @@ def _stability_report(
         "stable": assessment.stable,
         "freeDofs": assessment.free_dofs,
         "mechanisms": assessment.mechanisms,
-        "translationalMechanisms": len(translational),
-        "rotationalMechanisms": len(rotational),
+        "translationalMechanisms": len(assessment.translational_modes),
+        "rotationalMechanisms": len(assessment.rotational_modes),
         "staticIndeterminacy": internal_forces - assessment.free_dofs + assessment.mechanisms,
         "unstableNodeIds": [node.id for node in active if node.id in unstable_ids],
-        "modes": [
-            {"kind": kind, "displacements": shape}
-            for kind, shape in (translational + rotational)[: limits.max_modes]
-        ],
+        "modes": modes,
     }
 
 
@@ -366,10 +430,15 @@ def _zero_forces() -> dict[str, float]:
 
 def _member_forces(member: _Member) -> dict[str, float]:
     if member.is_truss:
-        return {**_zero_forces(), "axial": float(ops.basicForce(member.tag)[0])}
+        f = ops.basicForce(member.tag)
+        if not f:
+            raise FloatingPointError("Missing native truss force.")
+        return {**_zero_forces(), "axial": float(f[0])}
     # End forces acting on the element in local axes:
     # [N, Vy, Vz, T, My, Mz] at the start, then the same at the end.
     f = ops.eleResponse(member.tag, "localForce")
+    if len(f) != 12 or not all(map(math.isfinite, f)):
+        raise FloatingPointError("Incomplete or nonfinite native frame actions.")
     return {
         "axial": float(f[6]),
         "shear": math.hypot(f[1], f[2]),
@@ -471,12 +540,16 @@ def _nonlinear_nodal_response(nodes: list[_Node], active: list[_Node]):
         nodal = np.array(ops.nodeReaction(node.tag))
         for duplicate in node.duplicates:
             duplicate_force = np.array(ops.nodeReaction(duplicate))
+            if not np.isfinite(duplicate_force).all():
+                raise FloatingPointError("Nonfinite released-end residual.")
             nodal[:3] += duplicate_force[:3]
-            max_free_moment = max(max_free_moment, np.linalg.norm(duplicate_force[3:]))
+            max_free_moment = max(max_free_moment, math.hypot(*duplicate_force[3:]))
         nodal_forces[node.tag] = nodal
         free_residual = np.where(node.restrained, 0., nodal)
-        max_free_force = max(max_free_force, np.linalg.norm(free_residual[:3]))
-        max_free_moment = max(max_free_moment, np.linalg.norm(free_residual[3:]))
+        if not np.isfinite(nodal).all():
+            raise FloatingPointError("Nonfinite nodal residual.")
+        max_free_force = max(max_free_force, math.hypot(*free_residual[:3]))
+        max_free_moment = max(max_free_moment, math.hypot(*free_residual[3:]))
     for node in nodes:
         displacement = ops.nodeDisp(node.tag) if node.tag else [0.] * 6
         displacements[node.id] = list(displacement)
@@ -488,13 +561,16 @@ def _nonlinear_nodal_response(nodes: list[_Node], active: list[_Node]):
             reactions[node.id] = reaction.tolist()
         net = np.array(node.load) + reaction
         residual_force += net[:3]
-        arm = np.array(node.position) + displacement[:3] - origin
+        arm = (np.array(node.position) - origin) + displacement[:3]
         residual_moment += net[3:] + np.cross(arm, net[:3])
-        force_scale += np.linalg.norm(node.load[:3]) + np.linalg.norm(reaction[:3])
-        moment_scale += np.linalg.norm(node.load[3:]) + np.linalg.norm(reaction[3:])
-    fr = float(np.linalg.norm(residual_force)) / force_scale
-    mr = float(np.linalg.norm(residual_moment)) / (moment_scale + force_scale * length_scale)
-    nr = max(max_free_force / force_scale, max_free_moment / (moment_scale + force_scale * length_scale))
+        force_scale += math.hypot(*node.load[:3]) + math.hypot(*reaction[:3])
+        moment_scale += math.hypot(*node.load[3:]) + math.hypot(*reaction[3:])
+    moment_scale += force_scale * length_scale
+    if not all(map(math.isfinite, (force_scale, moment_scale, max_free_force, max_free_moment))):
+        raise FloatingPointError("Nonfinite equilibrium reference scale.")
+    fr = math.hypot(*residual_force) / force_scale
+    mr = math.hypot(*residual_moment) / moment_scale
+    nr = max(max_free_force / force_scale, max_free_moment / moment_scale)
     return displacements, reactions, fr, mr, nr
 
 
@@ -506,7 +582,7 @@ def _positive_final_tangent(active: list[_Node]) -> bool:
     if not np.all(np.isfinite(tangent)) or np.any(diagonal <= 0):
         return False
     scales = 1 / np.sqrt(diagonal)
-    scaled = scales[:, None] * ((tangent + tangent.T) / 2) * scales[None, :]
+    scaled = scales[:, None] * (tangent * 0.5 + tangent.T * 0.5) * scales[None, :]
     try:
         np.linalg.cholesky(scaled - np.eye(len(scales))*1e-10)
     except np.linalg.LinAlgError:
@@ -514,25 +590,42 @@ def _positive_final_tangent(active: list[_Node]) -> bool:
     return True
 
 
-def analyze(
-    model: StructuralModel,
-    properties: MemberProperties = STEEL_MEMBER,
-    limits: Limits = Limits(),
-) -> dict:
-    """Analyse a model and return an ``AnalysisResult`` as a JSON-ready dict."""
-    try:
-        nodes, members = _prepare(model, limits)
-    except ModelError as error:
-        return {"status": "error", "message": str(error)}
+def _linear_equilibrium(nodes: list[_Node], reactions: dict[str, list[float]]) -> bool:
+    """Scale loads and moment arms before summing to avoid overflow in r × F."""
+    positions, actions = [], []
+    for node in nodes:
+        for vector in (node.load, reactions.get(node.id, ())):
+            if any(vector):
+                positions.append(node.position)
+                actions.append(vector)
+    if not actions:
+        return True
+    vectors = np.asarray(actions)
+    if not np.isfinite(vectors).all():
+        return False
+    arms = np.asarray(positions) - positions[0]
+    length = max(1., float(np.max(np.abs(arms))))
+    forces = vectors[:, :3]
+    force_scale = max(1., float(np.max(np.abs(forces))))
+    forces_scaled = forces / force_scale
+    net_force = np.linalg.norm(np.sum(forces_scaled, axis=0))
+    if net_force > 1e-5 * max(1., np.linalg.norm(forces_scaled, axis=1).sum()):
+        return False
+    moments_per_length = vectors[:, 3:] / length
+    moment_scale = max(force_scale, float(np.max(np.abs(moments_per_length))))
+    couples = moments_per_length / moment_scale
+    moments = np.cross(arms / length, forces / moment_scale)
+    scale = max(1., np.linalg.norm(couples, axis=1).sum() + np.linalg.norm(moments, axis=1).sum())
+    return np.linalg.norm(np.sum(couples + moments, axis=0)) <= 1e-5 * scale
+
+
+def _analyze(model: StructuralModel, properties: MemberProperties, limits: Limits) -> dict:
+    nodes, members = _prepare(model, limits)
 
     if model.analysis:
         with _LOCK:
             try:
                 return _nonlinear_response(model, nodes, members, properties, limits)
-            except ModelError as error:
-                return {"status": "error", "message": str(error)}
-            except (ops.OpenSeesError, ArithmeticError, np.linalg.LinAlgError) as error:
-                return {"status": "unresolved", "message": f"Nonlinear response unavailable: {type(error).__name__}."}
             finally:
                 ops.wipe()
 
@@ -549,6 +642,9 @@ def analyze(
     with _LOCK:
         try:
             last_node_tag, free_dofs = _build(active, members, properties)
+            if free_dofs > limits.max_linear_equations:
+                return {"status": "unresolved", "message":
+                        f"The {free_dofs}-equation linear model exceeds the {limits.max_linear_equations}-equation dense analysis limit."}
             matrix = _stiffness(active) if free_dofs else np.zeros((0, 0))
 
             size = matrix.shape[0]
@@ -612,6 +708,8 @@ def analyze(
         finally:
             ops.wipe()
 
+    if not _linear_equilibrium(active, reactions):
+        return {"status": "unresolved", "message": "Linear force or moment equilibrium did not meet 1e-5."}
     return {
         "status": "success",
         "displacements": displacements,
@@ -620,3 +718,31 @@ def analyze(
         "stability": report,
         "warnings": warnings,
     }
+
+
+def _finite_response(value) -> bool:
+    if isinstance(value, float):
+        return math.isfinite(value)
+    if isinstance(value, dict):
+        return all(map(_finite_response, value.values()))
+    if isinstance(value, (tuple, list)):
+        return all(map(_finite_response, value))
+    return True
+
+
+def analyze(
+    model: StructuralModel,
+    properties: MemberProperties = STEEL_MEMBER,
+    limits: Limits = Limits(),
+) -> dict:
+    """Return finite JSON numbers only, even when a native solve overflows."""
+    try:
+        with np.errstate(over="raise", invalid="raise", divide="raise"):
+            result = _analyze(model, properties, limits)
+        if not _finite_response(result):
+            raise FloatingPointError("Nonfinite response from OpenSees.")
+        return result
+    except ModelError as error:
+        return {"status": "error", "message": str(error)}
+    except (ArithmeticError, np.linalg.LinAlgError, ops.OpenSeesError) as error:
+        return {"status": "unresolved", "message": f"Numerical response unavailable: {type(error).__name__}."}
