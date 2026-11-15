@@ -10,6 +10,7 @@ import { LEVELS } from './levels';
 export function exampleModel(id: LevelId): GameModel | null {
   if (id === 'tower2') return towerTwoExample();
   if (id === 'bridge2') return bridgeTwoExample();
+  if (id === 'pickup2') return lakeExample();
   if (id !== 'tower1' && id !== 'bridge1' && id !== 'pickup1') return null;
   const m = initialModel(LEVELS[id]);
   const add = (a: string, b: string, type: MemberType) =>
@@ -135,4 +136,45 @@ function bridgeTwoExample(): GameModel {
   for (let x = 4; x < 18; x += 2) add(x, 4, 4, x + 2, 6, 4);
   for (let x = 6; x < 16; x += 2) add(x, 4, 7, x + 2, 6, 7);
   return m;
+}
+
+/** Two bank frames pick up the lake weights; separate frames serve the land weights. */
+function lakeExample(): GameModel {
+  const model = initialModel(LEVELS.pickup2);
+  const add = (a: string, b: string, type: MemberType = 'shs') =>
+    model.members.push({ id: model.nextId++, a, b, type });
+  const k = nodeKey;
+  for (const [x, y] of [[5, 7], [10, 7], [4, 10], [11, 3]])
+    model.attrs[k(x, y, 0)] = { found: true, ...(x === 10 ? {} : { joint: true }) };
+  for (const x of [5, 10]) {
+    add(k(x, 7, 0), k(x, 7, 2), x === 5 ? 'heb' : 'ipe');
+    add(k(x, 7, 2), k(x, 7, 4), 'ipe');
+    model.attrs[k(x, 7, 2)] = { joint: true };
+    if (x === 10) model.attrs[k(x, 7, 4)] = { joint: true };
+  }
+  model.attrs[k(7, 7, 4)].joint = true;
+  model.attrs[k(10, 6, 2)] = { joint: true };
+  add(k(5, 7, 4), k(7, 7, 4), 'ipe');
+  add(k(7, 7, 4), k(10, 7, 4), 'ipe');
+  add(k(7, 7, 4), k(9, 6, 5), 'ipe');
+  add(k(10, 7, 4), k(9, 6, 5), 'ipe');
+  add(k(5, 7, 2), k(7, 7, 4), 'ipe');
+  add(k(10, 7, 2), k(7, 7, 4));
+  model.attrs[k(10, 6, 0)] = { found: true, joint: true };
+  add(k(10, 6, 0), k(10, 6, 2), 'glulam');
+  add(k(10, 6, 2), k(10, 6, 4), 'glulam');
+  add(k(10, 6, 2), k(10, 7, 4), 'ipe');
+  add(k(10, 6, 4), k(10, 7, 4), 'ipe');
+  add(k(10, 6, 4), k(9, 6, 5), 'ipe');
+  for (const [a, b] of [
+    [k(5, 7, 2), k(7, 7, 2)], [k(10, 7, 2), k(7, 7, 2)],
+    [k(10, 6, 2), k(7, 7, 2)], [k(7, 7, 2), k(7, 7, 4)],
+    [k(10, 7, 2), k(9, 6, 5)],
+  ]) add(a, b);
+  const base = k(4, 10, 0), mid = k(4, 10, 3), target = k(4, 10, 6);
+  add(base, mid, 'heb'); add(mid, target, 'ipe'); model.attrs[mid] = { joint: true };
+  const a = k(6, 10, 3), b = k(4, 12, 3);
+  for (const [from, to] of [[base, a], [base, b], [a, target], [b, target], [a, b], [a, mid], [b, mid]]) add(from, to);
+  add(k(11, 3, 0), k(11, 3, 3), 'glulam');
+  return model;
 }

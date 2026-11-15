@@ -53,7 +53,7 @@ In Grow Dusk Shared table, after choosing an element start, the same reachable-p
 
 ## Challenge and runtime audit (2026-11-15)
 
-The challenge selector includes Tower I and II, Bridge I and II, Pick-up I and II, and a random pick-up layout. Tower I and II, Bridge I and II, and Pick-up I currently have reference models in `game/examples.ts`. `game/examples.test.ts` checks that those five satisfy the objectives through `analyzeGame`. The remaining challenges do not yet have verified solutions. A random-layout example must retain the current saved targets instead of generating a different layout.
+The challenge selector includes Tower I and II, Bridge I and II, Pick-up I and II, and a random pick-up layout. Tower I and II, Bridge I and II, and Pick-up I and II currently have reference models in `game/examples.ts`. `game/examples.test.ts` checks that those six satisfy the objectives through `analyzeGame`. The remaining challenges do not yet have verified solutions. A random-layout example must retain the current saved targets instead of generating a different layout.
 
 Editor and challenge simulation uses the Rust-backed structure evaluator through `analyzeGame` and a validated editor snapshot; browser editor saves use the versioned `dof-voxel-save` envelope. The release match uses a separate versioned event/session model and Rust turn solver; older turn engines deliberately retain the legacy voxel path for replay. These models share infrastructure but are not one interchangeable state format. The editor's optional stability check uses the configured solver, separately from its Rust simulation. Do not silently migrate historical matches or claim solver parity without verifying their rules and results.
 
