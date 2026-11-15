@@ -1,4 +1,4 @@
-import { RELEASE_CATALOGUE } from "./cardCatalogue";
+import { CANTILEVER_CATALOGUE } from "./cardCatalogue";
 import { openMatchDatabase, StaleMatch, type MatchDatabase } from "./releaseDatabase";
 import { InvalidMatch, runMatchJob } from "./matchJobs";
 import { matchRecord, type MatchRecord, type MatchPhase } from "./releaseSave";
@@ -56,7 +56,7 @@ class ReleaseSession {
       }
     }
     this.signal.throwIfAborted();
-    const turn = this.record?.turn ?? createTurnGame(seed ?? randomSeed(), RELEASE_CATALOGUE);
+    const turn = this.record?.turn ?? createTurnGame(seed ?? randomSeed(), CANTILEVER_CATALOGUE);
     const stage = (transition: Transition) => {
       const blocked = this.blocked();
       if (blocked) return blocked;
@@ -70,7 +70,7 @@ class ReleaseSession {
       sessionConflict: false, sessionSave: this.damaged ? "invalid" : "idle",
       persistenceError: reason, savedRevision: this.record?.revision ?? null,
       hasSessionBackup: this.recovery !== null,
-      playElement: (card, a, b) => stage(stageElement(state().turn!, card, a, b)),
+      playElement: (card, a, b, contact) => stage(stageElement(state().turn!, card, a, b, contact)),
       playConnection: (card, member, end, joint, profile) => stage(stageConnection(state().turn!, card, member, end, joint, profile ?? state().selectedConnectionProfile)),
       playLoad: (card, joint) => stage(stageLoad(state().turn!, card, joint)),
       cancelDraft: () => stage(cancelTurnDraft(state().turn!)),
@@ -84,7 +84,7 @@ class ReleaseSession {
       newMatch: () => {
         const blocked = this.blocked();
         if (blocked) return blocked;
-        this.queue(createTurnGame(randomSeed(), RELEASE_CATALOGUE), "planning", crypto.randomUUID());
+        this.queue(createTurnGame(randomSeed(), CANTILEVER_CATALOGUE), "planning", crypto.randomUUID());
         return null;
       },
       retrySessionSave: () => { if (!this.busy && !state().sessionConflict) void this.flush(); },
@@ -100,7 +100,7 @@ class ReleaseSession {
         const previous = this.recovery;
         if (choice === "backup" && !previous) return "failed";
         this.record = previous;
-        const next = choice === "backup" ? previous!.turn : createTurnGame(randomSeed(), RELEASE_CATALOGUE);
+        const next = choice === "backup" ? previous!.turn : createTurnGame(randomSeed(), CANTILEVER_CATALOGUE);
         const phase = choice === "backup" ? previous!.phase : "planning";
         this.setCandidate(next, phase, choice === "backup" ? previous!.matchId : crypto.randomUUID());
         await this.flush();

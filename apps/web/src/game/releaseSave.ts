@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { RELEASE_CATALOGUE } from "./cardCatalogue";
+import { CANTILEVER_CATALOGUE, RELEASE_CATALOGUE, isReleaseCatalogue } from "./cardCatalogue";
 import { SCORE_POLICY } from "./finalScore";
 import { RELEASE_SOLVER } from "../solver/voxelVerification";
 import { matchesIssueEvidence } from "./turnIssues";
@@ -11,8 +11,8 @@ const id = z.string().uuid();
 const header = z.strictObject({
   format: z.literal("grow-dusk-private"),
   version: z.literal(1),
-  rules: z.literal(RELEASE_CATALOGUE),
-  catalogue: z.literal(RELEASE_CATALOGUE),
+  rules: z.enum([RELEASE_CATALOGUE, CANTILEVER_CATALOGUE]),
+  catalogue: z.enum([RELEASE_CATALOGUE, CANTILEVER_CATALOGUE]),
   scoring: z.literal(SCORE_POLICY),
   penalty: z.literal("issue-penalty-1"),
   solver: z.literal(RELEASE_SOLVER),
@@ -24,8 +24,9 @@ const header = z.strictObject({
 export type MatchRecord = Omit<z.infer<typeof header>, "turn"> & {turn: TurnState};
 
 export function matchRecord(turn: TurnState, parent: MatchRecord | null, phase: MatchPhase, matchId = parent?.matchId ?? crypto.randomUUID()): MatchRecord {
+  if (!isReleaseCatalogue(turn.catalogue)) throw new Error("Unsupported release rules.");
   return {
-    format: "grow-dusk-private", version: 1, rules: RELEASE_CATALOGUE, catalogue: RELEASE_CATALOGUE,
+    format: "grow-dusk-private", version: 1, rules: turn.catalogue, catalogue: turn.catalogue,
     scoring: SCORE_POLICY, penalty: "issue-penalty-1", solver: RELEASE_SOLVER,
     matchId, commitId: crypto.randomUUID(), parentId: parent?.commitId ?? null,
     revision: (parent?.revision ?? 0) + 1, phase, turn,
@@ -41,7 +42,8 @@ export function decodePrivateMatch(bytes: string): MatchRecord {
   if (raw?.format !== "grow-dusk-private" || raw.version !== 1)
     throw new Error("Unsupported save format. Keep the original file for its matching game version.");
   const result = header.safeParse(raw);
-  if (!result.success || raw.turn?.catalogue !== RELEASE_CATALOGUE || (raw.revision === 1) !== (raw.parentId === null))
+  if (!result.success || !isReleaseCatalogue(raw.turn?.catalogue) || raw.rules !== raw.catalogue ||
+      raw.catalogue !== raw.turn.catalogue || (raw.revision === 1) !== (raw.parentId === null))
     throw new Error("Unsupported rules, solver version or revision history.");
   const replay = replayTurnState(result.data.turn);
   if (!replay.ok) throw new Error(replay.reason);

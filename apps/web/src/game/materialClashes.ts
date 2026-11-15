@@ -4,8 +4,10 @@ import { dot, localAxes } from "../solver/frameMath";
 import { CHS, SECTION_GEOMETRY } from "../solver/voxelSections";
 import { assemblyParts } from "./assembly";
 import { springParts } from "./springParts";
+import { attachmentPoint, attachmentQuarter, type InteriorSite } from "./attachmentSites";
 
-type Placed = Member & { endTargets?: Partial<Record<"a" | "b", string>>; owner?: string };
+type Placed = Member & { endTargets?: Partial<Record<"a" | "b", string>>;
+  interiorTargets?: Partial<Record<InteriorSite, string>>; owner?: string };
 type Vector = number[];
 type Interval = [number, number];
 type SectionPart = { y: number; z: number; width: number; depth: number; angle?: number };
@@ -116,6 +118,28 @@ function contacts(a: Placed, b: Placed): [number[], number[]] {
       }
     }
   }
+  function interior(source: Placed, target: Placed, sourceStations: number[], targetStations: number[]) {
+    for (const site of ["q1", "q2", "q3"] as const) {
+      const declared = source.interiorTargets?.[site];
+      if (!declared) continue;
+      const at = attachmentPoint(source, site);
+      const station = attachmentQuarter(site) / 4;
+      for (const [index, end] of (["a", "b"] as const).entries()) {
+        if (declared === target[end] && at === target[end]) {
+          sourceStations.push(station); targetStations.push(index);
+        }
+      }
+      for (const port of originalPorts(target)) {
+        if (port.available && declared === port.id && at === port.point.join(",")) {
+          sourceStations.push(station); targetStations.push(port.quarter / 4);
+        }
+      }
+    }
+  }
+  // A new through-member declares its fitting against an existing interface.
+  // The older immutable member never needs a target pointing to future geometry.
+  interior(a, b, aStations, bStations);
+  interior(b, a, bStations, aStations);
   return [aStations, bStations];
 }
 

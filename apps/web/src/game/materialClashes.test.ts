@@ -57,6 +57,20 @@ describe("undeformed section material in the scored frame preset", () => {
     expect(findMaterialClash({ ...branch, id: 4, b: "2,3,1" }, [parent, other, branch])).toMatch(/member 2/);
   });
 
+  it("allows a declared new quarter collar symmetrically and still rejects material outside its fitting", () => {
+    const column = piece(1, "5,7,0", "5,7,1", "heb");
+    const beam = { ...piece(3,"4,7,1","8,7,1","heb"), interiorTargets:{q1:"5,7,1"} };
+    expect(findMaterialClash(beam,[column])).toBeNull();
+    expect(findMaterialClash(column,[beam])).toBeNull();
+    expect(findMaterialClash({...beam,interiorTargets:{q2:"5,7,1"}},[column])).toMatch(/intersect/);
+    const crossing = piece(2,"5,5,1","5,9,1","heb");
+    expect(findMaterialClash(beam,[crossing])).toMatch(/intersect/);
+    const declared = {...beam,interiorTargets:{q1:"port:2:2"}};
+    expect(findMaterialClash(declared,[crossing])).toBeNull();
+    const overlap = {...piece(4,"4,7,1","8,7,1","heb"),interiorTargets:{q1:"5,7,1"}};
+    expect(findMaterialClash(overlap,[piece(5,"5,7,1","9,7,1","heb")])).toMatch(/intersect/);
+  });
+
   it("rejects the seed-0 crossing without spending a card or changing replay history", () => {
     const first = createTurnGame(0, SCORED_CATALOGUE);
     const card = activeTurnHand(first).find(c => c.kind === "element" && c.maxSteps >= 2)!;
