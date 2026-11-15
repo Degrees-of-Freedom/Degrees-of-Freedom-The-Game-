@@ -16,6 +16,7 @@ import { addResultArrows, displayPoint, viewBasePoint } from "./sceneResults";
 import { buildDisplacementShadow, labelPeakDisplacement } from "./displacementShadow";
 import { projectIslet } from "./companionIslet";
 import { createCompanionFigure } from "./companionFigure";
+import { boardPose } from "../companion/boardPose";
 import { createFlowParticles } from "./flowParticles";
 import { buildReleaseFlow, markInstability } from "./releaseFlow";
 import { drawBoardDiagram } from "./boardDiagrams";
@@ -247,12 +248,20 @@ export function Scene({
     const workspace = element.closest<HTMLElement>(".environment, .release-stage");
     const companionFigure = createCompanionFigure(scene);
     let isletKey = "";
-    function anchorCompanion() {
+    function anchorCompanion(time: number) {
       if (!workspace) return;
       const canvas = renderer.domElement;
-      // The companion control marks itself while the foreman is on stage.
-      const foreman = workspace.querySelector(".companion-board")?.hasAttribute("data-foreman") ?? false;
-      const standing = companionFigure.update(terrain, camera, foreman ? "conkeldurr" : "timburr");
+      // The companion control marks itself while the foreman is on stage and
+      // while its cloud is open; its animator publishes the pose to stand in.
+      const control = workspace.querySelector<HTMLElement>(".companion-board");
+      const foreman = control?.hasAttribute("data-foreman") ?? false;
+      const figure = control?.querySelector<HTMLElement>(".companion-figure");
+      const standing = companionFigure.update(terrain, camera, foreman ? "conkeldurr" : "timburr", {
+        pose: boardPose().pose,
+        attention: figure?.matches(":hover") ? 1 : figure?.getAttribute("aria-expanded") === "true" ? 0.45 : 0,
+        still: !!(prefersStill || getSettings().reducedMotion || view.current.still),
+        time,
+      });
       if (standing !== ("isletFigure" in workspace.dataset)) {
         if (standing) workspace.dataset.isletFigure = "model";
         else delete workspace.dataset.isletFigure;
@@ -621,7 +630,7 @@ export function Scene({
       // Joint glyphs keep a constant on-screen size and avoid each other, so
       // they are positioned against the current camera before each draw.
       glyphs.layout(camera, element.clientWidth, element.clientHeight);
-      anchorCompanion();
+      anchorCompanion(time);
       draw();
     });
     /**

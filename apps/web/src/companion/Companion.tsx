@@ -2,7 +2,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { FigureName } from "./figure";
 import { createAnimator, type Animator } from "./animator";
 import { AMBIENT_IDLE, REST as REST_POSE, RELEASE_IDLE, motionForCue, portraitTransform, type CompanionCue,
-  type CompanionCueEvent, type MotionName } from "./motion";
+  type CompanionCueEvent, type MotionName, type Pose } from "./motion";
+import { publishBoardPose } from "./boardPose";
 import type { PublicRepairReport } from "../game/publicRepairReport";
 import { RepairExplanation } from "./RepairExplanation";
 import { updateSettings, useSettings } from "../menu/settings";
@@ -17,11 +18,14 @@ type Stage = ReturnType<typeof import("./figure").createFigure>;
  * One animator per mounted figure samples `motion.ts` clips and applies each
  * pose to whichever view is showing: the 3D rig, or the portrait's CSS
  * transform. `entrance` plays once when the figure mounts (Conkeldurr's
- * foreman arrival); `cue` plays whenever its identity changes. */
-function Figure({ name, retry, onFailure, cue, entrance, idle, still }: {
+ * foreman arrival); `cue` plays whenever its identity changes. `onPose`
+ * receives every sampled pose as well, for a second view of the same figure
+ * (the model on the islet in the board scene). */
+function Figure({ name, retry, onFailure, cue, entrance, idle, still, onPose }: {
   name: FigureName; retry: number; onFailure: (failed: boolean) => void;
   cue?: { motion: MotionName; id: number }; entrance?: MotionName;
   idle: readonly MotionName[] | null; still: boolean;
+  onPose?: (pose: Pose, motion: MotionName | null) => void;
 }) {
   const host = useRef<HTMLSpanElement>(null);
   const portrait = useRef<HTMLImageElement>(null);
@@ -30,8 +34,11 @@ function Figure({ name, retry, onFailure, cue, entrance, idle, still }: {
   const [view, setView] = useState<"portrait" | "model">("portrait");
   const viewRef = useRef(view);
   viewRef.current = view;
+  const publish = useRef(onPose);
+  publish.current = onPose;
   useEffect(() => {
     const motion = createAnimator({ apply(pose, playing) {
+      publish.current?.(pose, playing);
       if (viewRef.current === "model" && actor.current) actor.current.apply(pose);
       else if (portrait.current) portrait.current.style.transform = portraitTransform(pose);
       const element = host.current;
@@ -40,7 +47,8 @@ function Figure({ name, retry, onFailure, cue, entrance, idle, still }: {
       }
     } });
     animator.current = motion;
-    return () => { motion.dispose(); animator.current = undefined; };
+    publish.current?.(REST_POSE, null);
+    return () => { motion.dispose(); animator.current = undefined; publish.current?.(REST_POSE, null); };
   }, []);
   useEffect(() => {
     const motion = animator.current!;
@@ -247,7 +255,7 @@ export function Companion({ area, repairs, announceRepair = false, onPresented, 
       <Figure key={name} name={foreman ? "conkeldurr" : "timburr"} retry={retry} onFailure={setFailed}
         cue={motion} entrance={foreman ? "foreman" : undefined}
         idle={foreman || final ? null : release ? RELEASE_IDLE : AMBIENT_IDLE}
-        still={settings.reducedMotion || skip} />
+        still={settings.reducedMotion || skip} onPose={area === "board" ? publishBoardPose : undefined} />
       <span>{name}</span>
     </button>
     {open && <div id={id} className={"companion-note" + (repair && foreman !== "preview" ? " companion-repair" : "")}>
@@ -271,7 +279,7 @@ export function Companion({ area, repairs, announceRepair = false, onPresented, 
       {failed && <button type="button" onClick={() => { setFailed(false); setRetry(value => value + 1); }}>
         Retry 3D model
       </button>}
-      <button type="button" onClick={close}>Dismiss</button>
+      <button type="button" className="companion-close" aria-label="Dismiss" title="Dismiss" onClick={close}>×</button>
     </div>}
   </aside>;
 }

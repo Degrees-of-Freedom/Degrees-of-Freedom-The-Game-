@@ -56,14 +56,14 @@
 .figure-stage[data-view="portrait"] canvas, .figure-stage[data-view="model"] img { visibility: hidden; }
 .companion-note {
   position: absolute; right: 0; top: calc(100% + 5px); z-index: 1;
-  width: min(238px, 77vw); padding: 12px;
+  width: min(238px, 77vw); padding: 12px 34px 12px 12px;
   border: 1px solid #f3ead866; border-radius: 12px;
   background: #293841; box-shadow: 0 4px 16px #10182155; color: #fff6e6;
 }
 /* Help on the board is a speech cloud beside the islet. */
 .companion-board .companion-note {
   left: calc(100% - 6px); right: auto; top: auto; bottom: 34%; pointer-events: auto;
-  width: min(250px, calc(100vw - 190px)); padding: 12px 14px 10px;
+  width: min(250px, calc(100vw - 190px)); padding: 12px 36px 10px 14px;
   border: 0; border-radius: 22px; background: #fff8ea; color: #24333d;
   box-shadow: 0 6px 18px #080e1473;
 }
@@ -81,12 +81,21 @@
     to { opacity: 1; transform: none; }
   }
 }
-.companion .companion-repair { max-height: min(39dvh, 350px); overflow: auto; overscroll-behavior: contain; }
+/* The cloud grows to fit its explanation; it never scrolls. */
 .companion-repair strong { display: block; margin-bottom: 6px; }
 .companion-repair label { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .companion-repair select { font: inherit; }
 .companion-note p { font-size: 14px; margin: 0 0 8px; line-height: 1.35; }
 .companion-note button { background: #f3ead8; color: #24333d; border-radius: 6px; border: 0; padding: 5px 8px; margin: 2px; min-height: 28px; cursor: pointer; }
+/* The cloud closes from a small x in its corner. */
+.companion .companion-note .companion-close, .release-board .companion-note button.companion-close,
+.companion.companion-board .companion-note button.companion-close {
+  position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; min-height: 0; margin: 0; padding: 0;
+  border: 0; border-radius: 50%; background: #24333d1a; color: inherit;
+  font-size: 17px; font-weight: 500; line-height: 24px; text-align: center;
+}
+.companion .companion-note .companion-close:hover { background: #24333d33; }
+.companion-note:not(.companion-board *) .companion-close { background: #f3ead833; }
 @media (max-width: 600px), (max-height: 520px) {
   .companion { --figure-size: 40px; }
   /* The islet shrinks before any control has to. */
@@ -99,7 +108,6 @@
   .companion-board .companion-repair {
     left: calc(100% - 4px);
     width: min(300px, calc(100vw - 124px));
-    max-height: max(78px, calc(63dvh - 324px));
   }
 }
 
