@@ -38,10 +38,18 @@ describe("menu settings", () => {
 
   it("round-trips through storage under dof.settings", () => {
     const storage = fakeStorage();
-    const settings = { ...DEFAULT_SETTINGS, sound: true, reducedMotion: true, showHelpOnStart: true, jointDisplay: "all" as const };
+    const settings = { ...DEFAULT_SETTINGS, sound: true, masterVolume: 40, effectsVolume: 75,
+      reducedMotion: true, showHelpOnStart: true, jointDisplay: "all" as const };
     expect(writeSettings(settings, storage)).toBe(true);
     expect(JSON.parse(storage.raw!)).toEqual(settings);
     expect(readSettings(storage)).toEqual(settings);
+  });
+
+  it("recovers old or malformed volume preferences and preserves a deliberate zero", () => {
+    expect(parseSettings('{"sound":true,"masterVolume":-2,"effectsVolume":"100"}'))
+      .toEqual({ ...DEFAULT_SETTINGS, sound: true });
+    expect(parseSettings('{"masterVolume":0,"effectsVolume":25.4}'))
+      .toEqual({ ...DEFAULT_SETTINGS, masterVolume: 0, effectsVolume: 25 });
   });
 
   it("survives unavailable or throwing storage", () => {

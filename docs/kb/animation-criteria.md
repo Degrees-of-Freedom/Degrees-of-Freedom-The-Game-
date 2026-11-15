@@ -114,6 +114,10 @@ Provide a way to skip nonessential turn/result sequences and finish card arrival
 
 ## 6. Sound design
 
+The Grow Dusk playtest shares one saved Sound switch across Settings, the pause menu, the board toolbar and the M shortcut. Its two gain controls run from 0 to 100%. Both the model-edit cue and the committed Conkeldurr accent feed the effects gain and then the master gain. Sound defaults to off. Existing saves without volume fields retain the original cue level when sound is enabled.
+
+The workspace unlocks audio on deliberate interaction. A mute, pause, cover or hidden page cancels live voices. Unmount releases the context; suspended output drops cues. The [browser check](../evidence/sound/check.mjs) exercises the saved settings, keyboard toggle and native Web Audio gain and oscillator nodes. Further routine and dramatic cues remain separate acceptance work.
+
 Use a coherent original sound palette: soft card swishes, precise metallic/wooden connection clicks, low-energy load pulses, clear result chimes and rare resonant impact accents. Match sound to the action's visible contact/reveal, provisionally within 50 ms. Material variants are optional polish; they must not imply unimplemented material physics.
 
 Provide master mute/volume and a separate effects volume. Persist preferences locally and apply them before the first cue. Music is optional future scope, with its own control if introduced. Do not require audio for targeting, warnings, turn identity or understanding results. Pair important cues with visible text/icons and accessible announcements.

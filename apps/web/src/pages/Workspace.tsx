@@ -104,7 +104,7 @@ export function Workspace() {
   const [loadPath, setLoadPath] = useState(false);
   const [exampleIndex, setExampleIndex] = useState(0);
   const [libraryIndex, setLibraryIndex] = useState(0);
-  const sound = useEditorSound(game.model);
+  const sound = useEditorSound(game.model, covered || paused);
   const result = analysis?.model === game.model ? analysis.result : null;
   const field = useMemo(() => deformed && result ? deformationField(result, combo) : undefined, [result, combo, deformed]);
   const autoScale = field?.peakM ? Math.max(1, Math.min(500, Math.round(1.2/field.peakM))) : 1;
@@ -218,7 +218,7 @@ export function Workspace() {
       if (event.key.toLowerCase() === "h" || event.key === "?")
         setHelp((value) => !value);
       if (event.key.toLowerCase() === "r") run();
-      if (event.key.toLowerCase() === "m") void sound.toggle();
+      if (event.key.toLowerCase() === "m" && !event.repeat) sound.toggle();
       if (event.key === "Escape") {
         setDrawer(null);
         game.setSelected(null);
@@ -288,7 +288,7 @@ export function Workspace() {
       <span className="sep" />
       <button
         className={`btn icon${sound.enabled ? " on" : ""}`}
-        title="Sound (M)"
+        title={sound.enabled ? "Mute sound (M)" : "Enable sound (M)"}
         aria-label="Sound"
         aria-pressed={sound.enabled}
         onClick={() => void sound.toggle()}
