@@ -130,6 +130,11 @@ export function bindSceneInteraction(
         );
       }
       getView().onMessage?.(issue ?? "");
+    } else if (s.mode === "creative" && s.tool === "found") {
+      if (hit?.kind === "point") {
+        const issue = s.placeFoundation(hit.p);
+        getView().onMessage?.(issue ?? "");
+      } else getView().onMessage?.("Choose a solid ground point on the board.");
     } else if (s.tool === "inspect")
       s.setSelected(
         hit?.kind === "member"

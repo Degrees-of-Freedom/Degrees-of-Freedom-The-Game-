@@ -367,7 +367,9 @@ export function Workspace() {
         )}
         <div id="dock">
           <div id="hint" role="status">
-            {game.mode === "forensics"
+            {game.mode === "creative" && game.tool === "found"
+              ? "Click solid ground to place a fixed foundation or select an existing support"
+              : game.mode === "forensics"
               ? progress === "complete"
                 ? "Structure repaired · experimental checks passed"
                 : "Find the floating member and connect it to the supported frame"

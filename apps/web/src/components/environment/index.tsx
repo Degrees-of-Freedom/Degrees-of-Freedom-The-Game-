@@ -14,6 +14,7 @@ type Props = { style: PresentationStyle; onMessage: (message: string) => void };
 type IconKind =
   | "member"
   | "connection"
+  | "foundation"
   | "load"
   | "erase"
   | "inspect"
@@ -22,6 +23,13 @@ type IconKind =
 
 /** The tool glyphs follow the Levels and Blocks prototype artwork. */
 function Icon({ kind, style }: { kind: IconKind; style: PresentationStyle }) {
+  if (kind === "foundation") return (
+    <svg viewBox="0 0 30 30" aria-hidden="true" stroke="#3f4654" strokeWidth="1.7" strokeLinejoin="round">
+      <path d="M12 5h6v12h-6z" fill="#fbf7ef" />
+      <path d="M7 17h16l3 7H4z" fill="#b9b4aa" />
+      <path d="M3 25h24" stroke="#836747" />
+    </svg>
+  );
   if (style === "kit") {
     if (kind === "member")
       return (
@@ -311,6 +319,10 @@ export function EnvironmentTools({ style }: Props) {
       active: game.tool === "delete",
       action: () => game.setTool("delete"),
     },
+    ...(style === "grow-dusk" && game.mode === "creative" ? [{
+      kind: "foundation" as const, label: "Foundation", key: "0",
+      active: game.tool === "found", action: () => game.setTool("found"),
+    }] : []),
     {
       kind: "inspect",
       label: "Inspect",
@@ -575,7 +587,8 @@ export function EnvironmentInspector({ onMessage }: Pick<Props, "onMessage">) {
     { name: "Fixed", values: [true, true, true, true, true, true] },
   ];
   return (
-    <section className="env-card card pop" aria-label="Connection and load">
+    <section className="env-card card pop" aria-label="Connection and load"
+      data-foundation={creative && attrs.found ? "true" : undefined}>
       <div className="dc-head">
         <div>
           <div className="dc-title">

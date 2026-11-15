@@ -107,6 +107,7 @@ interface GameState {
   setSwapTarget: (type: MemberType) => void;
   undo: () => void;
   setTool: (tool: Tool) => void;
+  placeFoundation: (point: GridPoint) => string | null;
   setWorkK: (k: number) => void;
   setChainStart: (key: string | null) => void;
   setSelected: (selection: Selection) => void;
@@ -650,6 +651,18 @@ export const useGameStore = create<GameState>((set, get) => {
         };
       }),
     setTool: (tool) => set({ tool, chainStart: null }),
+    placeFoundation: (point) => {
+      const state = get();
+      if (state.mode !== "creative") return "Foundation placement is available in Creative.";
+      const key = nodeKey(...point);
+      if (!state.model.attrs[key]?.found) {
+        const issue = state.toggleAttr(point, "found");
+        if (issue) return issue;
+      }
+      // Clicking a placed support reopens its restraints without changing them.
+      set({ selected: { type: "node", key } });
+      return null;
+    },
     setWorkK: (k) =>
       set((s) => ({
         workK: Math.max(0, Math.min(LEVELS[s.levelId].nz, Math.round(k))),

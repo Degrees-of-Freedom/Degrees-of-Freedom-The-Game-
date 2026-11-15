@@ -242,7 +242,15 @@ export function createPicker(
               h.face.normal.z > 0.5 &&
               h.object.userData.pickTerrain === true,
           );
-        if (
+        if (s.mode === "creative" && tool === "found") {
+          // The diorama surface sits slightly below the physical grid.
+          // Require a land hit and snap at its structural elevation, even
+          // when the active member-construction plane is several levels up.
+          intersection = terrainHit
+            ? ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1),
+                -Math.round(terrainHit.point.z / CELL_SIZE) * CELL_SIZE), new THREE.Vector3())
+            : null;
+        } else if (
           terrainHit &&
           (!intersection ||
             terrainHit.point.distanceTo(ray.ray.origin) <
