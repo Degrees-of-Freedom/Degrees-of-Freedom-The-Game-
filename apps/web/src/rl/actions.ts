@@ -9,7 +9,8 @@ import {
 } from "../game/model";
 import { ITEMS, remaining } from "../game/inventory";
 import { canFound, groundK } from "../game/terrain";
-import type { GoalAction } from "./types";
+import type { GoalAction, KeepOutZone } from "./types";
+import { memberZone, nodeZone } from "./zones";
 
 /** The 26 neighbouring directions members grow along from an existing node. */
 const DIRECTIONS: readonly GridPoint[] = (() => {
@@ -30,6 +31,8 @@ export function actionId(action: GoalAction): string {
       return `joint@${nodeKey(...action.at)}`;
     case "finish":
       return "finish";
+    case "wait":
+      return "wait";
     case "member": {
       const [first, second] = [nodeKey(...action.a), nodeKey(...action.b)].sort();
       return `${action.type}:${first}-${second}`;
@@ -58,10 +61,13 @@ export function applyAction(
   level: Level,
   model: GameModel,
   action: GoalAction,
+  zones: readonly KeepOutZone[] = [],
 ): { model: GameModel; issue: null } | { model: GameModel; issue: string } {
-  if (action.kind === "finish") return { model, issue: null };
+  if (action.kind === "finish" || action.kind === "wait") return { model, issue: null };
   const next: GameModel = structuredClone(model);
   if (action.kind === "member") {
+    const zone = memberZone(zones, action.a, action.b);
+    if (zone) return { model, issue: `Member passes through keep-out zone ${zone.id}` };
     const issue = memberIssue(level, model, action.a, action.b, action.type);
     if (issue) return { model, issue };
     next.members.push({
@@ -72,6 +78,8 @@ export function applyAction(
     });
     return { model: next, issue: null };
   }
+  const zone = nodeZone(zones, action.at);
+  if (zone) return { model, issue: `Node is inside keep-out zone ${zone.id}` };
   const type = action.kind === "foundation" ? "found" : "joint";
   const issue = nodeItemIssue(level, model, action.at, type);
   if (issue) return { model, issue };
@@ -85,6 +93,7 @@ export function applyAction(
 
 export interface EnumerateOptions {
   memberTypes: readonly MemberType[];
+  zones?: readonly KeepOutZone[];
 }
 
 /**
@@ -109,15 +118,18 @@ export class ActionEnumerator {
    * Members grow from an existing node (a weight, foundation or member end)
    * along the 26 lattice directions at every length the section allows.
    */
-  enumerate(model: GameModel): GoalAction[] {
+  enumerate(model: GameModel, { canWait = false } = {}): GoalAction[] {
     const { level } = this;
+    const zones = this.options.zones ?? [];
     const actions: GoalAction[] = [{ kind: "finish" }];
+    if (canWait) actions.push({ kind: "wait" });
 
     for (let i = 0; i <= level.nx; i++)
       for (let j = 0; j <= level.ny; j++) {
         const at: GridPoint = [i, j, groundK(level, i, j)];
         if (
           canFound(level, at) &&
+          !nodeZone(zones, at) &&
           !model.attrs[nodeKey(...at)]?.found &&
           !nodeItemIssue(level, model, at, "found")
         )
@@ -161,7 +173,9 @@ export class ActionEnumerator {
     const key = `${type}:${a.join(",")}>${b.join(",")}`;
     let fits = this.geometry.get(key);
     if (fits === undefined) {
-      fits = memberIssue(this.unlimited, EMPTY_MODEL, a, b, type) === null;
+      fits =
+        memberIssue(this.unlimited, EMPTY_MODEL, a, b, type) === null &&
+        !memberZone(this.options.zones ?? [], a, b);
       this.geometry.set(key, fits);
     }
     return fits;

@@ -17,6 +17,7 @@ export const DEFAULT_REWARD: RewardConfig = {
   stableWeight: 0.2,
   objectiveWeight: 0.4,
   successBonus: 1,
+  stageBonus: 0.5,
   efficiencyBonus: 0.5,
   stepPenalty: 0.01,
   invalidPenalty: 0.05,

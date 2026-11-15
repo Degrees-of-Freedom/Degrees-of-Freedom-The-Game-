@@ -16,6 +16,8 @@ export const ACTION_FEATURE_NAMES = [
   // initial split between kinds, and a learnable bias drifted negative from
   // noisy early samples, starving the joint that completes a structure.
   "isFinish",
+  "isWait",
+  "waitWhileHolding",
   // foundation
   "foundationFirst",
   "foundationBelowWeight",
@@ -104,6 +106,11 @@ export function actionFeatures(
     case "finish":
       out[INDEX.isFinish] = 1;
       break;
+    case "wait":
+      out[INDEX.isWait] = 1;
+      // Waiting only pays when what exists is already stable and connected.
+      out[INDEX.waitWhileHolding] = ctx.allConnected && !ctx.mechanism ? 1 : 0;
+      break;
     case "foundation": {
       out[INDEX.foundationWhenAllConnected] = ctx.allConnected ? 1 : 0;
       out[INDEX.foundationFirst] = ctx.foundationKeys.size === 0 ? 1 : 0;
@@ -182,16 +189,17 @@ export function stateFeatures(obs: Observation): Float64Array {
  * Fixed log-prior that gives each action kind (foundation, member, joint) an
  * equal share of the initial probability, split evenly within the kind.
  * Without it the single joint that completes a structure is drowned out by
- * hundreds of member candidates and is almost never tried. `finish` gets the
- * weight of one ordinary action, so a fresh policy rarely gives up. The offset
+ * hundreds of member candidates and is almost never tried. `finish` and `wait` get the
+ * weight of one ordinary action each, so a fresh policy rarely gives up. The offset
  * is constant, so it does not change the policy gradient.
  */
 export function kindBalancedPrior(actions: readonly GoalAction[]): Float64Array {
   const counts = new Map<GoalAction["kind"], number>();
   for (const a of actions) counts.set(a.kind, (counts.get(a.kind) ?? 0) + 1);
-  const kinds = [...counts.keys()].filter((k) => k !== "finish").length;
+  const passive = (k: GoalAction["kind"]) => k === "finish" || k === "wait";
+  const kinds = [...counts.keys()].filter((k) => !passive(k)).length;
   return Float64Array.from(actions, (a) =>
-    a.kind === "finish"
+    passive(a.kind)
       ? -Math.log(actions.length)
       : -Math.log(kinds * counts.get(a.kind)!),
   );

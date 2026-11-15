@@ -8,6 +8,7 @@ import type {
   AnalysisSummary,
   GoalAction,
   GoalScenario,
+  LaterStage,
   Observation,
   RewardConfig,
   StepResult,
@@ -27,6 +28,10 @@ export class GoalEnv {
   private stepCount = 0;
   private finished = true;
   private cachedActions: GoalAction[] | null = null;
+  /** Stages that have not arrived yet. */
+  private pending: LaterStage[] = [];
+  /** The latest analysis passed every check, ignoring pending stages. */
+  private stageSolved = false;
 
   private readonly enumerator: ActionEnumerator;
 
@@ -36,6 +41,7 @@ export class GoalEnv {
   ) {
     this.enumerator = new ActionEnumerator(scenario.level, {
       memberTypes: scenario.memberTypes,
+      zones: scenario.zones,
     });
   }
 
@@ -46,6 +52,7 @@ export class GoalEnv {
     this.stepCount = 0;
     this.finished = false;
     this.cachedActions = null;
+    this.pending = [...(this.scenario.laterStages ?? [])];
     this.summary = this.analyze();
     return this.observe();
   }
@@ -53,7 +60,9 @@ export class GoalEnv {
   /** Legal actions for the current state; stable order, `finish` first. */
   legalActions(): GoalAction[] {
     this.requireActive();
-    this.cachedActions ??= this.enumerator.enumerate(this.model);
+    this.cachedActions ??= this.enumerator.enumerate(this.model, {
+      canWait: this.pending.length > 0,
+    });
     return this.cachedActions;
   }
 
@@ -64,9 +73,11 @@ export class GoalEnv {
     const rejected = this.rejection(action);
     let invalid: string | null = rejected;
     if (!rejected) {
-      const result = applyAction(this.scenario.level, this.model, action);
+      const result = applyAction(this.scenario.level, this.model, action, this.scenario.zones);
       invalid = result.issue;
-      if (!result.issue) {
+      if (!invalid && action.kind === "wait" && !this.pending.length)
+        invalid = "There is nothing to wait for";
+      if (!invalid) {
         this.model = result.model;
         this.cachedActions = null;
         this.summary = this.analyze();
@@ -74,14 +85,27 @@ export class GoalEnv {
     }
     this.stepCount++;
 
+    // The potential gained is measured before any new stage arrives, so a new
+    // weight's drop in progress is not charged to the action just taken.
+    const shaping = potential(this.summary, this.reward) - before;
+    let stageBonus = 0;
+    const arrived = this.pending.filter((s) => s.atStep <= this.stepCount);
+    if (arrived.length) {
+      // Holding a working structure when the next part arrives is rewarded.
+      if (this.stageSolved) stageBonus = this.reward.stageBonus;
+      this.pending = this.pending.filter((s) => s.atStep > this.stepCount);
+      this.addWeights(arrived.flatMap((s) => s.weights));
+      this.cachedActions = null;
+      this.summary = this.analyze();
+    }
+
     const solved = this.summary.success;
     const gaveUp = action.kind === "finish";
     const truncated = !solved && !gaveUp && this.stepCount >= this.scenario.maxSteps;
     this.finished = solved || gaveUp || truncated;
     const outcome = solved ? "solved" : this.finished ? "unsolved" : "ongoing";
 
-    const shaping = potential(this.summary, this.reward) - before;
-    const terminal = terminalReward(this.summary, outcome, this.reward);
+    const terminal = terminalReward(this.summary, outcome, this.reward) + stageBonus;
     const reward =
       shaping +
       terminal -
@@ -121,7 +145,15 @@ export class GoalEnv {
             (k) => this.model.attrs[k].target && !floating.has(k),
           ),
     );
-    return summarizeAnalysis(analysis, this.model, level.budget);
+    const summary = summarizeAnalysis(analysis, this.model, level.budget);
+    this.stageSolved = summary.success;
+    // Solved means every stage has arrived and the whole structure passes.
+    return { ...summary, success: summary.success && this.pending.length === 0 };
+  }
+
+  private addWeights(weights: readonly (readonly number[])[]): void {
+    for (const [i, j, k, kN] of weights)
+      this.model.attrs[`${i},${j},${k}`] = { load: kN, locked: true, target: true };
   }
 
   private observe(): Observation {
@@ -143,6 +175,7 @@ export class GoalEnv {
     return {
       step: this.stepCount,
       maxSteps: this.scenario.maxSteps,
+      pendingStages: this.pending.length,
       model: structuredClone(this.model),
       targets: weights.map(([key, attrs]) => ({
         key,

@@ -13,6 +13,7 @@ export const GoalActionSchema = z.discriminatedUnion("kind", [
     type: z.enum(["shs", "glulam", "ipe", "heb", "cable", "spring"]),
   }),
   z.object({ kind: z.literal("joint"), at: point }),
+  z.object({ kind: z.literal("wait") }),
   z.object({ kind: z.literal("finish") }),
 ]);
 

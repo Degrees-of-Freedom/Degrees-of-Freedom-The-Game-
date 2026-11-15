@@ -11,10 +11,29 @@ export type GoalAction =
   | { kind: "foundation"; at: GridPoint }
   | { kind: "member"; a: GridPoint; b: GridPoint; type: MemberType }
   | { kind: "joint"; at: GridPoint }
+  /** Let a step pass without building; only offered while a later stage is pending. */
+  | { kind: "wait" }
   /** Declare the structure finished; ends the episode. */
   | { kind: "finish" };
 
 export type GoalActionKind = GoalAction["kind"];
+
+/**
+ * A box (grid units, inclusive) that no member or node may touch. Keep-out
+ * zones are a scenario rule for agents; the game's editor has no such rule.
+ */
+export interface KeepOutZone {
+  id: string;
+  min: GridPoint;
+  max: GridPoint;
+}
+
+/** Weights that appear once `atStep` actions have been taken ("wait" stage). */
+export interface LaterStage {
+  atStep: number;
+  /** Weights as [i, j, k, kN], like `Level.loads`. */
+  weights: readonly [number, number, number, number][];
+}
 
 /** A goal level plus the episode limits an agent plays under. */
 export interface GoalScenario {
@@ -27,6 +46,14 @@ export interface GoalScenario {
   memberTypes: readonly MemberType[];
   /** Draw loads from the seed rather than the level's fixed list. */
   randomLoads: boolean;
+  /** Regions the structure must avoid. */
+  zones?: readonly KeepOutZone[];
+  /**
+   * Later parts of the goal. The episode is solved only once every stage has
+   * arrived and the whole structure passes, so an agent must hold a working
+   * structure and then extend it.
+   */
+  laterStages?: readonly LaterStage[];
 }
 
 /** Weights of the reward terms. See `reward.ts` for the exact definition. */
@@ -43,6 +70,8 @@ export interface RewardConfig {
   successBonus: number;
   /** Extra bonus scaled by unspent budget when the level is solved. */
   efficiencyBonus: number;
+  /** Bonus for having the current stage solved when the next one arrives. */
+  stageBonus: number;
   /** Cost of every action, encouraging short solutions. */
   stepPenalty: number;
   /** Cost of choosing an action the rules reject. */
@@ -82,6 +111,8 @@ export interface TargetStatus {
 export interface Observation {
   step: number;
   maxSteps: number;
+  /** Stages that have not arrived yet. */
+  pendingStages: number;
   model: GameModel;
   targets: TargetStatus[];
   analysis: AnalysisSummary;
