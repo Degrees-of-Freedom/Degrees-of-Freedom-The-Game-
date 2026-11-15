@@ -74,6 +74,8 @@ pub struct Outcome {
     pub solution: Option<Solution>,
     pub converged: bool,
     pub iterations: u32,
+    /// Load increments accepted by the nonlinear solution (0 for linear).
+    pub load_steps: u32,
     /// Fraction of the requested load at which equilibrium was last found.
     pub load_fraction_reached: f64,
     pub critical_load_factor: Option<f64>,
@@ -319,6 +321,8 @@ struct Newton<'a> {
     /// A factorised tangent from an earlier, nearby state, to start from.
     carry: Option<Factor>,
     iterations: u32,
+    /// Load increments accepted on the way to the target load.
+    steps: u32,
     budget: u32,
 }
 
@@ -464,7 +468,10 @@ impl Newton<'_> {
     fn path(&mut self, target: f64) -> Result<(State, Converged), (f64, Failure)> {
         let mut state = self.sys.reference();
         match self.solve(&mut state, target, true) {
-            Ok(result) => return Ok((state, result)),
+            Ok(result) => {
+                self.steps += 1;
+                return Ok((state, result));
+            }
             Err(Failure::Budget) => return Err((0.0, Failure::Budget)),
             Err(_) => {}
         }
@@ -485,6 +492,7 @@ impl Newton<'_> {
                 Ok(result) => {
                     state = trial;
                     fraction = next;
+                    self.steps += 1;
                     if fraction >= 1.0 {
                         return Ok((state, result));
                     }
@@ -559,6 +567,7 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
         solution: None,
         converged: false,
         iterations: 0,
+        load_steps: 0,
         load_fraction_reached: 0.0,
         critical_load_factor: None,
         residual: None,
@@ -639,9 +648,10 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
         return out;
     }
 
-    let mut newton = Newton { sys, f: &f, gauge: &linear.nulls.gauge, options, stiffness: sys.stiffness(), carry: None, iterations: 0, budget: options.max_total_iterations };
+    let mut newton = Newton { sys, f: &f, gauge: &linear.nulls.gauge, options, stiffness: sys.stiffness(), carry: None, iterations: 0, steps: 0, budget: options.max_total_iterations };
     let path = newton.path(lam);
     out.iterations = newton.iterations;
+    out.load_steps = newton.steps;
     let load: Vec<f64> = f.iter().map(|v| lam * v).collect();
     match path {
         Err((fraction, failure)) => {
@@ -773,7 +783,7 @@ fn finish(sys: &System, options: &Options, out: &mut Outcome, solution: Solution
 /// stability, found by bisection between zero and the applied factor.
 /// Returns the factor, if found, and the Newton iterations the search used.
 fn critical_load(sys: &System, f: &[f64], gauge: &[usize], options: &Options, lam: f64) -> (Option<f64>, u32) {
-    let mut newton = Newton { sys, f, gauge, options, stiffness: sys.stiffness(), carry: None, iterations: 0, budget: options.max_total_iterations };
+    let mut newton = Newton { sys, f, gauge, options, stiffness: sys.stiffness(), carry: None, iterations: 0, steps: 0, budget: options.max_total_iterations };
     let factor = critical_load_with(&mut newton, sys, f, lam);
     (factor, newton.iterations)
 }

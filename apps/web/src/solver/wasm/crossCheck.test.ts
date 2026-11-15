@@ -46,9 +46,10 @@ const spaceFrame: StructuralModel = {
     { nodeId: 'e', force: [8000, 3000, -40000], moment: [0, 0, 0] },
     { nodeId: 'g', force: [0, -5000, -25000], moment: [500, 0, 1200] },
   ],
+  analysis: { fidelity: 'linear' },
 };
 
-function expectAgreement(name: string, rust: AnalysisResult, opensees: AnalysisResult, model: StructuralModel) {
+function expectAgreement(name: string, rust: AnalysisResult, opensees: AnalysisResult, model: StructuralModel, relative = 2e-5) {
   expect(rust.status, name).toBe(opensees.status);
   if (rust.status !== 'success' && rust.status !== 'unstable') throw new Error(`${name}: ${rust.message}`);
   if (opensees.status !== 'success' && opensees.status !== 'unstable') throw new Error(`${name}: ${opensees.message}`);
@@ -63,9 +64,6 @@ function expectAgreement(name: string, rust: AnalysisResult, opensees: AnalysisR
 
   const largest = (values: Record<string, readonly number[]>, from: number, to: number) =>
     Math.max(...Object.values(values).flatMap((v) => v.slice(from, to).map(Math.abs)), 0);
-  // OpenSees holds free spin modes with soft springs, which costs it about
-  // 1e-5 of accuracy; see services/opensees/README.md.
-  const relative = 2e-5;
   const translation = largest(opensees.displacements, 0, 3);
   for (const node of model.nodes)
     for (let i = 0; i < 3; i++)
@@ -92,9 +90,20 @@ describe.skipIf(!liveUrl)('Rust solver against the OpenSees service', () => {
     expectAgreement('space frame', await rust.analyze(spaceFrame), await opensees.analyze(spaceFrame), spaceFrame);
   });
 
-  it('agrees on the same frame with its supports reduced to a mechanism', async () => {
+  it('agrees that the same frame with its supports reduced is unstable', async () => {
     const loose = { ...spaceFrame, supports: spaceFrame.supports.map((s) => ({ ...s, restrained: PINNED })), members: spaceFrame.members.filter((m) => m.id !== 'brace').map((m) => ({ ...m, startFixity: 'pinned' as const })) };
-    expectAgreement('loose frame', await rust.analyze(loose), await opensees.analyze(loose), loose);
+    // Two solvers may find different bases and counts for the same mechanism,
+    // and list different nodes for it; the verdict is what must agree.
+    const [a, b] = [await rust.analyze(loose), await opensees.analyze(loose)];
+    expect(a.status).toBe('unstable');
+    expect(b.status).toBe('unstable');
+  });
+
+  it('agrees within the 1 % nonlinear gate on the stable space frame', async () => {
+    // Two independent corotational formulations: equal to well inside the
+    // criteria's 1 % gate for nonlinear reference quantities, not to rounding.
+    const nonlinear: StructuralModel = { ...spaceFrame, analysis: { fidelity: 'nonlinear' } };
+    expectAgreement('nonlinear space frame', await rust.analyze(nonlinear), await opensees.analyze(nonlinear), nonlinear, 1e-2);
   });
 
   it('agrees on the reference game structures', async () => {

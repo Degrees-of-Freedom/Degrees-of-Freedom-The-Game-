@@ -81,6 +81,21 @@ Because the analysis is 3D and connections are pinned unless a moment connection
 
 The editor's detailed-result panel was checked manually on Tower I. The scored game has its own component projection and viewer path. Its load-path display uses the signed vertical resultant at the physical member cut, including shear carried by beams. Its member deformation samples follow the analytical mesh, including relative motion at released and elastic beam endpoints. See [development and testing](development-and-testing.md).
 
+## The shared contract adapter
+
+`apps/web/src/solver/wasm/legacyContract.ts` lets the Rust solver answer the shared `StructuralModel` contract in `packages/solver-contract/src/index.ts`, the one the OpenSees service implements and the end-of-turn solve uses. It follows the contract as merged in #15, where Tal's requirements win on conflicts:
+
+- **Nonlinear is opt-in.** With no `analysis`, or neither `fidelity` nor `type`, the analysis is linear. `type: 'corotational'` is the same as `fidelity: 'nonlinear'`.
+- **`segmentsPerFrame`** (1 to 32) fixes the elements per beam. Without it a beam gets one element in a linear analysis (exact under nodal and uniform loads) and two in a nonlinear one.
+- **Member laws.** A `law` of kind `frame` supplies the beam's section. A `law` of kind `cable` makes the member a cable whose force is EA·max(0, l/restLength − 1), which is exactly the Rust cable with that rest length.
+- **Everything else the contract carries.** Kind, resolved properties (including weight per length), orientation, initial strain, six-axis connections and springs, self-weight and the displacement limit.
+- **Local axes.** The contract's local Y follows `orientation`; the Rust solver's local z does. Second moments and connection laws are swapped between those axes. Tests with an unsymmetric section check it.
+- **Results.** Component results use contract reason codes, cable `state` and the smallest node id as component id, and leave out what was not verified. `inactiveNodeIds` lists model nodes outside every component. For a nonlinear analysis whose every part was verified, `nonlinear` reports the beam segments, the accepted load steps, the largest normalised force, moment and nodal residuals, and each cable's `taut` or `slack` state.
+- **Reported as `unsupported`, not approximated:** initial strain on a beam; a brace or cable whose end translations are not all locked; a cable law combined with an initial strain.
+- **Limits.** A per-request `timeoutMs` is not passed through. The solver's deterministic request budget (`maxRequestIterations`) and the browser worker's wall-clock limit apply instead.
+
+Mode shapes that move no model node, such as a member spinning about its own axis on ball joints, are reported with no nodes. Their node entries are rounding noise, which an earlier version scaled up into apparent movement.
+
 ## Cancellation and time limit
 
 WebAssembly cannot be interrupted from inside, so the adapter (`runner.ts`) runs the module on a Web Worker (`solverWorker.ts`) and stops an analysis by terminating the worker. Requests go to the worker one at a time, in call order. The main thread compiles the module once and sends the compiled module with each request, so a replacement worker starts without downloading it again.
