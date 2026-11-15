@@ -3,13 +3,13 @@ import { describeComponentState, describeReasonCode } from '../solver/reasonCode
 import { summarizeAnalysis, type Verdict } from '../game/structuralSummary';
 import type { StabilityCheck } from '../game/useStabilityCheck';
 
-const pad = (count: number) => String(count).padStart(2, '0');
+const pad = (count: number) => String(count);
 /** Components listed individually before the rest are summarised. */
 const MAX_LISTED_COMPONENTS = 5;
 
 function Stat({ name, value }: { name: string; value: string }) {
   return (
-    <div className="stat">
+    <div className="result-metric">
       <span>{name}</span>
       <b>{value}</b>
     </div>
@@ -52,6 +52,15 @@ function ComponentList({ components }: { components: ComponentResult[] }) {
   );
 }
 
+/** Consistent provenance for completed, pending and unavailable checks. */
+function ResultHeader({ solverName }: { solverName: string }) {
+  return <header className="result-header">
+    <span className="result-eyebrow">01 · Structural analysis</span>
+    <h3>Structure response</h3>
+    <p className="result-source"><span>Active solver</span><strong>{solverName}</strong></p>
+  </header>;
+}
+
 const VERDICT_TEXT: Record<Verdict, string> = {
   stable: 'Stable',
   marginal: 'Marginal',
@@ -77,8 +86,8 @@ function DetailedCheck({ result, notes, solverName }: { result: DetailedAnalysis
   const shown = summary.reactions.slice(0, MAX_REACTIONS);
   return (
     <div className="analysis stability-check">
-      <h3>Structural check</h3>
-      <p className={good ? 'verdict good' : 'verdict bad'}>
+      <ResultHeader solverName={solverName} />
+      <p className={good ? 'verdict good' : summary.verdict === 'unstable' || summary.strengthExceeded ? 'verdict bad' : 'verdict unknown'} role="status">
         {VERDICT_TEXT[summary.verdict]}
         {summary.verdict === 'stable' && summary.strengthExceeded && ', but overstressed'}
         {summary.message && `. ${summary.message}`}
@@ -92,23 +101,29 @@ function DetailedCheck({ result, notes, solverName }: { result: DetailedAnalysis
       ))}
       {summary.components > 0 && (
         <>
-          <Stat name="Separate parts" value={pad(summary.components)} />
+          <div className="result-metrics"><Stat name="Separate parts" value={pad(summary.components)} />
           <Stat name="Free DOFs" value={pad(summary.freeDofs)} />
           <Stat name="Mechanisms" value={pad(summary.mechanisms)} />
           <Stat name="Redundancy" value={pad(summary.staticIndeterminacy)} />
           <Stat
-            name="Largest movement"
+            name="Peak movement"
             value={summary.maxDisplacement === null ? 'unavailable' : `${(summary.maxDisplacement * 1e3).toFixed(1)} mm`}
           />
           <Stat
-            name="Highest utilisation"
+            name="Capacity use"
             value={
               summary.governing
-                ? `${Math.round(summary.governing.utilization * 100)}% · member ${summary.governing.memberId} · ${summary.governing.limitState}`
+                ? `${Math.round(summary.governing.utilization * 100)}%`
                 : 'unavailable'
             }
           />
           {summary.slackCables > 0 && <Stat name="Slack cables" value={pad(summary.slackCables)} />}
+          </div>
+          {summary.governing && <p className="result-caption">Governing member {summary.governing.memberId} · {summary.governing.limitState.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()}</p>}
+          <p className="result-caption">Free DOFs are movements to solve; mechanisms have no resisting stiffness. Redundancy counts extra restraints.</p>
+          <p className="result-caption">Capacity use: 100% is the reported limit. Unavailable means no verified value, not zero.</p>
+          <details className="result-details" open><summary>Support reactions · {summary.reactions.length}</summary>
+          <p>Vertical force at each foundation. Upward reactions resist gravity; uplift indicates a hold-down demand.</p>
           {shown.map((reaction) => (
             <Stat
               key={reaction.foundationId}
@@ -123,13 +138,15 @@ function DetailedCheck({ result, notes, solverName }: { result: DetailedAnalysis
           {summary.reactions.length > shown.length && (
             <p>{summary.reactions.length - shown.length} more foundations not listed.</p>
           )}
+          {shown.length === 0 && <p>No foundation reactions reported.</p>}
+          </details>
         </>
       )}
       {notes.map((text) => (
         <p key={text}>{text}</p>
       ))}
       <p>
-        Nonlinear analysis with card sections and tension-only cables. Computed by {solverName}
+        {result.analysis.fidelity === 'linear' ? 'Linear' : result.analysis.fidelity === 'nonlinear' ? 'Nonlinear' : 'Structural'} analysis · computed by {solverName}
         {summary.runtimeMs !== null && ` in ${Math.round(summary.runtimeMs)} ms`}.
       </p>
     </div>
@@ -151,11 +168,11 @@ export function StabilityCheckPanel({
   check: StabilityCheck;
   solverName: string;
 }) {
-  if (check.phase === 'idle') return null;
+  if (check.phase === 'idle') return <section className="analysis stability-check"><ResultHeader solverName={solverName} /><p className="result-empty">Run simulation to check this structure. Editing the model or changing solver clears the previous check.</p></section>;
   if (check.phase === 'running')
     return (
       <div className="analysis stability-check">
-        <h3>Structural check</h3>
+        <ResultHeader solverName={solverName} />
         <p role="status">Checking the structure with {solverName}…</p>
       </div>
     );
@@ -166,7 +183,7 @@ export function StabilityCheckPanel({
   if (result.status !== 'success' && result.status !== 'unstable' && result.status !== 'unresolved')
     return (
       <div className="analysis stability-check">
-        <h3>Degrees of freedom</h3>
+        <ResultHeader solverName={solverName} />
         <p>
           {solverName} check unavailable: {result.message}
         </p>
@@ -177,17 +194,19 @@ export function StabilityCheckPanel({
   const { stability, analysis } = result;
   return (
     <div className="analysis stability-check">
-      <h3>Degrees of freedom</h3>
+      <ResultHeader solverName={solverName} />
       <p className={className}>{text}</p>
       <p>
         {analysis.fidelity === 'nonlinear' ? 'Nonlinear' : 'Linear'} analysis · {analysis.solver}
       </p>
-      <Stat name="Free DOFs" value={pad(stability.freeDofs)} />
-      <Stat name="Mechanisms" value={pad(stability.mechanisms)} />
-      <Stat name="Redundancy" value={pad(stability.staticIndeterminacy)} />
-      {result.status !== 'success' && (
-        <Stat name="Moving nodes" value={pad(stability.unstableNodeIds.length)} />
-      )}
+      <div className="result-metrics">
+        <Stat name="Free DOFs" value={pad(stability.freeDofs)} />
+        <Stat name="Mechanisms" value={pad(stability.mechanisms)} />
+        <Stat name="Redundancy" value={pad(stability.staticIndeterminacy)} />
+        {result.status !== 'success' && (
+          <Stat name="Moving nodes" value={pad(stability.unstableNodeIds.length)} />
+        )}
+      </div>
       <ComponentList components={result.components} />
       {[...result.warnings, ...notes].map((line) => (
         <p className="warning" key={line}>

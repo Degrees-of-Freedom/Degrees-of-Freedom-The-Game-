@@ -36,8 +36,8 @@ export function AnalysisPanel({
 }: AnalysisPanelProps) {
   const path = result && loadPath ? computeLoadPath(result, combo) : null;
   return (
-    <div className="analysis">
-      <div className="panel-title">03 &nbsp; ANALYSIS</div>
+    <div className="analysis preview-analysis">
+      <header className="result-header"><span className="result-eyebrow">02 · Scene preview</span><h3>Explore the response</h3><p className="result-source"><span>Source</span><strong>Approximate voxel solver</strong></p></header><p className="result-caption">These values drive the 3D overlays. They are a separate calculation from the selected structural solver.</p>
       {message && <p role="status">{message}</p>}
       {!result ? (
         <p>
@@ -54,7 +54,7 @@ export function AnalysisPanel({
               : result.floating.length
                 ? "Disconnected structure"
                 : result.success
-                  ? "Checks passed"
+                  ? "Preview checks passed"
                   : "Simulation complete · review checks"}{" "}
             {result.stars ? "★".repeat(result.stars) : ""}
           </h3>
@@ -65,14 +65,14 @@ export function AnalysisPanel({
                 : `${result.floating.length} node(s) have no connection to a support.`}
             </p>
           )}
-          <ul className="objectives">
+          <details className="result-details"><summary>Model checks</summary><ul className="objectives">
             {result.objectives.map((o, i) => (
               <li key={i}>
                 {o.ok ? "✓" : "✕"} {o.label}
                 {o.detail && <small>{o.detail}</small>}
               </li>
             ))}
-          </ul>
+          </ul></details>
           <div className="stat">
             <span>Mass</span>
             <b>{result.mass?.toFixed(2)} t</b>
@@ -162,7 +162,7 @@ export function AnalysisPanel({
               checks require design load combinations.
             </p>
           )}
-          <div className="view-options">
+          <div className="view-options"><h4>Visualize in the scene</h4><p className="result-caption">Choose a load case, then compare the shape, forces and supports.</p>
             <label>
               Load case{" "}
               <select
@@ -179,13 +179,14 @@ export function AnalysisPanel({
             <label>
               <input
                 type="checkbox"
+                disabled={result.mechanism || !result.combos[combo]?.u}
                 checked={deformed}
                 onChange={(e) => setDeformed(e.target.checked)}
               />{" "}
-              Deformed shape
+              Deformed shape (exaggerated)
             </label>
             <label>
-              Scale{" "}
+              Visual amplification · {scale.toFixed(1)}×{" "}
               <input
                 type="range"
                 min="0.1"
@@ -207,6 +208,7 @@ export function AnalysisPanel({
             <label>
               <input
                 type="checkbox"
+                disabled={result.mechanism}
                 checked={loadPath}
                 onChange={(e) => setLoadPath(e.target.checked)}
               />{" "}
@@ -232,6 +234,7 @@ export function AnalysisPanel({
               Loads and reactions
             </label>
           </div>
+          <p className="result-caption">Shape is automatically exaggerated for visibility; the slider multiplies that exaggeration. Read displacement in mm above.</p>
           <p>Approximate prototype results; not for engineering design.</p>
         </>
       )}
