@@ -1,133 +1,106 @@
 ---
-title: "Shared table cantilever evaluation and proposed workflow"
+title: "Shared table cantilever placement"
 last_validated: 2026-11-15
 validated_against:
-  - apps/web/src/App.tsx
   - apps/web/src/components/ReleaseBoard.tsx
   - apps/web/src/components/ReleaseTargets.tsx
-  - apps/web/src/viewer/sceneInteraction.ts
-  - apps/web/src/viewer/scenePicking.ts
-  - apps/web/src/viewer/turnGuides.ts
+  - apps/web/src/pages/ModeSetup.tsx
+  - apps/web/src/game/cantileverPlacement.ts
+  - apps/web/src/game/attachmentSites.ts
   - apps/web/src/game/turns.ts
   - apps/web/src/game/turnPorts.ts
   - apps/web/src/game/materialClashes.ts
   - apps/web/src/game/turnAnalysis.ts
-  - apps/web/src/game/quarterFrame.test.ts
+  - apps/web/src/game/turnEvidence.ts
+  - apps/web/src/game/releaseSave.ts
+  - apps/web/src/game/releaseSession.ts
+  - apps/web/src/solver/voxelCapacity.ts
   - packages/solver-contract/src/structural-state.ts
-  - crates/dof-solver/src/model.rs
-  - docs/kb/placement-criteria.md
-  - docs/kb/controls-camera-criteria.md
-  - docs/evidence/cantilever-evaluation/probe.mjs
+  - apps/web/src/game/cantileverRules.test.ts
+  - apps/web/src/game/cantileverPlacement.test.ts
+  - apps/web/src/game/interiorCollarAnalysis.test.ts
+  - apps/web/src/solver/collarCapacity.test.ts
+  - apps/web/src/game/cantileverRelease.test.ts
+  - apps/web/src/menu/startPlan.test.ts
+  - docs/evidence/cantilever-evaluation/observations.json
 owner: unknown
-status: needs-review
+status: partial
 ---
 
 # Shared table cantilevers
 
-## Evaluation
+## Implemented scope and versions
 
-The repo already supports a conventional cantilever: place a member, attach one end with a connection card, and leave the other end free. The missing capability is placing a **whole new member over an attachment point at its own quarter or midpoint**, with material extending on both sides. Both deserve one placement workflow. The interaction and implementation below are proposals; this evaluation changes no gameplay.
+New Shared table matches use **`grow-dusk-release-2`**. A continuous frame can be placed with its own original **25%, 50% or 75% station** over an existing shared joint or permitted original quarter port, then attached there with one **Fixed connector**. Both projecting tips remain free. The beam stays one element card and the attachment spends one connection card. Ordinary one-end cantilevers and incoming ends attached to existing quarters remain available.
 
-| Arrangement | Current behavior | Evidence |
-| --- | --- | --- |
-| New beam attached at one end, opposite tip free | Supported. Snapping alone does not connect it. | `stageElement` / `stageConnection` in `game/turns.ts`; independent loose nodes in `game/turnAnalysis.ts`. |
-| New beam end attached to an existing member's 25%, 50% or 75% port | Supported, including exact off-grid original ports. | `game/turnPorts.ts`; analytical continuity in `game/turnAnalysis.ts`; `game/quarterFrame.test.ts`. |
-| New beam's own quarter or midpoint attached over an existing column tip | Unsupported. Geometry is rejected as a clash; the connection API can attach only ends A/B. | `contacts` in `game/materialClashes.ts`; `stageConnection` in `game/turns.ts`. |
-| New beam crossing another member at arbitrary locations | Not a permitted connection. Physical clashes remain illegal. | Quarter-only interfaces and explicit contact rules in [placement criteria](placement-criteria.md). |
+**Play** creates v2 matches at `/match`. **More modes → Shared table → Shared table · cantilevers** selects the same mechanics at `/play` and is the default for a fresh setup. Continue preserves the saved match's catalogue. The v2 decks reuse the exact v1 card printings and deterministic draw sequence; v1 saved matches retain `grow-dusk-release-1` mechanics and cannot acquire interior source attachments by replaying new events. Private headers identify the actual rules version and must match the saved turn.
 
-The active release is `/match` → `pages/ReleaseMatch.tsx` → `components/ReleaseBoard.tsx` → `viewer/Scene.tsx`, using the existing `game/turns.ts` authority. Secondary Shared table presets at `/play` use the same turn rules. The separate `multiplayer/domain` and `multiplayer/view` modules are not the release authority; changing their preview alone would not implement this feature. The alternate domain also restricts the connection source to an end in `multiplayer/domain/geometry.ts`.
+| Arrangement | Current capability |
+| --- | --- |
+| Member connected at one end, opposite tip free | Available under the existing end-connection rules. |
+| New end attached to another member's original quarter | Available under that target family's existing quarter law. |
+| New continuous frame supported at its own quarter or midpoint | Available in v2 with a declared contact and a compatible fixed collar. |
+| Partial-lock, ball or elastic connector at an interior source | Unavailable; the rule rejects it without spending the card. |
+| Interior source on a cable, axial spring or assembly | Unavailable in this extension; use its supported end-attachment workflow. Existing quarter targets keep their existing family law. |
+| Arbitrary undeclared material crossing | Illegal; a visible crossing does not establish a fitting or connection. |
 
-### Why even a basic cantilever is hard to discover
+The active authority remains `game/turns.ts`, presented through `ReleaseBoard` and `viewer/Scene`. The separate `multiplayer/domain` and `multiplayer/view` preview modules do not implement this v2 source-collar workflow.
 
-- The release prompt says only “Choose the start point” and “Choose the end point.” It does not explain that the second point can be a free tip.
-- `turnGuides.ts` highlights existing quarter ports and eligible connector ends. It does not show the reachable free-grid destinations for a selected element.
-- After choosing a start, `sceneInteraction.ts` normally uses a vertical plane chosen from the camera direction. Horizontal placement requires Shift. There is no corresponding visible plane control in the release targeting bar.
-- The growth candidate display in `Scene.tsx` explicitly excludes multiplayer. Precise placement is available, but requires thinking in endpoint coordinates.
+## Player workflow
 
-## Proposed player workflow
+1. Select an element and choose an **Attachment point** in the scene or target list. Ordinary free placement can still start on the grid.
+2. Keep the default **End A**, or optionally select **¼ · Middle · ¾ · End B** under **Attach at**. Interior choices appear for supported frame cards in v2 after choosing an existing interface. The selected original station stays pinned.
+3. Choose a **Free tip**. The full element appears in the preview, with both endpoint markers, the attachment ring and valid destinations. The targeting bar shows whole length, endpoint coordinates and both overhang lengths for an interior station. **Build plane** defaults to **Horizontal**, with explicit **Vertical XZ** and **Vertical YZ** choices. Orbiting the camera does not select a different build plane.
+4. **Place element** stages geometry. The contact remains **Unconnected**, with a dashed scene ring for an interior source. **Attach with Fixed connector** spends the named compatible hand card only after the player clicks it. The status becomes **Attached** after acceptance. A missing compatible card or exhausted connection allowance leaves the legal unconnected draft available.
+5. **End turn** uses the existing assessment, deduction, repair and save flow. Legal placement, connection and foundation reachability do not promise structural stability.
 
-Use the existing element card workflow for every arrangement. A separate cantilever tool or physics toggle is unnecessary.
-
-1. **Choose an element card.** Prompt: “Choose an attachment point, or start on the grid.” Highlight existing tips and original quarter ports on either player's pieces. An attachment point need not already have a path to a foundation.
-2. **Optionally change where it attaches.** Default to the near end with no extra confirmation, preserving the quick ordinary cantilever flow. Offer five labelled points on a small beam diagram: **End A · ¼ · Middle · ¾ · End B**. Selecting an interior point keeps that point pinned while the entire new member moves around it. Show this control only after choosing an existing interface; free placement retains the ordinary two-endpoint workflow.
-3. **Aim and set reach.** Show a whole-element ghost, both tips, the attachment ring and nearby legal grid destinations. Start on a horizontal plane through the attachment, with visible **Horizontal / Vertical** controls. Changing the camera must not change the chosen plane. For Vertical, expose XZ/YZ selection; precise endpoints remain available for other orientations. The preview labels total length and both overhang lengths. Only legal reference geometry can be placed.
-4. **Place, then explicitly attach.** Staging geometry shows a dashed ring labelled “Unconnected.” In the same targeting bar, offer compatible connection cards actually in the player's hand, for example **Attach with Fixed connector**. The player selects the card to spend it. Show its freedoms and remaining allowance. A connected ring and “Attached” appear only after that action succeeds. If no compatible card is available, explain why and retain the legal unconnected placement.
-5. **End turn normally.** Use the existing assessment, deduction, repair and save flow. Geometry validity and graph reachability do not establish stability. Never label a preview “stable” before analysis.
+The same controls support keyboard selection and coordinate fallback. **Enter free tip coordinates** derives the complete pinned member from a target tip. **Precise placement** retains the two-endpoint form for independent placement. Escape backs out of the current targeting operation before cancelling card selection; **Cancel draft** retains its existing whole-draft meaning. A hover is not needed to select a target or spend a card.
 
 ```mermaid
 flowchart LR
-  A[Choose element] --> B[Pick existing point]
+  A[Select element] --> B[Choose existing point]
   B --> C[End by default · optional quarter or middle]
-  C --> D[Aim whole-element preview]
+  C --> D[Aim whole element]
   D --> E[Place geometry]
-  E --> F[Choose connection card to attach]
+  E --> F[Choose fixed connector to attach]
   F --> G[End turn and assess]
   E --> G
 ```
 
-Keep this in the existing compact targeting bar. Do not open another permanent panel. Tapping and keyboard activation must expose the same choices; hovering is optional. Escape returns one step before cancelling targeting, without discarding already staged cards. Cancel draft keeps its existing whole-draft meaning. A change to an unstaged attachment station does not consume a card; after staging, the existing draft cancellation rules apply.
+### Release-board example
 
-### Example on the release board
+Choose the first starting column's top at `(5,7,1)`, choose **¼**, and select free tip `(8,7,1)`. The beam spans `(4,7,1)` → `(8,7,1)`: one grid unit behind the column and three beyond it. At 2 m per unit, that is one 8 m member with 2 m and 6 m overhangs. Place it and explicitly attach the fixed connector. The original column and its fitted connections remain unchanged.
 
-Choose the first starting column's top at `(5,7,1)`, then choose **¼** on a four-unit horizontal beam. The preview runs from `(4,7,1)` to `(8,7,1)`: one unit behind the column and three beyond it. At the release scale, that is an 8 m member with 2 m and 6 m overhangs. Place it, then spend one compatible fixed connection at the quarter point. Both tips remain free; the beam stays one element card. The original column and its existing fittings remain unchanged.
+For an ordinary cantilever, keep **End A** and use `(5,7,1)` → `(9,7,1)`. It follows the same interaction without an extra station confirmation.
 
-For the conventional cantilever, keep **End A** selected and place `(5,7,1)` → `(9,7,1)`. It uses the same flow with no extra station choice. This arrangement already passes the current rules.
+## Geometry, identity and physical behavior
 
-## Implementation boundaries
+`cantileverPlacement.ts` derives both tips from the pinned point and selected original fraction, then calls `stageElement` to validate the complete placement. The printed maximum applies to the full Euclidean span, including both overhangs. Both endpoints must remain valid grid positions or explicitly permitted named ports. Exact off-grid host quarters are preserved. Invalid reaches are rejected rather than moving the pin or rounding a tip into a legal placement. For example, a five-unit horizontal beam at its quarter over an integer-grid point has off-grid tips, while a four-unit span can fit exactly.
 
-### Preserve exact geometry
+`AttachmentSite` retains the historical `a`/`b` end IDs and adds `q1`/`q2`/`q3`. The legacy connection field name `end` now carries one of those original sites. An element event records its optional `{quarter, target}` contact, and the placed member stores the corresponding `interiorTargets` identity. The contact declares the bounded fitting region for reference-solid clash checking. It adds no stiffness. Material outside that region still undergoes the existing physical clash checks.
 
-For existing attachment position `O`, chosen new-member fraction `q ∈ {0, 1/4, 1/2, 3/4, 1}`, and full span vector `D`:
+Fitting the fixed collar aliases the continuous parent quarter node to the receiving joint for analysis. Both neighboring beam pieces preserve full internal continuity. No new member, hidden short rigid beam, ground restraint or foundation is introduced. Existing fittings remain immutable. Source and receiving-joint profiles must match through the explicit alias chain. One collar receives one persistent identity, such as `connection:port:3:1`, and one overload identity, such as `connection-overload:3:q1`.
 
-`A = O − qD`, `B = O + (1 − q)D`.
+The capacity check recovers the signed resultant of the adjacent parent segments, including loads and incoming fittings explicitly attached to the source port. A load applied directly to the receiving joint is not silently charged to the source collar. Nested source collars transfer their demand once; missing verified segment response or cyclic attribution withholds the capacity result. Member-level response still reports one physical parent.
 
-Validate the complete Euclidean span, both endpoints, board limits, printed orientations and physical reference solids. The maximum printed length applies to **A–B**, not just the projecting arm. Generate exact legal candidates; endpoints must still be grid locations or explicit permitted existing ports. Do not round either tip, move the pinned interface or add new off-grid endpoint rules implicitly. For example, a five-unit horizontal beam supported at its quarter over an integer-grid point produces off-grid tips; a four-unit span works. Empty candidate sets need an actionable explanation such as “Choose another span or attachment position.”
+Load targets retain their original physical identities. Alias resolution carries a source-port load to the analytical receiving joint without rewriting its history. A source aliased to an excluded setup or neutral joint remains excluded from player load targets. A loose end at coincident coordinates keeps its independent identity.
 
-Store original parent ID and rational station. Analytical subdivision must not create new playable stations. Quarter-supported placement remains one parent with its original properties, loads and mass.
+The structural snapshot records a collar explicitly with original parent, rational quarter, source/receiving joint IDs and the `fixed-interior-collar-1` interpretation. It does not disguise the collar as an original member end. Connectivity, issue comparison, inspection and local repair use the source station. The separate editor/OpenSees translation rejects an interior-collar request it cannot represent; it does not fabricate a different model.
 
-### Add a connection at an interior source interface
+## Verification and remaining scope
 
-Today a stored connection identifies `memberId`, `end: a|b`, `jointId` and profile. Generalize the source to an original member interface, such as `{memberId, quarter: 0|1|2|3|4}`, with a persistent connector identity. The receiving joint retains its explicit identity; an existing quarter target retains its own parent/station identity. A read adapter maps historical A/B ends to 0/4. Do not infer target identity from coordinates or rewrite previously fitted column ends.
+The focused regression suites cover:
 
-Extend the existing matching-freedoms rule to the new attachment. A setup column's existing fixed joint requires a compatible fixed connector. Being located over a column never grants a new foundation or direct ground fixity. An attachment uses one connection card and one connection allowance, regardless of whether its source is an end or interior station. Repeated connections at an occupied source interface remain illegal under the immutable-connector policy.
+- `cantileverRules.test.ts`: all three source quarters, declaration and exact coincidence, clashes, fixed-profile compatibility, immutable fittings, card consumption, cancellation, load exclusions, replay tampering and unchanged v1 mechanics.
+- `cantileverPlacement.test.ts`: default end placement, pinned whole geometry, both board sides, full-span limits, stable planes, exact diagonal/off-grid host identities and unavailable source families.
+- `interiorCollarAnalysis.test.ts` and `solver/collarCapacity.test.ts`: asymmetric loaded arms at all quarters, independent shear-flexible cantilever displacement references, signed reactions and collar force/moment, direct source versus receiving-joint loads, incoming branches, nested collars, explicit snapshot identity and unavailable-response behavior.
+- `cantileverRelease.test.ts`: a genuine dealt v2 quarter-supported 5 kN match through all 16 turns, one card per physical play, unchanged starting fittings, Rust final-score provenance, complete private draft/final replay and v1 private-save preservation.
+- `menu/startPlan.test.ts`: the v2 preset reaches the release board dimensions while Continue retains a historical match.
 
-An intended **contact** must be stored separately from the fitted **connection**. Placement needs declared source/target interfaces so `materialClashes.ts` can allow the bounded fitting region before the connector is played. That fitting exception adds no stiffness. Check all material outside it; a generic crossing must not become legal because any two coordinates happen to match. Preserve neutral-object exclusions and the original clash checks for hollow sections and assemblies.
+`scripts/cantilever-browser.mjs` is the reproducible browser walkthrough for pointer, keyboard, touch emulation and unavailable-WebGL controls. Its presence alone is not evidence of a completed browser run. Hardware touch, assistive technology and the broader release matrix remain governed by the [controls criteria](controls-camera-criteria.md) and [release ledger](criteria-ledger.md).
 
-### Keep the through-member continuous
+Partial-lock, ball and elastic **interior source** collars remain unimplemented. They require a separate six-DOF relation between the through-member's continuous private node and the receiving joint; plain node aliasing would incorrectly lock their released axes. Releasing both beam segments would incorrectly cut the parent's continuity. Axial-family and assembly source collars likewise require their own defined physical interfaces and validation. These limits do not remove existing end or target-quarter capabilities.
 
-The internal quarter node belongs to one continuous beam. Its left and right analytical pieces must share all six internal DOFs even when the external connector releases a rotation.
+### Historical evaluation
 
-For an **all-six-DOF fixed collar**, the quarter node can alias the existing receiving joint while keeping original IDs in provenance. This reuses current continuous subdivision and does not require a new Rust stiffness formulation. The collar still needs force/moment recovery from adjacent parent-segment actions and a capacity check of its own; accepting displacement and reactions alone is insufficient for scored release. Define whether a direct interface load acts on the source member or receiving joint before aliasing. Recover collar demand with that load convention, so a force applied directly at the source collar is not omitted or counted twice.
-
-For **partial-lock, ball or elastic collars**, keep a private continuous node on the through-member and add a separate six-DOF relation to the receiving joint. Current solver models describe connections only at member ends (`packages/solver-contract/src/analysis.ts`, `crates/dof-solver/src/model.rs`), so the general relation requires contract and solver work. Merging the nodes would incorrectly lock released rotations. Releasing both analytical beam ends at the interior station would incorrectly cut the original beam's continuity. Do not use either shortcut or invent a short rigid beam as a fitting.
-
-The same targeting concept can serve other families, but their physical laws still apply. An axial spring or cable does not acquire bending stiffness from this UI. Assembly targets must resolve to authored physical interfaces. Do not call every family a stable cantilever or silently convert a nonfixed card to fixed.
-
-### Carry the attachment through the whole match
-
-| Boundary | Required update |
-| --- | --- |
-| `components/ReleaseBoard.tsx`, `ReleaseTargets.tsx`; `viewer/sceneInteraction.ts`, `scenePicking.ts`, `turnGuides.ts`, `turnPicking.ts` | Station selection, stable plane, whole-member preview, free destinations, exact target identity and contextual attachment action. Keep secondary Shared table controls aligned through shared targeting rules. |
-| `game/turns.ts`, `turnPorts.ts`, `materialClashes.ts` | Source-interface connections, declared fitting contacts, legality, one-card consumption and receiving-joint compatibility. Revalidate at End turn. |
-| `game/turnAnalysis.ts`; solver contract/adapters | Continuous parent subdivision, external collar relation, correct load targets and collar force/capacity recovery. Fixed aliasing is a bounded first implementation. |
-| `game/connectivity.ts`, `turnEvidence.ts`, `turnIssues.ts`, `turnRepair.ts` | Source-port reachability; persistent collar identity in analysis, overload evidence, penalties and local repairs. Do not count a collar twice because it touches two segments. |
-| `game/releaseSession.ts`, `releaseSave.ts`, `session.ts`, replay in `turns.ts` | Versioned events and deterministic replay. Preserve historical rules and saves. New attachment mechanics need a new supported ruleset/schema path, not changed meaning under `grow-dusk-release-1`. |
-| Load resolution, public views and joint inspection | Resolve aliases without losing original stations; preserve setup/neutral load exclusions and private handoff; show actual connector freedoms at the source and receiving joint. |
-
-Recommended sequence: first expose the already supported end cantilever interaction; then add fixed interior collars with complete provenance, scoring and replay; then add other collar laws through the general solver relation. Label each implemented capability accurately. The full request includes quarter/midpoint overhangs; the first interaction improvement alone does not complete it.
-
-## Verification and completion gates
-
-At repository baseline `39508f0`, five existing focused suites passed **52/52 tests**: `quarterFrame`, `releaseRules`, `materialClashes`, `sceneCandidates`, and `multiplayer/domain/domain`. The frame suite includes analytical cantilever displacement and reaction comparisons for five sections at all three original quarter stations. This validates existing behavior, not the proposed collar.
-
-Run `node docs/evidence/cantilever-evaluation/probe.mjs` from the repo root for the current rule reproduction. It demonstrates that an end cantilever attaches with one connector and retains an independent free-tip node; the new beam over its own quarter at the starting column fails clash checking; an interior source is unavailable in the connection API. The probe reports observations and is not a release acceptance test.
-
-Before shipping the extension, require:
-
-- Normal pointer, keyboard and touch construction of an end cantilever and a new beam over its own 25%, 50% and 75% attachment. Include either player's structure and exact diagonal/off-grid target identity.
-- Full-span limits, both board edges, unavailable exact grid spans, intended fitting contact, unintended intersections, occupied source interfaces and incompatible joint profiles. Camera orbit must not move the pinned station or plane.
-- One element/one connection consumption, independent remaining allowances, absent connector cards, intentional unconnected placement, cancellation, reload during a draft, committed replay, private handoff and unchanged legacy saves.
-- Independent numerical references for fixed collars under asymmetric loads on either side: signed support forces/moments, tip motion, continuous beam rotation and recovered collar demand. Symmetric loading alone can hide an incorrect hinge. Include the original column's flexibility in full-board fixtures; it is not a foundation at its top.
-- For each additional collar law, verify independent beam/host rotations, free versus locked axes, elastic relative motion, instability, connector capacity, issue identity and local physical repair. Loads at a collar must follow the same alias and setup-load exclusion rules.
-
-No new game interaction, connection law or scored capability is implemented by this document. Browser usability testing of the proposed flow remains part of implementation acceptance.
+At baseline `39508f0`, the existing five focused suites passed 52/52 tests, but own-quarter support was rejected as a clash. The [recorded observations](../evidence/cantilever-evaluation/observations.json) and [read-only probe](../evidence/cantilever-evaluation/probe.mjs) preserve that finding. The probe deliberately creates a **v1** match, so its rejection remains correct after v2 is added. It is historical evidence rather than a v2 acceptance test. The initial evaluation is retained in Git history at `8cdd5b6`.
