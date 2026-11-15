@@ -27,7 +27,7 @@ status: partial
 
 ## Purpose and status
 
-This is the canonical entry point for durable project knowledge. The early web prototype presents five environments in one application, with voxel editing, challenges, approximate numerical analysis, and a local Shared table card playtest. Shared table turns commit with experimental applied-load results where available. The OpenSees service implements the shared solver adapter for stability and degree-of-freedom checks. Distinguish implemented behavior from proposed experiments and future decisions.
+This is the canonical entry point for durable project knowledge. The web prototype contains five existing environment presenters, voxel editing, challenges and a local Shared table card playtest. Its two-player, eight-round frame preset supports private handoffs, intentional original-quarter attachments and final scoring from verified component reactions. The editor can request linear or bounded nonlinear analysis through the OpenSees adapter. The [criteria ledger](criteria-ledger.md) records the tested scope and remaining gaps.
 
 ## Pages
 
@@ -64,13 +64,13 @@ This is the canonical entry point for durable project knowledge. The early web p
 
 ## Completion rules and decisions
 
-Start with [core game completion criteria](game-completion-criteria.md) for the eight new specifications and decision register. The owner confirmed fixed rounds, final load-share percentage minus accumulated penalties, local hot-seat privacy, grid/diagonal and quarter-point attachments for all families, no physical clashes, one assembly card per element play, and retained structures repaired through additions. These supersede older contrary proposals; implementation and numerical acceptance remain pending.
+Start with [core game completion criteria](game-completion-criteria.md) for the eight specifications and decision register. The owner confirmed fixed rounds, final load-share percentage minus accumulated penalties, local hot-seat privacy, grid/diagonal and quarter-point attachments for all families, no physical clashes, one assembly card per element play, and retained structures repaired through additions. Check each family's physical and gameplay acceptance in the criteria ledger.
 
 ## Turn rules: source of truth
 
 Start with [turn criteria](turn-criteria.md#1-status-and-confirmed-rules) for the owner's confirmed two-deck rules. The page includes the card families, six-DOF connection profile table, turn lifecycle, whole-structure issue comparison, 1-point penalty policy, a worked example, persistence requirements and acceptance scenarios.
 
-The confirmed decisions are distinct from the proposed connection presets and unresolved balance choices. [Questions still to resolve](turn-criteria.md#9-questions-still-to-resolve) tracks remaining parameters; the [completion decision register](game-completion-criteria.md#2-owner-confirmed-decision-register) now resolves the main scoring, match-format, placement and repair choices. The Shared table implements the card lifecycle and explicit attachments. Verified issue assessment and penalties remain pending. Later confirmed turn decisions supersede earlier gameplay proposals in the solver criteria; numerical solver requirements remain in [solver criteria](solver-criteria.md).
+The [completion decision register](game-completion-criteria.md#2-owner-confirmed-decision-register) specifies scoring, match format, placement and repair choices. The Shared table implements the card lifecycle and explicit attachments. Its versioned scored preset compares verified member/connector overload and witnessed instability on persistent physical IDs. Numerical tests and remaining validation gates are recorded in the [solver criteria](solver-criteria.md) and [criteria ledger](criteria-ledger.md).
 
 ## Animation and sound direction
 
