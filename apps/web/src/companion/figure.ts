@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { REST, type Pose } from "./motion";
+import { releaseContextWhenIdle } from "../viewer/releaseContext";
 
 export type FigureName = "timburr" | "conkeldurr";
 
@@ -139,6 +140,6 @@ export function createFigure(pixels = 128) {
     if (displayed) release(displayed);
     if (!loading) decoder.dispose();
     renderer.dispose();
-    if (!renderer.getContext().isContextLost()) renderer.forceContextLoss();
+    releaseContextWhenIdle(renderer.getContext());
   } };
 }
