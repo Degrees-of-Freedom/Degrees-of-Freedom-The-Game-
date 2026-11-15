@@ -1,0 +1,31 @@
+[project]
+name = "dof-structure-gan"
+version = "0.1.0"
+description = "Adversarial generator of complex, stable structures for Degrees of Freedom: The Game"
+readme = "README.md"
+# Matches services/opensees, whose engine is the physics oracle.
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "dof-opensees",
+    "numpy>=2.0",
+    "torch>=2.4",
+]
+
+[project.scripts]
+dof-structure-gan = "dof_structure_gan.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.uv.sources]
+dof-opensees = { path = "../../services/opensees", editable = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dof_structure_gan"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
