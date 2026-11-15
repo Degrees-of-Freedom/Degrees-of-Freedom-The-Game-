@@ -10,6 +10,7 @@ validated_against:
   - docs/kb/analysis-results.md
   - docs/kb/structural-solver.md
   - docs/kb/rust-solver.md
+  - docs/kb/voxel-retirement.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/solver-criteria.md
   - docs/kb/turn-criteria.md
@@ -41,6 +42,7 @@ This is the canonical entry point for durable project knowledge. The early web p
 | [code-standards.md](code-standards.md) | Applying TypeScript, folder structure, modularity, React, Zustand, and routing standards. |
 | [structural-solver.md](structural-solver.md) | Working on the model, required element catalogue, the OpenSees service, stability assessment, adapter boundaries, or solver tests. |
 | [rust-solver.md](rust-solver.md) | Working on the Rust WebAssembly solver: its coverage of the criteria, test evidence, timings, and open decisions. |
+| [voxel-retirement.md](voxel-retirement.md) | Planning the proposed retirement of the voxel analysis: what depends on it, what the Rust solver and OpenSees can replace, and a migration order. |
 | [element-representation-criteria.md](element-representation-criteria.md) | Generating lightweight column, spring, planar/trichord truss, wide-flange, HSS and cable geometry, with readable and true-scale views. |
 | [analysis-results.md](analysis-results.md) | Persisting versioned solver runs, validity and result provenance. |
 | [structural-state.md](structural-state.md) | Browser saves, experimental solver snapshots, and proposed general state and fixture design. |
