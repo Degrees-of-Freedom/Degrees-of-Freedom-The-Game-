@@ -27,17 +27,17 @@
 .companion button:focus-visible { outline: 3px solid #ffbf57; outline-offset: 2px; }
 .companion[data-foreman="reaction"] .companion-figure { border-color: #ffbf57; }
 .companion-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-@media (prefers-reduced-motion: no-preference) {
-  .companion[data-foreman="reaction"][data-motion="system"] .figure-stage {
-    animation: foreman-arrival 800ms ease-out both;
-  }
-  @keyframes foreman-arrival {
-    from { transform: scale(.88); }
-    to { transform: scale(1); }
-  }
+/* Conkeldurr's arrival and every other clip are sampled in motion.ts. Under
+ * reduced motion or skipped effects the figure stays still and a swap only
+ * fades in briefly, as the avatar criteria allow. */
+.companion[data-motion="reduced"] .figure-stage, .companion[data-still="true"] .figure-stage {
+  animation: figure-fade 180ms ease-out both;
 }
+@keyframes figure-fade { from { opacity: .35; } to { opacity: 1; } }
 .figure-stage { display: block; position: relative; width: var(--figure-size); height: var(--figure-size); }
 .figure-stage img, .figure-stage canvas { display: block; position: absolute; inset: 0; width: 100%; height: 100%; }
+/* The portrait fallback is posed by inline transforms about the feet. */
+.figure-stage img { transform-origin: 50% 96%; will-change: transform; }
 .figure-stage[data-view="portrait"] canvas, .figure-stage[data-view="model"] img { visibility: hidden; }
 .companion-note {
   position: absolute; right: 0; top: calc(100% + 5px); z-index: 1;
