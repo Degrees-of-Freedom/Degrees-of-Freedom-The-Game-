@@ -79,6 +79,9 @@ try {
       await activate(button("Inspect"));
       await activate(button("Inspect committed response"));
       await page.getByLabel("Board overlay").waitFor();
+      await page.getByLabel("Inspect member", { exact: true }).selectOption("1");
+      await page.getByLabel("Section action").selectOption({ label: "Moment My" });
+      await page.getByRole("img", { name: /Moment My .* kN·m/ }).waitFor();
       await activate(button("Close inspection"));
       const frame = page.locator('[data-kind="element"]').filter({ hasText: /HEB/i }).first();
       await activate(frame);

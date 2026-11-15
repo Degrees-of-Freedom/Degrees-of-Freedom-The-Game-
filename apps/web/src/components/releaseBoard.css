@@ -67,6 +67,8 @@
 .release-drawer > * + * { margin-top: .6rem; }
 .release-drawer dl > div { display: flex; gap: .5rem; }
 .release-drawer dd { margin-inline-start: 0; }
+.release-diagram svg { display: block; width: 100%; color: #cfcac3; background: #16232f; margin: .5rem 0; border-radius: .5rem; }
+.release-diagram svg text { font-size: 10px; fill: currentColor; }
 .release-drawer .release-check { display: flex; align-items: center; gap: .5rem; min-height: 44px; }
 .release-check input { width: 1.2rem; min-height: 1.2rem; }
 .release-drawer table { border-collapse: collapse; width: 100%; font-size: .9rem; }

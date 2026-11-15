@@ -11,6 +11,7 @@ import type { useReleaseInspection } from "../viewer/useReleaseInspection";
 import { CardDefinitionDetails } from "./CardDefinitionDetails";
 import { JointPermissions } from "./JointPermissions";
 import { RepairHistory } from "./RepairHistory";
+import { MemberDiagram } from "./MemberDiagram";
 import { computeLoadPath } from "../solver/loadPath";
 
 type Layer = "reference" | "shape" | "path";
@@ -51,6 +52,7 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, resp
         return <div key={end}><dt>End {end.toUpperCase()}</dt><dd>{conn ? `${connectionLabel(conn.profile)} · ${conn.jointId}` : "Unattached"}</dd></div>;
       })}</dl>
       <details><summary>Original ports</summary>{originalPorts(member).map(p => <p key={p.id}>{portLabel(p)} · ({p.point.join(", ")})</p>)}</details>
+      {response && <MemberDiagram key={member.id} result={response.result} parent={member.id} />}
       {response && <details><summary>Local end actions</summary>
         {submembers.length ? submembers.map(e => {
           const verified = response.receipt.components.some(s => s.verified && s.memberIds.includes(e.m.id));
