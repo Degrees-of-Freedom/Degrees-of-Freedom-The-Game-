@@ -69,9 +69,9 @@ Working on `crates/dof-solver` needs [Rust](https://rustup.rs) with the WebAssem
 
 | Command | Does |
 | --- | --- |
-| `npm run test:solver` | `cargo test`: 11 unit tests and 42 acceptance tests, about a minute. |
+| `npm run test:solver` | `cargo test`: unit and acceptance tests, about two minutes. |
 | `npm run build:solver` | Builds the release module and copies it into the web app. |
-| `npm run bench:solver` | Times the committed module in Node on a game-sized and a stress frame. |
+| `npm run bench:solver` | Times the committed module in Node on a game-sized frame, a stress frame and three large frames. |
 | `cargo test --release --test profile -- --ignored --nocapture` (in the crate) | Prints the time spent in assembly, factorisation and each analysis. |
 
 The crate deliberately has no third-party dependencies and carries its own JSON reader and writer. One reason is a small, self-contained module. The other is practical: on the machine it was developed on, endpoint security removed the build script of the `serde` JSON library as soon as it was compiled, so a dependency on it could not be built there.
@@ -230,3 +230,22 @@ Same container and toolchain as above, after moving new playtest matches to the 
 | Shared table in a browser | Checked once with Playwright and Chromium against the Vite dev server: setup with "Frame members and tension-only cables", Start, reveal, End turn, reload. The save header recorded `"engine":"rust-1"`, the match restored to the next handoff, and there were no console errors. |
 
 Not checked: the OpenSees-dependent tests, and loading a real pre-migration save from a player's browser. Legacy replay is covered by `turnEngine.test.ts` with matches created on the kernel.
+
+## Solver 0.3, sparse factorisation — 2026-11-15
+
+Checks for the branch adding the sparse factorisation (`crates/dof-solver/src/linalg.rs`, `sparse.rs`), merged with `main` at `c41571d`. Linux cloud container, 4-core Intel Xeon 2.1 GHz, Node 22.23.4, rustc 1.97.0, OpenSees 3.8.0. Details and timings are on the [Rust solver page](rust-solver.md#solver-03-sparse-factorisation-for-large-structures).
+
+| Check | Result |
+| --- | --- |
+| `npm run test:solver` | Pass: 108 tests, 1 ignored timing harness. Includes `tests/large.rs` and a 4,000-state sweep on the sparse factor. |
+| Native differential against `main`'s crate | 14,500 random, large and reserve-search states identical apart from `solverVersion`; three large stress frames equal to rounding. Run with a temporary dump test in both trees, not committed. |
+| `npm run typecheck`, `npm test` | Pass: 93 files, 816 tests; 3 files and 12 tests skipped without an OpenSees service. Includes `game/releaseSave.test.ts`. |
+| `npm run build` | Pass. Production solver SHA-256 `585595d2…`, equal to the checked-in binary. |
+| `node scripts/physics/compare-solver-revisions.mjs origin/main` (and `39508f0`) | Pass: 320 turn states and 276 raw result documents identical. |
+| `node scripts/physics/check-saved-solver.mjs 91d551b` | Pass: 20 archived browser matches compared, 660 confirmed records replayed. |
+| Structure-library baseline | Regenerated deliberately. Only provenance changed, plus `12-midrise` (208 members, the one library structure on the sparse factor): maximum displacement differs in the 17th significant digit. |
+| `npm run test:opensees`; live `crossCheck.test.ts` | Pass: 719 passed, 7 skipped; 6 passed against the running service. |
+
+Not checked: the browser release matrix (`npm run test:release`), which runs in CI, and Windows. The release seeds were compared in Node with the same game code.
+
+After rebuilding the binary, `node scripts/physics/compare-solver-revisions.mjs <revision with the previous binary>` checks that release matches replay identically, including every raw solver result.

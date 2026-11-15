@@ -6,6 +6,14 @@ validated_against:
   - crates/dof-solver/src
   - crates/dof-solver/tests
   - crates/dof-solver/tests/reserve.rs
+  - crates/dof-solver/src/linalg.rs
+  - crates/dof-solver/src/sparse.rs
+  - crates/dof-solver/tests/large.rs
+  - scripts/physics/compare-solver-revisions.mjs
+  - apps/web/src/evaluator/evidence.ts
+  - apps/web/src/evaluator/engine/releaseTurn.ts
+  - apps/web/src/game/releaseSave.ts
+  - apps/web/src/game/releaseSave.test.ts
   - apps/web/src/evaluator/engine/rustDesign.ts
   - packages/solver-contract/src/analysis.ts
   - apps/web/src/solver/wasm
@@ -37,7 +45,7 @@ status: partial
 
 The crate [README](../../crates/dof-solver/README.md) is the reference for building, calling, conventions, the algorithm and tolerances. This page records how the solver stands against the criteria, the evidence, and the choices that still need an owner decision.
 
-The scored Grow Dusk release uses the nonlinear Rust 0.2.0 module for End Turn, replay, card strength and signed support attraction. The workspace editor also uses the module for its detailed stability check. Since 2026-11-15 it also runs the structure evaluation behind the editor, levels, auto-design and structure library (see [Stability reserve and the structure evaluator](#stability-reserve-and-the-structure-evaluator)). Independent OpenSeesPy tests exercise matched nonlinear buckling, sway and cable models. The tests and timings below describe measured behavior. Owner acceptance is tracked in the release ledger.
+The scored Grow Dusk release uses the nonlinear Rust 0.3.0 module for End Turn, replay, card strength and signed support attraction. The workspace editor also uses the module for its detailed stability check. Since 2026-11-15 it also runs the structure evaluation behind the editor, levels, auto-design and structure library (see [Stability reserve and the structure evaluator](#stability-reserve-and-the-structure-evaluator)). Independent OpenSeesPy tests exercise matched nonlinear buckling, sway and cable models. The tests and timings below describe measured behavior. Owner acceptance is tracked in the release ledger.
 
 ## What exists
 
@@ -46,7 +54,7 @@ The scored Grow Dusk release uses the nonlinear Rust 0.2.0 module for End Turn, 
 | Solver | `crates/dof-solver` | The native regression suites cover the detailed kernel. The crate has no third-party dependencies. |
 | Detailed contract types | `packages/solver-contract/src/analysis.ts` | `AnalysisModel`, `AnalysisOptions`, `DetailedAnalysisResult`, `DetailedSolver`. |
 | Browser adapter | `apps/web/src/solver/wasm/wasmSolver.ts`, `runner.ts`, `solverWorker.ts` | Serves the detailed contract, several load cases per call (`analyzeCases`), and the original `StructuralModel` contract. In a browser the module runs on a Web Worker, which is terminated on abort or after a wall-clock limit. See [Cancellation and time limit](#cancellation-and-time-limit). |
-| Compiled module | `apps/web/src/solver/wasm/dof_solver.wasm` | Checked-in 747,070-byte module. Rebuild with `npm run build:solver`. |
+| Compiled module | `apps/web/src/solver/wasm/dof_solver.wasm` | Checked-in 774,235-byte module (solver 0.3.0, rustc 1.97.0). Rebuild with `npm run build:solver`. |
 | Game integration | `apps/web/src/solver/index.ts`, `apps/web/src/game/analysisModel.ts`, `apps/web/src/game/useStabilityCheck.ts` | Default solver for the workspace check, which sends the detailed model. See [Game integration](#game-integration). |
 
 The workspace uses `game/analysisModel.ts` for Rust's detailed contract. The optional OpenSees v2 service uses `game/structuralModel.ts` for catalogue properties, end laws, support masks and linear or corotational analysis. The Shared table release worker uses its own immutable SI turn model.
@@ -155,12 +163,12 @@ Tal's always-on 10,000-state run and 2-to-4-support load-sharing tests already h
 | A08 robustness | Met in the browser | Invalid input, singular systems, extreme stiffness ratios and non-finite numbers give explicit results. Finite inputs whose products leave the range of a double are rejected as `numericRange` before analysis (see [Numeric range and work budget](#numeric-range-and-work-budget)). The solver bounds itself by iteration counts, per component and for the whole request; the browser adapter adds a wall-clock limit (`timeLimitExceeded`) and cancellation by terminating its worker. In Node the module runs inline and has only the iteration limits. |
 | Section 4 turn resolution | Integrated in Grow Dusk release | The transaction computes immutable before/after responses from undeformed geometry with the full current load set. The game records responsibilities and signed reactions, then regenerates and compares its scored receipt on replay. |
 | Section 5 result contract | Implemented | Explicit component availability, signed foundation reactions, node motion, member forces and connection results. Beam members also report deflection stations and the largest sag from the chord. The release requests section-force and displacement fields and computes player attraction from verified positive vertical reactions. |
-| Section 6 speed and surrogate | Partly | Timings below. No surrogate exists. The benchmark is one synthetic frame at two sizes on one machine, not a representative suite of game states. |
+| Section 6 speed and surrogate | Partly | Timings below. No surrogate exists. The benchmark is one synthetic frame family at five sizes on one machine, not a representative suite of game states. Since 0.3 large structures factorise sparsely; see [Solver 0.3](#solver-03-sparse-factorisation-for-large-structures). |
 | Section 7 acceptance tests | Met | See the next table. |
 
 ## Acceptance evidence
 
-Run with `npm run test:solver`. The 15 November 2026 merged suite passed 82 native tests, including seven numerical range and work-budget cases and the connection-spin reporting regression. The 10,000 generated states form one test. One timing harness is opt-in.
+Run with `npm run test:solver`. On 15 November 2026 the 0.3.0 suite, merged with `main` at `c41571d`, passed 108 native tests, including seven numerical range and work-budget cases, the connection-spin reporting regression, main's stability-reserve tests and the sparse-path tests of 0.3. The 10,000 generated states form one test; 4,000 more run with every system forced onto the sparse factorisation. One timing harness is opt-in.
 
 | Acceptance row | Tests (`crates/dof-solver/tests`) | Measured |
 | --- | --- | --- |
@@ -208,6 +216,47 @@ The rebuilt module keeps the release's results: `node scripts/physics/check-save
 
 The option `maxRequestIterations`, which the Rust parser already accepted, is now declared in the TypeScript contract.
 
+## Solver 0.3: sparse factorisation for large structures
+
+**Why.** In 0.2 every stiffness was factorised as a skyline (profile) LDLᵀ in reverse Cuthill–McKee order. For a three-dimensional frame that costs about n^(7/3): measured natively, one factorisation took 53 ms at 4,124 equations, 5.2 s at 29,188 and 26 s at 57,512. A nonlinear analysis needs about five, so a 3,510-member frame took 27.7 s natively and 25 s in WebAssembly, past the browser worker's 10 s limit, while the input limit allows 10,000 members.
+
+**What changed** (`crates/dof-solver/src/linalg.rs`, `sparse.rs`):
+
+- **Choice by size.** A system whose skyline factorisation would cost at most `SMALL_WORK` = 4e6 multiply-adds (about a millisecond) keeps the 0.2 skyline code. Every structure of game size is below it. Larger systems use the sparse factor.
+- **Sparse factor.** Equations are reordered by approximate minimum degree on the quotient graph, with equations of identical structure merged into weighted supervariables. The elimination tree is postordered, small supernodes are merged into their parents within CHOLMOD's relaxation limits, and each supernode is factorised as a dense front, a panel and an update matrix, with a four-column update kernel. If minimum degree would do more work than the equation order (a chain), the equation order is kept. The semantics are the skyline's: unit-diagonal scaling, `1e-10` null pivots as exact restraints, inertia, solves and null vectors. The crate still has no dependencies.
+- **One factorisation per exact tangent.** A factor handed to the next Newton solve is marked when it is exactly the unshifted matrix that solve would build at its start: the linear-stage stiffness for the first iteration (no gauged spin, cable states as at the reference), each converged load increment, the converged state for the stability-margin probe, and the undeformed tangent shared by all 13 critical-load bisection probes. Over 13,003 differential states the result documents were byte-identical with and without the reuse.
+- **Main's stability reserve.** Its linearised method blends two tangents; the sparse matrix supports the same blend, so the search works at any size.
+
+**Why small systems keep the skyline.** A different elimination order changes which DOF carries a null or negative pivot, the smallest pivot, and rounding. In near-singular states that can cross the `1e-10` null or `1e-7` near-mechanism threshold, or break an exact tie in the choice of spin gauge. Before the size rule, minimum degree on every system changed the status or reasons of about 330 of 13,003 random states. The changes went both ways: one state with a 2.3e-12 eigenvalue was correctly reclassified as a mechanism where 0.2 had called it marginal, and one gauge tie made a verified state `unknown`. Keeping the skyline below the threshold confines such differences to structures 0.2 could not analyse in useful time.
+
+**Evidence.**
+
+| Check | Result |
+| --- | --- |
+| Native differential against `main` (`c41571d`): 10,000 robustness states, 3,000 larger nonlinear states, 1,500 states with both reserve methods, 3 stress frames | 14,500 documents identical apart from `solverVersion`. The three stress frames (sparse path) agree in every status, count and flag; displacements within 3.4e-13 relative. |
+| `node scripts/physics/compare-solver-revisions.mjs origin/main` and `... 39508f0` | Release seeds 0–19: all 320 turn states, final scores and all 276 raw result documents identical to both earlier binaries. Against `91d551b` the raw documents differ, which shows the check detects a changed binary. |
+| `node scripts/physics/check-saved-solver.mjs 91d551b` | 20 archived browser matches compared, 660 confirmed records replayed. |
+| `tests/large.rs` | Stress frame (linear and nonlinear, 1 and 2 elements per beam), a buckling column grid (13 negative pivots, identical critical load factor 0.52014), both reserve methods: identical classifications on both factorisations, results within 1e-9 (linear) and 1e-7 (nonlinear). On a 5,190-equation sway mechanism the sparse factor finds all 31 null vectors (residual below 1e-12, smallest positive pivot 2e-4). The skyline keeps one as a 2.6e-10 rounding pivot and reports one spin fewer. |
+| Factor unit tests (`sparse.rs`) | In both orders: agreement with the skyline on regular and indefinite matrices; exact null vectors, with no false nulls. On 30 deliberately rank-deficient random matrices (up to 40 % nullity) the sparse factor missed 21 null directions and reported 10 rounding-sized negative pivots in total, against the skyline's 46 and 27. |
+| `npm test`, `npm run typecheck`, `npm run test:opensees`, live `crossCheck.test.ts` | 816 passed (12 skipped), clean, 719 passed (7 skipped), 6 passed. |
+
+**Release identity.** New release and Rust-playtest evidence names `dof-rust-0.3.0-nonlinear-1` (`evaluator/evidence.ts`). The accepted ids are 0.2.0 and 0.3.0, on the evidence above. A save header or final receipt written by 0.2.0 still loads, and a replayed award keeps the id of the award it reproduces. Stored instability comparisons use a fixed numerics identity (`RELEASE_COMPARISON`), so witnesses recorded under 0.2.0 still compare with turns played under 0.3.0. `releaseSave.test.ts` loads a finished match saved by 0.2.0 with the same awards and rejects an unknown solver.
+
+**Run time** (WebAssembly in Node 22.23.4, 4-core Intel Xeon 2.1 GHz container, median; v2 is the module before this change):
+
+| Case | DOFs | v2 | v3 |
+| --- | --- | --- | --- |
+| Game-sized frame, linear | 376 | 2.2 ms | 2.2 ms |
+| Stress frame, linear, 2 elements per beam | 4,124 | 63.3 ms | 34.2 ms |
+| Stress frame, nonlinear, 2 elements per beam | 4,124 | 384 ms | 165 ms |
+| 8×8×8 frame, nonlinear | 15,456 | 5.6 s | 0.95 s |
+| 10×10×10 frame, linear | 29,188 | 4.4 s | 0.46 s |
+| 10×10×10 frame, nonlinear | 29,188 | 25.0 s | 2.2 s |
+
+Game-sized nonlinear runs measured 12–20 ms for both, within this container's noise. Natively the 12×12×14 frame with two elements per beam (57,512 equations) fell from 133 s to 5.9 s nonlinear and from 26.7 s to 1.07 s linear. Large nonlinear runs are now dominated by about four factorisations, roughly half of whose work is the final dense separator block (about 3e9 multiply-adds per second natively).
+
+**Still open.** WebAssembly threads would need cross-origin isolation and a nightly toolchain, so all of this runs on one core. Load cases still each factorise their own stiffness. Element tangents are still formed by second-order forward differentiation; assembly becomes the larger share for mid-sized structures.
+
 ## Cross-check with OpenSees — 2026-11-15
 
 Run on `main` at `39508f0` plus the extended `crossCheck.test.ts`, in a Linux container (4-core Xeon, Node 22.23, OpenSees 3.8.0 / dof-opensees 0.1.0 started with `npm run dev:opensees`), using the committed WASM module. Each of the 20 library structures and 3 reference examples was translated with `toStructuralModel` and sent to both solvers at linear and nonlinear fidelity (46 runs). Differences are the largest absolute difference divided by the OpenSees maximum of that quantity: translations, signed reactions (forces and moments scaled separately), member axial force and end moments.
@@ -238,7 +287,7 @@ Rust's answer is conservative: it reports no result rather than a wrong one. But
 
 ## Timings
 
-`npm run bench:solver` times the checked-in WebAssembly including JSON encoding and decoding. The following run used Node 24.15.0 on an Intel Core Ultra 9 185H with 22 logical cores. Each row uses 20 samples.
+`npm run bench:solver` times the checked-in WebAssembly including JSON encoding and decoding. It now also times three large frames, which use the sparse factorisation; 0.3 timings are in [Solver 0.3](#solver-03-sparse-factorisation-for-large-structures). The following 0.2 run used Node 24.15.0 on an Intel Core Ultra 9 185H with 22 logical cores. Each row uses 20 samples.
 
 | Case | Members | Unknowns | Median | p95 | Proposed target |
 | --- | --- | --- | --- | --- | --- |
@@ -253,7 +302,7 @@ A re-run on 15 November 2026 at `39508f0`, in a 4-core Intel Xeon (2.1 GHz) Linu
 
 The ordinary preview, ordinary turn and difficult nonlinear cases met their targets in this run. The 4,124-DOF linear stress run took 78.2 ms at p95. An earlier run during development with other suites active took 2,286.5 ms for the largest nonlinear stress case. These measurements cover the kernel on this host. Production browser rendering, worker scheduling, private saves and device variation require separate measurements.
 
-The 4,124-DOF case was profiled separately with 40 linear calls. Of the sampled CPU time, 65.4% went to the skyline LDLᵀ factorization, 4.4% to element assembly, 2.4% to forward/back substitution and 1.7% to system construction. The optimized WASM factor uses packed two-lane double-precision multiply and add. The native phase harness measured 44.3 ms for one factorization, 3.7 ms for system construction and 1.4 ms for one substitution. Closing the measured preview gap calls for work on the matrix algorithm. The measured binary retains its validated factorization and both elements per beam.
+Before 0.3, the 4,124-DOF case was profiled separately with 40 linear calls. Of the sampled CPU time, 65.4% went to the skyline LDLᵀ factorization, 4.4% to element assembly, 2.4% to forward/back substitution and 1.7% to system construction. The optimized WASM factor uses packed two-lane double-precision multiply and add. The native phase harness measured 44.3 ms for one factorization, 3.7 ms for system construction and 1.4 ms for one substitution. That profile led to the sparse factorisation of 0.3, which this system size now uses.
 
 To capture a comparable V8 profile, run `node --cpu-prof scripts/bench-solver.mjs 40 "stress, linear preview, 2 elements/beam"`. Node writes a CPU profile to the current directory, or to the directory named by `--cpu-prof-dir`. `DOF_BENCH_WASM` can point at a separately built module with release optimization, symbols and the crate's normal WASM flags to expose function names. Run the native phase harness with `cargo test --release --manifest-path crates/dof-solver/Cargo.toml --test profile -- --ignored --nocapture`.
 
@@ -279,6 +328,7 @@ These are implementation choices, not owner decisions. Each is a default that th
 - **Two beam elements per member** by default, which gives the Euler load to 0.8 %.
 - **Self-weight needs a gravity vector** in the options; there is no default direction.
 - **The compiled module is committed**, so the web app does not need a Rust toolchain to build.
+- **Skyline below 4e6 multiply-adds, sparse above** (`linalg::SMALL_WORK`), so that game-sized results stay bit-for-bit those of 0.2. See [Solver 0.3](#solver-03-sparse-factorisation-for-large-structures).
 
 ## Limits
 
@@ -290,5 +340,6 @@ These are implementation choices, not owner decisions. Each is a default that th
 - Deflection is reported only at element boundaries, with no interpolation between them; a finer spacing needs more subdivisions, which cost run time.
 - No prescribed displacements, and no partial-length or varying member loads. Plasticity and dynamic collapse are deferred by the criteria (section 8).
 - Load cases share one request, not one factorisation: each case costs a full analysis.
+- Everything runs on one core: WebAssembly threads need cross-origin isolation and a nightly Rust toolchain.
 - The workspace check uses gravity loads only, with no wind and no load combinations, so it is not the voxel analysis's load cases.
 - The OpenSees v2 service has its own representability and work limits, documented in its [README](../../services/opensees/README.md). Its optional editor results use the catalogue model supplied to the HTTP endpoint.
