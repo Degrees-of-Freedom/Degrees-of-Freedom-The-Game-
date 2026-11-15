@@ -32,6 +32,8 @@ Strength and instability are different findings. A mechanism does not provide a 
 
 ## 3. New, worsened and resolved
 
+The scored turn report now records a policy-versioned comparison of the committed and staged structures. Frame strength findings come from the card-gravity component check. A sufficient geometric motion witness can establish a mechanism for the eligible frame configurations. A solver failure on its own leaves the comparison unknown. [Acceptance evidence](criteria-ledger.md)
+
 | Comparison | Required interpretation |
 | --- | --- |
 | New | Verified eligible issue in a previously comparable verified issue-free region, or verified issue on a newly introduced object with appropriate baseline semantics. |

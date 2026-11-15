@@ -9,6 +9,7 @@ import { conflictingJointAxes, CONNECTION_PROFILES } from "./jointFreedom";
 import { findMaterialClash } from "./materialClashes";
 import { findPort, targetCoordinate, turnJoints } from "./turnPorts";
 import { analyzeTurn } from "./turnAnalysis";
+import { assessTurnIssues, matchesIssueEvidence, type IssueAssessment } from "./turnIssues";
 import { awardFinalScore, finalReceipt, recoverFinalScore, type FinalScore } from "./finalScore";
 export { turnJoints } from "./turnPorts";
 export { CONNECTION_PROFILES } from "./jointFreedom";
@@ -60,7 +61,7 @@ type Event =
       end: "a" | "b";
       jointId?: string;
     }
-  | { kind: "end"; turn: number; status?: TurnReport["status"]; final?: FinalScore };
+  | { kind: "end"; turn: number; status?: TurnReport["status"]; final?: FinalScore; issues?: IssueAssessment };
 
 export type TurnReport = {
   turn: number;
@@ -68,6 +69,7 @@ export type TurnReport = {
   status: "stable" | "unstable" | "partial" | "unresolved";
   reason: string;
   penalty: 0 | -1;
+  issues?: IssueAssessment;
 };
 
 export interface TurnState {
@@ -402,7 +404,7 @@ function commitTurn(
   state: TurnState,
   expectedTurn: number,
   status: TurnReport["status"] = "unresolved",
-  replay?: { final: unknown },
+  replay?: { final: unknown; issues: unknown },
 ): Transition {
   if (state.finished || expectedTurn !== state.turn)
     return fail("This turn has already ended.");
@@ -419,6 +421,12 @@ function commitTurn(
   if (conflict) return fail(conflict);
   const player = activePlayer(state),
     spent = draftIds(state);
+  // Old scored receipts did not record an assessment. Keep their historical
+  // evidence scope while replaying. A new assessed event must reproduce it.
+  const issues = state.catalogue === SCORED_CATALOGUE && (!replay || replay.issues !== undefined)
+    ? assessTurnIssues(state, state.reports.at(-1)?.issues?.memory) : undefined;
+  if (replay?.issues !== undefined && !matchesIssueEvidence(issues, replay.issues))
+    return fail("The saved issue assessment does not match the replayed structure.");
   const report: TurnReport = {
     turn: state.turn,
     playerId: player.id,
@@ -430,6 +438,7 @@ function commitTurn(
       unresolved: "The experimental solve did not produce a result for this turn.",
     }[status],
     penalty: 0,
+    ...(issues && { issues }),
   };
   const finished = state.turn === KIT_PLAYTEST.players * KIT_PLAYTEST.rounds;
   const committed: TurnState = {
@@ -452,7 +461,7 @@ function commitTurn(
     },
     draft: emptyDraft(),
     reports: [...state.reports, report],
-    events: [...state.events, { kind: "end", turn: state.turn, status }],
+    events: [...state.events, { kind: "end", turn: state.turn, status, ...(issues && { issues }) }],
   };
   if (finished && state.catalogue === SCORED_CATALOGUE) {
     let finalScore: FinalScore | null;
@@ -471,7 +480,7 @@ function commitTurn(
     const scores = new Map(finalScore.awards.map(a => [a.playerId, a.finalScore]));
     return { ok: true, state: { ...committed, finalScore,
       players: committed.players.map(p => ({ ...p, score: scores.get(p.id)! })),
-      events: [...state.events, { kind: "end", turn: state.turn, status, final: finalScore }],
+      events: [...state.events, { kind: "end", turn: state.turn, status, final: finalScore, ...(issues && { issues }) }],
     } };
   }
   if (replay?.final !== undefined) return fail("Unexpected final score before scored-match completion.");
@@ -545,7 +554,7 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
   if (event.kind === "end" && typeof event.turn === "number") {
     if (event.status !== undefined && event.status !== "stable" && event.status !== "unstable" &&
       event.status !== "partial" && event.status !== "unresolved") return null;
-    return commitTurn(state, event.turn, event.status, { final: event.final });
+    return commitTurn(state, event.turn, event.status, { final: event.final, issues: event.issues });
   }
   if (typeof event.cardId !== "string") return null;
   if (
