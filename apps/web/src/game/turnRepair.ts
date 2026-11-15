@@ -12,7 +12,8 @@ import type { TurnState } from './turns';
  * Each candidate adds one real ground foundation and one finite-length member. */
 export const LEGACY_REPAIR_POLICY = 'local-steel-prop-1' as const;
 export const REPAIR_POLICY = 'local-steel-prop-2' as const;
-export type RepairPolicy = typeof REPAIR_POLICY | typeof LEGACY_REPAIR_POLICY;
+export const NODE_REPAIR_POLICY = 'node-release-locks-1' as const;
+export type RepairPolicy = typeof REPAIR_POLICY | typeof LEGACY_REPAIR_POLICY | typeof NODE_REPAIR_POLICY;
 const maxAttempts = 3;
 type Board = TurnState['board'];
 type Member = Board['members'][number];
@@ -51,6 +52,8 @@ export interface CorrectionReceipt {
   beforeModelId: string;
   afterModelId: string;
   attempts: RepairAttempt[];
+  jointAttempts?: { issueId: string; memberId: number; jointId: string; lockedRotations: number;
+    status: 'verified' | 'rejected'; reason: string }[];
   pending: string[];
   memory: IssueAssessment['memory'];
   changes: IssueAssessment['changes'];

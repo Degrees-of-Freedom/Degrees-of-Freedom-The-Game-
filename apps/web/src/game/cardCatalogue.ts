@@ -16,6 +16,9 @@ export const JOINT_CATALOGUE = 'shared-table-joints-1' as const;
 export const CABLE_CATALOGUE = 'shared-table-cables-1' as const;
 export const HOLLOW_CATALOGUE = 'shared-table-hollow-1' as const;
 export const RELEASE_CATALOGUE = 'grow-dusk-release-1' as const;
+export const PLAY_REVISION = 'grow-dusk-play-2' as const;
+export const PLAY_SPRING_REFERENCE = {id: 'k0-play-2', stiffnessNPerM: SPRING.stiffnessNPerM,
+  unit: 'N/m', source: 'Existing authored axial-spring playtest reference'} as const;
 export type ScoredCatalogue = typeof HOLLOW_CATALOGUE | typeof RELEASE_CATALOGUE | typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE | typeof TRUSS_CATALOGUE | typeof SPRING_CATALOGUE | typeof JOINT_CATALOGUE | typeof CABLE_CATALOGUE;
 export type CatalogueId = typeof LEGACY_CATALOGUE | ScoredCatalogue;
 export function isScoredCatalogue(catalogue: unknown): catalogue is ScoredCatalogue {
@@ -24,6 +27,14 @@ export function isScoredCatalogue(catalogue: unknown): catalogue is ScoredCatalo
 
 const legacyTypes = ['shs', 'glulam', 'ipe', 'heb', 'cable'] as const;
 const scoredTypes = ['shs', 'glulam', 'ipe', 'heb'] as const;
+
+/** Plain member names for gameplay. Technical section printings remain in
+ * the property inspector; a vertical beam is the same physical member. */
+export function memberName(type: MemberType) {
+  const names: Record<MemberType, string> = {heb: 'Wide beam', ipe: 'Steel beam', shs: 'Square tube',
+    chs: 'Round tube', glulam: 'Timber beam', cable: 'Cable', spring: 'Spring'};
+  return names[type];
+}
 
 export function memberDeckTypes(catalogue: CatalogueId): readonly (MemberType | AssemblyId)[] {
   if (catalogue === HOLLOW_CATALOGUE) return ['chs','shs'];
@@ -37,7 +48,7 @@ export function memberDeckTypes(catalogue: CatalogueId): readonly (MemberType | 
 
 interface Printing {
   definitionId: string;
-  definitionVersion: typeof CARD_DEFINITION_VERSION | typeof RELEASE_CATALOGUE;
+  definitionVersion: typeof CARD_DEFINITION_VERSION | typeof RELEASE_CATALOGUE | typeof PLAY_REVISION;
   label: string;
 }
 
@@ -127,15 +138,40 @@ function authoredReleaseDecks() {
 const releaseDecks = authoredReleaseDecks();
 const releaseDefinitions = new Map(releaseDecks.flat().map(card => [card.definitionId, Object.freeze(card)]));
 
-export function createReleaseDecks() {
+/** The revised mix contains 18 standard members, four cables and two springs.
+ * Old release decks and their printed labels remain frozen for exact replay. */
+function revisedReleaseDecks() {
+  const elements: CardDefinition[] = [];
+  const families = [
+    ['heb', 'Beam / column', 18], ['cable', 'Cable', 4],
+  ] as const;
+  for (const [type, name, count] of families) for (let i = 0; i < count; i++) {
+    const maxSteps = [5, 5, 7, 10][i % 4];
+    elements.push({ kind: 'element', type, maxSteps, definitionVersion: PLAY_REVISION,
+      definitionId: `element/${type}/reach-${maxSteps}`, label: `${name} · ≤${maxSteps} cells` });
+  }
+  for (const [name, factor, family] of [['Quarter spring', 0.25, 'spring-quarter'], ['Half spring', 0.5, 'spring-half']] as const) {
+    const stiffness = factor * PLAY_SPRING_REFERENCE.stiffnessNPerM;
+    elements.push({ kind: 'element', type: 'spring', maxSteps: 5, springStiffnessNPerM: stiffness,
+      definitionVersion: PLAY_REVISION, definitionId: `element/${family}/reach-5`, label: `${name} · ≤5 cells` });
+  }
+  return [elements, releaseDecks[1].map(card => ({...card, definitionVersion: PLAY_REVISION})),
+    releaseDecks[0].filter(card => card.kind === 'load').map(card => ({...card, definitionVersion: PLAY_REVISION}))] as const;
+}
+const playDecks = revisedReleaseDecks();
+const playDefinitions = new Map(playDecks.flat().map(card => [card.definitionId, Object.freeze(card)]));
+
+export function createReleaseDecks(revision?: typeof PLAY_REVISION) {
   const instances = (deck: readonly CardDefinition[], name: string) =>
     deck.map((card, index) => ({ ...card, id: name + '-' + index }));
+  if (revision === PLAY_REVISION) return [instances(playDecks[0], 'member'), instances(playDecks[1], 'connector'),
+    instances(playDecks[2], 'load')] as const;
   return [instances(releaseDecks[0], 'piece'), instances(releaseDecks[1], 'connector')] as const;
 }
 
 /** Unknown or future revisions cannot silently acquire current mechanics. */
 export function resolveCardDefinition(definitionId: string, version: string): Readonly<CardDefinition> {
-  const definition = version === RELEASE_CATALOGUE ? releaseDefinitions.get(definitionId) :
+  const definition = version === PLAY_REVISION ? playDefinitions.get(definitionId) : version === RELEASE_CATALOGUE ? releaseDefinitions.get(definitionId) :
     version === CARD_DEFINITION_VERSION ? definitions.get(definitionId) : undefined;
   if (!definition) {
     throw new Error(`Unsupported card definition ${definitionId} at ${version}.`);
@@ -178,7 +214,7 @@ export function describePrinting(card: CardDefinition): string {
       : 'Locks all three translations and rotations at one end. Existing joint permissions must match.';
   }
   const section = ITEMS[card.type];
-  if (card.definitionVersion === RELEASE_CATALOGUE) {
+  if (card.definitionVersion === RELEASE_CATALOGUE || card.definitionVersion === PLAY_REVISION) {
     const reach = `Maximum straight-line reach ${card.maxSteps * S} m (${card.maxSteps} grid units).`;
     if (card.type === 'cable') return 'Cable Ø24 · E 160 GPa, metallic area 360 mm², tensile limit 260 kN. Rest length equals the placed span. Slack carries zero tension. ' + reach;
     if (card.type === 'spring') return `Axial spring · ${card.springStiffnessNPerM! / 1000} kN/m, strength 5 kN, verified stroke within 10% of its placed span. ${reach}`;

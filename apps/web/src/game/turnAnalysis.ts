@@ -9,6 +9,7 @@ import { assessCardCapacity } from '../solver/voxelCapacity';
 import type { VoxelLevel, VoxelModel } from '../solver/voxelInput';
 import { createTurnSolver } from '../solver/wasm/turnSolver';
 import type { WasmSource } from '../solver/wasm/wasmSolver';
+import { effectiveJointConnections } from './jointCorrections';
 
 let releaseSolver = createTurnSolver();
 /** Initialize once in the transaction worker before replaying or assessing
@@ -23,7 +24,7 @@ const turnLevel: VoxelLevel = { type: 'sandbox', q0: 0, budget: Infinity, inv: n
 /** Expand independent member ends before analysis. Coincident geometry alone
  * confers no constraint, and an unattached end retains free translations. */
 export function toTurnVoxelInput(turn: TurnState): VoxelModel {
-  const connections = new Map([...turn.board.connections, ...turn.draft.connections]
+  const connections = new Map(effectiveJointConnections({...turn.board, connections: [...turn.board.connections, ...turn.draft.connections]})
     .map((connection) => [`${connection.memberId}:${connection.end}`, connection]));
   const attrs: VoxelModel['attrs'] = {};
   const positions: NonNullable<VoxelModel['positions']> = {};
@@ -109,6 +110,17 @@ export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card
   const capacity = release || loading === 'card-gravity'
     ? assessCardCapacity(input, response, [...turn.board.connections, ...turn.draft.connections])
     : undefined;
+  if (capacity && turn.board.jointCorrections?.length) {
+    // Original fittings retain their printed force limits. The added moment
+    // sleeve must independently satisfy the existing rated fixed-fitting law.
+    const effective = assessCardCapacity(input, response, effectiveJointConnections({...turn.board,
+      connections: [...turn.board.connections, ...turn.draft.connections]}));
+    for (const [id, check] of Object.entries(effective.connections)) {
+      const original = capacity.connections[id];
+      if (check.status === 'unavailable' || original?.status !== 'verified' ||
+          check.utilization > original.utilization) capacity.connections[id] = check;
+    }
+  }
   const physicalParents = new Map(input.members.filter(m => m.parentSpan).map(m => [m.id, m.parentSpan!.memberId]));
   return { ...response, capacity, physicalParents };
 }
