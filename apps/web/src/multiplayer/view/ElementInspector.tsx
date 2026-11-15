@@ -51,7 +51,7 @@ export function ElementInspector({ data, memberId, onClose, onDraftChange, onSaf
   const multiplier = member.family === 'spring-025' ? 0.25 : member.family === 'spring-05' ? 0.5 : null;
   return <aside className="mp-inspector" ref={panel} tabIndex={-1} aria-labelledby={heading} onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}>
     <header><div><p className="mp-eyebrow">Element properties</p><h2 id={heading}>{familyLabel(member.family)}</h2></div><button type="button" aria-label="Close element inspector" onClick={close}>×</button></header>
-    <p className="mp-status">{member.setupLocked ? '🔒 Locked starting column / foundation attachment' : editable ? 'Draft · editable through card choices' : 'Committed · physical properties read-only'}</p>
+    <p className="mp-status">{member.setupLocked ? '🔒 Locked starting column / foundation attachment' : member.phase === 'draft' ? editable ? 'Draft · editable through card choices' : 'Draft · read-only (editing unavailable)' : 'Committed · physical properties read-only'}</p>
     <dl>
       <dt>Owner</dt><dd>{member.owner}</dd><dt>Card / element</dt><dd>{member.cardId} / {member.id}</dd>
       <dt>Actual / maximum length</dt><dd>{spanLength(member.start, member.end).toFixed(3)} / {member.maxLength} game units</dd>

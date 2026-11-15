@@ -36,7 +36,9 @@ describe('inspection boundaries', () => {
   it('offers draft endpoints only through a provided callback', () => {
     const data = { ...sceneFixture, members: [draft] };
     const props = { data, memberId: draft.id, onClose() {} };
-    expect(renderToStaticMarkup(createElement(ElementInspector, props))).not.toContain('Apply draft endpoint');
+    const withoutCallback = renderToStaticMarkup(createElement(ElementInspector, props));
+    expect(withoutCallback).not.toContain('Apply draft endpoint');
+    expect(withoutCallback).toContain('Draft · read-only');
     expect(renderToStaticMarkup(createElement(ElementInspector, { ...props, onDraftChange() {} }))).toContain('Apply draft endpoint');
   });
   it('labels stale evidence and omits its segment values', () => {
