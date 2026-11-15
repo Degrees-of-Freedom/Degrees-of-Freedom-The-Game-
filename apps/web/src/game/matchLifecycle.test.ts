@@ -36,7 +36,7 @@ it("places foundations in Load in space within the level supply, and not in the 
   expect(game().levelId).toBe("pickup1");
   // The level starts with weights only: without this the mode cannot be completed.
   expect(Object.values(game().model.attrs).some((attrs) => attrs.found)).toBe(false);
-  const supply = LEVELS.pickup1.inv!.found;
+  const supply = LEVELS.pickup1.inv?.found ?? 0;
   for (let i = 0; i < supply; i++) expect(game().placeFoundation([1 + i, 1, 0])).toBeNull();
   expect(Object.values(game().model.attrs).filter((attrs) => attrs.found)).toHaveLength(supply);
   expect(game().placeFoundation([1, 3, 0])).toBe("No foundations left in supply");

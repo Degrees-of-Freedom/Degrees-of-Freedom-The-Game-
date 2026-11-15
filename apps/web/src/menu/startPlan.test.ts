@@ -110,7 +110,7 @@ describe("against the real store", () => {
     runStart({ mode: "multiplayer", begin: "continue" }, store.getState());
     expect(store.getState().mode).toBe("multiplayer");
     expect(store.getState().turn?.players).toHaveLength(2);
-    // "New match" replaces the match in progress; the setup screen confirms before calling this.
+    // "New match" replaces the match in progress, as "Start over" does in the other modes.
     const seed = store.getState().turn!.seed;
     expect(runStart({ mode: "multiplayer", begin: "new" }, store.getState())).toBeNull();
     expect(store.getState().turn).toMatchObject({ seed: seed + 1, turn: 1, finished: false });

@@ -24,8 +24,8 @@ const FOCUSABLE = "button:not([disabled]), input:not([disabled]), a[href]";
  *   capture-phase key listener swallows every key for the rest of the app, so
  *   scene shortcuts such as `R` or `1` cannot fire behind it.
  * - Restart calls an existing store action: `reset` (Creative, Challenge,
- *   Forensics, Load in space) or `newMatch` (Shared table). Restarting a match
- *   in progress deletes it, so the confirmation says so before the store acts.
+ *   Forensics, Load in space) or `newMatch` (Shared table, at any point in the
+ *   match). Every mode shares the one short confirmation step.
  */
 export function PauseMenu({
   open,
@@ -55,12 +55,12 @@ export function PauseMenu({
   const title = MODE_CATALOG.find((item) => item.id === mode)?.title ?? "";
   const subtitle =
     mode === "challenge" ? `${title} · ${LEVELS[levelId].name}` : title;
-  const matchInProgress = mode === "multiplayer" && !!turn && !turn.finished;
+  const restartLabel = mode === "multiplayer" ? "New match" : "Restart";
   const restartText =
     mode === "multiplayer"
-      ? matchInProgress
-        ? "Replace the current save and start a new match? Your progress in this match will be lost."
-        : "Deal a new match. The finished match is replaced."
+      ? turn?.finished
+        ? "Deal a new match. The finished match is replaced."
+        : "Start a fresh match. The match in progress is replaced."
       : mode === "forensics"
         ? "Restore the prepared structure. Your repairs are replaced. You can undo this."
         : "Clear every member you placed. Supports and loads set by the level stay. You can undo this.";
@@ -170,7 +170,7 @@ export function PauseMenu({
                 Resume
               </button>
               <button className="btn mbtn" onClick={() => setView("confirm")}>
-                {mode === "multiplayer" ? "New match" : "Restart"}
+                {restartLabel}
               </button>
               <button
                 className="btn mbtn"
@@ -204,14 +204,14 @@ export function PauseMenu({
         )}
         {view === "confirm" && (
           <section>
-            <h2 id="dm-pause-title">{matchInProgress ? "Delete this match?" : "Restart?"}</h2>
+            <h2 id="dm-pause-title">{restartLabel}?</h2>
             <p className="ask">{restartText}</p>
             <div className="mrow">
               <button className="btn mbtn" data-first onClick={() => setView("main")}>
                 Cancel
               </button>
               <button className="btn mbtn danger" onClick={restart}>
-                {matchInProgress ? "Delete and start new" : "Restart"}
+                {restartLabel}
               </button>
             </div>
           </section>

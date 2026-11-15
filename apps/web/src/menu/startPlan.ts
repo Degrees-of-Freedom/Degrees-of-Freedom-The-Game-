@@ -42,8 +42,9 @@ export type StartStep =
  *   challenge restores the last saved level first; the chosen level is applied after.
  * - `reset` clears the active model (forensics: restores the prepared fixture),
  *   so it follows whatever `setMode`/`setLevel` loaded.
- * - `newMatch` replaces the saved match. For a match in progress the setup
- *   screen asks for confirmation first, then Start passes `replaceUnfinished`.
+ * - `newMatch` replaces the saved match, finished or not. Picking "New match"
+ *   on the setup screen is the player's explicit choice, as "Start over" is in
+ *   the other modes, so Start passes `replaceUnfinished`.
  */
 export function planStart(choice: StartChoice): StartStep[] {
   const steps: StartStep[] = [
