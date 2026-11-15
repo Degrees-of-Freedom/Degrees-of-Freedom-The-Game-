@@ -30,6 +30,8 @@ export interface Member {
   type: MemberType;
   /** Immutable rest length in metres of a scored tension-only cable. */
   restLengthM?: number;
+  /** Printed two-terminal stiffness, independent of reference span. */
+  springStiffnessNPerM?: number;
   /** Printed built-up member. Its section type applies to its actual chords and webs. */
   assembly?: AssemblyId;
 }

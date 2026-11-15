@@ -1,5 +1,6 @@
 import { nodeKey, parseNodeKey, type GridPoint, type Member } from "./model";
 import type { TurnState } from "./turns";
+import { RELEASE_CATALOGUE } from "./cardCatalogue";
 
 export type Quarter = 1 | 2 | 3;
 export interface QuarterPort {
@@ -12,6 +13,40 @@ export interface QuarterPort {
 
 const quarters = [1, 2, 3] as const;
 
+/** Loads remember the physical tip they were played on. Attaching that tip later
+ * moves its force to the shared analytical node without rewriting its history. */
+export function analysisLoadJoint(state: TurnState, target: string): string {
+  const tip = /^endpoint:([1-9]\d*):(a|b)$/.exec(target);
+  if (!tip) return target;
+  return [...state.board.connections, ...state.draft.connections]
+    .find(c => c.memberId === Number(tip[1]) && c.end === tip[2])?.jointId ?? target;
+}
+
+/** Authoritative targets in the active private draft. A loose tip carries its
+ * own identity even when other unattached tips occupy the same coordinates. */
+export function loadTargets(state: TurnState): {id: string; point: string; label: string}[] {
+  if (state.catalogue !== RELEASE_CATALOGUE) return turnJoints(state)
+    .filter(j => !systemTarget(state, j.id)).map(j => ({id: j.id, point: j.point ?? j.id, label: j.id}));
+  const members = [...state.board.members, ...state.draft.members];
+  const excluded = new Set(state.board.joints.filter(j => j.foundationOwner || j.system).map(j => j.id));
+  for (const setup of state.board.members.filter(m => !m.cardId && !m.system)) {
+    excluded.add(setup.a);
+    excluded.add(setup.b);
+  }
+  const targets: {id:string; point:string; label:string}[] = [];
+  for (const member of members) {
+    if (!member.cardId || member.system) continue;
+    const add = (id: string, point: string, station: string) => {
+      if (parseNodeKey(point)[2] <= 0 || excluded.has(analysisLoadJoint(state, id))) return;
+      targets.push({id, point, label: `Member ${member.id} · ${station} · (${point})`});
+    };
+    add(`endpoint:${member.id}:a`, member.a, "end A");
+    for (const port of originalPorts(member)) if (port.available) add(port.id, nodeKey(...port.point), port.quarter * 25 + "%");
+    add(`endpoint:${member.id}:b`, member.b, "end B");
+  }
+  return targets;
+}
+
 /** Collect committed and newly activated interfaces for rules and analysis. */
 export function turnJoints(state: TurnState): TurnState["board"]["joints"] {
   const joints = new Map(state.board.joints.map((joint) => [joint.id, joint]));
@@ -20,6 +55,20 @@ export function turnJoints(state: TurnState): TurnState["board"]["joints"] {
     if (joints.has(jointId)) continue;
     const port = findPort(members, jointId);
     joints.set(jointId, port ? { id: jointId, point: nodeKey(...port.point) } : { id: jointId });
+  }
+  if (state.catalogue === RELEASE_CATALOGUE) {
+    // Rebuild activated load-only tips every time: when a later connector is
+    // fitted the old loose analytical node no longer exists.
+    for (const id of joints.keys()) if (id.startsWith("endpoint:")) joints.delete(id);
+    for (const load of [...state.board.loads, ...state.draft.loads]) {
+      const id = analysisLoadJoint(state, load.jointId);
+      if (joints.has(id)) continue;
+      const port = findPort(members, id);
+      const tip = /^endpoint:([1-9]\d*):(a|b)$/.exec(id);
+      const member = tip && members.find(m => m.id === Number(tip[1]));
+      if (port) joints.set(id, {id, point: nodeKey(...port.point)});
+      else if (tip && member) joints.set(id, {id, point: member[tip[2] as "a" | "b"]});
+    }
   }
   return [...joints.values()];
 }

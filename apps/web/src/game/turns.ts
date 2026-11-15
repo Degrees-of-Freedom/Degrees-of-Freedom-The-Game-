@@ -5,14 +5,14 @@ import {
   type GameModel,
   type Member,
 } from "./model";
-import { LEGACY_CATALOGUE, isScoredCatalogue, printedCards, type CardDefinition, type CatalogueId } from "./cardCatalogue";
+import { LEGACY_CATALOGUE, RELEASE_CATALOGUE, RELEASE_MANIFEST, connectionChoices, createReleaseDecks, isScoredCatalogue, printedCards, type CardDefinition, type CatalogueId } from "./cardCatalogue";
 import { conflictingJointAxes, connectionFrame, CONNECTION_PROFILES, type ConnectionProfile } from "./jointFreedom";
 import { findMaterialClash } from "./materialClashes";
-import { findPort, systemTarget, targetCoordinate, turnJoints } from "./turnPorts";
+import { analysisLoadJoint, findPort, loadTargets, systemTarget, targetCoordinate, turnJoints } from "./turnPorts";
 import { analyzeTurn } from "./turnAnalysis";
 import { resolveMemberLaw, S } from "../solver/voxelSections";
 import { correctTurnIssues, LEGACY_REPAIR_POLICY, REPAIR_POLICY, type CorrectionReceipt, type RepairPolicy, type SystemProvenance } from "./turnRepair";
-import { assessTurnIssues, matchesIssueEvidence, type IssueAssessment } from "./turnIssues";
+import { assessTurnOutcome, matchesIssueEvidence, type IssueAssessment } from "./turnIssues";
 import { decidePenalty, type PenaltyDecision } from "./turnPenalty";
 import { awardFinalScore, finalReceipt, recoverFinalScore, type FinalScore } from "./finalScore";
 export { turnJoints } from "./turnPorts";
@@ -66,6 +66,7 @@ type Event =
       memberId: number;
       end: "a" | "b";
       jointId?: string;
+      profile?: ConnectionProfile;
     }
   | { kind: "end"; turn: number; status?: TurnReport["status"]; analysis?: StructuralAnalysisResult; final?: FinalScore; issues?: IssueAssessment; penaltyDecision?: PenaltyDecision; repairPolicy?: RepairPolicy; correction?: CorrectionReceipt };
 
@@ -98,6 +99,10 @@ export interface TurnState {
   finalScore?: FinalScore;
 }
 
+export function boardLimits(state: Pick<TurnState, "catalogue">) {
+  return state.catalogue === RELEASE_CATALOGUE ? RELEASE_MANIFEST.boardMax : KIT_PLAYTEST.boardMax;
+}
+
 type Transition =
   | { ok: true; state: TurnState }
   | { ok: false; reason: string };
@@ -120,6 +125,12 @@ function shuffle(cards: TurnCard[], seed: number): TurnCard[] {
 }
 
 function createDecks(seed: number, catalogue: CatalogueId): TurnState["decks"] {
+  if (catalogue === RELEASE_CATALOGUE) {
+    const [pieces, connectors] = createReleaseDecks();
+    if ([pieces, connectors].some(deck => deck.length < KIT_PLAYTEST.rounds * KIT_PLAYTEST.players * 2))
+      throw new Error("The release deck cannot supply every regular draw.");
+    return [shuffle(pieces, seed), shuffle(connectors, seed ^ 0x9e3779b9)];
+  }
   const deck1: TurnCard[] = [],
     deck2: TurnCard[] = [];
   const count = KIT_PLAYTEST.players * KIT_PLAYTEST.rounds * 2;
@@ -154,10 +165,11 @@ export function createTurnGame(seed = 1, catalogue: CatalogueId = LEGACY_CATALOG
   ];
   const board: Board = { ...emptyDraft(), joints: [] };
   players.forEach((player, i) => {
-    const a = nodeKey(1 + i * 4, 3, 0),
-      b = nodeKey(1 + i * 4, 3, 1),
+    const [x, y] = catalogue === RELEASE_CATALOGUE ? RELEASE_MANIFEST.setup[i] : [1 + i * 4, 3];
+    const a = nodeKey(x, y, 0),
+      b = nodeKey(x, y, 1),
       id = i + 1;
-    board.members.push({ id, a, b, type: "shs", owner: player.id });
+    board.members.push({ id, a, b, type: catalogue === RELEASE_CATALOGUE ? "heb" : "shs", owner: player.id });
     board.joints.push({ id: a, foundationOwner: player.id }, { id: b });
     board.connections.push(
       {
@@ -207,9 +219,14 @@ function draftIds(state: TurnState): Set<string | undefined> {
 }
 
 export function activeTurnHand(state: TurnState): TurnCard[] {
-  return state.finished
-    ? []
-    : activePlayer(state).hand.filter(({ id }) => !draftIds(state).has(id));
+  if (state.finished) return [];
+  const used = draftIds(state);
+  const cards = activePlayer(state).hand.filter(({ id }) => !used.has(id));
+  if (state.catalogue === RELEASE_CATALOGUE) {
+    const order = {element: 0, load: 1, connection: 2};
+    cards.sort((a,b) => order[a.kind] - order[b.kind]);
+  }
+  return cards;
 }
 
 function stage(
@@ -224,7 +241,7 @@ function stage(
   };
 }
 
-function validPoint(key: string): boolean {
+function validPoint(state: TurnState, key: string): boolean {
   const point = parseNodeKey(key);
   return (
     point.length === 3 &&
@@ -233,7 +250,7 @@ function validPoint(key: string): boolean {
       (value, axis) =>
         Number.isInteger(value) &&
         value >= 0 &&
-        value <= KIT_PLAYTEST.boardMax[axis],
+        value <= boardLimits(state)[axis],
     )
   );
 }
@@ -256,14 +273,17 @@ export function stageElement(
     return fail("This family’s interior attachment law is unavailable.");
   const pointA = portA ? nodeKey(...portA.point) : a;
   const pointB = portB ? nodeKey(...portB.point) : b;
-  if ((!portA && !validPoint(a)) || (!portB && !validPoint(b)) || pointA === pointB)
+  if ((!portA && !validPoint(state,a)) || (!portB && !validPoint(state,b)) || pointA === pointB)
     return fail("Choose two distinct points on the board.");
   const start = parseNodeKey(pointA),
     end = parseNodeKey(pointB);
   const lengths = end
     .map((value, axis) => Math.abs(value - start[axis]))
     .filter(Boolean);
-  if (lengths.some((value) => value > card.maxSteps || value !== lengths[0])) {
+  const length = Math.hypot(...lengths);
+  if (state.catalogue === RELEASE_CATALOGUE && length > card.maxSteps)
+    return fail(`Choose a span of at most ${card.maxSteps} grid units (${card.maxSteps * S} m).`);
+  if (state.catalogue !== RELEASE_CATALOGUE && lengths.some((value) => value > card.maxSteps || value !== lengths[0])) {
     return fail("Choose a lattice direction within the card’s length limit.");
   }
   if (
@@ -281,6 +301,8 @@ export function stageElement(
     b: pointB,
     ...(portA || portB ? { endTargets: { ...(portA && { a }), ...(portB && { b }) } } : {}),
     type: card.type,
+    ...(card.springStiffnessNPerM !== undefined && {springStiffnessNPerM: card.springStiffnessNPerM}),
+    ...(state.catalogue === RELEASE_CATALOGUE && card.type === "cable" && {restLengthM: S * length}),
     ...(card.type === "cable" && card.definitionId.startsWith("element/tension-cable-25/") && {
       restLengthM: resolveMemberLaw("cable", S * Math.hypot(...lengths)).restLength,
     }),
@@ -310,8 +332,10 @@ export function stageLoad(
   if (state.draft.loads.length >= 1)
     return fail("One load may be played per turn.");
   if (systemTarget(state, jointId)) return fail("Neutral repair objects are inspection-only.");
-  if (!turnJoints(state).some(({ id }) => id === jointId))
-    return fail("Choose an existing or staged shared joint.");
+  if (!loadTargets(state).some(({ id }) => id === jointId))
+    return fail(state.catalogue === RELEASE_CATALOGUE
+      ? "Choose an above-ground tip or quarter of a player-built member, away from setup and neutral joints."
+      : "Choose an existing or staged shared joint.");
   const load: Load = {
     cardId,
     jointId,
@@ -355,6 +379,7 @@ export function stageConnection(
   memberId: number,
   end: "a" | "b",
   jointId?: string,
+  profile?: ConnectionProfile,
 ): Transition {
   const card = activeTurnHand(state).find(({ id }) => id === cardId);
   if (card?.kind !== "connection")
@@ -377,22 +402,30 @@ export function stageConnection(
   const port = findPort(parents, target);
   if (port && (!port.available || port.memberId === memberId))
     return fail("Choose a supported quarter port on a different parent.");
-  if (targetCoordinate(parents, target) !== member[end] || (!port && !validPoint(target)))
+  if (targetCoordinate(parents, target) !== member[end] || (!port && !validPoint(state,target)))
     return fail("Choose a shared joint or original quarter port at the member end.");
+  const choices = connectionChoices(card);
+  const chosen = profile ?? (choices.length === 1 ? choices[0] : undefined);
+  if (!chosen || !choices.includes(chosen))
+    return fail("Choose the global rotation axes permitted by this connector.");
   const connection: Connection = {
     cardId,
     memberId,
     end,
     jointId: target,
-    profile: card.profile,
+    profile: chosen,
     owner: activePlayer(state).id,
   };
   const conflict = jointProfileConflict([...connections, connection]);
   if (conflict) return fail(conflict);
+  const draft = { ...state.draft, connections: [...state.draft.connections, connection] };
+  if (state.catalogue === RELEASE_CATALOGUE && draft.loads.length &&
+      !loadTargets({...state, draft}).some(target => target.id === draft.loads[0].jointId))
+    return fail("This attachment would put the staged load on an excluded setup or neutral joint.");
   return stage(
     state,
-    { ...state.draft, connections: [...state.draft.connections, connection] },
-    { kind: "connection", cardId, memberId, end, jointId },
+    draft,
+    { kind: "connection", cardId, memberId, end, jointId, ...(profile && {profile}) },
   );
 }
 
@@ -445,8 +478,16 @@ function commitTurn(
   // Old scored receipts did not record an assessment. Keep their historical
   // evidence scope while replaying. A new assessed event must reproduce it.
   const previous = state.reports.at(-1);
-  const issues = isScoredCatalogue(state.catalogue) && (!replay || replay.issues !== undefined)
-    ? assessTurnIssues(state, previous?.correction?.memory ?? previous?.issues?.memory) : undefined;
+  const release = state.catalogue === RELEASE_CATALOGUE;
+  if (release && replay && (!replay.issues || !replay.penaltyDecision || replay.repairPolicy !== REPAIR_POLICY || analysis))
+    return fail("Missing or unsupported release turn evidence.");
+  const outcome = isScoredCatalogue(state.catalogue) && (!replay || replay.issues !== undefined)
+    ? assessTurnOutcome(state, previous?.correction?.memory ?? previous?.issues?.memory) : undefined;
+  const issues = outcome?.issues;
+  if (release && outcome) {
+    if (replay && status !== outcome.status) return fail("Saved stability does not match the assessed turn.");
+    status = outcome.status;
+  }
   if (replay?.issues !== undefined && !matchesIssueEvidence(issues, replay.issues))
     return fail("The saved issue assessment does not match the replayed structure.");
   // Earlier matches recorded issue comparisons before penalties were in force.
@@ -475,7 +516,12 @@ function commitTurn(
     turn: state.turn,
     playerId: player.id,
     status,
-    reason: {
+    reason: release ? {
+      stable: "Verified component equilibrium.",
+      unstable: "A physical instability was witnessed.",
+      partial: "Only part of the structure has verified equilibrium.",
+      unresolved: "Equilibrium could not be verified.",
+    }[status] : {
       stable: "The experimental applied-load solve converged.",
       unstable: "The experimental solve indicates a mechanism or excessive displacement.",
       partial: "Supported geometry was analyzed. Floating components are excluded from the numerical solve.",
@@ -505,7 +551,7 @@ function commitTurn(
   };
   if (finished && isScoredCatalogue(state.catalogue)) {
     let finalScore: FinalScore | null;
-    if (replay) {
+    if (replay && !release) {
       finalScore = recoverFinalScore(committed, replay.final);
       if (!finalScore) return fail("The final score receipt does not match the saved match.");
     } else {
@@ -516,6 +562,8 @@ function commitTurn(
         // A failed solve leaves the full gravity denominator and historical penalties intact.
       }
       finalScore = awardFinalScore(committed, finalReceipt(committed, analysis));
+      if (replay && !matchesIssueEvidence(finalScore, replay.final))
+        return fail("The saved final award does not match the verified reactions and deductions.");
     }
     const scores = new Map(finalScore.awards.map(a => [a.playerId, a.finalScore]));
     return { ok: true, state: { ...committed, finalScore,
@@ -538,14 +586,15 @@ export function projectTurnModel(state: TurnState): GameModel {
       : { joint: true };
   }
   for (const load of [...state.board.loads, ...state.draft.loads]) {
-    const key = joints.find(j => j.id === load.jointId)?.point ?? load.jointId;
+    const target = analysisLoadJoint(state, load.jointId);
+    const key = joints.find(j => j.id === target)?.point ?? target;
     attrs[key] = {
       ...attrs[key],
       load: (attrs[key]?.load ?? 0) + load.magnitude,
     };
   }
   const members = [...state.board.members, ...state.draft.members].map(
-    ({ id, a, b, type, assembly, restLengthM }) => ({ id, a, b, type, ...(assembly && { assembly }), ...(restLengthM !== undefined && { restLengthM }) }),
+    ({ id, a, b, type, assembly, restLengthM, springStiffnessNPerM }) => ({ id, a, b, type, ...(assembly && { assembly }), ...(restLengthM !== undefined && { restLengthM }), ...(springStiffnessNPerM !== undefined && {springStiffnessNPerM}) }),
   );
   return { attrs, members, nextId: state.nextId };
 }
@@ -581,6 +630,14 @@ export function replayTurnState(raw: unknown): Transition {
     if (!result) return fail("Unrecognized saved turn action.");
     if (!result.ok) return result;
     state = result.state;
+  }
+  if (catalogue === RELEASE_CATALOGUE) {
+    // Compact event-only saves and full private exports use the same replay.
+    // A forged snapshot may not contradict its deck order, cards or receipts.
+    for (const key of Object.keys(state) as (keyof TurnState)[]) {
+      if (key in raw && !matchesIssueEvidence(state[key], raw[key]))
+        return fail(`Saved ${key} does not match the release replay.`);
+    }
   }
   return { ok: true, state };
 }
@@ -633,7 +690,8 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
     event.kind === "connection" &&
     typeof event.memberId === "number" &&
     (event.end === "a" || event.end === "b") &&
-    (event.jointId === undefined || typeof event.jointId === "string")
+    (event.jointId === undefined || typeof event.jointId === "string") &&
+    (event.profile === undefined || (typeof event.profile === "string" && Object.hasOwn(CONNECTION_PROFILES,event.profile)))
   ) {
     return stageConnection(
       state,
@@ -641,6 +699,7 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
       event.memberId,
       event.end,
       event.jointId,
+      event.profile as ConnectionProfile | undefined,
     );
   }
   return null;
