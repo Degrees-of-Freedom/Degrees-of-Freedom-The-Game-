@@ -32,6 +32,7 @@ from accept_generators import (  # noqa: E402
     INVALID_KINDS,
     generate_invalid_state,
     generate_state,
+    state_family,
     invalid_kind,
 )
 from dof_opensees.engine import analyze  # noqa: E402
@@ -267,7 +268,7 @@ def test_generated_states_hold_invariants() -> None:
     for seed in range(BASE_SEED, BASE_SEED + N_STATES):
         problems = check_state(seed)
         if problems:
-            failures.append(("state", seed, problems))
+            failures.append((f"state [{state_family(seed)}]", seed, problems))
     assert not failures, _report(failures)
 
 
@@ -294,7 +295,7 @@ def test_single_seed() -> None:
             model = builder(seed)
             result, _ = _run(model)
             pytest.fail(
-                f"{label} seed {seed}: {problems}\nMODEL:\n{json.dumps(model)}\nRESULT:\n{json.dumps(result, default=str)[:4000]}"
+                f"{label} seed {seed} [{state_family(seed) if label == "state" else invalid_kind(seed)}]: {problems}\nMODEL:\n{json.dumps(model)}\nRESULT:\n{json.dumps(result, default=str)[:4000]}"
             )
 
 

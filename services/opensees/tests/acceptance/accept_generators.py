@@ -181,7 +181,16 @@ def _grow(
 
 
 def generate_state(seed: int) -> dict[str, Any]:
-    """A game-like model as a contract-shaped dict, deterministic in ``seed``."""
+    """A game-like model as a contract-shaped dict, deterministic in ``seed``.
+
+    About 40% of seeds give a deliberately well-formed structure (see
+    ``state_family``); the rest are the random family, including probe states.
+    """
+    return _labelled(seed)[1]
+
+
+def _generate_random(seed: int) -> tuple[dict[str, Any], bool]:
+    """The random (bad-states-included) family; also says whether it is a probe state."""
     rng = random.Random(seed)
 
     roll = rng.random()
@@ -334,7 +343,7 @@ def generate_state(seed: int) -> dict[str, Any]:
         model["version"] = f"seed-{seed}"
     if analysis or rng.random() < 0.5:
         model["analysis"] = analysis
-    return model
+    return model, probe_state
 
 
 INVALID_KINDS = (
@@ -408,3 +417,250 @@ def generate_invalid_state(seed: int) -> dict[str, Any]:
 
 def invalid_kind(seed: int) -> str:
     return INVALID_KINDS[seed % len(INVALID_KINDS)]
+
+
+# --------------------------------------------------------------------------- well-formed family
+#
+# Structures a competent engineer expects to stand: fully fixed foundations,
+# enough bracing or rigid joints, moderate loads (a minority heavy enough that
+# buckling is plausible). Deterministic in the seed.
+
+WF_SUBFAMILIES = ("rigid_frame", "braced_tower", "tetra_truss", "guyed_mast", "mixed_frame")
+_WF_WEIGHTS = (30, 18, 20, 14, 18)
+WELLFORMED_SHARE = 0.40
+
+
+def state_family(seed: int) -> str:
+    """Family label of ``generate_state(seed)``: ``wellformed:<kind>``, ``random`` or ``random-probe``."""
+    return _labelled(seed)[0]
+
+
+def generate_labelled(seed: int) -> tuple[str, dict[str, Any]]:
+    return _labelled(seed)
+
+
+def _labelled(seed: int) -> tuple[str, dict[str, Any]]:
+    if random.Random(f"family-{seed}").random() < WELLFORMED_SHARE:
+        kind, model = _generate_wellformed(seed)
+        return f"wellformed:{kind}", model
+    model, probe = _generate_random(seed)
+    return ("random-probe" if probe else "random"), model
+
+
+class _Build:
+    def __init__(self) -> None:
+        self.pos: dict[str, tuple[int, int, int]] = {}
+        self.members: list[dict[str, Any]] = []
+        self.foundations: list[str] = []
+
+    def node(self, nid: str, pos: tuple[int, int, int], foundation: bool = False) -> str:
+        self.pos[nid] = pos
+        if foundation:
+            self.foundations.append(nid)
+        return nid
+
+    def member(self, a: str, b: str, kind: str = "beam", **extra: Any) -> dict[str, Any]:
+        item: dict[str, Any] = {"id": f"m{len(self.members)}", "startNodeId": a, "endNodeId": b}
+        if kind != "beam":
+            item["kind"] = kind
+        item.update(extra)
+        self.members.append(item)
+        return item
+
+
+def _section(rng: random.Random) -> dict[str, Any] | None:
+    """A moderate custom section for the whole structure, or None for the standard one."""
+    if rng.random() > 0.3:
+        return None
+    area = _log_uniform(rng, 2e-3, 1.5e-2)
+    inertia = area * area * rng.uniform(0.4, 1.2)  # standard section: I = 0.8 A^2
+    modulus = rng.choice((70e9, 200e9, 210e9, 30e9))
+    return {
+        "elasticModulus": modulus,
+        "shearModulus": modulus / 2.6,
+        "area": area,
+        "inertiaY": inertia,
+        "inertiaZ": inertia * rng.uniform(0.6, 1.0),
+        "torsionConstant": 1.6 * inertia,
+        "weightPerLength": 7850.0 * 9.81 * area,
+    }
+
+
+def _wf_loads(rng: random.Random, candidates: list[str], heavy: bool) -> list[dict[str, Any]]:
+    if not candidates:
+        return []
+    chosen = [n for n in candidates if rng.random() < 0.6] or [rng.choice(candidates)]
+    loads = []
+    for nid in chosen:
+        magnitude = _log_uniform(rng, 1e6, 3e7) if heavy else _log_uniform(rng, 1e3, 6e4)
+        force = [0.0, 0.0, -magnitude]
+        if rng.random() < 0.25:
+            force[0] = rng.uniform(-0.2, 0.2) * magnitude
+            force[1] = rng.uniform(-0.2, 0.2) * magnitude
+        loads.append({"nodeId": nid, "force": force, "moment": [0.0, 0.0, 0.0]})
+    return loads
+
+
+def _independent(p: tuple, a: tuple, b: tuple, c: tuple) -> bool:
+    """True when the three bars from p to a, b, c are linearly independent (non-coplanar)."""
+    u = [a[i] - p[i] for i in range(3)]
+    v = [b[i] - p[i] for i in range(3)]
+    w = [c[i] - p[i] for i in range(3)]
+    det = (
+        u[0] * (v[1] * w[2] - v[2] * w[1])
+        - u[1] * (v[0] * w[2] - v[2] * w[0])
+        + u[2] * (v[0] * w[1] - v[1] * w[0])
+    )
+    return det != 0
+
+
+_PIN = {"startFixity": "pinned", "endFixity": "pinned"}
+
+
+def _wf_rigid_or_mixed(rng: random.Random, build: _Build, mixed: bool) -> list[str]:
+    nx, ny, nz = rng.randint(1, 3), rng.randint(0, 2), rng.randint(1, 4)
+    h = rng.choice((1, 1, 2))
+    semi = rng.random() < 0.2
+    ids = {}
+    for k in range(nz + 1):
+        for j in range(ny + 1):
+            for i in range(nx + 1):
+                ids[i, j, k] = build.node(f"n{i}_{j}_{k}", (i, j, k * h), foundation=(k == 0))
+    for (i, j, k), nid in ids.items():
+        if k < nz:
+            build.member(nid, ids[i, j, k + 1])
+        if k > 0:
+            for other in ((i + 1, j, k), (i, j + 1, k)):
+                if other in ids:
+                    extra: dict[str, Any] = {}
+                    if semi:
+                        rot = _log_uniform(rng, 1e6, 1e8)
+                        conn = {"laws": [L, L, L, E, E, E], "stiffness": [1e10] * 3 + [rot] * 3}
+                        extra = {"startConnection": conn, "endConnection": dict(conn)}
+                    build.member(nid, ids[other], **extra)
+    if mixed:
+        for k in range(nz):
+            for j in range(ny + 1):
+                for i in range(nx):
+                    if rng.random() < 0.5:
+                        a, b = ((i, j, k), (i + 1, j, k + 1)) if rng.random() < 0.5 else ((i + 1, j, k), (i, j, k + 1))
+                        build.member(ids[a], ids[b], "brace", **_PIN)
+            for i in range(nx + 1):
+                for j in range(ny):
+                    if rng.random() < 0.3:
+                        build.member(ids[i, j, k], ids[i, j + 1, k + 1], "brace", **_PIN)
+    return [nid for (i, j, k), nid in ids.items() if k == nz]
+
+
+def _wf_braced_tower(rng: random.Random, build: _Build) -> list[str]:
+    a, b = rng.randint(1, 2), rng.randint(1, 2)
+    nz, h = rng.randint(1, 5), rng.choice((1, 1, 2))
+    corners = [(0, 0), (a, 0), (a, b), (0, b)]
+    ids = {}
+    for k in range(nz + 1):
+        for index, (x, y) in enumerate(corners):
+            ids[index, k] = build.node(f"t{index}_{k}", (x, y, k * h), foundation=(k == 0))
+    for k in range(1, nz + 1):
+        for index in range(4):
+            nxt = (index + 1) % 4
+            build.member(ids[index, k - 1], ids[index, k], "brace", **_PIN)
+            build.member(ids[index, k], ids[nxt, k], "brace", **_PIN)
+            if (index + k) % 2:
+                build.member(ids[index, k - 1], ids[nxt, k], "brace", **_PIN)
+            else:
+                build.member(ids[nxt, k - 1], ids[index, k], "brace", **_PIN)
+        build.member(ids[0, k], ids[2, k], "brace", **_PIN)  # horizontal plane diagonal
+    return [ids[index, nz] for index in range(4)]
+
+
+def _wf_tetra(rng: random.Random, build: _Build) -> list[str]:
+    while True:
+        feet = rng.sample([(x, y) for x in range(4) for y in range(4)], rng.randint(3, 4))
+        (x0, y0), (x1, y1), (x2, y2) = feet[:3]
+        if (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0) != 0:  # first three not collinear
+            break
+    for index, (x, y) in enumerate(feet):
+        build.node(f"f{index}", (x, y, 0), foundation=True)
+    free: list[str] = []
+    for _ in range(rng.randint(3, 14)):
+        for _attempt in range(60):
+            base = build.pos[rng.choice(list(build.pos))]
+            p = (base[0] + rng.randint(-1, 1), base[1] + rng.randint(-1, 1), base[2] + rng.randint(0, 1))
+            if p[2] < 1 or p in build.pos.values():
+                continue
+            near = [n for n, q in build.pos.items() if max(abs(q[i] - p[i]) for i in range(3)) <= 2]
+            if len(near) < 3:
+                continue
+            trio = rng.sample(near, 3)
+            if not _independent(p, *(build.pos[n] for n in trio)):
+                continue
+            nid = build.node(f"p{len(build.pos)}", p)
+            for other in trio + [n for n in near if n not in trio and rng.random() < 0.1]:
+                build.member(nid, other, "brace", **_PIN)
+            free.append(nid)
+            break
+    if not free:  # extremely unlikely; guarantee one held node
+        for _ in range(100):
+            p = (rng.randint(0, 3), rng.randint(0, 3), 1)
+            if all(_independent(p, *(build.pos[f"f{i}"] for i in trio)) for trio in [(0, 1, 2)]):
+                nid = build.node("p99", p)
+                for index in range(3):
+                    build.member(nid, f"f{index}", "brace", **_PIN)
+                free.append(nid)
+                break
+    return free
+
+
+def _wf_guyed_mast(rng: random.Random, build: _Build) -> list[str]:
+    nz, h = rng.randint(3, 5), rng.choice((1, 2))
+    column = [build.node("c0", (0, 0, 0), foundation=True)]
+    for k in range(1, nz + 1):
+        column.append(build.node(f"c{k}", (0, 0, k * h)))
+        build.member(column[-2], column[-1])
+    anchors = [(3, 0), (-3, 1), (0, 3), (1, -3)]
+    levels = [nz] + ([nz - 1] if rng.random() < 0.5 else [])
+    for index, (x, y) in enumerate(anchors[: rng.randint(3, 4)]):
+        anchor = build.node(f"a{index}", (x, y, 0), foundation=True)
+        for level in levels:
+            build.member(anchor, column[level], "cable", initialStrain=_log_uniform(rng, 1e-4, 1e-3), **_PIN)
+    return [column[nz]]
+
+
+def _generate_wellformed(seed: int) -> tuple[str, dict[str, Any]]:
+    rng = random.Random(f"wellformed-{seed}")
+    kind = rng.choices(WF_SUBFAMILIES, _WF_WEIGHTS)[0]
+    build = _Build()
+    if kind == "rigid_frame":
+        loadable = _wf_rigid_or_mixed(rng, build, mixed=False)
+    elif kind == "mixed_frame":
+        loadable = _wf_rigid_or_mixed(rng, build, mixed=True)
+    elif kind == "braced_tower":
+        loadable = _wf_braced_tower(rng, build)
+    elif kind == "tetra_truss":
+        loadable = _wf_tetra(rng, build)
+    else:
+        loadable = _wf_guyed_mast(rng, build)
+
+    section = _section(rng)
+    if section is not None:
+        for member in build.members:
+            member["properties"] = dict(section)
+
+    heavy = rng.random() < 0.10
+    all_free = [n for n in build.pos if n not in build.foundations]
+    loads = _wf_loads(rng, loadable if rng.random() < 0.7 else all_free, heavy)
+
+    analysis: dict[str, Any] = {"fidelity": rng.choice(("linear", "nonlinear")), "selfWeight": rng.random() < 0.5}
+    model: dict[str, Any] = {
+        "units": "SI",
+        "nodes": [
+            {"id": nid, "position": [p[0] * CELL, p[1] * CELL, p[2] * CELL]} for nid, p in build.pos.items()
+        ],
+        "members": build.members,
+        "supports": [{"nodeId": nid, "restrained": list(FIXED_SUPPORT)} for nid in build.foundations],
+        "loads": loads,
+        "analysis": analysis,
+    }
+    if rng.random() < 0.3:
+        model["version"] = f"seed-{seed}"
+    return kind, model
