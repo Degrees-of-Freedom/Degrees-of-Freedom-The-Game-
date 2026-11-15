@@ -503,7 +503,11 @@ export function Workspace() {
   if (saveCovered) return <SessionRecovery />;
   if (covered && privateTurn) return (
     <>
-      <SharedTableHandoff player={privateTurn.playerIndex + 1} board={privateTurn.board} onReady={() => {
+      <div className="handoff-scene" aria-hidden="true" inert>
+        <SceneBoundary release><Scene publicOnly cameraMemory={cameraMemory.current} still result={null} combo={0}
+          deformed={false} scale={1} utilization={false} loads={false} loadPath={false} /></SceneBoundary>
+      </div>
+      <SharedTableHandoff player={privateTurn.playerIndex + 1} onReady={() => {
         if (!paused && !document.hidden) setReadyBoard(privateTurn.board);
       }} />
       {pauseMenu}

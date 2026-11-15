@@ -34,7 +34,7 @@ The match authority creates two 48-card decks with independent deterministic shu
 
 Reloading a pending assessment reconstructs the frozen turn and completes its existing intent. Closing the route terminates its worker and aborts stale result delivery. Restoring a private file requires an 8 MiB byte-limit check, a supported header and successful versioned replay against the full snapshot. Files rejected during import remain downloadable unchanged. An unreadable stored head can be exported and explicitly replaced by its validated previous revision or a fresh match. An unavailable solver on restore has a retry screen and original-byte export. Existing playtest saves remain available through their own modes.
 
-Private hands, deck order, draw identities, seed and the draft are absent from the handoff screen. Its softened backdrop is a stylized projection of committed members only, with the pass message and Ready control over it. Pausing, backgrounding and reloading conceal the hand. The menu offers separately labelled **Export public summary** and **Export private match**. Public summaries are field-by-field projections of the committed structure and reports. Only the private file can resume play.
+Private hands, deck order, draw identities, seed and the draft are absent from the handoff screen. Its lightly blurred scene renders committed geometry only, with the pass message and Ready control over it. Pausing, backgrounding and reloading conceal the hand. The menu offers separately labelled **Export public summary** and **Export private match**. Public summaries are field-by-field projections of the committed structure and reports. Only the private file can resume play.
 
 ## Board and presentation
 

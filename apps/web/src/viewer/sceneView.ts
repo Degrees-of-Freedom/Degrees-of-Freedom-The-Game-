@@ -12,6 +12,8 @@ export interface SceneHover {
 import type { JointLayer } from "./jointGlyphs";
 import type { DeformationField } from "./deformationField";
 export interface SceneView {
+  /** Render only committed multiplayer geometry behind the privacy handoff. */
+  publicOnly?: boolean;
   /** Kept in the workspace only, so privacy handoff can unmount every private scene resource. */
   cameraMemory?: CameraMemory;
   still?: boolean;

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { useGameStore } from "../game/store";
+import { projectTurnModel } from "../game/turns";
 import {
   allNodeKeys,
   CELL_SIZE,
@@ -42,6 +43,7 @@ const trimLength = (value: number) =>
 import { createJointGlyphs } from "./jointGlyphs";
 /** Three.js owns only presentation and picking; the game store owns the model and rules. */
 export function Scene({
+  publicOnly,
   diagrams,
   cameraMemory,
   still,
@@ -63,6 +65,7 @@ export function Scene({
   baySize,
 }: SceneView) {
   const view = useRef<SceneView>({
+    publicOnly,
     diagrams,
     cameraMemory,
     still,
@@ -84,6 +87,7 @@ export function Scene({
     baySize,
   });
   view.current = {
+    publicOnly,
     diagrams,
     cameraMemory,
     still,
@@ -308,7 +312,14 @@ export function Scene({
       },
     );
     function rebuild() {
-      const state = useGameStore.getState();
+      const current = useGameStore.getState();
+      // A resumed match may contain a private draft. Build the backdrop from
+      // committed geometry only and omit private selection and targeting.
+      const turn = view.current.publicOnly && current.turn
+        ? { ...current.turn, draft: { members: [], loads: [], connections: [] } } : current.turn;
+      const state = view.current.publicOnly && turn
+        ? { ...current, turn, model: projectTurnModel(turn), selected: null, selectedCardId: null, chainStart: null }
+        : current;
       const level = sceneLevel(state);
       const palette = SCENE_STYLES[state.style];
       const turnIndex =
@@ -430,7 +441,7 @@ export function Scene({
         state.style,
       );
       bloom.sync(state, palette, performance.now());
-      buildTurnGuides(guides, state, point);
+      if (!view.current.publicOnly) buildTurnGuides(guides, state, point);
       // Publish the new environment even while background tabs throttle animation frames.
       sky.position.copy(camera.position);
       draw();
@@ -858,7 +869,7 @@ export function Scene({
         }}
         aria-label="3D workspace. Drag to orbit, scroll to zoom, and click to build."
       />
-      {isGrowthStyle(style) && (
+      {!publicOnly && isGrowthStyle(style) && (
         <>
           {/* Scene labels of the growth styles, positioned every frame by the render loop. */}
           <div
