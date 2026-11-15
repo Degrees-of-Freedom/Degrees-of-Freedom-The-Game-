@@ -13,11 +13,49 @@ async function throttle(context) {
   context.on("page", page => { apply(page).catch(() => {}); });
 }
 
+/** Gate for the solver binary, installed once before the first page loads.
+ *
+ * Do not toggle `context.route`/`context.unroute` mid-test. The first route turns on
+ * CDP `Fetch` interception and removing the last one turns it off. In Chromium 1243,
+ * a request that reaches the interceptor while `Fetch.disable` is being processed can
+ * be stranded: Playwright never receives `Fetch.requestPaused` for it, and it never
+ * settles. Unrouting right after a reload hit the new document's first solver fetch or
+ * route chunk, leaving the page on "Opening Shared table…" or blank. Keeping
+ * interception enabled for the context's lifetime and switching only this mode avoids
+ * that window. See docs/kb/grow-dusk-runtime.md.
+ *
+ * - `hold()` parks matching requests until the returned release function is called.
+ * - `abort()` fails them as a missing binary would, until the returned function is called.
+ * Requests arriving in the default pass-through mode continue unchanged. */
+async function solverGate(context) {
+  let mode = { kind: "pass" };
+  await context.route(/dof_solver-.*\.wasm/, async route => {
+    const current = mode;
+    if (current.kind === "abort") return route.abort("failed");
+    if (current.kind === "hold") await current.released;
+    // A held request may belong to a worker or document terminated by the reload.
+    await route.continue().catch(() => {});
+  });
+  return {
+    hold() {
+      let release;
+      const released = new Promise(resolve => { release = resolve; });
+      mode = { kind: "hold", released };
+      return () => { mode = { kind: "pass" }; release(); };
+    },
+    abort() {
+      mode = { kind: "abort" };
+      return () => { mode = { kind: "pass" }; };
+    },
+  };
+}
+
 /** These checks inject failures at the storage/worker boundary. Positive gameplay
  * always enters through the same controls a player uses. No synthetic match is dealt. */
 export async function testOperationalCases(browser, base, saved) {
   const context = await browser.newContext({ viewport:{width:1366,height:900}, reducedMotion:"reduce" });
   await throttle(context);
+  const solver = await solverGate(context);
   const page = await context.newPage();
   page.setDefaultTimeout(12000);
   const button = name => page.getByRole("button",{name,exact:true});
@@ -102,9 +140,7 @@ export async function testOperationalCases(browser, base, saved) {
     checks.push("rapid End input and stale tab render one accepted event");
 
     // Reload while End has a durable intent but the solver binary cannot yet arrive.
-    let releaseRequest;
-    const hold = new Promise(resolve=>{ releaseRequest=resolve; });
-    await context.route(/dof_solver-.*\.wasm/,async route => { await hold; await route.continue().catch(()=>{}); });
+    const releaseSolver = solver.hold();
     await ready.click(); await drawFour(); await button("Pass").click();
     await page.waitForFunction(async () => {
       const req = indexedDB.open("dof-grow-dusk");
@@ -116,20 +152,19 @@ export async function testOperationalCases(browser, base, saved) {
     const intent=await saved(page);
     const reload=page.reload({waitUntil:"domcontentloaded"});
     await reload;
-    releaseRequest();
-    await context.unroute(/dof_solver-.*\.wasm/);
+    releaseSolver();
     await ready.waitFor();
     const committed=await saved(page);
     assert.equal(committed.turn.turn,3);
     assert.equal(committed.turn.reports.length,2);
     assert.equal(committed.parentId,intent.commitId);
     checks.push("worker interrupted after durable End intent resumes once behind handoff");
-    await context.route(/dof_solver-.*\.wasm/,route=>route.abort("failed"));
+    const restoreSolver = solver.abort();
     await page.reload();
     await page.getByRole("heading",{name:"Couldn’t open the match"}).waitFor();
     assert.equal(await button("Restore previous save").count(),0);
     assert.equal(JSON.parse(await download(()=>button("Download original private save").click())).commitId,committed.commitId);
-    await context.unroute(/dof_solver-.*\.wasm/);
+    restoreSolver();
     await button("Retry").click(); await ready.waitFor();
     assert.equal((await saved(page)).commitId,committed.commitId);
     checks.push("missing WASM on reload permits retry and exact private export without replacing a valid save");
