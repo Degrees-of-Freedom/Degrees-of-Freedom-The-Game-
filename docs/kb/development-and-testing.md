@@ -29,6 +29,7 @@ validated_against:
   - scripts/build-solver-wasm.mjs
   - scripts/bench-solver.mjs
   - apps/web/src/solver/wasm
+  - apps/web/src/solver/wasm/crossCheck.test.ts
 owner: unknown
 status: partial
 ---
@@ -41,7 +42,7 @@ From the repository root, use `npm ci`, `npm run dev`, `npm run typecheck` and `
 
 Vitest covers editing rules, draw conservation, turn replay, attachment laws, viewer picking and units. The release also runs the Rust analytical suite, independent OpenSees comparisons and complete production browser matches. The [numerical evidence](rust-solver.md) records tolerances, classification limits and stress timings.
 
-Vitest also covers the OpenSees adapter and its health check against a stubbed `fetch`, solver selection, the stored solver setting, and the translation from the game model to the shared contract. Further tests run only when `VITE_OPENSEES_URL` points at a running service: two send a cantilever and the reference examples through it, and three compare its answers with the Rust solver's.
+Vitest also covers the OpenSees adapter and its health check against a stubbed `fetch`, solver selection, the stored solver setting, and the translation from the game model to the shared contract. Further tests run only when `VITE_OPENSEES_URL` points at a running service: two send a cantilever and the reference examples through it, and six in `crossCheck.test.ts` compare its answers with the Rust solver's, at both fidelities, on hand-built frames, the reference examples and the twenty library structures.
 
 `analysisModel.test.ts` checks SI units, translation to the detailed contract and reference games against the actual WebAssembly module. Vitest loads the checked-in `apps/web/src/solver/wasm/dof_solver.wasm`. Run `npm run build:solver` after editing Rust. The root production build always rebuilds the binary from source.
 
@@ -159,3 +160,20 @@ Checked on `main` at `af45c30` (#16), Windows 11, Node 24.16.0, Rust 1.100.0:
 | Documentation links | 464 relative links and anchors checked, none broken. |
 
 Not checked in this pass: the workspace panels in a browser, and the 10,000-state generated run of the OpenSees service, which runs only when `DOF_GENERATED_STATES` is set.
+
+## Solver re-check and Rust–OpenSees cross-check — 2026-11-15
+
+Checked on `main` at `39508f0` (#14) in a Linux container: 4-core Intel Xeon at 2.1 GHz, Node 22.23.4, Rust 1.97.0, uv-managed Python 3.12, OpenSees 3.8.0. All solver branches on the remote are contained in `main`. The three commits that `nico/rust-v2-contract` appears to carry are on `main` with different hashes.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | Pass. |
+| `npm test` | Pass: 78 test files, 564 tests; 2 files and 9 tests skipped without an OpenSees service. |
+| `VITE_OPENSEES_URL=http://127.0.0.1:8000 npm test` with `npm run dev:opensees` running | Pass: 80 test files, 573 tests, before the cross-check was extended. The extended `crossCheck.test.ts` passes 6 of 6. |
+| `npm run test:solver` | Pass: 82 tests, 1 ignored timing harness. |
+| `npm run test:opensees` | Pass: 719 tests, 7 skipped (6 unrepresentable skew-axis releases, 1 opt-in single seed). |
+| `npm run build:solver` | Pass. The rebuilt module (686 kB) is not byte-identical to the committed one, which was built with another toolchain. All 125 solver Vitest tests pass with it. The committed module was kept. |
+| `npm run bench:solver` | All proposed targets met; numbers on the [Rust solver page](rust-solver.md#timings). |
+| `SOLVER_TIMING_REPS=1 npm run compare:solvers` | Runs the voxel and OpenSees linear/nonlinear paths only; it does not include the Rust solver. OpenSees nonlinear calls the slender column and the cantilever unstable where the voxel and linear paths call them stable. |
+
+The cross-check results, the prestressed-cable convention difference and the two nonlinear verdicts that Rust leaves `unresolved` are in [Cross-check with OpenSees](rust-solver.md#cross-check-with-opensees--2026-11-15). Not checked in this pass: the browser, the production build and the 10,000-state generated OpenSees run.
