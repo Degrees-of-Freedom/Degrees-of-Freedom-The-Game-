@@ -1,0 +1,388 @@
+{
+  "format": "dof-structure-record",
+  "version": 1,
+  "id": "23-cambered-ribbon",
+  "name": "Cambered ribbon bridge",
+  "family": "camber",
+  "purpose": "Longitudinal camber and a transverse crown carried by only two central piers.",
+  "complexity": "medium",
+  "nodeCount": 23,
+  "memberCount": 46,
+  "extentMetres": [
+    24,
+    8,
+    14
+  ],
+  "foundationCount": 2,
+  "expectation": {
+    "stability": "review",
+    "basis": "Qualitative design intent; not a verified numerical reference."
+  },
+  "preview": "previews/23-cambered-ribbon.png",
+  "save": {
+    "format": "dof-voxel-save",
+    "version": 1,
+    "levelId": "library",
+    "model": {
+      "members": [
+        {
+          "id": 1,
+          "a": "2,6,2",
+          "b": "4,6,4",
+          "type": "ipe"
+        },
+        {
+          "id": 2,
+          "a": "2,6,2",
+          "b": "2,8,3",
+          "type": "ipe"
+        },
+        {
+          "id": 3,
+          "a": "2,6,2",
+          "b": "4,8,5",
+          "type": "ipe"
+        },
+        {
+          "id": 4,
+          "a": "2,8,3",
+          "b": "4,8,5",
+          "type": "ipe"
+        },
+        {
+          "id": 5,
+          "a": "2,8,3",
+          "b": "2,10,2",
+          "type": "ipe"
+        },
+        {
+          "id": 6,
+          "a": "2,10,2",
+          "b": "4,8,5",
+          "type": "ipe"
+        },
+        {
+          "id": 7,
+          "a": "2,10,2",
+          "b": "4,10,4",
+          "type": "ipe"
+        },
+        {
+          "id": 8,
+          "a": "4,6,4",
+          "b": "6,6,5",
+          "type": "ipe"
+        },
+        {
+          "id": 9,
+          "a": "4,6,4",
+          "b": "4,8,5",
+          "type": "ipe"
+        },
+        {
+          "id": 10,
+          "a": "4,8,5",
+          "b": "6,6,5",
+          "type": "ipe"
+        },
+        {
+          "id": 11,
+          "a": "4,8,5",
+          "b": "6,8,6",
+          "type": "ipe"
+        },
+        {
+          "id": 12,
+          "a": "4,8,5",
+          "b": "4,10,4",
+          "type": "ipe"
+        },
+        {
+          "id": 13,
+          "a": "4,8,5",
+          "b": "6,10,5",
+          "type": "ipe"
+        },
+        {
+          "id": 14,
+          "a": "4,10,4",
+          "b": "6,10,5",
+          "type": "ipe"
+        },
+        {
+          "id": 15,
+          "a": "6,6,5",
+          "b": "8,6,6",
+          "type": "ipe"
+        },
+        {
+          "id": 16,
+          "a": "6,6,5",
+          "b": "6,8,6",
+          "type": "ipe"
+        },
+        {
+          "id": 17,
+          "a": "6,6,5",
+          "b": "8,8,7",
+          "type": "ipe"
+        },
+        {
+          "id": 18,
+          "a": "6,8,6",
+          "b": "8,8,7",
+          "type": "ipe"
+        },
+        {
+          "id": 19,
+          "a": "6,8,6",
+          "b": "6,10,5",
+          "type": "ipe"
+        },
+        {
+          "id": 20,
+          "a": "6,10,5",
+          "b": "8,8,7",
+          "type": "ipe"
+        },
+        {
+          "id": 21,
+          "a": "6,10,5",
+          "b": "8,10,6",
+          "type": "ipe"
+        },
+        {
+          "id": 22,
+          "a": "8,6,6",
+          "b": "10,6,5",
+          "type": "ipe"
+        },
+        {
+          "id": 23,
+          "a": "8,6,6",
+          "b": "8,8,7",
+          "type": "ipe"
+        },
+        {
+          "id": 24,
+          "a": "8,8,7",
+          "b": "10,6,5",
+          "type": "ipe"
+        },
+        {
+          "id": 25,
+          "a": "8,8,7",
+          "b": "10,8,6",
+          "type": "ipe"
+        },
+        {
+          "id": 26,
+          "a": "8,8,7",
+          "b": "8,10,6",
+          "type": "ipe"
+        },
+        {
+          "id": 27,
+          "a": "8,8,7",
+          "b": "10,10,5",
+          "type": "ipe"
+        },
+        {
+          "id": 28,
+          "a": "8,10,6",
+          "b": "10,10,5",
+          "type": "ipe"
+        },
+        {
+          "id": 29,
+          "a": "10,6,5",
+          "b": "12,6,4",
+          "type": "ipe"
+        },
+        {
+          "id": 30,
+          "a": "10,6,5",
+          "b": "10,8,6",
+          "type": "ipe"
+        },
+        {
+          "id": 31,
+          "a": "10,6,5",
+          "b": "12,8,5",
+          "type": "ipe"
+        },
+        {
+          "id": 32,
+          "a": "10,8,6",
+          "b": "12,8,5",
+          "type": "ipe"
+        },
+        {
+          "id": 33,
+          "a": "10,8,6",
+          "b": "10,10,5",
+          "type": "ipe"
+        },
+        {
+          "id": 34,
+          "a": "10,10,5",
+          "b": "12,8,5",
+          "type": "ipe"
+        },
+        {
+          "id": 35,
+          "a": "10,10,5",
+          "b": "12,10,4",
+          "type": "ipe"
+        },
+        {
+          "id": 36,
+          "a": "12,6,4",
+          "b": "14,6,2",
+          "type": "ipe"
+        },
+        {
+          "id": 37,
+          "a": "12,6,4",
+          "b": "12,8,5",
+          "type": "ipe"
+        },
+        {
+          "id": 38,
+          "a": "12,8,5",
+          "b": "14,6,2",
+          "type": "ipe"
+        },
+        {
+          "id": 39,
+          "a": "12,8,5",
+          "b": "14,8,3",
+          "type": "ipe"
+        },
+        {
+          "id": 40,
+          "a": "12,8,5",
+          "b": "12,10,4",
+          "type": "ipe"
+        },
+        {
+          "id": 41,
+          "a": "12,8,5",
+          "b": "14,10,2",
+          "type": "ipe"
+        },
+        {
+          "id": 42,
+          "a": "12,10,4",
+          "b": "14,10,2",
+          "type": "ipe"
+        },
+        {
+          "id": 43,
+          "a": "14,6,2",
+          "b": "14,8,3",
+          "type": "ipe"
+        },
+        {
+          "id": 44,
+          "a": "14,8,3",
+          "b": "14,10,2",
+          "type": "ipe"
+        },
+        {
+          "id": 45,
+          "a": "2,8,0",
+          "b": "2,8,3",
+          "type": "heb"
+        },
+        {
+          "id": 46,
+          "a": "14,8,0",
+          "b": "14,8,3",
+          "type": "heb"
+        }
+      ],
+      "attrs": {
+        "2,6,2": {
+          "joint": true,
+          "load": 2
+        },
+        "4,6,4": {
+          "joint": true
+        },
+        "2,8,3": {
+          "joint": true
+        },
+        "4,8,5": {
+          "joint": true
+        },
+        "2,10,2": {
+          "joint": true
+        },
+        "4,10,4": {
+          "joint": true,
+          "load": 2
+        },
+        "6,6,5": {
+          "joint": true
+        },
+        "6,8,6": {
+          "joint": true,
+          "load": 2
+        },
+        "6,10,5": {
+          "joint": true
+        },
+        "8,6,6": {
+          "joint": true,
+          "load": 2
+        },
+        "8,8,7": {
+          "joint": true
+        },
+        "8,10,6": {
+          "joint": true
+        },
+        "10,6,5": {
+          "joint": true
+        },
+        "10,8,6": {
+          "joint": true
+        },
+        "10,10,5": {
+          "joint": true,
+          "load": 2
+        },
+        "12,6,4": {
+          "joint": true
+        },
+        "12,8,5": {
+          "joint": true,
+          "load": 2
+        },
+        "12,10,4": {
+          "joint": true
+        },
+        "14,6,2": {
+          "joint": true,
+          "load": 2
+        },
+        "14,8,3": {
+          "joint": true
+        },
+        "14,10,2": {
+          "joint": true
+        },
+        "2,8,0": {
+          "found": true,
+          "joint": true
+        },
+        "14,8,0": {
+          "found": true,
+          "joint": true
+        }
+      },
+      "nextId": 47
+    }
+  }
+}

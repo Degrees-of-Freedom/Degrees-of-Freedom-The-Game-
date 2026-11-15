@@ -32,7 +32,7 @@ export function StructureLibrary({ index, setIndex }: { index: number; setIndex:
           </select>
         </label>
         <p>{record.purpose}</p>
-        <p>{record.complexity} · {record.nodeCount} nodes · {record.extentMetres.join(' × ')} m · intent: {record.expectation.stability}</p>
+        <p>{record.complexity} · {record.nodeCount} nodes · {record.foundationCount} foundations · {record.extentMetres.join(' × ')} m · intent: {record.expectation.stability}</p>
         <div className="library-actions">
           <button onClick={() => open(index - 1)}>← Previous & load</button>
           <button onClick={() => open(index)}>Load structure</button>

@@ -53,7 +53,7 @@ The app's `/wiki` companion offers six introductory lessons, a searchable glossa
 | [element-representation-criteria.md](element-representation-criteria.md) | Generating lightweight column, spring, planar/trichord truss, wide-flange, HSS and cable geometry, with readable and true-scale views. |
 | [analysis-results.md](analysis-results.md) | Persisting versioned solver runs, validity and result provenance. |
 | [structural-state.md](structural-state.md) | Browser saves, experimental solver snapshots, and proposed general state and fixture design. |
-| [structure-library.md](structure-library.md) | Loading and cycling 20 grid specimens, PNG previews, SQLite records and the observed evaluator baseline. |
+| [structure-library.md](structure-library.md) | Loading and cycling 30 grid specimens, PNG previews, SQLite records and the observed evaluator baseline. |
 | [structure-gan.md](structure-gan.md) | Training the adversarial generator of curved, organic, asymmetric, stable structures, its physics oracle, evidence, limits and the `evolved.sqlite` database. |
 | [solver-criteria.md](solver-criteria.md) | Reading the owner-supplied proposed solver requirements, acceptance gates, implementation order, and open gameplay decisions. |
 | [solver-criteria-gap-analysis.md](solver-criteria-gap-analysis.md) | Comparing current code and tests with the criteria and planning implementation milestones. |

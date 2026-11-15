@@ -3,6 +3,7 @@ title: "Structure Library"
 last_validated: 2026-11-15
 validated_against:
   - scripts/generate-structure-library.mjs
+  - scripts/sculptural-structures.mjs
   - scripts/render-structure-previews.ps1
   - apps/web/src/game/structureLibrary.test.ts
   - apps/web/src/components/StructureLibrary.tsx
@@ -16,7 +17,7 @@ status: current
 
 # Structure library
 
-The workspace has 20 deterministic voxel specimens, from a one-member column to an 80-node, 208-member building. These exercise existing viewer and solver behavior; they are not independently verified engineering benchmarks or a general turn-state database.
+The workspace has 30 deterministic voxel specimens, from a one-member column to an 80-node, 208-member building. These exercise existing viewer and solver behavior; they are not independently verified engineering benchmarks or a general turn-state database.
 
 ## Browse and solve
 
@@ -28,16 +29,20 @@ Open **Structure library** in the environment action bar. Use **Run simulation**
 
 `apps/web/public/structures/` contains:
 
-- `catalog.json`: versioned catalog with all 20 full records.
+- `catalog.json`: versioned catalog with all 30 full records.
 - `records/<id>.json`: individual records, including metadata, intended stability, dimensions, counts and a validated v1 voxel save.
 - `previews/<id>.png`: 960 × 720 orthographic geometry previews; supports are blocks and downward loads are red arrows. These use exact record coordinates, not solved deformations or viewer screenshots.
-- `contact-sheet.png`: all 20 previews.
-- `structures.sqlite`: portable database with table `structures`: primary-key `id`, `name`, `family`, `member_count`, `node_count`, `preview` and full `record_json`. Example query: `SELECT id, name, member_count FROM structures ORDER BY id;`. This is a downloadable index, not a running backend. Machine-generated structures live separately in `evolved.sqlite` (see [structure GAN](structure-gan.md)); regenerating this library does not touch it.
+- `contact-sheet.png`: all 30 previews; `sculptural-contact-sheet.png` shows cases 21–30.
+- `structures.sqlite`: portable database with table `structures`: primary-key `id`, `name`, `family`, `member_count`, `node_count`, `foundation_count`, `preview` and full `record_json`. Example query: `SELECT id, name, member_count FROM structures ORDER BY id;`. This is a downloadable index, not a running backend. Machine-generated structures live separately in `evolved.sqlite` (see [structure GAN](structure-gan.md)); regenerating this library does not touch it.
 - `evaluator-baseline.json`: observed regression summaries of the structure evaluator on the Rust solver, with provenance, separate from design expectations. It replaced `voxel-baseline.json` on 2026-11-15.
 
 Records use two-metre grid cells, kN point loads and the existing section catalog. A `joint` locks all member-end axes; otherwise the evaluator releases bending rotations but retains torsion. Foundations fix all six DOFs. Library analysis uses sandbox semantics, unlimited inventory/budget, `q0 = 0`, existing self-weight, notional loads and ULS/SLS combinations. These are not pure point-load analytical solutions. Self-weight and member wind are distributed along members in the Rust load cases. SI translation is tested through `toStructuralModel`; OpenSees numerical results are not part of the stored baseline.
 
 Some imported specimens intentionally exceed interactive member-length limits (notably the pyramid and mast guys). They test imported geometry; being loadable does not establish legal game placement. General per-end connections and turn-state proposals remain separate.
+
+## Sculptural examples
+
+The restored examples use straight members on the two-metre grid to approximate curved forms. Each has two to four ground foundations and is connected to them. They are marked `review`: loading one does not establish a safe design. The current evaluator baseline reports whole-model results for all ten; several exceed utilisation 1. The generator, catalog, individual records, SQLite index and previews include these examples together.
 
 ## Coverage and observed behavior
 
@@ -49,6 +54,7 @@ Some imported specimens intentionally exceed interactive member-length limits (n
 | 13–15 | Short/long/cable-diagonal bridges | Deck load paths, span, cable behavior |
 | 16–18 | Timber roof grid, pyramid, guyed mast | Spatial geometry, material colors, pretension |
 | 19–20 | Supported plus floating, unsupported cube | Partial-result scope and no-foundation diagnostics |
+| 21–30 | Bowls, ribbon, twisting cantilever, organic dome, saddle, wave, leaf, oculus, branching canopy | Faceted sculptural forms with two to four foundations |
 
 `expectation` is qualitative design intent. Cable specimens are marked `review`. The baseline records:
 
@@ -80,4 +86,4 @@ npx vitest run apps/web/src/game/structureLibrary.test.ts
 npm run build
 ```
 
-Edit the generator to change specimens; regenerate records and database together. Regenerate previews for geometry/label changes. Tests check unique geometry and edges, bounds, metadata, PNG signatures, save validation, detached loading/undo, SI translation and all 20 evaluations. Categorical results compare exactly. Displacement, utilisation and buckling factor use a tolerance of `1e-9 + abs(reference) * 1e-6`. Provenance includes the base Git revision, a hash of the evaluator source contents (the working tree may contain uncommitted changes) and the SHA-256 of the solver binary. Timing is excluded: this is not a latency benchmark. The observed baseline detects implementation changes; it does not independently prove numerical accuracy or engineering safety.
+Edit the generator to change specimens; regenerate records and database together. Regenerate previews for geometry/label changes. Tests check unique geometry and edges, bounds, metadata, PNG signatures, save validation, detached loading/undo, SI translation and all 30 evaluations. Categorical results compare exactly. Displacement, utilisation and buckling factor use a tolerance of `1e-9 + abs(reference) * 1e-6`. Provenance includes the base Git revision, a hash of the evaluator source contents (the working tree may contain uncommitted changes) and the SHA-256 of the solver binary. Timing is excluded: this is not a latency benchmark. The observed baseline detects implementation changes; it does not independently prove numerical accuracy or engineering safety.
