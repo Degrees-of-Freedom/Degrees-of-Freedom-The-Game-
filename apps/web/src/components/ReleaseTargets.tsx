@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CANTILEVER_CATALOGUE, connectionChoices } from "../game/cardCatalogue";
-import { attachmentLabel, attachmentQuarter, type AttachmentSite } from "../game/attachmentSites";
+import { attachmentLabel, attachmentQuarter, type AttachmentSite, type InteriorContact } from "../game/attachmentSites";
 import { placementAnchorTargets, placementCandidates, placementFromTip } from "../game/cantileverPlacement";
 import { connectionLabel, type ConnectionProfile } from "../game/jointFreedom";
 import { CELL_SIZE, nodeKey, parseNodeKey } from "../game/model";
@@ -17,7 +17,7 @@ const sites: readonly { value: AttachmentSite; label: string }[] = [
   { value: "q2", label: "Middle" }, { value: "q3", label: "¾" }, { value: "b", label: "End B" },
 ];
 
-function ElementCoordinates({ turn, stage }: { turn: TurnState; stage(a: string, b: string): void }) {
+function ElementCoordinates({ turn, stage, support }: { turn: TurnState; stage(a: string, b: string): void; support?: string }) {
   const [a, setA] = useState("");
   const [b, setB] = useState("");
   const ports = turn.board.members.filter(m => !m.system).flatMap(originalPorts)
@@ -25,7 +25,9 @@ function ElementCoordinates({ turn, stage }: { turn: TurnState; stage(a: string,
   return <details className="release-precision">
     <summary>Precise placement</summary>
     <form onSubmit={event => { event.preventDefault(); if (a.trim() && b.trim()) stage(a.trim(), b.trim()); }}>
-      <p className="release-placement-note">Enter two endpoints. For an overhang, choose an attachment point and free tip above.</p>
+      <p className="release-placement-note">{support
+        ? `Choose both endpoints while keeping the selected ${support}. The element remains unconnected until you play a fixed connector.`
+        : "Enter two endpoints. For an overhang, choose an attachment point and free tip above."}</p>
       {([{ name: "A", value: a, change: setA }, { name: "B", value: b, change: setB }]).map(end =>
         <fieldset key={end.name}>
           <legend>End {end.name}</legend>
@@ -57,7 +59,10 @@ export function ElementPlacementControls({ game, card, notify }: { game: Game; c
   const lengthLabel = (value: number) => Number(value.toPrecision(4)) + " m";
   const supportedSource = turn.catalogue === CANTILEVER_CATALOGUE && card.type !== "cable" && card.type !== "spring" && !card.assembly;
   const canChooseStation = supportedSource && !!anchor;
-  const stage = (a: string, b: string) => notify(game.playElement(card.id, a, b) ?? "Element staged. Choose a connector to attach it.");
+  const quarter = attachmentQuarter(game.attachmentSite);
+  const contact: InteriorContact | undefined = canChooseStation && anchor && (quarter === 1 || quarter === 2 || quarter === 3)
+    ? { quarter, target: anchor.id } : undefined;
+  const stage = (a: string, b: string) => notify(game.playElement(card.id, a, b, contact) ?? "Element staged. Choose a connector to attach it.");
   const useCoordinates = () => {
     const value = coordinates.trim();
     const point = parseNodeKey(value);
@@ -124,7 +129,7 @@ export function ElementPlacementControls({ game, card, notify }: { game: Game; c
         <button type="submit" disabled={!coordinates.trim()}>Place at coordinates</button>
       </form>
     </details>}
-    <ElementCoordinates turn={turn} stage={stage} />
+    <ElementCoordinates turn={turn} stage={stage} support={contact ? `${attachmentLabel(game.attachmentSite)} attachment at ${anchor?.label}` : undefined} />
   </div>;
 }
 
