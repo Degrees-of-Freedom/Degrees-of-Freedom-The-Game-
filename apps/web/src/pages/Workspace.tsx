@@ -6,7 +6,7 @@ import { LEVELS } from "../game/levels";
 import { useGameStore } from "../game/store";
 import { analyzeGame } from "../game/analysis";
 import { analyzeTurn } from "../game/turnAnalysis";
-import { isScoredCatalogue, RELEASE_CATALOGUE } from "../game/cardCatalogue";
+import { isReleaseCatalogue, isScoredCatalogue } from "../game/cardCatalogue";
 import { ReleaseBoard } from "../components/ReleaseBoard";
 import type { CameraMemory } from "../viewer/sceneView";
 import { deformationField } from "../viewer/deformationField";
@@ -53,7 +53,7 @@ type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 /** The environment variants compose the same store, scene and analysis boundary. */
 export function Workspace() {
   const game = useGameStore();
-  const release = game.mode === "multiplayer" && game.turn?.catalogue === RELEASE_CATALOGUE;
+  const release = game.mode === "multiplayer" && isReleaseCatalogue(game.turn?.catalogue);
   const cameraMemory = useRef<CameraMemory>({});
   // Editor and archived presets may request the configured solver. Release
   // End turn and inspection use their versioned in-browser workers.

@@ -3,6 +3,7 @@ import { activeTurnHand, type TurnState } from "../game/turns";
 import { parseNodeKey } from "../game/model";
 import { originalPorts, portLabel } from "../game/turnPorts";
 import { connectionLabel } from "../game/jointFreedom";
+import { attachmentLabel, isInteriorSite, type AttachmentSite } from "../game/attachmentSites";
 import { publicTurnReport } from "../game/publicTurnModel";
 import { repairReaction } from "../game/publicRepairReport";
 import { useSettings } from "../menu/settings";
@@ -49,9 +50,15 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, resp
     {member && <section aria-label="Member properties"><h3>Member {member.id}</h3>
       <p>{owner(member.owner)} · {turn.draft.members.includes(member) ? "Staged" : "Committed"} · {member.assembly ?? member.type.toUpperCase()}</p>
       <p>{units(2 * Math.hypot(...parseNodeKey(member.a).map((n, i) => n - parseNodeKey(member.b)[i])))} m · ({member.a}) → ({member.b})</p>
-      <dl>{(["a", "b"] as const).map(end => {
+      <dl>{(["a", "b", "q1", "q2", "q3"] as const).filter(end =>
+        !isInteriorSite(end) || member.interiorTargets?.[end] ||
+        [...turn.board.connections, ...turn.draft.connections].some(c => c.memberId === member.id && c.end === end)
+      ).map((end: AttachmentSite) => {
         const conn = [...turn.board.connections, ...turn.draft.connections].find(c => c.memberId === member.id && c.end === end);
-        return <div key={end}><dt>End {end.toUpperCase()}</dt><dd>{conn ? `${connectionLabel(conn.profile)} · ${conn.jointId}` : "Unattached"}</dd></div>;
+        const contact = isInteriorSite(end) ? member.interiorTargets?.[end] : undefined;
+        return <div key={end}><dt>{attachmentLabel(end)}</dt><dd>{conn
+          ? `${connectionLabel(conn.profile)} · ${conn.jointId}`
+          : contact ? `Unconnected · contact at ${contact}` : "Unattached"}</dd></div>;
       })}</dl>
       <details><summary>Original ports</summary>{originalPorts(member).map(p => <p key={p.id}>{portLabel(p)} · ({p.point.join(", ")})</p>)}</details>
       {response && <MemberDiagram key={member.id} result={response.result} parent={member.id} />}

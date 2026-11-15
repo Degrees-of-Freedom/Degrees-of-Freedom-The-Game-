@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { LEVELS } from "../game/levels";
+import { isReleaseCatalogue } from "../game/cardCatalogue";
 import { useGameStore } from "../game/store";
 import { useSettings } from "../menu/settings";
 import { SettingToggles } from "../pages/InfoPages";
@@ -56,7 +57,7 @@ export function PauseMenu({
   const title = MODE_CATALOG.find((item) => item.id === mode)?.title ?? "";
   const subtitle =
     mode === "challenge" ? `${title} · ${LEVELS[levelId].name}` : title;
-  const release = turn?.catalogue === "grow-dusk-release-1" && mode === "multiplayer";
+  const release = isReleaseCatalogue(turn?.catalogue) && mode === "multiplayer";
   const canRestart = release || mode !== "multiplayer" || !!turn?.finished;
   const restartText =
     mode === "multiplayer"
