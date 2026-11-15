@@ -15,6 +15,9 @@ import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
 import { addResultArrows, displayPoint, viewBasePoint } from "./sceneResults";
 import { addSceneLabel } from "./sceneLabels";
 import { buildDisplacementShadow, labelPeakDisplacement } from "./displacementShadow";
+import { projectIslet } from "./companionIslet";
+import { createCompanionFigure } from "./companionFigure";
+import { boardPose } from "../companion/boardPose";
 import { createFlowParticles } from "./flowParticles";
 import { buildReleaseFlow, markInstability } from "./releaseFlow";
 import { drawInstabilityMode } from "./instabilityModes";
@@ -252,6 +255,53 @@ export function Scene({
     renderer.domElement.addEventListener("pointermove", trackPointer);
     renderer.domElement.addEventListener("pointerdown", trackPointer);
     renderer.domElement.addEventListener("pointerleave", releasePointer);
+    /**
+     * Tell the page where the companion's islet is on screen. The companion is
+     * an HTML control outside this component, so the position is published as
+     * CSS variables on the workspace element and the stylesheet does the rest.
+     */
+    // The Workspace wraps the view in `.environment`; the Shared table match board in `.release-stage`.
+    const workspace = element.closest<HTMLElement>(".environment, .release-stage");
+    const companionFigure = createCompanionFigure(scene);
+    let isletKey = "";
+    function anchorCompanion(time: number) {
+      if (!workspace) return;
+      const canvas = renderer.domElement;
+      // The companion control marks itself while the foreman is on stage and
+      // while its cloud is open; its animator publishes the pose to stand in.
+      const control = workspace.querySelector<HTMLElement>(".companion-board");
+      const character = control?.dataset.character;
+      const at = projectIslet(terrain, camera, canvas.clientWidth, canvas.clientHeight);
+      const name = at?.visible && (character === "timburr" || character === "conkeldurr") ? character : null;
+      const figure = control?.querySelector<HTMLElement>(".companion-figure");
+      const standing = companionFigure.update(terrain, camera, name, {
+        pose: boardPose().pose,
+        attention: figure?.matches(":hover") ? 1 : figure?.getAttribute("aria-expanded") === "true" ? 0.45 : 0,
+        still: !!(prefersStill || getSettings().reducedMotion || view.current.still),
+        time,
+      });
+      if ((standing ? name : undefined) !== workspace.dataset.isletFigure) {
+        if (standing && name) workspace.dataset.isletFigure = name;
+        else delete workspace.dataset.isletFigure;
+      }
+      const beside = !!at && at.y < canvas.clientHeight * 0.45;
+      const key = at ? [Math.round(at.x), Math.round(at.y), Math.round(at.size), Math.round(at.model), at.x > canvas.clientWidth - 330, beside].join(",") : "";
+      if (key === isletKey) return;
+      isletKey = key;
+      if (!at) {
+        delete workspace.dataset.islet;
+        delete workspace.dataset.isletCloud;
+        return;
+      }
+      // The speech cloud opens towards the side with more room, and beside the
+      // figure rather than above it while the islet is in the upper part of the view.
+      workspace.dataset.islet = at.x > canvas.clientWidth - 330 ? "left" : "right";
+      workspace.dataset.isletCloud = beside ? "beside" : "above";
+      workspace.style.setProperty("--islet-x", Math.round(at.x) + "px");
+      workspace.style.setProperty("--islet-y", Math.round(at.y) + "px");
+      workspace.style.setProperty("--islet-size", Math.round(at.size) + "px");
+      workspace.style.setProperty("--islet-model", Math.round(at.model) + "px");
+    }
     function draw() {
       renderer.clear();
       renderer.render(scene, camera);
@@ -625,6 +675,7 @@ export function Scene({
       // Joint glyphs keep a constant on-screen size and avoid each other, so
       // they are positioned against the current camera before each draw.
       glyphs.layout(camera, element.clientWidth, element.clientHeight);
+      anchorCompanion(time);
       draw();
     });
     /**
@@ -795,6 +846,12 @@ export function Scene({
     }
     return () => {
       if (memory && initial) memory.pose = { seed: initial.seed, eye: camera.position.toArray(), target: controls.target.toArray() };
+      companionFigure.dispose();
+      if (workspace) {
+        delete workspace.dataset.islet;
+        delete workspace.dataset.isletCloud;
+        delete workspace.dataset.isletFigure;
+      }
       refresh.current = () => {};
       refreshPermissions.current = () => {};
       glyphs.dispose();

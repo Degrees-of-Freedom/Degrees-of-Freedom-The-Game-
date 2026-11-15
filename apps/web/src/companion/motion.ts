@@ -74,6 +74,23 @@ export const CLIPS = {
     tilt: [[0, 0], [.3, -.05], [1, 0]],
     lift: [[0, 0], [.55, .02], [.75, 0], [1, 0]],
   } },
+  // A stretch: tall and arched back, then a settle.
+  stretch: { duration: 1500, priority: PRIORITY.idle, tracks: {
+    squash: [[0, 0], [.35, -.07], [.7, -.07], [1, 0]],
+    bend: [[0, 0], [.35, -.5], [.7, -.5], [1, 0]],
+    lift: [[0, 0], [.35, .02], [.7, .02], [1, 0]],
+  } },
+  // Three impatient taps of a foot, weight on the other.
+  tapFoot: { duration: 1400, priority: PRIORITY.idle, tracks: {
+    lift: [[0, 0], [.15, .03], [.3, 0], [.45, .03], [.6, 0], [.75, .03], [.9, 0], [1, 0]],
+    tilt: [[0, 0], [.1, -.04], [.9, -.04], [1, 0]],
+  } },
+  // Leaning out to peek at the board, then back.
+  peek: { duration: 1600, priority: PRIORITY.idle, tracks: {
+    lean: [[0, 0], [.3, .15], [.7, .15], [1, 0]],
+    turn: [[0, 0], [.3, -.25], [.7, -.25], [1, 0]],
+    bend: [[0, 0], [.3, .4], [.7, .4], [1, 0]],
+  } },
 
   // Routine feedback: a glance or nod, never narration.
   wave: { duration: 1300, priority: PRIORITY.routine, tracks: {
@@ -158,7 +175,7 @@ export const MOTIONS = Object.keys(CLIPS) as MotionName[];
 /** Fidgets allowed during release play: subtle breathing and weight shift only. */
 export const RELEASE_IDLE: readonly MotionName[] = ["breathe", "shift"];
 /** Fidgets for menus and earlier workspaces, where a little more character is welcome. */
-export const AMBIENT_IDLE: readonly MotionName[] = ["breathe", "shift", "glance", "adjust", "breathe"];
+export const AMBIENT_IDLE: readonly MotionName[] = ["breathe", "shift", "glance", "adjust", "breathe", "stretch", "tapFoot", "peek"];
 
 /** Smooth-in/smooth-out interpolation between neighbouring keys. */
 function sampleTrack(keys: readonly Key[], t: number): number {

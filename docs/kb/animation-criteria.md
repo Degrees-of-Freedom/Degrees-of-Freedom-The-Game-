@@ -182,7 +182,7 @@ Update this page, [3D viewer](3d-viewer.md) and [development and testing](develo
 
 ## 11. Avatar-specific criteria
 
-The release companion uses the procedural clip library in `motion.ts`. Timburr perks up at a turn change, measures a selected member, nods after attachment and breathes or shifts weight while idle. A charged instability opens a red bubble with an exclamation mark and the originating member and turn. Every third eligible deduction for one player can start the 800 ms `foreman` clip. Timburr begins its crouch, then Conkeldurr takes over at the first squash peak, 160 ms into the same clip, and finishes the rise and turn. The sampler drives the model and matching portrait. Reduced motion shows the character and report with a short fade. The board and camera retain their positions. [Companion event policy and clip table](avatar-criteria.md)
+The release companion uses the procedural clip library in `motion.ts`. Timburr perks up at a turn change, measures a selected member, nods after attachment and breathes or shifts weight while idle. A charged instability opens a red speech cloud with an exclamation mark and the originating member and turn. Every third eligible deduction for one player can start the 800 ms `foreman` clip. Timburr begins its crouch, then Conkeldurr takes over at the first squash peak, 160 ms into the same clip, and finishes the rise and turn. The control publishes one pose stream to the 3D islet figure and the matching fallback. Reduced motion keeps the figure still. The board and camera retain their positions. [Companion event policy and clip table](avatar-criteria.md)
 
 ## 12. Joint DOF overlays
 

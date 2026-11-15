@@ -150,7 +150,7 @@ try {
         assert.ok(await page.locator('.companion-board .figure-stage[data-view="portrait"] img').evaluate(el => el.complete && el.naturalWidth > 0));
         await page.unroute(blocked);
         await activate(retry);
-        await page.locator('.companion-board .figure-stage[data-view="model"]').waitFor();
+        await page.locator('.release-stage[data-islet-figure="timburr"], .release-stage:not([data-islet-figure]) .companion-board .figure-stage[data-view="model"]').first().waitFor();
         await activate(button("Dismiss"));
       }
       if (scenario === "device-failures") {
@@ -237,7 +237,7 @@ try {
             if (turn < 6) {
               await activate(page.locator('[data-kind="element"]').first());
               if (scenario === "companion" && turn === 5) {
-                await page.locator('.companion-board .figure-stage[data-clip="measure"]').waitFor();
+                await page.locator('.release-stage[data-islet-figure="timburr"] .companion-board .figure-stage[data-clip="measure"]').waitFor({state:"attached"});
                 await page.screenshot({path:resolve(output, "timburr-measuring.png")});
               }
               await activate(page.getByText("Precise placement", { exact: true }));
@@ -280,17 +280,24 @@ try {
           }
           await page.getByText("Conkeldurr has a foreman report for turn 5.", { exact: true }).waitFor();
           await page.getByText(/Player 1 has 3 verified deductions/).waitFor();
+          const complaintIsRed = await warning.evaluate(cloud => {
+            const [r,g,b] = getComputedStyle(cloud).backgroundColor.match(/[\d.]+/g).map(Number);
+            return r > g * 2 && r > b;
+          });
+          assert.ok(complaintIsRed, "Verified instability must use the red speech cloud");
           const phases = await page.evaluate(() => window.companionPhases);
           companionResult = { checkpoint:6, originatingTurn:5, player:1, chargedTurns:3, phases };
           if (layout.reducedMotion === "reduce") {
             assert.deepEqual(phases, [{phase:"reaction", figure:"conkeldurr.png", clip:null, sameStage:true}]);
+            await page.locator('.release-stage[data-islet-figure="conkeldurr"]').waitFor();
             await activate(button("Skip transformation"));
           } else {
             assert.deepEqual(phases, [{phase:"shrink",figure:"timburr.png",clip:"foreman",sameStage:true},
               {phase:"reaction",figure:"conkeldurr.png",clip:"foreman",sameStage:true}]);
-            await page.locator('.companion-board[data-foreman="reaction"] .figure-stage[data-view="model"]:not([data-clip])').waitFor();
+            await page.locator('.release-stage[data-islet-figure="conkeldurr"] .companion-board[data-foreman="reaction"] .figure-stage:not([data-clip])').waitFor({state:"attached"});
             await page.screenshot({path:resolve(output, "conkeldurr.png")});
           }
+          companionResult.sceneCharacter = "conkeldurr";
           await button("Talk to Timburr").waitFor({timeout:7000});
           const notes = await page.evaluate(() => window.foremanNotes);
           assert.equal(notes.length, scenario === "companion" ? 1 : 0);

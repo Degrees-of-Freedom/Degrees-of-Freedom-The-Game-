@@ -9,13 +9,15 @@ import { ReleaseTargets } from "./ReleaseTargets";
 import { ReleaseInspection } from "./ReleaseInspection";
 import { useReleaseInspection } from "../viewer/useReleaseInspection";
 import { deformationField } from "../viewer/deformationField";
-import { boardActions, boardDiagram, type SectionAction } from "../viewer/boardDiagrams";
+import { boardActions, boardDiagram } from "../viewer/boardDiagrams";
+import { ViewModesPanel, ViewLegends } from "./viewModes";
+import { sharedTableLegends, useSharedTableView } from "./viewModes/useSharedTableView";
 import { FinalScorePanel } from "./FinalScorePanel";
 import { ESCAPE_OWNER } from "./PauseMenu";
 import { Companion, type CompanionProps } from "../companion/Companion";
 import type { CompanionCue, CompanionCueEvent } from "../companion/motion";
 import { sightTurn, turnTransitionCue, type TurnSighting } from "../companion/turnCues";
-import type { OverlayLayer } from "../viewer/viewModes";
+import { diagramActions, overlayLayer, type OverlayLayer } from "../viewer/viewModes";
 import { jointAtSceneSelection, sharedJointPermissions } from "../viewer/jointPermissions";
 import type { CameraMemory } from "../viewer/sceneView";
 import { instabilityModes } from "../viewer/instabilityModes";
@@ -72,12 +74,17 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   cameraMemory: CameraMemory; cue(event: "select" | "place" | "attach" | "result"): void;
 }) {
   const [inspecting, setInspecting] = useState(false);
-  const [layer, setLayer] = useState<OverlayLayer>("combined");
-  const [shear, setShear] = useState<SectionAction | 0>(0);
-  const [moment, setMoment] = useState<SectionAction | 0>(0);
-  const [amplification, setAmplification] = useState(0);
+  const view = useSharedTableView();
+  const display = view.state;
+  const layer = overlayLayer(display);
+  const setLayer = (layer: OverlayLayer) => view.dispatch({type: 'overlay', layer});
+  const shear = display.shear ? display.shearAxis : 0;
+  const moment = display.moment ? display.momentAxis : 0;
+  const amplification = display.amplification;
+  const setAmplification = (value: number) => view.dispatch({type: 'amplification', value});
   const [trueScale, setTrueScale] = useState(false);
-  const [showInstability, setShowInstability] = useState(false);
+  const showInstability = display.instability;
+  const setShowInstability = (on: boolean) => { if (on !== showInstability) view.press('instability'); };
   const [instabilityMode, setInstabilityMode] = useState(0);
   const [playInstability, setPlayInstability] = useState(false);
   const [focusJoint, setFocusJoint] = useState<string>();
@@ -87,7 +94,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   const [companionCue, setCompanionCue] = useState<CompanionCueEvent>();
   const react = useCallback((next: CompanionCue) => setCompanionCue(previous => ({ ...next, id: (previous?.id ?? 0) + 1 })), []);
   const settings = useSettings();
-  useEffect(() => { setPlayInstability(false); }, [turn.board, settings.reducedMotion, skip]);
+  useEffect(() => { setPlayInstability(false); }, [turn.board, showInstability, settings.reducedMotion, skip]);
   const heading = useRef<HTMLHeadingElement>(null);
   const inspectButton = useRef<HTMLButtonElement>(null);
   const picked = game.selected;
@@ -136,7 +143,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
     connections: effectiveJointConnections({ ...turn.board, connections: [...turn.board.connections, ...turn.draft.connections] }) }), [turn.board, turn.draft]);
   const joint = picked?.type === "node" ? jointAtSceneSelection(joints, picked.key, turn) : joints.find(j => j.id === focusJoint);
   const jointLayer = useMemo(() => settings.releaseJointDisplay === "off" ? undefined :
-    { joints: settings.releaseJointDisplay === "all" ? joints : joint ? [joint] : [], selected: joint?.id }, [settings.releaseJointDisplay, joint, joints]);
+    { joints: settings.releaseJointDisplay === "all" ? joints : joint ? [joint] : [], selected: joint?.id, labels: display.labels }, [settings.releaseJointDisplay, joint, joints, display.labels]);
   const calculated = turn.checkpoints?.lastAnalysis;
   // Shared table uses accepted checkpoint snapshots. The general view-mode
   // hook can solve on demand, so it must not drive this scheduled route.
@@ -148,7 +155,8 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   const deformed = layer === "shape" || layer === "combined";
   const shadow = layer === "shadow" || layer === "shadow-path";
   const field = useMemo(() => result && (deformed || shadow) ? deformationField(result, 0) : undefined, [result, deformed, shadow]);
-  const diagrams = useMemo(() => result ? [shear, moment].flatMap(action => action ? [boardDiagram(result, action)] : []) : [], [result, shear, moment]);
+  const diagrams = useMemo(() => result ? diagramActions(display).map(action => boardDiagram(result, action)) : [],
+    [result, display.shear, display.shearAxis, display.moment, display.momentAxis]);
   const scale = amplification || (field?.peakM ? Math.max(1, Math.min(500, Math.round(1.2 / field.peakM))) : 1);
   const report = turn.reports.at(-1);
   const modes = useMemo(() => result ? instabilityModes(result) : [], [result]);
@@ -169,6 +177,12 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
     : reading?.error ? "Calculation unavailable · inspect details"
     : !reading?.response ? "Loading the calculated response…"
     : scopes?.some(scope => !scope.verified) ? "Results ready · some components unavailable" : "Results ready · committed structure";
+  const legends = sharedTableLegends({modes: display, jointsShown: view.jointsShown,
+    response: draftSize ? {state: 'draft'} : !currentResponse ? {state: 'pending'} :
+      reading?.error ? {state: 'error', message: reading.error} : result ? {state: 'ready'} : {state: 'pending'},
+    scale, jointCount: joints.length, peakM: field?.peakM, maxForceKN: flowPeak, diagrams,
+    instabilityWitnessed: !!result?.combos[0]?.components?.some(scope => scope.instabilityWitness),
+    appliedGravityKN: turn.board.loads.reduce((sum, load) => sum + load.magnitude, 0)}, phase);
   const status = message || (report ? `Turn ${report.turn} · ${report.status}${report.penalty ? " · −1 point" : ""}`
     : "Select a card to build, or pass.");
   const boardMessage = (text: string) => { notify(text); if (text && game.selectedCardId) react({ kind: "invalid" }); };
@@ -202,8 +216,8 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
       <div className="release-layer-buttons" aria-label="Board overlays">
         <button aria-pressed={deformed || shadow} onClick={() => toggleLayer("shape")}>Deformation</button>
         <button aria-pressed={pathVisible} onClick={() => toggleLayer("path")}>Load paths</button>
-        <button aria-pressed={!!shear} onClick={() => setShear(shear ? 0 : 2)}>Shear</button>
-        <button aria-pressed={!!moment} onClick={() => setMoment(moment ? 0 : 4)}>Bending</button>
+        <button aria-pressed={!!shear} onClick={() => view.press('shear')}>Shear</button>
+        <button aria-pressed={!!moment} onClick={() => view.press('moment')}>Bending</button>
         <button aria-pressed={showInstability} onClick={() => { setShowInstability(!showInstability); setPlayInstability(false); }}>Instability</button>
       </div>
       <label>Node releases<select value={settings.releaseJointDisplay} onChange={e => updateSettings({ releaseJointDisplay: e.target.value as typeof settings.releaseJointDisplay })}>
@@ -219,8 +233,11 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
     <section className="release-stage" aria-label="Structure board" data-drawer={inspecting}>
       <SceneBoundary release><Scene cameraMemory={cameraMemory} trueScale={trueScale} showInstability={showInstability}
         instabilityMode={selectedMode} playInstability={playInstability && nodalMode && !skip && !settings.reducedMotion} reactionLabels={settings.reactionLabels}
-        still={skip || settings.reducedMotion} jointLayer={jointLayer} combo={0} deformed={deformed} shadow={shadow}
-        diagrams={diagrams} reference field={field} scale={scale} loads utilization={false} loadPath={pathVisible} result={result} onMessage={boardMessage} /></SceneBoundary>
+        still={skip || settings.reducedMotion} jointLayer={jointLayer} combo={0} deformed={deformed} shadow={shadow} labels={display.labels}
+        diagrams={diagrams} reference field={field} scale={scale} loads={display.reactions} utilization={false} loadPath={pathVisible} result={result} onMessage={boardMessage} /></SceneBoundary>
+      <ViewModesPanel modes={display} jointsShown={view.jointsShown} open={view.panelOpen} scale={scale}
+        onOpenChange={view.setPanelOpen} onPress={view.press} dispatch={view.dispatch} />
+      {view.panelOpen && <ViewLegends legends={legends} />}
       {!turn.finished && drawsLeft > 0 && <section className="release-decks" aria-label="Draw four cards">
         <header><strong>Choose your four cards</strong><span role="status">{4 - drawsLeft} of 4 drawn · any mix of decks</span></header>
         <div>{(["members", "connections", "loads"] as const).map((deck, i) => <button key={deck} data-deck={deck}
@@ -258,10 +275,12 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
           draft={!!draftSize} awaitingCheckpoint={!currentResponse} calculatedTurn={calculated?.turn} reading={reading}
           layer={layer} peakM={field?.peakM} setLayer={setLayer} scale={scale} amplification={amplification} setAmplification={setAmplification} />
         {result && <details><summary>Board force diagrams</summary>
-          <label>Shear diagram<select value={shear} onChange={e => setShear(Number(e.target.value) as 0 | 1 | 2)}>
+          <label>Shear diagram<select value={shear} onChange={e => { const axis = Number(e.target.value);
+            if (axis === 1 || axis === 2) view.dispatch({type: 'shearAxis', axis}); else if (shear) view.press('shear'); }}>
             <option value={0}>Off</option><option value={1}>Shear Vy</option><option value={2}>Shear Vz</option>
           </select></label>
-          <label>Bending diagram<select value={moment} onChange={e => setMoment(Number(e.target.value) as 0 | 4 | 5)}>
+          <label>Bending diagram<select value={moment} onChange={e => { const axis = Number(e.target.value);
+            if (axis === 4 || axis === 5) view.dispatch({type: 'momentAxis', axis}); else if (moment) view.press('moment'); }}>
             <option value={0}>Off</option><option value={4}>Moment My</option><option value={5}>Moment Mz</option>
           </select></label>
           {diagrams.map(d => <p key={d.action}>{boardActions[d.action]} · {d.series.length

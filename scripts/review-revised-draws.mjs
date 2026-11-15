@@ -219,6 +219,33 @@ async function structuralReview(browser, base, output) {
     await expect(page.getByText('Current changes are assessed at the next scheduled checkpoint.', {exact: false})).toBeVisible();
     await page.getByRole('button', {name: 'Close inspection', exact: true}).click();
     assert.deepEqual(wasmResponses, [], 'pending first turn must not request numerical WASM');
+    const eye = page.getByRole('button', {name:/^View modes, \d+ active$/});
+    const panel = page.getByRole('region', {name:'View modes', exact:true});
+    const tile = title => panel.getByRole('button', {name:new RegExp('^' + title)});
+    const pending = await head();
+    await page.keyboard.press('v');
+    await expect(panel).toBeVisible();
+    await expect(tile('Load path')).toBeFocused();
+    const modes = ['Load path','Deflected shape','Displacement shadow','Joint freedoms','Loads & reactions','Shear diagram','Bending diagram','Instability'];
+    for (const name of modes) await expect(tile(name)).toBeVisible();
+    await expect(panel.locator('.view-tile-main')).toHaveCount(modes.length);
+    await tile('Shear diagram').click();
+    await tile('Instability').click();
+    const labelSwitch = panel.getByRole('switch', {name:'Labels'});
+    const initialLabels = await labelSwitch.isChecked();
+    await labelSwitch.click();
+    assert.equal(await labelSwitch.isChecked(), !initialLabels);
+    await button('Clear').click();
+    await expect(eye).toHaveAccessibleName('View modes, 0 active');
+    await button('Reset').click();
+    await expect(eye).toHaveAccessibleName('View modes, 4 active');
+    await page.screenshot({path:resolve(output,'pending-view-modes.png')});
+    await page.keyboard.press('Escape');
+    await expect(panel).toHaveCount(0);
+    await expect(eye).toBeFocused();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    assert.deepEqual(await head(), pending);
+    assert.deepEqual(wasmResponses, [], 'eye controls must not request numerical WASM for a pending checkpoint');
     await draw(['connections', 'connections', 'connections', 'connections']);
     await button('Pass').click(); await ready.click();
     await draw(['loads', 'loads', 'loads', 'loads']);
@@ -233,6 +260,27 @@ async function structuralReview(browser, base, output) {
     assert.equal(record.turn.checkpoints.receipts.length, 1);
     assert.equal(record.turn.checkpoints.lastAnalysis.turn, 3);
     assert.ok(record.turn.reports.every(report => report.status !== 'pending'));
+    await eye.click();
+    await tile('Displacement shadow').click();
+    await expect(tile('Displacement shadow')).toHaveAttribute('aria-pressed','true');
+    await expect(tile('Deflected shape')).toHaveAttribute('aria-pressed','false');
+    await expect(tile('Load path')).toHaveAttribute('aria-pressed','true');
+    await page.screenshot({path:resolve(output,'loaded-view-modes.png')});
+    await page.keyboard.press('Escape');
+    await button('Inspect').click();
+    const overlay = page.getByLabel('Board overlay');
+    await expect(overlay).toHaveValue('shadow-path');
+    await overlay.selectOption('shape');
+    await button('Close inspection').click();
+    await expect(button('Load paths')).toHaveAttribute('aria-pressed','false');
+    await expect(button('Deformation')).toHaveAttribute('aria-pressed','true');
+    await eye.click();
+    await expect(tile('Deflected shape')).toHaveAttribute('aria-pressed','true');
+    await expect(tile('Displacement shadow')).toHaveAttribute('aria-pressed','false');
+    await expect(tile('Load path')).toHaveAttribute('aria-pressed','false');
+    await button('Reset').click(); await page.keyboard.press('Escape');
+    await expect(eye).toBeFocused();
+    assert.deepEqual(await head(), record);
     await button('Shear').click(); await button('Bending').click();
     await page.screenshot({path: resolve(output, 'verified-load-path-and-diagrams.png')});
     const labels = page.getByLabel('Reaction labels');
@@ -250,6 +298,9 @@ async function structuralReview(browser, base, output) {
     assert.deepEqual((await head()).turn, record.turn);
     assert.deepEqual(errors, []);
     return {checks: ['numerical WASM is first requested at the due third-turn checkpoint',
+      'V opens all eight view tiles, labels toggle, Clear/Reset restore counts, and Escape returns focus to the eye before Menu',
+      'view controls leave a pending checkpoint and stored match unchanged without requesting numerical WASM',
+      'loaded displacement shadow and deflected shape are exclusive and share state with inspection and the board toolbar',
       'real member/connector/gravity plays become a checkpoint after three player turns',
       'normal board exposes calculated deflection and load paths automatically',
       'shear and bending overlays combine with calculated response',
