@@ -39,15 +39,23 @@ import { EngineeringOptions } from "../components/environment/EngineeringOptions
 import { SceneBoundary } from "../components/environment/SceneBoundary";
 import { PauseMenu } from "../components/PauseMenu";
 import { getSettings, useSettings } from "../menu/settings";
+import { solverForSettings } from "../solver";
 import { JointPermissions } from "../components/JointPermissions";
 import { editorJointPermissions, jointAtSceneSelection, sharedJointPermissions } from "../viewer/jointPermissions";
 import { StructureLibrary } from "../components/StructureLibrary";
+import { StoredAnalysisPanel } from "../components/StoredAnalysisPanel";
+import { GrowthHelp, growthHint } from "../components/environment/GrowthHelp";
 
 type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 
 /** The environment variants compose the same store, scene and analysis boundary. */
 export function Workspace() {
   const game = useGameStore();
+  const stability = useStabilityCheck(
+    game.model,
+    LEVELS[game.levelId],
+    solverForSettings(useSettings()),
+  );
   const { jointDisplay } = useSettings();
   const board = game.mode === "multiplayer" ? game.turn?.board : undefined;
   const editorModel = game.mode !== "multiplayer" ? game.model : undefined;
@@ -62,7 +70,6 @@ export function Workspace() {
   const jointLayer = useMemo(() => game.style === "grow-dusk" && jointDisplay !== "off"
     ? { joints: jointDisplay === "all" ? joints : selectedJoint ? [selectedJoint] : [], selected: selectedJoint?.id }
     : undefined, [game.style, jointDisplay, joints, selectedJoint]);
-  const stability = useStabilityCheck(game.model);
   // Multiplayer uses independent member-end connections, not the node model.
   const contractCompatible = game.mode !== "multiplayer";
   const [analysis, setAnalysis] = useState<{
@@ -105,6 +112,7 @@ export function Workspace() {
   const [exampleIndex, setExampleIndex] = useState(0);
   const [libraryIndex, setLibraryIndex] = useState(0);
   const sound = useEditorSound(game.model, covered || paused);
+  const settings = useSettings();
   const result = analysis?.model === game.model ? analysis.result : null;
   const field = useMemo(() => deformed && result ? deformationField(result, combo) : undefined, [result, combo, deformed]);
   const autoScale = field?.peakM ? Math.max(1, Math.min(500, Math.round(1.2/field.peakM))) : 1;
@@ -114,6 +122,9 @@ export function Workspace() {
   const isKit = style === "kit";
   const isLevels = style === "levels";
   const isBlocks = style === "blocks";
+  // Grow and Grow Dusk follow the Grow Dusk prototype's layout (see the JSX below).
+  const isGrowth = style === "grow" || style === "grow-dusk";
+  const isSharedTable = game.mode === "multiplayer";
   const progress = result ? modeProgress(game.mode, result) : null;
 
   function endPrivateTurn() {
@@ -157,7 +168,7 @@ export function Workspace() {
     };
   }, [privateMatchActive]);
   function run() {
-    if (contractCompatible) void stability.run(game.model);
+    if (contractCompatible) void stability.run(game.model, LEVELS[game.levelId]);
     try {
       setCombo(0);
       setAnalysis({
@@ -313,6 +324,161 @@ export function Workspace() {
       </button>
     </>
   );
+  // Top-right bar in the prototype's order: history, model, analysis, sound and
+  // help, menu. "Run simulation" stands where the prototype had its mock
+  // "Feedback preview", because the app has an experimental analysis instead.
+  const growthActions = (
+    <>
+      <button
+        className="btn icon"
+        aria-label="Undo"
+        title="Undo (Ctrl+Z)"
+        disabled={!game.history.length || isSharedTable}
+        onClick={game.undo}
+      >
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M7 4 3 8l4 4" />
+          <path d="M3 8h8a5 5 0 0 1 0 10H8" />
+        </svg>
+      </button>
+      <button
+        className="btn icon"
+        aria-label="Redo"
+        title="Redo (Ctrl+Y)"
+        disabled={!game.future.length || isSharedTable}
+        onClick={game.redo}
+      >
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m13 4 4 4-4 4" />
+          <path d="M17 8H9a5 5 0 0 0 0 10h3" />
+        </svg>
+      </button>
+      <span className="sep" />
+      <button
+        className="btn"
+        title="Replace the structure with an example"
+        disabled={isSharedTable}
+        onClick={example}
+      >
+        Load example
+      </button>
+      <button
+        className="btn"
+        title={
+          game.mode === "forensics"
+            ? "Restore the prepared structure"
+            : "Remove every member you placed"
+        }
+        disabled={isSharedTable}
+        onClick={game.reset}
+      >
+        {game.mode === "forensics" ? "Restart" : "Clear"}
+      </button>
+      <span className="sep" />
+      <button
+        className={`btn${result ? " on" : ""}`}
+        title="Run the experimental analysis (R)"
+        onClick={run}
+      >
+        Run simulation
+      </button>
+      {result && (
+        <button className="btn" onClick={() => setDrawer("analysis")}>
+          Results
+        </button>
+      )}
+      <button
+        className={`btn${drawer === "model" ? " on" : ""}`}
+        title="Show the solver-input document"
+        onClick={() => setDrawer(drawer === "model" ? null : "model")}
+      >
+        Solver input
+      </button>
+      <span className="sep" />
+      <button
+        className="btn icon"
+        title="Sound on/off (M)"
+        aria-label="Sound"
+        aria-pressed={sound.enabled}
+        onClick={() => void sound.toggle()}
+      >
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 8v4h3l4 3V5L6 8H3z" fill="currentColor" />
+          {sound.enabled ? (
+            <path d="M13 7.5a3.5 3.5 0 0 1 0 5M15.5 5a7 7 0 0 1 0 10" />
+          ) : (
+            <path d="m13 8 4 4m0-4-4 4" />
+          )}
+        </svg>
+      </button>
+      <button
+        className={`btn icon${help ? " on" : ""}`}
+        aria-label="Controls"
+        title="Controls (H or ?)"
+        aria-pressed={help}
+        onClick={() => setHelp(!help)}
+      >
+        <b style={{ fontSize: 16 }}>?</b>
+      </button>
+      <span className="sep" />
+      <button
+        className="btn"
+        title="Menu (Esc or P)"
+        aria-haspopup="dialog"
+        onClick={() => setPaused(true)}
+      >
+        Menu
+      </button>
+    </>
+  );
+  // Workspace extras the prototype does not have; kept together, bottom right.
+  const secondaryActions = (
+    <>
+      <button className="btn" onClick={() => setDrawer("build")}>
+        Build options
+      </button>
+      {isGrowth && (
+        <button className="btn" onClick={() => setDrawer("library")}>
+          Structure library
+        </button>
+      )}
+      {isSharedTable && (
+        <button className="btn" onClick={() => setDrawer("turn")}>
+          Turn details
+        </button>
+      )}
+    </>
+  );
+  const showLegend =
+    !!result &&
+    !result.error &&
+    utilization &&
+    !loadPath &&
+    result.designChecksAvailable !== false;
   const pauseMenu = (
     <PauseMenu open={paused} onOpen={pause} onClose={() => setPaused(false)}
       escapeBusy={!covered && drawer !== null} onMessage={setMessage} />
@@ -329,7 +495,7 @@ export function Workspace() {
   );
   return (
     <main
-      className={`environment${game.turn?.playerIndex === 1 ? " p2" : ""}`}
+      className={`environment${game.turn?.playerIndex === 1 ? " p2" : ""}${settings.reducedMotion ? " rm" : ""}`}
       data-style={style}
     >
       <div id="stage">
@@ -385,6 +551,43 @@ export function Workspace() {
                 </div>
               ))}
           </>
+        ) : isGrowth ? (
+          <>
+            <div id="topleft">
+              <EnvironmentBrand />
+              <TurnBanner onEndTurn={endPrivateTurn} />
+            </div>
+            <div id="actions" className="chip">
+              {growthActions}
+            </div>
+            <div id="cornerleft">
+              <EnvironmentStats />
+            </div>
+            <div id="cornerright">
+              {help && <GrowthHelp onClose={() => setHelp(false)} />}
+              {showLegend && (
+                <div id="legend" className="chip show">
+                  <b>Utilization</b>
+                  <div className="swatches">
+                    <span>
+                      <i style={{ background: "#4cae77" }} />
+                      up to 60%
+                    </span>
+                    <span>
+                      <i style={{ background: "#e5a33f" }} />
+                      up to 100%
+                    </span>
+                    <span>
+                      <i style={{ background: "#ed4545" }} />
+                      over
+                    </span>
+                  </div>
+                  <p>Experimental analysis, not design evidence.</p>
+                </div>
+              )}
+              <div className="secondary chip">{secondaryActions}</div>
+            </div>
+          </>
         ) : (
           <>
             <div id="topleft">
@@ -430,12 +633,17 @@ export function Workspace() {
           </div>
           {isKit ? (
             <EnvironmentTray style={game.style} onMessage={setMessage} />
+          ) : isGrowth && isSharedTable ? (
+            // Cards, not tools, drive a Shared table turn, so the hand takes the dock.
+            <div className="shared-hand docked">
+              <EnvironmentTray style="kit" onMessage={setMessage} />
+            </div>
           ) : (
             <EnvironmentTools style={game.style} onMessage={setMessage} />
           )}
         </div>
         {isLevels && <EnvironmentStepper />}
-        {game.mode === "multiplayer" && !isKit && (
+        {isSharedTable && !isKit && !isGrowth && (
           <div className="shared-hand">
             <EnvironmentTray style="kit" onMessage={setMessage} />
           </div>
@@ -462,7 +670,7 @@ export function Workspace() {
             {game.persistenceError}
           </div>
         )}
-        {help && (
+        {help && !isGrowth && (
           <section id="help" className="chip card panel show">
             <h3>
               Controls{" "}
@@ -553,9 +761,15 @@ export function Workspace() {
               {drawer === "library" && <StructureLibrary index={libraryIndex} setIndex={setLibraryIndex} />}
               {drawer === "analysis" && (
                 <>
-                  <p className="analysis-notice">
-                    Experimental analysis · not mock data
-                  </p>
+                  <p className="analysis-notice">Experimental results · current model</p>
+                  {contractCompatible && (
+                    <StabilityCheckPanel
+                      check={stability.check}
+                      solverName={stability.solverName}
+                      onNonlinear={stability.supportsNonlinearService ? () => void stability.run(game.model, LEVELS[game.levelId], true) : undefined}
+                    />
+                  )}
+                  {!contractCompatible && <p className="result-source">Selected structural solver: <strong>{stability.solverName}</strong><br />Shared-table analysis currently uses the approximate voxel solver. The selected structural solver is used for single-player checks.</p>}
                   <AnalysisPanel
                     result={result}
                     message={message}
@@ -592,7 +806,7 @@ export function Workspace() {
                       game.setSelected({ type: "node", key })
                     }
                   />
-                  {contractCompatible && <StabilityCheckPanel check={stability.check} onNonlinear={() => void stability.run(game.model, true)} />}
+
                 </>
               )}
               {drawer === "model" && (
@@ -614,6 +828,7 @@ export function Workspace() {
                     )}
                   </pre>
                   <ModelIO game={game} onMessage={setMessage} />
+                  <StoredAnalysisPanel />
                 </>
               )}
               {drawer === "build" && (

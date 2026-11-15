@@ -29,8 +29,8 @@ const envelope = z.discriminatedUnion("version", [
   z.strictObject({ version: z.literal(1), ...fields }),
   z.strictObject({
     version: z.literal(2), ...fields,
-    revision: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-    parent: z.number().int().nonnegative(),
+    revision: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+    parent: z.number().int().nonnegative().optional(),
     legacySource: z.string().optional(),
   }),
 ]);
@@ -61,7 +61,7 @@ function decodeSession(raw: string | null): SessionRead {
     if (Number.isSafeInteger(value?.version) && value.version > 2)
       return { status: "invalid", reason: `Save format version ${value.version} is newer than this game supports.` };
     const parsed = envelope.safeParse(value);
-    if (!parsed.success || (parsed.data.version === 2 && parsed.data.parent !== parsed.data.revision - 1)) {
+    if (!parsed.success || (parsed.data.version === 2 && ((parsed.data.revision === undefined) !== (parsed.data.parent === undefined) || (parsed.data.revision !== undefined && parsed.data.parent !== parsed.data.revision - 1)))) {
       return { status: "invalid" };
     }
     const replay = parsed.data.turn === null ? null : replayTurnState(parsed.data.turn);
@@ -89,7 +89,7 @@ export function openSessionWriter(
   const initial = decodeSession(source);
   let head = source;
   const metadata = source !== null && initial.status === "found" ? JSON.parse(source) : null;
-  let revision: number = metadata?.version === 2 ? metadata.revision : 0;
+  let revision: number = metadata?.version === 2 ? (metadata.revision ?? 0) : 0;
   // The original v1 bytes and the migrated game are committed atomically.
   const legacySource: string | undefined = metadata?.version === 1 ? source! : metadata?.legacySource;
   let lastSaved = initial.status === "found" ? initial.session : null;

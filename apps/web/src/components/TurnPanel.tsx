@@ -163,8 +163,22 @@ export function TurnPanel({
       )}
       {!report?.correction && <p className="runtime-status">
         {report?.reason ??
-          "Run simulation to inspect loads, reactions and stability with individual end connections."}
-      </p>}
+          "Run simulation to inspect loads, reactions and stability with individual end connections. "}
+      </p>}`n      {report?.analysis && (
+        <details>
+          <summary>Last turn reactions (experimental)</summary>
+          <ul>
+            {report.analysis.foundations.map(({ foundationId, reaction }) => (
+              <li key={foundationId}>
+                {foundationId.replace("foundation:", "")} ·{" "}
+                {reaction.validity === "unavailable"
+                  ? "Unavailable"
+                  : (reaction.value[2] / 1000).toFixed(2) + " kN vertical"}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       <details>
         <summary>Placed connections</summary>
         <ul>
@@ -179,3 +193,5 @@ export function TurnPanel({
     </section>
   );
 }
+
+

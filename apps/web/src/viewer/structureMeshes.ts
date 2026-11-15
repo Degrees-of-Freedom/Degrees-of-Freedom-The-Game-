@@ -246,7 +246,10 @@ export function buildStructure(
       paintedJoint(
         structure,
         p,
-        s.selected?.type === "node" && s.selected.key === key,
+        // The growth styles mark the selection with a screen-space ring instead.
+        s.selected?.type === "node" &&
+          s.selected.key === key &&
+          !(isGrowthStyle(s.style) && s.mode !== "multiplayer"),
         !!attrs.joint && s.mode !== "multiplayer",
         s.style,
         palette.hub,

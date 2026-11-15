@@ -47,8 +47,8 @@ export function AnalysisPanel({
   const scopes = result?.combos[combo]?.components ?? [];
   const partial = scopes.some(s => s.status === "computed") && scopes.some(s => s.status !== "computed");
   return (
-    <div className="analysis">
-      <div className="panel-title">03 &nbsp; ANALYSIS</div>
+    <div className="analysis preview-analysis">
+      <header className="result-header"><span className="result-eyebrow">02 · Scene preview</span><h3>Explore the response</h3><p className="result-source"><span>Source</span><strong>Approximate voxel solver</strong></p></header><p className="result-caption">These values drive the 3D overlays. They are a separate calculation from the selected structural solver.</p>
       {message && <p role="status">{message}</p>}
       {!result ? (
         <p>
@@ -65,7 +65,7 @@ export function AnalysisPanel({
               : result.floating.length
                 ? "Disconnected structure"
                 : result.success
-                  ? "Checks passed"
+                  ? "Preview checks passed"
                   : "Simulation complete · review checks"}{" "}
             {result.stars ? "★".repeat(result.stars) : ""}
           </h3>
@@ -78,14 +78,14 @@ export function AnalysisPanel({
                 : `${result.floating.length} node(s) have no connection to a support.`}
             </p>
           )}
-          <ul className="objectives">
+          <details className="result-details"><summary>Model checks</summary><ul className="objectives">
             {result.objectives.map((o, i) => (
               <li key={i}>
                 {o.ok ? "✓" : "✕"} {o.label}
                 {o.detail && <small>{o.detail}</small>}
               </li>
             ))}
-          </ul>
+          </ul></details>
           <div className="stat">
             <span>Mass</span>
             <b>{result.mass?.toFixed(2)} t</b>
@@ -177,6 +177,8 @@ export function AnalysisPanel({
             </p>
           )}
           <div className="view-options">
+            <h4>Visualize in the scene</h4>
+            <p className="result-caption">Compare the shape, forces and supports for the current load case.</p>
             {!shared && result.combos.length > 1 && <label>
               Load case{" "}
               <select
@@ -193,10 +195,11 @@ export function AnalysisPanel({
             <label>
               <input
                 type="checkbox"
+                disabled={result.mechanism || !result.combos[combo]?.u}
                 checked={deformed}
                 onChange={(e) => setDeformed(e.target.checked)}
               />{" "}
-              Deformed shape
+              Deformed shape (exaggerated)
             </label>
             {deformed && <>
               <label>Displacement scale
@@ -223,6 +226,7 @@ export function AnalysisPanel({
             <label>
               <input
                 type="checkbox"
+                disabled={result.mechanism}
                 checked={loadPath}
                 onChange={(e) => setLoadPath(e.target.checked)}
               />{" "}
@@ -248,6 +252,7 @@ export function AnalysisPanel({
               Loads and reactions
             </label>
           </div>
+          <p className="result-caption">Automatic scale exaggerates displacement for visibility. Choose true displacement or a fixed multiplier using Displacement scale. Read displacement in mm above.</p>
           <p>Approximate prototype results; not for engineering design.</p>
         </>
       )}

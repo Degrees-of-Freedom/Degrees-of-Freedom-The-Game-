@@ -5,3 +5,5 @@
 @import "./styles/environment-blocks.css";
 @import "./styles/environment-kit.css";
 @import "./styles/environment-runtime.css";
+@import "./styles/environment-grow-dusk-parity.css";
+@import "./styles/analysis-results.css";

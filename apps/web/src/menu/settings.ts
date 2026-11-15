@@ -8,6 +8,9 @@ import type { JointDisplay } from "../viewer/jointPermissions";
  * - `showHelpOnStart` opens the workspace controls panel when /play mounts. It
  *   defaults to off because that panel sits over the brand chip and mode label.
  * - `sound` controls the workspace and companion's master sound output.
+ * - `solver` picks the backend of the workspace's structural check: the Rust
+ *   solver running in the browser, or an OpenSees service at `openSeesUrl`.
+ *   `solver/index.ts` turns the pair into an adapter.
  */
 export interface Settings {
   sound: boolean;
@@ -16,18 +19,58 @@ export interface Settings {
   reducedMotion: boolean;
   showHelpOnStart: boolean;
   jointDisplay: JointDisplay;
+  solver: SolverChoice;
+  openSeesUrl: string;
 }
+
+/** Structural solver backends the player can choose between. */
+export type SolverChoice = "rust" | "opensees";
+export const SOLVER_CHOICES: readonly SolverChoice[] = ["rust", "opensees"];
+
+/** Port used by `npm run dev:opensees`. */
+export const LOCAL_OPENSEES_URL = "http://localhost:8000";
 
 export const SETTINGS_KEY = "dof.settings";
 
-export const DEFAULT_SETTINGS: Readonly<Settings> = {
-  sound: false,
-  masterVolume: 100,
-  effectsVolume: 100,
-  reducedMotion: false,
-  showHelpOnStart: false,
-  jointDisplay: "selected",
-};
+/** An absolute http(s) address without a trailing slash, or null. */
+export function normalizeServiceUrl(value: string): string | null {
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.href.replace(/\/+$/, "");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Defaults, with the solver ones taken from build-time configuration:
+ * `VITE_OPENSEES_URL` sets the service address and makes OpenSees the default,
+ * and `VITE_SOLVER=opensees` makes the local service the default. Without
+ * either, the in-browser Rust solver is the default. A choice the player saves
+ * in Settings overrides these.
+ */
+export function defaultSettings(
+  env: { VITE_OPENSEES_URL?: string; VITE_SOLVER?: string } = {},
+): Settings {
+  const configured = env.VITE_OPENSEES_URL
+    ? normalizeServiceUrl(env.VITE_OPENSEES_URL)
+    : null;
+  return {
+    sound: false,
+    masterVolume: 100,
+    effectsVolume: 100,
+    reducedMotion: false,
+    showHelpOnStart: false,
+    jointDisplay: "selected",
+    solver: configured || env.VITE_SOLVER === "opensees" ? "opensees" : "rust",
+    openSeesUrl: configured ?? LOCAL_OPENSEES_URL,
+  };
+}
+
+export const DEFAULT_SETTINGS: Readonly<Settings> = defaultSettings(
+  import.meta.env ?? {},
+);
 
 export interface SettingsStorage {
   getItem(key: string): string | null;
@@ -53,6 +96,11 @@ export function parseSettings(raw: string | null): Settings {
     return typeof level === "number" && Number.isFinite(level) && level >= 0 && level <= 100
       ? Math.round(level) : DEFAULT_SETTINGS[key];
   };
+  const solver = SOLVER_CHOICES.find((choice) => choice === record.solver);
+  const openSeesUrl =
+    typeof record.openSeesUrl === "string"
+      ? normalizeServiceUrl(record.openSeesUrl)
+      : null;
   return {
     sound: pick("sound"),
     masterVolume: volume("masterVolume"),
@@ -60,6 +108,8 @@ export function parseSettings(raw: string | null): Settings {
     reducedMotion: pick("reducedMotion"),
     showHelpOnStart: pick("showHelpOnStart"),
     jointDisplay: record.jointDisplay === "all" || record.jointDisplay === "off" ? record.jointDisplay : "selected",
+    solver: solver ?? DEFAULT_SETTINGS.solver,
+    openSeesUrl: openSeesUrl ?? DEFAULT_SETTINGS.openSeesUrl,
   };
 }
 
@@ -131,3 +181,4 @@ function subscribe(listener: () => void) {
 export function useSettings(): Settings {
   return useSyncExternalStore(subscribe, getSettings, getSettings);
 }
+

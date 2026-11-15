@@ -37,6 +37,8 @@ Organize by domain and responsibility, keeping related code and tests close. The
 | `apps/web/src/viewer/` | Three.js scene, rendering, picking, and interaction with the game boundary. |
 | `apps/web/src/styles/` | Styles grouped by concern. |
 | `packages/solver-contract/` | Shared structural types and solver adapter contract. |
+| `crates/` | Rust crates. `crates/dof-solver` is the structural solver; it has no dependencies and must stay independent of the game, UI and turn rules. |
+| `scripts/` | Build and benchmark scripts run through npm. |
 | `services/` | Backend service implementations, when added. |
 
 Keep each file focused on one cohesive responsibility. Extract a separate module when a file mixes domain rules, presentation, state orchestration, numerical work, or external I/O, or when a part can be understood and tested independently. Keep related code together; do not split merely to meet a line count. Prefer small public APIs and explicit dependencies over cross-domain imports, circular dependencies, or global mutable state. Put reusable domain logic outside components and stores, and avoid duplicating rules in the viewer or UI.

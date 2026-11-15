@@ -1,3 +1,4 @@
+import { recordTurnAnalysis } from './turnEvidence';
 import { CELL_SIZE, parseNodeKey } from './model';
 import { assemblyParts, type AssemblyNode } from './assembly';
 import type { TurnState } from './turns';
@@ -109,4 +110,18 @@ export function assessTurn(turn: TurnState): 'stable' | 'unstable' | 'partial' |
   } catch {
     return 'unresolved';
   }
+}
+
+/** Archive experimental reactions separately from verified scoring evidence. */
+export function analyzeCompletedTurn(turn: TurnState, newMatchId = () => Array.from(crypto.getRandomValues(new Uint32Array(4)), value => value.toString(16).padStart(8, '0')).join('')) {
+  const startedAt = new Date().toISOString();
+  let result: ReturnType<typeof analyzeTurn> | undefined;
+  try { result = analyzeTurn(turn); } catch { /* Preserve unavailable evidence. */ }
+  let status: 'stable' | 'unstable' | 'partial' | 'unresolved' = 'unresolved';
+  if (result && !result.error && result.combos.length) {
+    const scopes = result.combos[0].components ?? [];
+    status = scopes.some(s => s.status === 'computed') && scopes.some(s => s.status !== 'computed') ? 'partial' : result.unresolved ? 'unresolved' : result.mechanism ? 'unstable' : result.floating.length ? 'partial' : 'stable';
+  }
+  const matchId = turn.reports.at(-1)?.analysis?.request.snapshot.modelId ?? newMatchId();
+  return { status, analysis: recordTurnAnalysis(turn, result, status, startedAt, matchId) };
 }

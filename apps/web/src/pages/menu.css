@@ -215,3 +215,18 @@
 @media (min-width: 1000px) {
   .dof-menu .levels { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 }
+
+/* Structural solver choice (components/SolverSetting.tsx). */
+.dof-menu .solver-setting { border: 0; margin: 0; padding: 0; min-width: 0; }
+.dof-menu .solver-setting legend { padding: 10px 0 4px; }
+.dof-menu .solver-setting legend b { display: block; font-size: 17px; }
+.dof-menu .solver-setting legend .d { font-size: 14px; color: var(--cream-dim); }
+.dof-menu .solver-setting input[type="radio"] { flex: none; width: 22px; height: 22px; accent-color: var(--amber); cursor: pointer; }
+.dof-menu .solver-address { padding: 10px 0 4px; }
+.dof-menu .solver-address label { display: block; font-size: 14px; color: var(--cream-dim); margin-bottom: 6px; }
+.dof-menu .solver-address .row { display: flex; gap: 10px; }
+.dof-menu .solver-address input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--cream-faint); background: rgba(243,234,216,.08); color: var(--cream); font: inherit; font-size: 15px; }
+.dof-menu .solver-address input[aria-invalid="true"] { border-color: var(--coral); }
+.dof-menu .solver-address .d { font-size: 14px; margin: 8px 0 0; color: var(--cream-dim); }
+.dof-menu .solver-address .d.ok { color: var(--sage); }
+.dof-menu .solver-address .d.bad { color: var(--coral); }

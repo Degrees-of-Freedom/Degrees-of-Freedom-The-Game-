@@ -41,7 +41,7 @@ import {
   turnPointIssue,
   type ConnectionTarget,
 } from "./turnPicking";
-import type { SceneView } from "./sceneView";
+import type { SceneHover, SceneView } from "./sceneView";
 
 type Hit =
   | BayHit
@@ -60,6 +60,7 @@ export function createPicker(
   point: (key: string) => THREE.Vector3,
   buildPlane: () => BuildPlane,
   getView: () => SceneView,
+  onHover?: (hover: SceneHover | null) => void,
 ) {
   const ray = new THREE.Raycaster(),
     ndc = new THREE.Vector2();
@@ -134,6 +135,7 @@ export function createPicker(
     }
     let hit: Hit = null;
     let stackLabel = "";
+    let hoverRole: SceneHover["role"] = null;
     ghost.visible = false;
     preview.visible = false;
     if (card?.kind === "connection") {
@@ -268,6 +270,7 @@ export function createPicker(
       const isGrowing = !!start && isMember && !card && isGrowthStyle(s.style);
       if (!isGrowing) stack.reset();
       const reachable = isGrowing ? closestGrowthTarget() : null;
+      hoverRole = reachable?.role ?? null;
       if (!card && s.style === "blocks" && isMember && intersection) {
         const baySize = getView().baySize ?? DEFAULT_BAY_SIZE;
         const face = pickBayFace(s, ray.ray, baySize);
@@ -413,8 +416,19 @@ export function createPicker(
       return [label, (member.util * 100).toFixed(0) + "% utilization", member.gov]
         .filter(Boolean).join(" · ");
     }
-    canvas.title =
-      hit?.kind === "point" || hit?.kind === "bay"
+    onHover?.(
+      hit?.kind === "point"
+        ? { p: hit.p, issue: hit.issue, role: hoverRole, stack: stackLabel }
+        : null,
+    );
+    // The growth styles label the hovered point in the scene instead of a tooltip.
+    const labelledInScene =
+      hit?.kind === "point" &&
+      isGrowthStyle(s.style) &&
+      s.mode !== "multiplayer";
+    canvas.title = labelledInScene
+      ? ""
+      : hit?.kind === "point" || hit?.kind === "bay"
         ? [
             hit.issue || `${hit.p.map((v) => v * CELL_SIZE).join(", ")} m`,
             stackLabel,

@@ -68,7 +68,17 @@ describe("simulation across game modes", () => {
       expect(useGameStore.getState().turn).toMatchObject({
         turn: 2,
         playerIndex: 1,
-        reports: [{ turn: 1, status: "stable", penalty: 0 }],
+        reports: [{
+          turn: 1, status: "stable", penalty: 0,
+          analysis: {
+            purpose: "turn",
+            request: { snapshot: { revisionId: "turn-1" } },
+            foundations: [
+              { reaction: { validity: "unverified" } },
+              { reaction: { validity: "unverified" } },
+            ],
+          },
+        }],
       });
     } finally {
       useGameStore.setState(initial);

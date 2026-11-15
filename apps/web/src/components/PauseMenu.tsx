@@ -5,6 +5,7 @@ import { LEVELS } from "../game/levels";
 import { useGameStore } from "../game/store";
 import { useSettings } from "../menu/settings";
 import { SettingToggles } from "../pages/InfoPages";
+import { SolverSetting } from "./SolverSetting";
 import { MODE_CATALOG } from "./runtimeCatalog";
 import "../pages/menu.css";
 import "./PauseMenu.css";
@@ -200,6 +201,7 @@ export function PauseMenu({
             <h2 id="dm-pause-title">Settings</h2>
             <p className="msub">Saved in this browser.</p>
             <SettingToggles />
+            <SolverSetting />
             <div className="mrow">
               <button className="btn mbtn" data-first onClick={() => setView("main")}>
                 Back

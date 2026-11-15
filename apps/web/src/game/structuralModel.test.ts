@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { exampleModel } from './examples';
 import type { GameModel, LevelId } from './model';
 import { toStructuralModel } from './structuralModel';
-import { resolveSolver } from '../solver';
+import { solverFor, solverForSettings, wasmSolver } from '../solver';
 import { createOpenSeesSolver } from '../solver/opensees';
 import { unavailableSolver } from '../solver/unavailable';
 
@@ -110,9 +110,41 @@ describe('game model to solver contract', () => {
 });
 
 describe('solver selection', () => {
-  it('uses the configured service, the local one in development, and none otherwise', () => {
-    expect(resolveSolver({ VITE_OPENSEES_URL: 'http://solver.test' }).id).toBe('opensees');
-    expect(resolveSolver({ DEV: true }).id).toBe('opensees');
-    expect(resolveSolver({ DEV: false })).toBe(unavailableSolver);
+  it('uses the in-browser Rust solver or the OpenSees service at the chosen address', () => {
+    expect(solverFor('rust', 'http://solver.test')).toBe(wasmSolver);
+    expect(solverFor('rust', 'http://solver.test', false)).toBe(unavailableSolver);
+    const opensees = solverFor('opensees', 'http://solver.test');
+    expect(opensees.id).toBe('opensees');
+    // The same address gives the same adapter, so a check is not reset on every render.
+    expect(solverForSettings({ solver: 'opensees', openSeesUrl: 'http://solver.test' })).toBe(opensees);
+    expect(solverFor('opensees', 'http://other.test')).not.toBe(opensees);
+  });
+});
+
+describe('corotational service translation', () => {
+  it('includes physical member laws and explicit loads only when requested', () => {
+    const linear = toStructuralModel(frame);
+    const nonlinear = toStructuralModel(frame, true);
+    expect(linear.model.analysis).toBeUndefined();
+    expect(nonlinear.model.analysis).toEqual({ type: 'corotational' });
+    expect(nonlinear.model.members[0].law?.kind).toBe('frame');
+    expect(nonlinear.model.members[2].law?.kind).toBe('cable');
+    expect(nonlinear.model.loads).toEqual(linear.model.loads);
+    expect(nonlinear.notes.join(' ')).toContain('Self-weight');
+  });
+});
+
+describe('live corotational editor request', () => {
+  it.skipIf(!process.env.VITE_OPENSEES_URL)('returns nonlinear equilibrium through the adapter', async () => {
+    const model: GameModel = { nextId: 2, members: [{ id: 1, type: 'shs', a: '0,0,0', b: '0,0,2' }], attrs: {
+      '0,0,0': { found: true, joint: true }, '0,0,2': { joint: true, load: 1 },
+    } };
+    const solver = createOpenSeesSolver(process.env.VITE_OPENSEES_URL!);
+    const result = await solver.analyze(toStructuralModel(model, true).model);
+    expect(result.status).toBe('success');
+    if (result.status === 'success') {
+      expect(result.nonlinear?.segmentsPerFrame).toBeGreaterThan(0);
+      expect(result.reactions?.['0,0,0']?.[2]).toBeCloseTo(1000, 1);
+    }
   });
 });

@@ -10,6 +10,8 @@ import type { PresentationStyle } from "../../game/modes";
 import { ITEMS, MEMBER_TYPES } from "../../game/inventory";
 import { activeTurnHand } from "../../game/turns";
 import { DofGlyph } from "./DofGlyph";
+import { GrowthTools } from "./GrowthTools";
+import { JointCard } from "./JointCard";
 
 type Props = { style: PresentationStyle; onMessage: (message: string) => void };
 type IconKind =
@@ -271,8 +273,11 @@ function Icon({ kind, style }: { kind: IconKind; style: PresentationStyle }) {
 }
 
 /** Shared scene tools; the active model and placement rules remain in the store. */
-export function EnvironmentTools({ style }: Props) {
+export function EnvironmentTools({ style, onMessage }: Props) {
   const game = useGameStore();
+  // The growth styles use the Grow Dusk prototype's dock and load pad.
+  if (style === "grow" || style === "grow-dusk")
+    return <GrowthTools onMessage={onMessage} />;
   const isMember = MEMBER_TYPES.includes(game.tool as MemberType);
   const tools: {
     kind: IconKind;
@@ -320,10 +325,6 @@ export function EnvironmentTools({ style }: Props) {
       active: game.tool === "delete",
       action: () => game.setTool("delete"),
     },
-    ...(style === "grow-dusk" && game.mode === "creative" ? [{
-      kind: "foundation" as const, label: "Foundation", key: "0",
-      active: game.tool === "found", action: () => game.setTool("found"),
-    }] : []),
     {
       kind: "inspect",
       label: "Inspect",
@@ -536,7 +537,7 @@ export function EnvironmentInspector({ onMessage }: Pick<Props, "onMessage">) {
     const member = game.model.members.find((m) => m.id === selection.id);
     if (!member) return null;
     return (
-      <section className="env-card card pop">
+      <section className="env-card card pop show docked">
         <div className="dc-head">
           <div>
             <div className="dc-title">
@@ -568,6 +569,9 @@ export function EnvironmentInspector({ onMessage }: Pick<Props, "onMessage">) {
       </section>
     );
   }
+  // The growth styles show the prototype's joint card beside the joint.
+  if (game.style === "grow" || game.style === "grow-dusk")
+    return <JointCard onMessage={onMessage} />;
   const key = selection.key,
     point = parseNodeKey(key),
     attrs = game.model.attrs[key] ?? {};

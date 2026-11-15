@@ -1,3 +1,4 @@
+import { structuralAnalysisResultSchema, type StructuralAnalysisResult } from '@dof/solver-contract';
 import {
   nodeKey,
   parseNodeKey,
@@ -66,7 +67,7 @@ type Event =
       end: "a" | "b";
       jointId?: string;
     }
-  | { kind: "end"; turn: number; status?: TurnReport["status"]; final?: FinalScore; issues?: IssueAssessment; penaltyDecision?: PenaltyDecision; repairPolicy?: RepairPolicy; correction?: CorrectionReceipt };
+  | { kind: "end"; turn: number; status?: TurnReport["status"]; analysis?: StructuralAnalysisResult; final?: FinalScore; issues?: IssueAssessment; penaltyDecision?: PenaltyDecision; repairPolicy?: RepairPolicy; correction?: CorrectionReceipt };
 
 export type TurnReport = {
   turn: number;
@@ -74,6 +75,7 @@ export type TurnReport = {
   status: "stable" | "unstable" | "partial" | "unresolved";
   reason: string;
   penalty: 0 | -1;
+  analysis?: StructuralAnalysisResult;
   issues?: IssueAssessment;
   penaltyDecision?: PenaltyDecision;
   correction?: CorrectionReceipt;
@@ -413,8 +415,9 @@ export function endTurn(
   state: TurnState,
   expectedTurn = state.turn,
   status: TurnReport["status"] = "unresolved",
+  analysis?: StructuralAnalysisResult,
 ): Transition {
-  return commitTurn(state, expectedTurn, status);
+  return commitTurn(state, expectedTurn, status, undefined, analysis);
 }
 
 function commitTurn(
@@ -422,6 +425,7 @@ function commitTurn(
   expectedTurn: number,
   status: TurnReport["status"] = "unresolved",
   replay?: { final: unknown; issues: unknown; penaltyDecision: unknown; repairPolicy: unknown; correction: unknown },
+  analysis?: StructuralAnalysisResult,
 ): Transition {
   if (state.finished || expectedTurn !== state.turn)
     return fail("This turn has already ended.");
@@ -462,7 +466,7 @@ function commitTurn(
   if (replay && !matchesIssueEvidence(repair?.receipt, replay.correction))
     return fail("The saved corrective work does not match the originating turn and verified structure.");
   const endEvent: Extract<Event, { kind: "end" }> = {
-    kind: "end", turn: state.turn, status,
+    kind: "end", turn: state.turn, status, ...(analysis && { analysis }),
     ...(issues && { issues }), ...(penaltyDecision && { penaltyDecision }),
     ...(repairPolicy && { repairPolicy }),
     ...(repair && { correction: repair.receipt }),
@@ -478,6 +482,7 @@ function commitTurn(
       unresolved: "The experimental solve did not produce a result for this turn.",
     }[status],
     penalty: penaltyDecision?.event?.amount ?? 0,
+    ...(analysis && { analysis }),
     ...(issues && { issues }),
     ...(penaltyDecision && { penaltyDecision }),
     ...(repair && { correction: repair.receipt }),
@@ -589,10 +594,30 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
   if (event.kind === "end" && typeof event.turn === "number") {
     if (event.status !== undefined && event.status !== "stable" && event.status !== "unstable" &&
       event.status !== "partial" && event.status !== "unresolved") return null;
+    let analysis: StructuralAnalysisResult | undefined;
+    if (event.analysis !== undefined) {
+    const parsed = structuralAnalysisResultSchema.safeParse(event.analysis);
+    if (!parsed.success) return null;
+    analysis = parsed.data;
+    const snapshot = analysis.request.snapshot;
+    const prior = state.reports.at(-1)?.analysis?.request.snapshot;
+    if (
+      analysis.purpose !== "turn" ||
+      analysis.turn?.matchId !== snapshot.modelId ||
+      analysis.turn?.turnId !== String(state.turn) ||
+      analysis.turn.playerId !== activePlayer(state).id ||
+      analysis.turn.rulesVersion !== String(state.version) ||
+      state.reports.some(report => report.analysis?.runId === parsed.data.runId) ||
+      snapshot.revisionId !== "turn-" + state.turn ||
+      analysis.status !== (event.status === "stable" ? "success" : event.status === "unstable" ? "unstable" : "unresolved") ||
+      snapshot.parentRevisionId !== prior?.revisionId ||
+      (prior && prior.modelId !== snapshot.modelId)
+    ) return null;
+    }
     return commitTurn(state, event.turn, event.status, {
       final: event.final, issues: event.issues, penaltyDecision: event.penaltyDecision,
       repairPolicy: event.repairPolicy, correction: event.correction,
-    });
+    }, analysis);
   }
   if (typeof event.cardId !== "string") return null;
   if (

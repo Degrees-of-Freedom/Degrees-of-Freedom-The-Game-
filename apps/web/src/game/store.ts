@@ -1,6 +1,6 @@
 import { create } from "zustand";
+import { analyzeCompletedTurn, assessTurn } from "./turnAnalysis";
 import { SCORED_CATALOGUE, isScoredCatalogue, type CatalogueId } from "./cardCatalogue";
-import { assessTurn } from "./turnAnalysis";
 import { exampleModel } from "./examples";
 import {
   nodeKey,
@@ -383,9 +383,15 @@ export const useGameStore = create<GameState>((set, get) => {
       const s = get();
       const blocked = saveBlocked();
       if (blocked) return blocked;
-      return s.mode === "multiplayer" && s.turn
-        ? turnTransition(endTurn(s.turn, s.turn.turn, assessTurn(s.turn)))
-        : "No multiplayer game is active";
+      if (s.mode !== "multiplayer" || !s.turn) return "No multiplayer game is active";
+      if (s.turn.finished) return "This turn has already ended.";
+      try {
+        if ([...s.turn.board.members, ...s.turn.draft.members].some(m => m.type === 'spring')) return turnTransition(endTurn(s.turn, s.turn.turn, assessTurn(s.turn)));
+        const { status, analysis } = analyzeCompletedTurn(s.turn);
+        return turnTransition(endTurn(s.turn, s.turn.turn, status, analysis));
+      } catch {
+        return "Could not prepare the turn analysis. The draft is still open.";
+      }
     },
     newMatch: (catalogue) => {
       const s = get();

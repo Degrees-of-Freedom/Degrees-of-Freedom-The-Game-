@@ -1,20 +1,43 @@
 import type { SolverAdapter } from '@dof/solver-contract';
+import { DEFAULT_SETTINGS, LOCAL_OPENSEES_URL, type Settings, type SolverChoice } from '../menu/settings';
 import { createOpenSeesSolver } from './opensees';
 import { unavailableSolver } from './unavailable';
+import { createWasmSolver } from './wasm/wasmSolver';
 
-/** Port used by `npm run dev:opensees`. */
-export const LOCAL_OPENSEES_URL = 'http://localhost:8000';
+export { LOCAL_OPENSEES_URL };
+
+/** The Rust solver, running in the browser. One instance loads the module once. */
+export const wasmSolver = createWasmSolver();
+
+/** One adapter per service address, so a check keeps its identity across renders. */
+const openSeesSolvers = new Map<string, SolverAdapter>();
 
 /**
- * Choose the solver from build-time configuration.
+ * The adapter for a solver choice.
  *
- * `VITE_OPENSEES_URL` selects an OpenSees service explicitly. Without it, a
- * development build assumes the service is running locally, and a production
- * build has no solver, because no deployed service address is known.
+ * `rust` is the Rust solver compiled to WebAssembly, which needs no service;
+ * without WebAssembly support there is no solver. `opensees` is the OpenSees
+ * service at `openSeesUrl`, which must be running (`npm run dev:opensees`
+ * serves it on `http://localhost:8000`). The same choice and address always
+ * return the same adapter object.
  */
-export function resolveSolver(env: { VITE_OPENSEES_URL?: string; DEV?: boolean }): SolverAdapter {
-  const url = env.VITE_OPENSEES_URL || (env.DEV ? LOCAL_OPENSEES_URL : undefined);
-  return url ? createOpenSeesSolver(url) : unavailableSolver;
+export function solverFor(
+  choice: SolverChoice,
+  openSeesUrl: string,
+  webAssemblyAvailable = typeof WebAssembly !== 'undefined',
+): SolverAdapter {
+  if (choice === 'opensees') {
+    let solver = openSeesSolvers.get(openSeesUrl);
+    if (!solver) openSeesSolvers.set(openSeesUrl, (solver = createOpenSeesSolver(openSeesUrl)));
+    return solver;
+  }
+  return webAssemblyAvailable ? wasmSolver : unavailableSolver;
 }
 
-export const defaultSolver = resolveSolver(import.meta.env);
+/** The adapter the player's settings select. */
+export function solverForSettings(settings: Pick<Settings, 'solver' | 'openSeesUrl'>): SolverAdapter {
+  return solverFor(settings.solver, settings.openSeesUrl);
+}
+
+/** The adapter for the build's default settings, for code that has no settings. */
+export const defaultSolver = solverForSettings(DEFAULT_SETTINGS);

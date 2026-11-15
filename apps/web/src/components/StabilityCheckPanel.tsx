@@ -1,16 +1,39 @@
+import type { DetailedAnalysisResult } from '@dof/solver-contract';
+import { summarizeAnalysis, type Verdict } from '../game/structuralSummary';
 import type { StabilityCheck } from '../game/useStabilityCheck';
 import type { ComponentAnalysis } from '@dof/solver-contract';
 
-const pad = (count: number) => String(count).padStart(2, '0');
+const pad = (count: number) => String(count);
 
 function Stat({ name, value }: { name: string; value: string }) {
   return (
-    <div className="stat">
+    <div className="result-metric">
       <span>{name}</span>
       <b>{value}</b>
     </div>
   );
 }
+
+/** Consistent provenance for completed, pending and unavailable checks. */
+function ResultHeader({ solverName }: { solverName: string }) {
+  return <header className="result-header">
+    <span className="result-eyebrow">01 · Structural analysis</span>
+    <h3>Structure response</h3>
+    <p className="result-source"><span>Active solver</span><strong>{solverName}</strong></p>
+  </header>;
+}
+
+const VERDICT_TEXT: Record<Verdict, string> = {
+  stable: 'Stable',
+  marginal: 'Marginal',
+  unstable: 'Unstable',
+  unknown: 'Unresolved',
+  invalid: 'Not analysed',
+  empty: 'Nothing to analyse',
+};
+
+/** Foundations listed before the rest are summarised in one line. */
+const MAX_REACTIONS = 8;
 
 function ComponentResponses({ scopes }: { scopes: ComponentAnalysis[] }) {
   const solved = scopes.filter(s => s.result.status === 'success').length;
@@ -32,49 +55,144 @@ function ComponentResponses({ scopes }: { scopes: ComponentAnalysis[] }) {
 }
 
 /**
- * Kinematic stability and determinacy from the OpenSees service.
- *
- * This is independent of the voxel analysis above it: it looks only at
- * geometry, connections and supports, and answers whether the structure can
- * move without deforming and how many redundant load paths it has.
+ * Result of the detailed contract: card sections, tension-only cables,
+ * self-weight and nonlinear analysis, with a status per connected part.
+ * Unverified values are shown as unavailable, never as zero.
  */
-export function StabilityCheckPanel({ check, onNonlinear }: { check: StabilityCheck; onNonlinear: () => void }) {
-  if (check.phase === 'idle') return null;
+function DetailedCheck({ result, notes, solverName }: { result: DetailedAnalysisResult; notes: string[]; solverName: string }) {
+  const summary = summarizeAnalysis(result);
+  // Strength does not change the solver's stability status, but a structure
+  // with an overloaded member must not be presented as a pass.
+  const good = summary.verdict === 'stable' && !summary.strengthExceeded;
+  const shown = summary.reactions.slice(0, MAX_REACTIONS);
+  return (
+    <div className="analysis stability-check">
+      <ResultHeader solverName={solverName} />
+      <p className={good ? 'verdict good' : summary.verdict === 'unstable' || summary.strengthExceeded ? 'verdict bad' : 'verdict unknown'} role="status">
+        {VERDICT_TEXT[summary.verdict]}
+        {summary.verdict === 'stable' && summary.strengthExceeded && ', but overstressed'}
+        {summary.message && `. ${summary.message}`}
+        {summary.components > 1 && summary.failingComponents > 0 &&
+          ` (${summary.failingComponents} of ${summary.components} separate parts)`}
+      </p>
+      {summary.reasons.map((text) => (
+        <p className="warning" key={text}>
+          {text}
+        </p>
+      ))}
+      {summary.components > 0 && (
+        <>
+          <div className="result-metrics"><Stat name="Separate parts" value={pad(summary.components)} />
+          <Stat name="Free DOFs" value={pad(summary.freeDofs)} />
+          <Stat name="Mechanisms" value={pad(summary.mechanisms)} />
+          <Stat name="Redundancy" value={pad(summary.staticIndeterminacy)} />
+          <Stat
+            name="Peak movement"
+            value={summary.maxDisplacement === null ? 'unavailable' : `${(summary.maxDisplacement * 1e3).toFixed(1)} mm`}
+          />
+          <Stat
+            name="Capacity use"
+            value={
+              summary.governing
+                ? `${Math.round(summary.governing.utilization * 100)}%`
+                : 'unavailable'
+            }
+          />
+          {summary.slackCables > 0 && <Stat name="Slack cables" value={pad(summary.slackCables)} />}
+          </div>
+          {summary.governing && <p className="result-caption">Governing member {summary.governing.memberId} · {summary.governing.limitState.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()}</p>}
+          <p className="result-caption">Free DOFs are movements to solve; mechanisms have no resisting stiffness. Redundancy counts extra restraints.</p>
+          <p className="result-caption">Capacity use: 100% is the reported limit. Unavailable means no verified value, not zero.</p>
+          <details className="result-details" open><summary>Support reactions · {summary.reactions.length}</summary>
+          <p>Vertical force at each foundation. Upward reactions resist gravity; uplift indicates a hold-down demand.</p>
+          {shown.map((reaction) => (
+            <Stat
+              key={reaction.foundationId}
+              name={`Foundation ${reaction.nodeId}`}
+              value={
+                reaction.vertical === null
+                  ? 'unavailable'
+                  : `${Math.abs(reaction.vertical).toFixed(1)} kN ${reaction.vertical < 0 ? 'uplift' : 'up'}`
+              }
+            />
+          ))}
+          {summary.reactions.length > shown.length && (
+            <p>{summary.reactions.length - shown.length} more foundations not listed.</p>
+          )}
+          {shown.length === 0 && <p>No foundation reactions reported.</p>}
+          </details>
+        </>
+      )}
+      {notes.map((text) => (
+        <p key={text}>{text}</p>
+      ))}
+      <p>
+        {result.analysis.fidelity === 'linear' ? 'Linear' : result.analysis.fidelity === 'nonlinear' ? 'Nonlinear' : 'Structural'} analysis · computed by {solverName}
+        {summary.runtimeMs !== null && ` in ${Math.round(summary.runtimeMs)} ms`}.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The contract-solver check, beside the voxel analysis and independent of it.
+ *
+ * A solver for the detailed contract gives the structural check above. Any
+ * other solver gives kinematic stability and determinacy only: whether the
+ * structure can move without deforming and how many redundant load paths it
+ * has, from geometry, connections and supports.
+ */
+export function StabilityCheckPanel({
+  check,
+  solverName,
+  onNonlinear,
+}: {
+  check: StabilityCheck;
+  solverName: string;
+  onNonlinear?: () => void;
+}) {
+  const nonlinearControl = onNonlinear && <button className="btn" onClick={onNonlinear}>Run nonlinear check</button>;
+  if (check.phase === 'idle') return <section className="analysis stability-check"><ResultHeader solverName={solverName} /><p className="result-empty">Run simulation to check this structure. Editing the model or changing solver clears the previous check.</p>{nonlinearControl}</section>;
   if (check.phase === 'running')
     return (
       <div className="analysis stability-check">
-        <h3>Degrees of freedom</h3>
-        <p role="status">Checking stability with OpenSees…</p>
+        <ResultHeader solverName={solverName} />
+        <p role="status">Checking the structure with {solverName}…</p>
       </div>
     );
+  if (check.phase === 'detailed')
+    return <DetailedCheck result={check.result} notes={check.notes} solverName={solverName} />;
 
   const { result, notes } = check;
   if (result.status !== 'success' && result.status !== 'unstable')
     return (
       <div className="analysis stability-check">
-        <h3>Degrees of freedom</h3>
-        <p>{result.status === 'unresolved' ? 'Equilibrium unresolved' : 'OpenSees check unavailable'}. {result.message}</p>
+        <ResultHeader solverName={solverName} />
+        <p>
+          {result.status === 'unresolved' ? 'Equilibrium unresolved' : solverName + ' check unavailable'}: {result.message}
+        </p>
         {result.components && <ComponentResponses scopes={result.components} />}
-        <button className="btn" onClick={onNonlinear}>Run nonlinear check</button>
+        {notes.map(note => <p key={note}>{note}</p>)}
+        {nonlinearControl}
       </div>
     );
 
   const stability = result.stability;
   return (
     <div className="analysis stability-check">
-      <h3>{result.status === 'success' && result.nonlinear ? 'Nonlinear response' : 'Degrees of freedom'}</h3>
+      <ResultHeader solverName={solverName} />
       <p className={result.status === 'unstable' ? 'verdict bad' : 'verdict good'}>
         {result.status === 'unstable' ? `Unstable. ${result.message}` : 'Stable'}
       </p>
       {stability && (
-        <>
+        <div className="result-metrics">
           <Stat name="Free DOFs" value={pad(stability.freeDofs)} />
           <Stat name="Mechanisms" value={pad(stability.mechanisms)} />
           <Stat name="Redundancy" value={pad(stability.staticIndeterminacy)} />
           {result.status === 'unstable' && (
             <Stat name="Moving nodes" value={pad(stability.unstableNodeIds.length)} />
           )}
-        </>
+        </div>
       )}
       {result.status === 'success' && result.nonlinear && (
         <p>Normalized force residual {result.nonlinear.forceResidual.toExponential(2)} · moment residual {result.nonlinear.momentResidual.toExponential(2)}.</p>
@@ -85,8 +203,8 @@ export function StabilityCheckPanel({ check, onNonlinear }: { check: StabilityCh
           {text}
         </p>
       ))}
-      <p>Computed by OpenSees.</p>
-      <button className="btn" onClick={onNonlinear}>Run nonlinear check</button>
+      <p>{result.status === 'success' && result.nonlinear ? 'Nonlinear equilibrium' : 'Geometry, connections and supports only'}. Computed by {solverName}.</p>
+      {nonlinearControl}
     </div>
   );
 }
