@@ -1,9 +1,9 @@
 import {readFile} from 'node:fs/promises';
 import {beforeAll, expect, it} from 'vitest';
-import {createReleaseDecks, PLAY_REVISION, PLAY_SPRING_REFERENCE, RELEASE_CATALOGUE} from './cardCatalogue';
+import {createReleaseDecks, PLAY_REVISION, PLAY_SPRING_REFERENCE, RELEASE_CATALOGUE, connectionChoices} from './cardCatalogue';
 import {SPRING} from '../solver/voxelSections';
 import {createReleaseGame, createTurnGame, chooseTurnDraw, stageElement, stageConnection,
-  cancelTurnDraft, undoLastPlacement, parseTurnState, activeTurnHand, type TurnState} from './turns';
+  cancelTurnDraft, undoLastPlacement, endTurn, parseTurnState, activeTurnHand, type TurnState} from './turns';
 import {prepareReleaseSolver} from './turnAnalysis';
 import {matchRecord, decodePrivateMatch} from './releaseSave';
 
@@ -66,4 +66,26 @@ it('rejects edits to setup/committed connector identities and does not reinterpr
   expect(parseTurnState({...original, rulesRevision: PLAY_REVISION})).toBeNull();
   const forged = {...original, rulesRevision: 'future'};
   expect(parseTurnState(forged)).toBeNull();
+});
+
+it('allows all four held connector cards on another player’s open member ends without a two-connection cap', () => {
+  let state = draw(createReleaseGame(0), ['members', 'members', 'members', 'members']);
+  const members = activeTurnHand(state);
+  state = accept(stageElement(state, members[0].id, '2,2,1', '3,2,1'));
+  state = accept(stageElement(state, members[1].id, '2,4,1', '3,4,1'));
+  state = accept(endTurn(state));
+  state = draw(state, ['connections', 'connections', 'connections', 'connections']);
+  const cards = activeTurnHand(state);
+  const ends = [[3, 'a'], [3, 'b'], [4, 'a'], [4, 'b']] as const;
+  for (let i = 0; i < 4; i++) {
+    const card = cards[i];
+    if (card.kind !== 'connection') throw new Error('Expected four deliberately selected connection cards.');
+    state = accept(stageConnection(state, card.id, ends[i][0], ends[i][1], undefined, connectionChoices(card)[0]));
+  }
+  expect(state.draft.connections).toHaveLength(4);
+  expect(state.draft.connections.every(connection => connection.owner === 'player-2')).toBe(true);
+  expect(parseTurnState(JSON.parse(JSON.stringify(state)))).toEqual(state);
+  const undone = accept(undoLastPlacement(state));
+  expect(undone.draft.connections).toHaveLength(3);
+  expect(undone.draws).toEqual(state.draws);
 });
