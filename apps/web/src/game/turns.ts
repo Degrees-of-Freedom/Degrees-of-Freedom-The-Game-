@@ -330,10 +330,12 @@ export function stageElement(
     if (systemTarget(state, contact.target)) return fail("Neutral repair objects are inspection-only.");
     const targetPort = findPort(parents, contact.target);
     const targetJoint = state.board.joints.find(j => j.id === contact.target);
-    if (targetPort?.available === false || (!targetPort && !targetJoint) || targetJoint?.system)
+    // Load-only endpoint nodes carry positions for analysis, but are not shared
+    // authoring joints. A point field must never turn a private tip into a port.
+    if (targetPort?.available === false || (!targetPort && (!targetJoint || !validPoint(state, contact.target))) || targetJoint?.system)
       return fail("Choose an existing shared joint or original quarter port for the support.");
     const site = `q${contact.quarter}` as InteriorSite;
-    if (attachmentPoint(member, site) !== (targetJoint?.point ?? targetCoordinate(parents, contact.target)))
+    if (attachmentPoint(member, site) !== targetCoordinate(parents, contact.target))
       return fail("The chosen member station must coincide exactly with the attachment point.");
     member.interiorTargets = { [site]: contact.target };
   }
@@ -444,8 +446,7 @@ export function stageConnection(
   if (port && (!port.available || port.memberId === memberId))
     return fail("Choose a supported quarter port on a different parent.");
   const targetJoint = state.board.joints.find(j => j.id === target);
-  if ((targetJoint?.point ?? targetCoordinate(parents, target)) !== attachmentPoint(member, end) ||
-      (!port && !validPoint(state,target) && !targetJoint))
+  if (targetCoordinate(parents, target) !== attachmentPoint(member, end) || (!port && !validPoint(state,target)))
     return fail("Choose a shared joint or original quarter port at the member attachment point.");
   if (interior && !port && !targetJoint)
     return fail("Choose an existing shared joint or original quarter port for the support.");
