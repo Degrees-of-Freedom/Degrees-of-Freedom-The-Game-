@@ -391,12 +391,21 @@ export const useGameStore = create<GameState>((set, get) => {
       if (blocked) return blocked;
       if (s.mode !== "multiplayer" || !s.turn) return "No multiplayer game is active";
       if (s.turn.finished) return "This turn has already ended.";
+      const turn = s.turn;
+      // The archive of a turn's analysis is optional evidence. If it cannot be
+      // prepared the turn still commits, with its assessment and no archive,
+      // as it already does for springs. A legal turn must never be blocked.
+      const withoutArchive = () => turnTransition(endTurn(turn, turn.turn, assessTurn(turn)));
       try {
-        if ([...s.turn.board.members, ...s.turn.draft.members].some(m => m.type === 'spring')) return turnTransition(endTurn(s.turn, s.turn.turn, assessTurn(s.turn)));
-        const { status, analysis } = analyzeCompletedTurn(s.turn);
-        return turnTransition(endTurn(s.turn, s.turn.turn, status, analysis));
+        if ([...turn.board.members, ...turn.draft.members].some(m => m.type === 'spring')) return withoutArchive();
+        const { status, analysis } = analyzeCompletedTurn(turn);
+        return turnTransition(endTurn(turn, turn.turn, status, analysis));
       } catch {
-        return "Could not prepare the turn analysis. The draft is still open.";
+        try {
+          return withoutArchive();
+        } catch {
+          return "Could not end the turn. The draft is still open.";
+        }
       }
     },
     newMatch: (catalogue, options) => {

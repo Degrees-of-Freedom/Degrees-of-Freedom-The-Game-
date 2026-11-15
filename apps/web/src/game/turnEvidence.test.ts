@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { readSession, writeSession } from './session';
 import { analyzeCompletedTurn, toTurnVoxelInput } from './turnAnalysis';
+import { buildTurnRequest } from './turnEvidence';
+import { S } from '../solver/voxelSections';
 import { activeTurnHand, createTurnGame, endTurn, stageElement, stageLoad } from './turns';
 
 function memoryStorage() {
@@ -73,5 +75,23 @@ describe('Shared table analysis persistence', () => {
     expect(end.position).toEqual(snapshot.joints.find(({ id }) => id === point)?.position);
     expect(snapshot.connections.some(({ endpointId }) => endpointId === end.id)).toBe(false);
     expect(toTurnVoxelInput(placed.state).members.at(-1)?.a).toBe(end.id);
+  });
+});
+
+describe('Shared table analysis archive', () => {
+  it('locates quarter-port and system repair joints by their stored point, not by their id', () => {
+    const start = createTurnGame();
+    // Ids like these are not grid keys. Reading a position from the id gave
+    // NaN, the archive was rejected, and every later End turn was blocked.
+    const turn = { ...start, board: { ...start.board, joints: [
+      ...start.board.joints,
+      { id: 'neutral:1:4:ground', point: '4.5,3.5,0' },
+      { id: 'port:7:2', point: '2,3,1.5' },
+    ] } };
+    const { joints } = buildTurnRequest(turn, 'match-test').snapshot;
+    expect(joints.find(joint => joint.id === 'neutral:1:4:ground')?.position).toEqual([4.5 * S, 3.5 * S, 0]);
+    expect(joints.find(joint => joint.id === 'port:7:2')?.position).toEqual([2 * S, 3 * S, 1.5 * S]);
+    expect(joints.every(joint => joint.position.every(Number.isFinite))).toBe(true);
+    expect(() => analyzeCompletedTurn(turn, () => 'match-test')).not.toThrow();
   });
 });

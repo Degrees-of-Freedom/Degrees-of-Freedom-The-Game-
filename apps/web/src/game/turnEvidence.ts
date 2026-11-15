@@ -8,7 +8,8 @@ import { localAxes } from '../solver/frameMath';
 import { ITEMS, S } from '../solver/voxelSections';
 import type { VoxelAnalysis } from '../solver/voxelResults';
 import { parseNodeKey } from './model';
-import { CONNECTION_PROFILES, turnJoints, type TurnReport, type TurnState } from './turns';
+import { connectionDefinition } from './jointFreedom';
+import { turnJoints, type TurnReport, type TurnState } from './turns';
 
 const gravity = 9.81;
 const toSI = 1000;
@@ -76,7 +77,8 @@ export function buildTurnRequest(turn: TurnState, matchId: string): StructuralAn
       endpointId: endpoint.id,
       jointId: connection.jointId,
       referenceY: member.referenceY,
-      laws: CONNECTION_PROFILES[connection.profile].map((kind) => ({ kind })),
+      // The definition carries the stiffness an elastic law needs (already in N/m and N·m/rad).
+      laws: connectionDefinition(connection.profile).laws,
       capacities: [],
       state: 'active',
       ...cardProvenance(connection.cardId, `connection:${connection.profile}`, turn.version),
@@ -102,7 +104,9 @@ export function buildTurnRequest(turn: TurnState, matchId: string): StructuralAn
       modelId: matchId, revisionId: `turn-${turn.turn}`,
       ...(parentRevisionId && { parentRevisionId }),
       units: 'SI', globalAxes: 'right-handed-z-up',
-      joints: joints.map(({ id }) => ({ id, position: position(id) })),
+      // Quarter-port and system repair joints have ids that are not grid keys;
+      // their coordinates are in `point`.
+      joints: joints.map(({ id, point }) => ({ id, position: position(point ?? id) })),
       materials, sections, members, connections, foundations, loads,
       loadCases: [{ id: 'applied', loads: loads.map(({ id }) => ({ loadId: id, factor: 1 })) }],
       // Match the current playtest's self-weight. Scored rules can choose a different policy.
