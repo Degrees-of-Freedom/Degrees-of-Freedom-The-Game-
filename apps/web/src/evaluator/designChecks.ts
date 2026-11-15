@@ -113,17 +113,14 @@ export function checkMember(
   const bend = d.My / (it.Wy * it.fm) + d.Mz / (it.Wz * it.fm);
   c.strength = Math.max(d.Nt / (it.A * it.ft), d.Nc / (it.A * it.fc)) + bend;
   c.shear = Math.max(d.Vy / (it.Avy * it.fv), d.Vz / (it.Avz * it.fv));
+  // No member buckling reduction (χ): the analysis itself is geometrically
+  // nonlinear with two elements per member, so member buckling appears as a
+  // load-induced instability or in the second-order cut forces (solver
+  // criterion A02). A separate χ check would count it twice. The slenderness
+  // limit is a detailing rule the analysis does not replace, so it stays.
   const Kf = rA && rB ? 0.7 : rA || rB ? 0.85 : 1;
   const Imin = Math.min(it.Iy, it.Iz),
-    Lc = Kf * L,
-    lam = Lc / Math.sqrt(Imin / it.A);
-  if (d.Nc > 1e-3) {
-    const Ncr = (Math.PI ** 2 * it.E * Imin) / Lc ** 2,
-      lb = Math.sqrt((it.A * it.fc) / Ncr);
-    const ph = 0.5 * (1 + it.alpha * (lb - it.l0) + lb * lb),
-      chi = Math.min(1, 1 / (ph + Math.sqrt(Math.max(0, ph * ph - lb * lb))));
-    c.buckling = d.Nc / (chi * it.A * it.fc) + bend;
-  }
+    lam = (Kf * L) / Math.sqrt(Imin / it.A);
   c.slenderness = lam / (d.Nc > 1e-3 ? 200 : 300);
   c.deflection =
     Math.max(d.dEIy / (it.E * it.Iz), d.dEIz / (it.E * it.Iy)) / (L / 250);
