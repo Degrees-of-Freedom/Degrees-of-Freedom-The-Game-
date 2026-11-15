@@ -47,6 +47,6 @@ Superseded: multiple game types; two fixed draws per deck; 1/1/2 play caps; mand
 
 ## 4. Implementation handoff and open parameters
 
-Run the [four separate implementation prompts](../implementation-prompts/README.md) in order. Each session reads current main, preserves unrelated work and produces a concrete tested handoff. They are prompts, not already created sessions or implementation.
+Start the [four concurrent implementation prompts](../implementation-prompts/README.md) from the same baseline in separate worktrees. Each owns separate files and ports; session 4 integrates completed outputs last. Each session reads current main, preserves unrelated work and produces a concrete tested handoff. They are prompts, not already created sessions or implementation.
 
 Remaining authored parameters include actual k₀/member properties, vertical field extent, supported interval limits, tolerance/correction budgets, card counts/load magnitudes/exhaustion, and tie/uplift/self-weight/zero-load policy. Do not reopen the answered cadence, draw, unlimited-load, spring-reference or inspector-permission decisions. Keep current solver integration facts in [structural solver](structural-solver.md) and [Rust solver](rust-solver.md); do not discard working backends because the playable catalogue is smaller.
