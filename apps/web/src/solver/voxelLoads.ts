@@ -67,7 +67,7 @@ export function buildLoads(
     d = combo.dir;
   if (LV.loadCase !== 'applied' || LV.appliedSelfWeight !== false) {
     for (const e of ctx.els) {
-      const span = e.m.parentSpan;
+      const span = e.m.parentSpan?.assemblyPart ? undefined : e.m.parentSpan;
       // Existing voxel self-weight is lumped at the original element ends.
       // Adding an interior connector must not move that existing load.
       const length = span ? e.L * 4 / (span.toQuarter - span.fromQuarter) : e.L;

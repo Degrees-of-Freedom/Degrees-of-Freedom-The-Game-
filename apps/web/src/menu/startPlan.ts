@@ -2,6 +2,7 @@ import { environmentExample } from "../game/environmentExamples";
 import type { GameMode, PresentationStyle } from "../game/modes";
 import type { LevelId } from "../game/model";
 import { createGameSave } from "../game/structuralState";
+import type { CatalogueId } from "../game/cardCatalogue";
 
 /** Every mode opens in this theme for now; the setup screens have no environment picker. */
 export const MENU_STYLE: PresentationStyle = "grow-dusk";
@@ -11,15 +12,15 @@ export type StartChoice =
   | { mode: "creative"; begin: "continue" | "example" | "empty" }
   | { mode: "challenge"; levelId: LevelId; begin: "continue" | "fresh" }
   | { mode: "forensics" | "load-space"; begin: "continue" | "fresh" }
-  | { mode: "multiplayer"; begin: "continue" | "new" };
+  | { mode: "multiplayer"; begin: "continue" | "new"; catalogue?: CatalogueId };
 
 /** The subset of the game store that Start may call; all are existing actions. */
 export interface StartActions {
   setStyle(style: PresentationStyle): void;
-  setMode(mode: GameMode): void;
+  setMode(mode: GameMode, catalogue?: CatalogueId): void;
   setLevel(id: LevelId): void;
   reset(): void;
-  newMatch(): string | null;
+  newMatch(catalogue?: CatalogueId): string | null;
   importModel(value: unknown): string | null;
 }
 
@@ -72,7 +73,8 @@ export function runStart(
         actions.setStyle(MENU_STYLE);
         break;
       case "setMode":
-        actions.setMode(step.mode);
+        if (choice.mode === "multiplayer" && choice.catalogue) actions.setMode(step.mode, choice.catalogue);
+        else actions.setMode(step.mode);
         break;
       case "setLevel":
         actions.setLevel(step.levelId);
@@ -87,7 +89,7 @@ export function runStart(
         );
         break;
       case "newMatch":
-        error = actions.newMatch();
+        error = choice.mode === "multiplayer" && choice.catalogue ? actions.newMatch(choice.catalogue) : actions.newMatch();
         break;
     }
     if (error) return error;

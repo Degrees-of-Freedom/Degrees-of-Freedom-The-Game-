@@ -542,7 +542,7 @@ export function EnvironmentInspector({ onMessage }: Pick<Props, "onMessage">) {
               Member <span>{member.id}</span>
             </div>
             <div className="dc-sub">
-              {ITEMS[member.type].label} · [{member.a}] → [{member.b}]
+              {member.assembly ? "Four-panel planar truss" : ITEMS[member.type].label} · [{member.a}] → [{member.b}]
             </div>
           </div>
           <button

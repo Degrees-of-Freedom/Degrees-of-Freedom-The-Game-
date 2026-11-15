@@ -1,13 +1,13 @@
-// node measure.cjs <playwright module> <Chrome executable> <local Vite origin>
+// node measure.cjs <playwright module> <Chrome executable> <local Vite origin> [auto]
 // Measure presentation separately from the in-process applied-load analysis.
 const { cpus } = require("node:os");
-const [modulePath, executablePath, origin] = process.argv.slice(2);
+const [modulePath, executablePath, origin, graphics = "swiftshader"] = process.argv.slice(2);
 const { chromium } = require(modulePath);
 
 async function measure() {
   const browser = await chromium.launch({
     executablePath, headless: true,
-    args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+    args: graphics === "auto" ? [] : ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
   });
   try {
     const page = await browser.newPage({ viewport: { width: 1366, height: 900 }, deviceScaleFactor: 1 });
@@ -15,6 +15,14 @@ async function measure() {
     page.on("pageerror", error => errors.push(error.message));
     await page.goto(new URL("/play", origin).href);
     await page.locator("canvas").first().waitFor();
+    const renderer = await page.evaluate(() => {
+      for (const canvas of document.querySelectorAll("canvas")) {
+        const gl = canvas.getContext("webgl2");
+        const ext = gl?.getExtension("WEBGL_debug_renderer_info");
+        if (ext) return gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+      }
+      return "Browser did not expose a WebGL2 renderer name";
+    });
     const fixtures = ["04-rigid-portal", "12-midrise"];
     const measurements = [];
     for (const fixture of fixtures) {
@@ -47,7 +55,7 @@ async function measure() {
       measurements.push(row);
     }
     console.log(JSON.stringify({
-      cpu: cpus()[0].model, chrome: browser.version(), renderer: "SwiftShader", width: 1366, height: 900,
+      cpu: cpus()[0].model, chrome: browser.version(), graphics, renderer, width: 1366, height: 900,
       frameWarmup: 30, measuredFrames: 120, solverWarmup: 5, measuredSolves: 20,
       measurements, pageErrors: errors,
     }));

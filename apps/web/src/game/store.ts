@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { SCORED_CATALOGUE } from "./cardCatalogue";
+import { SCORED_CATALOGUE, isScoredCatalogue, type CatalogueId } from "./cardCatalogue";
 import { assessTurn } from "./turnAnalysis";
 import { exampleModel } from "./examples";
 import {
@@ -80,8 +80,8 @@ interface GameState {
   ) => string | null;
   cancelDraft: () => string | null;
   endTurn: () => string | null;
-  setMode: (mode: GameMode) => void;
-  newMatch: () => string | null;
+  setMode: (mode: GameMode, catalogue?: CatalogueId) => void;
+  newMatch: (catalogue?: CatalogueId) => string | null;
   setStyle: (style: PresentationStyle) => void;
   addBay: (
     origin: GridPoint,
@@ -387,16 +387,16 @@ export const useGameStore = create<GameState>((set, get) => {
         ? turnTransition(endTurn(s.turn, s.turn.turn, assessTurn(s.turn)))
         : "No multiplayer game is active";
     },
-    newMatch: () => {
+    newMatch: (catalogue) => {
       const s = get();
       if (s.mode !== "multiplayer" || !s.turn?.finished)
         return "Finish the current match before starting another.";
       return turnTransition({
         ok: true,
-        state: createTurnGame(s.turn.seed + 1, SCORED_CATALOGUE),
+        state: createTurnGame(s.turn.seed + 1, catalogue ?? (isScoredCatalogue(s.turn.catalogue) ? s.turn.catalogue : SCORED_CATALOGUE)),
       });
     },
-    setMode: (mode) => {
+    setMode: (mode, catalogue = SCORED_CATALOGUE) => {
       if (mode === get().mode) return;
       if (saveBlocked()) return;
       const prior = get();
@@ -422,7 +422,7 @@ export const useGameStore = create<GameState>((set, get) => {
         loaded.status === "found" &&
         (mode !== "forensics" || hasForensicsFixture(loaded.model));
       const turn =
-        mode === "multiplayer" ? (prior.turn ?? createTurnGame(1, SCORED_CATALOGUE)) : prior.turn;
+        mode === "multiplayer" ? (prior.turn ?? createTurnGame(1, catalogue)) : prior.turn;
       const saved = saveSession({ mode, style: prior.style, turn });
       if (saved === "conflict") return;
       set({

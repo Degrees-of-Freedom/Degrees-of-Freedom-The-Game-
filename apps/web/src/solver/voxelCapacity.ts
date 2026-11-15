@@ -101,7 +101,10 @@ export function assessCardCapacity(
     }
     // Subdivision is not a physical lateral brace. Screen the full original
     // unbraced length for compression even if its analytical pieces are short.
-    const length = e.L/(to-from);
+    const part = m.parentSpan?.assemblyPart;
+    // In-plane panel joints alone do not externally brace the two chords out
+    // of plane. Posts have zero station difference and a real physical length.
+    const length = m.parentSpan?.unbracedLengthM ?? (part ? e.L : e.L/(to-from));
     const minI = Math.min(e.it.Iy, e.it.Iz);
     const euler = Math.PI**2 * e.it.E * minI / (2*length)**2;
     if (length/Math.sqrt(minI/e.it.A) > 300 || -forces.f[6] > euler/10) {
@@ -111,10 +114,15 @@ export function assessCardCapacity(
     for (const end of ['a', 'b'] as const) {
       const station = end === 'a' ? from : to;
       const actions = sectionCut(forces.f, end);
-      const check = memberCheck(m.type, e.it, actions, station);
+      let check = memberCheck(m.type, e.it, actions, station);
+      if (part && m.endA === 'ball' && m.endB === 'ball') {
+        // Each printed factory diagonal uses a pin fitting at either end.
+        const pin = connectorCheck({ memberId: parent, end, profile: 'ball' }, actions, station);
+        if (pin.status === 'verified' && check.status === 'verified' && pin.utilization > check.utilization) check = pin;
+      }
       const previous = report.members[parent];
       if (check.status === 'verified' && (previous?.status !== 'verified' || check.utilization > previous.utilization)) {
-        report.members[parent] = check;
+        report.members[parent] = part ? { ...check, governing: part + ' · ' + check.governing } : check;
       }
       if (station === 0 || station === 1) {
         const key = `${parent}:${end}`, attachment = attached.get(key);

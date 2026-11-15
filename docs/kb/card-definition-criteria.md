@@ -70,6 +70,16 @@ Proposed deck-1 mix starts near equal element/load counts; define nonzero family
 Open: actual section/material numbers and trusted sources, spring law/limits, cable initial state, assembly templates, connection stiffness/capacity tiers, opening hand/retention/exhaustion, printed load magnitudes and deck frequencies. These should become a versioned reviewed catalogue, not developer-invented defaults hidden in renderer code.
 
 
+### Four-panel planar playtest printing
+
+The optional `shared-table-planar-1` catalogue adds `planar-welded-1` to the frame families. The default frame catalogue and its existing deals retain their versions. The printed parent is one element card. Each external tip needs its own connection card. Its 25%, 50% and 75% ports are physical lower-chord joints, reached through the same pointer and precise placement controls as frame ports.
+
+The printing has two SHS 100×6 chords separated by 0.5 m, five welded transverse posts, four pin-ended alternating diagonals and two short terminal pieces. The lower tips are 0.125 m beyond the end posts (limited to one sixteenth of the span). Welded posts restrain the upper chord outside the truss plane. The earlier fully pin-ended post concept remains an unvalidated candidate. Each of the 19 factory pieces has a stable identity for its geometry, stiffness and self-weight. The printed weld develops the section; the diagonal pin uses the printed ball connector force limit. Maximum member utilization identifies the governing piece. Only the two terminal pieces transmit actions into external tip connectors.
+
+The small-displacement verification checks use the full placed chord length for the conservative out-of-plane compression screen. Failed physical or numerical checks leave the component's response unverified. The [independent OpenSeesPy reference](../evidence/planar/reference.py) uses a 4 m cantilever with a 1 kN point force at each port, separately in and out of plane. The browser response, signed foundation force/moment, total physical weight, clash opening, end connections and replay are exercised by [the regression cases](../../apps/web/src/game/planar.test.ts). [Normal setup and real pointer walkthrough](../evidence/planar/check.mjs).
+
+The optional `shared-table-planar-1` deck retains the frame preset as a separate choice. Its `planar-welded-1` card uses the scored SHS material, a 0.5 m truss depth, four panels and welded posts for out-of-plane resistance. The earlier pin-post candidate did not supply that restraint. The two chords, five posts, four diagonals and two terminal pieces form one placed parent with a stable identity, including under replay. See [card and placement evidence](criteria-ledger.md#cards-placement-match-and-recovery).
+
 ## 6. System repair definitions are not player cards
 
 Permanent neutral repair objects require their own versioned physical/visual catalogue, local-contact/ground-anchor permissions and capacity/geometry limits. They do not create dealt player instances or consume the player's turn allowances, and their reactions cannot be credited to a nearby card owner. Keep original player properties immutable. A reset of camera/theme or later player reinforcement cannot delete an accepted in-match repair. Whether new player cards may target system repair objects remains an explicit release-rule parameter.

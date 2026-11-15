@@ -21,6 +21,8 @@ status: needs-review
 
 ## 1. Status and confirmed scope
 
+**Current Grow Dusk implementation.** IPE and HEB use nominal web and flange dimensions with reference roll. The optional four-panel planar truss uses one parent mesh made from its real SHS chords, welded posts, pin-ended diagonals and terminal pieces. Its lower chord exposes three original quarter joints. Numerical and visual evidence for each family is recorded in [the ledger](criteria-ledger.md). The remaining requirements below describe target behavior.
+
 **Criteria only.** This page specifies future geometry and presentation; it does not implement new meshes, cards, schemas, analytical elements or solver support. [Structural solver](structural-solver.md#required-element-catalogue-and-geometry-direction) records the catalogue and the boundary between geometry and physics. [3D viewer](3d-viewer.md) describes the current implementation.
 
 The owner requires recognizable structural geometry rather than generic straight lines for columns, springs, trusses, trichord trusses, wide flanges, HSS, round HSS and cables. Follow-up decisions confirm:

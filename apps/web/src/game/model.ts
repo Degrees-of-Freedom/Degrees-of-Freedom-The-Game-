@@ -26,6 +26,8 @@ export interface Member {
   a: string;
   b: string;
   type: MemberType;
+  /** Printed built-up member. Its section type applies to its actual chords and webs. */
+  assembly?: "planar-welded-1";
 }
 export interface NodeAttributes {
   found?: boolean;

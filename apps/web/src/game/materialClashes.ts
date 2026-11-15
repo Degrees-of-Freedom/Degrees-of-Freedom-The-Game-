@@ -2,6 +2,7 @@ import { CELL_SIZE, parseNodeKey, type Member } from "./model";
 import { originalPorts } from "./turnPorts";
 import { dot, localAxes } from "../solver/frameMath";
 import { SECTION_GEOMETRY } from "../solver/voxelSections";
+import { assemblyParts } from "./assembly";
 
 type Placed = Member & { endTargets?: Partial<Record<"a" | "b", string>>; owner?: string };
 type Vector = number[];
@@ -96,8 +97,8 @@ function contacts(a: Placed, b: Placed): [number[], number[]] {
   return [aStations, bStations];
 }
 
-function outsideFittings(length: number, stations: number[]): Interval[] {
-  const radius = Math.min(CLASH_POLICY.fittingLengthM, length / 4);
+function outsideFittings(length: number, stations: number[], printLength = length): Interval[] {
+  const radius = Math.min(CLASH_POLICY.fittingLengthM, printLength / 4);
   const spans: Interval[] = [];
   let from = 0;
   for (const station of stations.sort((a, b) => a - b)) {
@@ -109,15 +110,39 @@ function outsideFittings(length: number, stations: number[]): Interval[] {
   return spans;
 }
 
-function clash(a: Solid, b: Solid, allowFitting: boolean): boolean {
+function clash(a: Solid, b: Solid, allowFitting: boolean, permitted?: Set<string>, printA?: number, printB?: number): boolean {
   if (!intersects(a.bounds, b.bounds)) return false;
   const fullA: Interval = [0, a.length], fullB: Interval = [0, b.length];
   if (!materialIntersects(a, fullA, b, fullB)) return false;
   if (!allowFitting) return true;
-  const [stationsA, stationsB] = contacts(a.member, b.member);
+  let [stationsA, stationsB] = contacts(a.member, b.member);
+  if (permitted) {
+    const allowed = (member: Placed, t: number) => permitted.has(pointAt(member,t));
+    stationsA = stationsA.filter(t => allowed(a.member,t));
+    stationsB = stationsB.filter(t => allowed(b.member,t));
+  }
   if (!stationsA.length) return true;
-  return outsideFittings(a.length, stationsA).some(span => materialIntersects(a, span, b, fullB))
-    || outsideFittings(b.length, stationsB).some(span => materialIntersects(a, fullA, b, span));
+  return outsideFittings(a.length, stationsA, printA).some(span => materialIntersects(a, span, b, fullB))
+    || outsideFittings(b.length, stationsB, printB).some(span => materialIntersects(a, fullA, b, span));
+}
+
+function pointAt(member: Placed, t: number) {
+  const a = parseNodeKey(member.a), b = parseNodeKey(member.b);
+  return a.map((v, i) => v + t*(b[i]-v)).join(',');
+}
+
+function physicalSolids(member: Placed) {
+  if (!member.assembly) return [solid(member)];
+  return assemblyParts(member).map(part => solid({
+    id: part.id, a: part.a.point.join(','), b: part.b.point.join(','), type: member.type,
+    endTargets: { ...(part.a.station === 0 && {a: member.endTargets?.a}),
+      ...(part.b.station === 1 && {b: member.endTargets?.b}) },
+  }));
+}
+
+function printLength(member: Placed) {
+  const a = parseNodeKey(member.a), b = parseNodeKey(member.b);
+  return CELL_SIZE * Math.hypot(...a.map((v,i) => v-b[i]));
 }
 
 /** Check one proposed physical member against other reference members. Callers
@@ -126,12 +151,20 @@ function clash(a: Solid, b: Solid, allowFitting: boolean): boolean {
 export function findMaterialClash(candidate: Placed, others: readonly Placed[], fittingParentId?: number): string | null {
   const unavailable = [candidate, ...others].find(member => !Object.hasOwn(SECTION_GEOMETRY, member.type));
   if (unavailable) return `No verified clearance envelope is available for member ${unavailable.id} (${unavailable.type}).`;
-  const incoming = solid(candidate);
+  const incoming = physicalSolids(candidate);
+  const incomingLength = candidate.assembly ? printLength(candidate) : undefined;
   for (const existing of others) {
     // A system prop may contact only its declared parent, including at a
     // coincident end that would ordinarily be eligible for a player fitting.
     const fittingAllowed = fittingParentId === undefined ? existing.owner !== "neutral" : existing.id === fittingParentId;
-    if (clash(incoming, solid(existing), fittingAllowed)) {
+    // The factory's inner nodes create material and intentional factory joints,
+    // but only a parent tip or explicitly selected lower-chord port can host
+    // a fitting to a different player object.
+    const permitted = candidate.assembly || existing.assembly
+      ? new Set(contacts(candidate, existing)[0].map(t => pointAt(candidate,t))) : undefined;
+    const occupied = physicalSolids(existing);
+    const occupiedLength = existing.assembly ? printLength(existing) : undefined;
+    if (incoming.some(a => occupied.some(b => clash(a, b, fittingAllowed, permitted, incomingLength, occupiedLength)))) {
       return `Member ${candidate.id} (${candidate.type}) would intersect material in member ${existing.id} (${existing.type}). Choose a clear span or target an original attachment port.`;
     }
   }

@@ -24,7 +24,7 @@ export const PLAYTEST_SETTINGS = [
   "Each player starts with one foundation and a connected column.",
   "Unplayed cards stay in hand.",
   "Connection cards are fixed or ball.",
-  "New matches deal SHS, glulam, IPE and HEB members. Cables remain available in older playtests. Springs, round HSS and truss assemblies are candidate definitions awaiting validation.",
+  "The frame deck deals SHS, glulam, IPE and HEB members. The planar-truss catalogue also deals four-panel assemblies. Each assembly uses one element play and requires a connector at each attached end.",
 ];
 
 /** Scored-play feedback shown beside the rules and settings. */

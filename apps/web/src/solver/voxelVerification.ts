@@ -82,7 +82,8 @@ export function verifyLinearResponse(
     // lateral DOFs. Use the conservative isolated fixed/free Euler load as a
     // member screen in addition to the global elastic geometric-stiffness check.
     if (e.it.kind === 'beam' && end.f[6] < 0) {
-      const euler = Math.PI ** 2 * e.it.E * Math.min(e.it.Iy, e.it.Iz) / (2 * e.L) ** 2;
+      const length = e.m.parentSpan?.unbracedLengthM ?? e.L;
+      const euler = Math.PI ** 2 * e.it.E * Math.min(e.it.Iy, e.it.Iz) / (2 * length) ** 2;
       if (euler / -end.f[6] < minimumBucklingFactor) return unknown('Member compression requires buckling verification.');
     }
     for (let a = 0; a < 3; a++) {

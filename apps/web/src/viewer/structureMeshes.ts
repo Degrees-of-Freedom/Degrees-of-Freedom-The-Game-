@@ -11,6 +11,7 @@ import {
 } from "./scenePieces";
 import { isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
 import { poseSection, wideFlangeGeometry, type WideFlange } from "./sectionGeometry";
+import { assemblyGeometry } from "./assemblyGeometry";
 import {
   computeLoadPath,
   traceToGround,
@@ -102,6 +103,22 @@ export function buildStructure(
                 ? "#c58cff"
                 : "#5a6370";
     const pending = activeMembers.has(member.id);
+    if (member.assembly) {
+      const connections = [...(turn?.board.connections ?? []), ...(turn?.draft.connections ?? [])];
+      const geometry = assemblyGeometry(member, node => {
+        const end = node.station === 0 ? "a" : node.station === 1 ? "b" : undefined;
+        const key = end ? connections.find(c => c.memberId === member.id && c.end === end)?.jointId ??
+          `endpoint:${member.id}:${end}` : node.id;
+        return result?.ctx?.idx.has(key) ? point(key) : new THREE.Vector3(...node.point).multiplyScalar(CELL_SIZE);
+      });
+      const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+        color, transparent: pending, opacity: pending ? 0.65 : 1,
+        emissive: s.selected?.type === 'member' && s.selected.id === member.id ? 0x536b54 : 0,
+      }));
+      mesh.castShadow = !pending; mesh.receiveShadow = true;
+      structure.add(mesh);
+      continue;
+    }
     if (
       s.style === "levels" &&
       Math.min(az, bz) < s.workK &&

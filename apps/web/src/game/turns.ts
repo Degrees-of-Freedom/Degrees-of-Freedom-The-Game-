@@ -4,7 +4,7 @@ import {
   type GameModel,
   type Member,
 } from "./model";
-import { LEGACY_CATALOGUE, SCORED_CATALOGUE, printedCards, type CardDefinition, type CatalogueId } from "./cardCatalogue";
+import { LEGACY_CATALOGUE, isScoredCatalogue, printedCards, type CardDefinition, type CatalogueId } from "./cardCatalogue";
 import { conflictingJointAxes, CONNECTION_PROFILES } from "./jointFreedom";
 import { findMaterialClash } from "./materialClashes";
 import { findPort, systemTarget, targetCoordinate, turnJoints } from "./turnPorts";
@@ -278,10 +278,11 @@ export function stageElement(
     b: pointB,
     ...(portA || portB ? { endTargets: { ...(portA && { a }), ...(portB && { b }) } } : {}),
     type: card.type,
+    ...(card.assembly && { assembly: card.assembly }),
     owner: activePlayer(state).id,
     cardId,
   };
-  if (state.catalogue === SCORED_CATALOGUE) {
+  if (isScoredCatalogue(state.catalogue)) {
     const clash = findMaterialClash(member, parents);
     if (clash) return fail(clash);
   }
@@ -418,7 +419,7 @@ function commitTurn(
 ): Transition {
   if (state.finished || expectedTurn !== state.turn)
     return fail("This turn has already ended.");
-  if (state.catalogue === SCORED_CATALOGUE) {
+  if (isScoredCatalogue(state.catalogue)) {
     const occupied = [...state.board.members];
     for (const member of state.draft.members) {
       const clash = findMaterialClash(member, occupied);
@@ -434,7 +435,7 @@ function commitTurn(
   // Old scored receipts did not record an assessment. Keep their historical
   // evidence scope while replaying. A new assessed event must reproduce it.
   const previous = state.reports.at(-1);
-  const issues = state.catalogue === SCORED_CATALOGUE && (!replay || replay.issues !== undefined)
+  const issues = isScoredCatalogue(state.catalogue) && (!replay || replay.issues !== undefined)
     ? assessTurnIssues(state, previous?.correction?.memory ?? previous?.issues?.memory) : undefined;
   if (replay?.issues !== undefined && !matchesIssueEvidence(issues, replay.issues))
     return fail("The saved issue assessment does not match the replayed structure.");
@@ -491,7 +492,7 @@ function commitTurn(
     reports: [...state.reports, report],
     events: [...state.events, endEvent],
   };
-  if (finished && state.catalogue === SCORED_CATALOGUE) {
+  if (finished && isScoredCatalogue(state.catalogue)) {
     let finalScore: FinalScore | null;
     if (replay) {
       finalScore = recoverFinalScore(committed, replay.final);
@@ -533,7 +534,7 @@ export function projectTurnModel(state: TurnState): GameModel {
     };
   }
   const members = [...state.board.members, ...state.draft.members].map(
-    ({ id, a, b, type }) => ({ id, a, b, type }),
+    ({ id, a, b, type, assembly }) => ({ id, a, b, type, ...(assembly && { assembly }) }),
   );
   return { attrs, members, nextId: state.nextId };
 }
@@ -560,7 +561,7 @@ export function replayTurnState(raw: unknown): Transition {
   // Original version-one saves predate catalogue selection and keep their
   // deterministic five-family hands, including experimental cables.
   const catalogue = raw.catalogue === undefined ? LEGACY_CATALOGUE : raw.catalogue;
-  if (catalogue !== LEGACY_CATALOGUE && catalogue !== SCORED_CATALOGUE) {
+  if (catalogue !== LEGACY_CATALOGUE && !isScoredCatalogue(catalogue)) {
     return fail("Saved match requires an unsupported physical catalogue.");
   }
   let state = createTurnGame(raw.seed, catalogue);

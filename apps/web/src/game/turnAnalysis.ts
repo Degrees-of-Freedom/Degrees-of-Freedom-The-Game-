@@ -1,4 +1,5 @@
-import { parseNodeKey } from './model';
+import { CELL_SIZE, parseNodeKey } from './model';
+import { assemblyParts, type AssemblyNode } from './assembly';
 import type { TurnState } from './turns';
 import { originalPorts, turnJoints } from './turnPorts';
 import { analyzeVoxel } from '../solver/voxel';
@@ -36,6 +37,26 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
       return { key, profile };
     }
     const start = end('a', a), finish = end('b', b);
+    if (member.assembly) {
+      const first = parseNodeKey(member.a), last = parseNodeKey(member.b);
+      const chordLength = CELL_SIZE * Math.hypot(...last.map((v,i) => v-first[i]));
+      const key = (node: AssemblyNode) => {
+        if (node.station === 0) return start.key;
+        if (node.station === 1) return finish.key;
+        positions[node.id] = node.point;
+        // The factory chords and welded posts participate in joint rotation.
+        // An incoming external ball at an interior collar releases its own end only.
+        inactiveRotations.delete(node.id);
+        return node.id;
+      };
+      return assemblyParts(member).map(part => ({
+        id: part.id, type, a: key(part.a), b: key(part.b),
+        endA: part.a.station === 0 ? start.profile : part.pinned ? 'ball' : 'fixed',
+        endB: part.b.station === 1 ? finish.profile : part.pinned ? 'ball' : 'fixed',
+        parentSpan: {memberId: id, fromQuarter: part.a.station*4, toQuarter: part.b.station*4, assemblyPart: part.name,
+          ...((part.name.startsWith('lower-') || part.name.startsWith('upper-')) && {unbracedLengthM: chordLength})},
+      }));
+    }
     const ports = originalPorts(member).filter(port => port.available && attrs[port.id]);
     if (!ports.length) return [{ id, a: start.key, b: finish.key, type, endA: start.profile, endB: finish.profile }];
     // Parent continuity passes all six DOFs across internal stations, even if

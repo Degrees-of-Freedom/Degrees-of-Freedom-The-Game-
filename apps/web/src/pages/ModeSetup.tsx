@@ -9,6 +9,7 @@ import type { LevelId } from "../game/model";
 import { savedLevel } from "../game/persistence";
 import { useGameStore } from "../game/store";
 import { KIT_PLAYTEST } from "../game/turns";
+import { PLANAR_CATALOGUE, SCORED_CATALOGUE } from "../game/cardCatalogue";
 import { PLAYTEST_SETTINGS, TURN_RULES, TURN_RULES_NOTES } from "../menu/turnRules";
 import { hasSavedProgress } from "../menu/saved";
 import { runStart, type StartChoice } from "../menu/startPlan";
@@ -90,6 +91,7 @@ function Setup({ id }: { id: GameMode }) {
     return CHALLENGE_LEVELS.some(([key]) => key === start) ? start : "tower1";
   });
   const [pick, setPick] = useState<string | null>(null);
+  const [catalogue, setCatalogue] = useState<typeof PLANAR_CATALOGUE | typeof SCORED_CATALOGUE>(SCORED_CATALOGUE);
   const [error, setError] = useState<string | null>(null);
   const saved = useMemo(() => hasSavedProgress(id, levelId), [id, levelId]);
   const turn = initial.turn;
@@ -172,7 +174,7 @@ function Setup({ id }: { id: GameMode }) {
       : id === "challenge"
         ? { mode: id, levelId, begin: begin === "fresh" ? "fresh" : "continue" }
         : id === "multiplayer"
-          ? { mode: id, begin: begin === "new" ? "new" : "continue" }
+          ? { mode: id, begin: begin === "new" ? "new" : "continue", catalogue }
           : { mode: id, begin: begin === "fresh" ? "fresh" : "continue" };
   const replaces = begin !== "continue" && options.length > 0 && (saved || id === "multiplayer");
   const startLabel =
@@ -276,6 +278,12 @@ function Setup({ id }: { id: GameMode }) {
               <dt>Rounds</dt>
               <dd>{KIT_PLAYTEST.rounds}</dd>
             </dl>
+            {(!turn || begin === "new") && <label>Physical catalogue
+              <select value={catalogue} onChange={e => setCatalogue(e.target.value === PLANAR_CATALOGUE ? PLANAR_CATALOGUE : SCORED_CATALOGUE)}>
+                <option value={SCORED_CATALOGUE}>Frame members</option>
+                <option value={PLANAR_CATALOGUE}>Frame members and planar trusses</option>
+              </select>
+            </label>}
             <p className="quiet">
               Each seat plays once per round. After the last turn, the table shows
               each player’s verified gravity share minus historical penalties.

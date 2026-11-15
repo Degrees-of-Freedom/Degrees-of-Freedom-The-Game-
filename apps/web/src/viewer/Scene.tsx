@@ -10,6 +10,7 @@ import { buildStructure } from "./structureMeshes";
 import { bindSceneInteraction } from "./sceneInteraction";
 import { selectedTurnCard } from "./turnPicking";
 import { poseSection, wideFlangeGeometry } from "./sectionGeometry";
+import { assemblyGeometry } from "./assemblyGeometry";
 import { sceneLevel } from "./sceneLevel";
 import type { SceneView } from "./sceneView";
 import { createSky, SCENE_STYLES } from "./sceneStyle";
@@ -119,6 +120,7 @@ export function Scene({
     );
     const ordinaryGhost = new THREE.CapsuleGeometry(0.055 * CELL_SIZE, 1, 6, 12);
     const profileGhosts = { ipe: wideFlangeGeometry("ipe"), heb: wideFlangeGeometry("heb") };
+    let assemblyGhost: THREE.BufferGeometry | undefined;
     let lastGhostLine: THREE.BufferAttribute | THREE.InterleavedBufferAttribute | undefined;
     const stickGhost = new THREE.Mesh<THREE.BufferGeometry, THREE.MeshLambertMaterial>(
       ordinaryGhost,
@@ -363,14 +365,25 @@ export function Scene({
       if (stickGhost.visible) {
         const card = selectedTurnCard(state);
         const type = card?.kind === "element" ? card.type : state.tool;
-        const geometry = type === "ipe" || type === "heb" ? profileGhosts[type] : ordinaryGhost;
+        const assembly = card?.kind === "element" && card.assembly;
+        if (assembly && (lastGhostLine !== line || stickGhost.geometry !== assemblyGhost)) {
+          const key = (i: number) => new THREE.Vector3().fromBufferAttribute(line, i).divideScalar(CELL_SIZE).toArray().join(",");
+          assemblyGhost?.dispose();
+          assemblyGhost = assemblyGeometry({ id: 0, a: key(0), b: key(1), type: "shs", assembly });
+        }
+        const geometry = assembly && assemblyGhost ? assemblyGhost :
+          type === "ipe" || type === "heb" ? profileGhosts[type] : ordinaryGhost;
         if (lastGhostLine !== line || stickGhost.geometry !== geometry) {
           lastGhostLine = line;
           stickGhost.geometry = geometry;
           ghostStart.fromBufferAttribute(line, 0);
           ghostEnd.fromBufferAttribute(line, 1);
           ghostDelta.subVectors(ghostEnd, ghostStart);
-          if (geometry === ordinaryGhost) {
+          if (assembly) {
+            stickGhost.scale.setScalar(1);
+            stickGhost.position.set(0,0,0);
+            stickGhost.quaternion.identity();
+          } else if (geometry === ordinaryGhost) {
             stickGhost.scale.set(1, Math.max(0.001, ghostDelta.length() / (1 + 0.11 * CELL_SIZE)), 1);
             stickGhost.position.copy(ghostStart).lerp(ghostEnd, 0.5);
             stickGhost.quaternion.setFromUnitVectors(up, ghostDelta.normalize());
@@ -423,6 +436,7 @@ export function Scene({
       sky.geometry.dispose();
       sky.material.dispose();
       ordinaryGhost.dispose();
+      assemblyGhost?.dispose();
       profileGhosts.ipe.dispose();
       profileGhosts.heb.dispose();
       stickGhost.material.dispose();

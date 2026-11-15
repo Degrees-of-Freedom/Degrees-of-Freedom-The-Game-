@@ -32,6 +32,7 @@ import {
 } from "./growthStack";
 import { isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
 import { memberEndPosition } from "./turnGuides";
+import { assemblyParts } from "../game/assembly";
 import { portLabel, targetCoordinate } from "../game/turnPorts";
 import {
   selectedTurnCard,
@@ -107,9 +108,9 @@ export function createPicker(
     }), 14);
     let nearMember: number | null = null,
       memberDistance = 9;
-    for (const m of s.model.members) {
-      const a = screen(point(m.a)),
-        b = screen(point(m.b)),
+    function considerMember(id: number, start: THREE.Vector3, end: THREE.Vector3) {
+      const a = screen(start),
+        b = screen(end),
         dx = b[0] - a[0],
         dy = b[1] - a[1],
         t = Math.max(
@@ -121,9 +122,15 @@ export function createPicker(
         ),
         d = Math.hypot(a[0] + t * dx - x, a[1] + t * dy - y);
       if (a[2] < 1 && b[2] < 1 && d < memberDistance) {
-        nearMember = m.id;
+        nearMember = id;
         memberDistance = d;
       }
+    }
+    for (const m of s.model.members) {
+      if (m.assembly) {
+        for (const piece of assemblyParts(m))
+          considerMember(m.id, basePoint(piece.a.point.join(",")), basePoint(piece.b.point.join(",")));
+      } else considerMember(m.id, point(m.a), point(m.b));
     }
     let hit: Hit = null;
     let stackLabel = "";
