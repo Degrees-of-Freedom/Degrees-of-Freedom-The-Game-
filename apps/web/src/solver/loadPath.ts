@@ -29,6 +29,7 @@ export function computeLoadPath(
   if (
     result.error ||
     result.mechanism ||
+    result.unresolved ||
     !ctx ||
     !c ||
     c.fail ||
@@ -46,7 +47,7 @@ export function computeLoadPath(
         Math.hypot(f[0], f[1], f[2]),
         Math.hypot(f[6], f[7], f[8]),
       ),
-      axial = f[6];
+      axial = r.cableTension ?? f[6];
     const mode = r.slack
       ? 'none'
       : Math.abs(axial) >= 0.7 * force

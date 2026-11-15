@@ -2,7 +2,6 @@
 title: "Animation and Sound Criteria"
 last_validated: 2026-11-14
 validated_against:
-  - docs/kb/multiplayer-refresh-criteria.md
   - docs/kb/game-completion-criteria.md
   - docs/kb/avatar-criteria.md
   - prototypes/timburr-companion/README.md
@@ -17,9 +16,6 @@ status: needs-review
 ---
 
 # Animation and Sound Criteria
-
-> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
-
 
 ## 1. Status and confirmed direction
 
@@ -199,7 +195,3 @@ Later [core game criteria](game-completion-criteria.md) confirm attraction score
 ## 14. Recorded system repair sequence
 
 The game now requires recorded game-owned correction of instability and overload. Present pre-correction issue/once-per-turn historical penalty, explicit repair placement and verified post-correction outcome in causal order; Timburr explains the change. Skipping animation never skips repair validation, duplicates objects or refunds penalties. Keep system and player objects distinguishable. Unverified correction remains pending/unknown, never a success effect based only on a completed animation; see [repair workflow](failure-repair-criteria.md#6-automatic-correction-transaction).
-
-## 15. Revised turn/event choreography
-
-The latest revision requires events for turn start, each of four source choices/card arrivals, any number of staged card plays/edits/cancels, noncheckpoint commit, private handoff, checkpoint/replay progress, original-turn attributed issue/penalty, minimum local constraint and verified outcome, Settings changes, quit/resume and final result. Noncheckpoint handoff says “next analysis in N turns”, not “stable”. Apply the existing fast/subtle routine and rare dramatic sound/motion hierarchy, skip/mute/reduced motion, private-information protection and idempotent events. Active roaming Timburr points to the actual node/axes, never summons a column down. Use force-sign-correct axial flow: tension outward toward end nodes, compression inward toward centre. No animation callback changes cards, penalties, constraints or solver schedule.

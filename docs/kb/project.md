@@ -2,7 +2,6 @@
 title: "Project"
 last_validated: 2026-11-14
 validated_against:
-  - docs/kb/multiplayer-refresh-criteria.md
   - docs/kb/turn-criteria.md
   - docs/kb/game-completion-criteria.md
   - README.md
@@ -16,9 +15,6 @@ status: partial
 ---
 
 # Project
-
-> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
-
 
 Degrees of Freedom is conceived as a turn-based structural engineering game on a 3D grid. Players are intended to build and test structures to explore force paths and stability. The prototype includes local goal-based modes and a card playtest as documented in the [unified runtime](unified-runtime.md).
 

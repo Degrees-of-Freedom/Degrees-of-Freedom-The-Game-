@@ -2,8 +2,8 @@
 title: "Visualization Criteria"
 last_validated: 2026-11-14
 validated_against:
-  - docs/kb/multiplayer-refresh-criteria.md
   - "Project owner load-path discussion, 2026-11-14"
+  - "Project owner primary-direction load-transfer revision"
   - docs/kb/solver-criteria.md
   - docs/kb/turn-criteria.md
   - docs/kb/scoring-match-criteria.md
@@ -15,9 +15,6 @@ status: needs-review
 ---
 
 # Visualization Criteria
-
-> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
-
 
 ## 1. Purpose and status
 
@@ -109,10 +106,12 @@ Use the numerical tolerances and validation approach in [solver criteria](solver
 Record confirmed answers here and update related criteria when decisions affect turns, scoring, solver outputs or the viewer.
 
 
-## 7. Current axial load-path vector direction
+## 7. Primary load-transfer direction
 
-Owner-confirmed: on a verified tensile member, vectors move from its centre toward both end nodes; on compression, vectors move from both ends toward its centre. Use paired tracks on the two halves aligned to the member's reference/deformed curve as appropriate. The sign comes from calculated axial force and explicit sign conversion, never ownership, displacement colour or the direction toward a foundation. This rule supersedes older foundation-directed animation wherever that conflicts with the axial-sign overlay.
+**Latest owner direction:** animate load-path vectors in the primary direction in which the applied load is transferred through each displayed member/segment toward receiving supports or recorded safety restraints. This replaces the earlier centre-out tension/centre-in compression animation. Tension/compression is separate calculated force-sign styling; it does not reverse the transfer arrows by itself.
 
-For quarter-loaded/subdivided members whose axial sign varies, use valid per-segment results and segment centres. Do not invent a whole-member sign when the available result cannot support it. Zero/tolerance-small force, slack cables and unknown scope have no moving arrows; an allegedly compressive cable state is diagnostic. Bending-only action is not an invented axial flow. Static arrows/labels provide the same meaning under reduced motion. Vectors do not represent actual moving material, displacement or a unique individual-load path. Historical force flow must stay on labelled historical geometry or be suppressed between checkpoints, never advertised as the current unsolved state.
+Use a documented solver-result-based interpretation of applied loading, member actions and intentional connectivity. Preserve supported branching and redistribution; do not point every arrow downward, choose direction from ownership/axial sign/displacement alone, or collapse the structure into an invented unique path. In mixed/combined-load cases without a defensible primary direction, disclose ambiguity or offer a supported selected-load view. Static analysis does not define actual moving mass or displacement trajectories.
 
-Acceptance: positive/negative sign conversion yields exact outward/inward animation under arbitrary member orientation and camera; zero/slack/unknown is distinct; changing sign by segment is truthful; reduced-motion arrows agree; no node-crossing teleport or graphical change to physical thickness, topology, score or cadence. Keep this overlay distinguishable from deflection contours and instability-mode playback.
+Keep vectors aligned with valid reference/deformed segments and within their connected scope. Use available segment results for quarter/subdivided members; do not invent intermediate values. Slack cables, zero displayed action within declared tolerance and unavailable regions have no moving flow. Zero axial force alone does not erase a valid shear/bending load path; identify the quantity shown. Reduced motion uses static directional arrows and equivalent labels. Historical results remain historical or suppressed, never animated as current verified response after an edit.
+
+Acceptance fixtures: simple source-to-support transfer; branching and asymmetric redistribution; arbitrary member/camera orientation; independent tension/compression styling; mixed-load ambiguity; valid shear/bending transfer; slack/zero/unknown states; segment scope and stale-result labeling. Direction changes must not alter physical geometry, numerical values, connectivity or scoring. See the [focused implementation prompt](../implementation-prompts/load-path-primary-direction.md).

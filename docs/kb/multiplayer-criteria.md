@@ -2,7 +2,6 @@
 title: "Multiplayer and Information Visibility Criteria"
 last_validated: 2026-11-14
 validated_against:
-  - docs/kb/multiplayer-refresh-criteria.md
   - "Project owner completion-criteria request and follow-up decisions, 2026-11-14"
   - docs/kb/turn-criteria.md
   - docs/kb/scoring-match-criteria.md
@@ -14,9 +13,6 @@ status: needs-review
 
 # Multiplayer and Information Visibility Criteria
 
-> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
-
-
 ## 1. Confirmed release scope
 
 The owner confirmed **local hot-seat first, with a private handoff screen between players**. Online multiplayer, accounts, matchmaking, spectators, chat and server deployment are not first-release requirements. This is a target specification; the current local playtest is not proof of complete privacy, scoring or recovery compliance.
@@ -25,11 +21,15 @@ Proposed initial preset is two local players; 2–4-player support remains to va
 
 ## 2. Public and private information
 
+The ordinary Shared table Solver input drawer now projects committed public board fields and turn reports. On seed 23 the drawer hid both hands, the future deck, seed and a staged gravity load. See the [runtime ledger and browser evidence](criteria-ledger.md). This check covers the drawer.
+
 Proposed information policy: structure, intentional connections/profiles, loads, foundation ownership, committed turns, public issue reports and penalty/score breakdowns are public. Active players can inspect their own hand; opponent card faces, hand identities, future draw order and hidden seeds/deck state are not public UI information. Whether hand counts and discard identities are public must be declared in the release policy.
 
 Do not leak private cards through tooltips, DOM accessible names, background rendered layers, audio cues, avatar remarks, image alt text, debug panels or replay views intended to be public. Separate full local saves/debug exports from redacted public/share exports. A local device owner can inspect local files/developer state: hot-seat privacy protects normal play, not a hostile administrator. Do not describe client-side hiding as cryptographic secrecy or online anti-cheat.
 
 ## 3. Handoff state machine
+
+Shared table now waits on a neutral Ready screen before showing the incoming player's board and hand. Reload, pause and losing tab visibility conceal the private view and preserve the draft. On the accepted desktop fixture, holding Enter and repeated clicks did not reveal or commit the next player's turn. [Browser walkthrough and screenshots](criteria-ledger.md)
 
 1. Resolve and atomically commit the outgoing player's turn under the rules; finish public outcome presentation or allow its safe skip.
 2. Hide the outgoing hand, private tooltips/dialogs and focused private labels **before** revealing the incoming hand or allowing input. The privacy cover appears immediately; animation does not delay concealment.
@@ -56,7 +56,3 @@ For any future online edition, the server must own hidden decks/RNG, permission 
 | End of fixed-round match | No extra player hand revealed or extra turn begun. |
 
 Open: player-count presets, public hand/discard counts, practice privacy override, concession/abandonment and shared-device pause policy. Online/session identity requirements must be separately reviewed before extending the release scope.
-
-## 6. Only multiplayer and revised turn economy
-
-Remove all nonmultiplayer type routes/menu/setup/help flows from the supported product; preserve legacy saves non-destructively. Each turn chooses a source independently for each of four draws, then can play any cards held, including loads. Hot-seat cover/readiness remains; checkpoints occur every three global completed player turns by default, not every handoff. A player who ends the checkpoint turn is not automatically responsible for earlier issues. Quit suspends the entire local match and resumes behind the private cover.

@@ -58,7 +58,7 @@ def _null_space(stiffness: np.ndarray) -> np.ndarray:
     a congruence, which preserves the dimension of the null space.
     """
     n = stiffness.shape[0]
-    k = 0.5 * (stiffness + stiffness.T)
+    k = 0.5 * stiffness + 0.5 * stiffness.T
     diagonal = np.diag(k)
     scale = np.where(diagonal > 0.0, 1.0 / np.sqrt(np.where(diagonal > 0.0, diagonal, 1.0)), 1.0)
     scaled = k * scale[:, None] * scale[None, :]
@@ -111,6 +111,7 @@ def assess(stiffness: np.ndarray, translation_mask: np.ndarray, loads: np.ndarra
         singular_values[: s.shape[0]] = s
 
     load_scale = float(np.max(np.abs(loads))) if loads.size else 0.0
+    relative_load = loads / load_scale if load_scale else loads
     for value, combo in zip(singular_values, combos):
         mode = basis @ combo
         if value > ROTATION_ONLY:
@@ -118,6 +119,6 @@ def assess(stiffness: np.ndarray, translation_mask: np.ndarray, loads: np.ndarra
         else:
             mode = mode / np.max(np.abs(mode))
             assessment.rotational_modes.append(mode)
-            if load_scale > 0.0 and abs(float(mode @ loads)) > LOADED_MODE * load_scale:
+            if abs(float(mode @ relative_load)) > LOADED_MODE:
                 assessment.rotation_loaded = True
     return assessment

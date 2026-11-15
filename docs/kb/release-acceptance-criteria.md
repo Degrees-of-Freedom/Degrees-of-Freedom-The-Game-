@@ -2,7 +2,6 @@
 title: "Whole-Game Release Acceptance Criteria"
 last_validated: 2026-11-14
 validated_against:
-  - docs/kb/multiplayer-refresh-criteria.md
   - "Project owner completion-criteria request and follow-up decisions, 2026-11-14"
   - docs/kb/game-completion-criteria.md
   - docs/kb/solver-criteria.md
@@ -16,10 +15,9 @@ status: needs-review
 
 # Whole-Game Release Acceptance Criteria
 
-> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
-
-
 ## 1. Status and release definition
+
+The owner selected **Grow Dusk** for release acceptance. The supported Shared table preset uses two seats, eight rounds and fixed starting foundations. Player-directed foundation placement belongs to Creative/editor. Apply the geometry, camera, controls and assistive-input checks below to Grow Dusk.
 
 Proposed release gate for an integrated game, not evidence that the current prototype passes. The owner confirmed local hot-seat first; online services are outside that release scope. A release must name its ruleset, supported cards/elements/solver subset, player/round presets, environments, browser/device matrix and versions. Mark omitted capabilities explicitly; a reduced playtest is not “full criteria compliance.”
 
@@ -66,7 +64,3 @@ Name the supported browser/device/input/accessibility matrix, initial rules/cata
 ## 6. Automatic repair and partial-evidence scoring gates
 
 Add fixtures for retained moves corrected for instability and overload, verified repair-object capacities and external effects, no hidden support/stiffness/weight changes, pre-correction penalty preserved after repair, different elastic stiffnesses with common freedom states, and crash/retry deduplication of correction objects. Verify the final fallback awards only verified reactions against total gravity without converting unknown physical forces to zero. The owner requires automatic correction as ordinary play; bounded truthful failure handling remains mandatory when correction cannot be verified. Neutral ground support/no player credit, permanent in-match repairs and local direct intervention are now confirmed. Add fixtures for unchanged total-gravity denominator, separate verified neutral share versus unknown scope, no retirement after reinforcement/reload, and true global redistribution without unrelated direct edits.
-
-## 7. Current multiplayer refresh gates
-
-Replace retired-mode/assembly/gallery/capped-play/every-turn tests with the [MR01–MR19 matrix](multiplayer-refresh-criteria.md#8-acceptance-and-open-parameters): only multiplayer; four independently deck-selected draws; any held-card plays; Euclidean shorter 5/7/10 spans on 15×15; four member variants/three rotation types; locked initial column/foundation; correct cadence/interval/final checkpoint; internal replay and original-turn penalties; minimum local constraints/no props or new foundations; inspector draft-only edit; bold-near/fade-far selection; two endpoint coils; roaming expressive avatar; exact tension-out/compression-in vectors; quit/reload at every phase; normal/reduced/muted/skipped event parity.

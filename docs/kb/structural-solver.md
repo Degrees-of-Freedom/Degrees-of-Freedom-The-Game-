@@ -2,7 +2,6 @@
 title: "Structural Solver"
 last_validated: 2026-11-14
 validated_against:
-  - docs/kb/multiplayer-refresh-criteria.md
   - docs/kb/game-completion-criteria.md
   - README.md
   - packages/solver-contract/src/index.ts
@@ -40,8 +39,15 @@ status: partial
 
 # Structural Solver
 
-> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
+The OpenSees service and shared adapter retain local force, displacement and support-reaction fields on successful connected regions beside an unstable or unresolved region. Member-end IDs establish connectivity in both analysis modes. The editor's OpenSees check identifies members, signed vertical support reactions and peak translation by region, with reasons for unavailable physical results. See the [mixed-region editor fixture](../evidence/service-components/check.mjs) and [service response format](../../services/opensees/README.md#independent-regions).
 
+OpenSees now accepts a corotational request on the existing adapter. The editor results panel exposes it for contract-compatible models. Explicit section properties and cable rest lengths are passed through the game boundary. Segmented frames, a deformed-equilibrium check and a final tangent check support the analytical fixtures in `services/opensees/tests/test_nonlinear.py`. See the [before and after walkthrough](../evidence/nonlinear/check.mjs) and [implementation ledger](criteria-ledger.md) for numerical bounds and known scope.
+
+For a computed small-displacement frame component, the applied-load path now checks normalized six-axis equilibrium, member end laws, releases and displacement compatibility. A scoped `verified-linear` result records residuals and the formulation. The preliminary applicability screens limit member motion and compression. Cables and nonlinear/capacity behavior require separate verification. The score-specific load option excludes self-weight, while the existing preview retains its load set.
+
+The voxel solver uses the element coupling bandwidth and exact nonzero Cholesky updates for elastic and geometric stiffness. The applied-load check tests positive definiteness at the first factor the design search could report above its stability threshold. Design combinations retain the full buckling-factor search. See the [Grow Dusk timings and signed-response comparison](../evidence/viewer/README.md#grow-dusk-applied-load-preview).
+
+The active voxel analysis now solves independent supported components separately. Each load combination identifies component node/member IDs, computed, unsupported, singular, excessive-displacement or unresolved scope. A stable neighbor retains its computed forces, reactions and displacements when a supported mechanism or oversized subsystem cannot be solved. The independent service has its own result contract. Experimental component response needs additional verification for scored play. See the [criteria ledger](criteria-ledger.md).
 
 The game intends to communicate load paths, instability, member or connection failure, and structural complexity. The workspace includes an experimental voxel-specific numerical analysis extracted from the standalone prototype. It uses metres and kN internally, frame and cable elements, multiple load combinations, regularization and simplified stability and design checks. It has not been independently validated and is not suitable for engineering design. It is not a shared `SolverAdapter`.
 
@@ -159,7 +165,3 @@ The owner requires the game to retain a move and apply recorded game-owned repai
 ## Permanent neutral local repairs
 
 The latest owner decision allows neutral system scaffolding/ground anchors that stay for the rest of the match. This is a system-only exception to setup-only player foundations. Restrict direct player-object intervention to the affected element/connection, but reanalyze real global redistribution and every relevant capacity. Neutral reactions count in equilibrium and earn no player points; retain total applied gravity as denominator. See [local intervention and lifetime](failure-repair-criteria.md#7-permanent-neutral-repairs-with-local-intervention). Exact geometry, local envelopes and validated repair catalogue remain future implementation work.
-
-## Current multiplayer consumer requirements
-
-The required active catalogue is now only the standard axial/bending member, tension-only cable and two reference-k₀ springs, superseding the broader card-family table above. Current backend capability documentation remains valid independently of the card list. Global-turn scheduling, checkpoint replay, original-turn attribution, rotation-only player connectors and minimum local safety constraints are specified in [multiplayer refresh](multiplayer-refresh-criteria.md). Do not replace valid backend support with an every-turn or fake result shortcut. No extra columns/ground-anchor/foundation meshes are accepted corrections.

@@ -1,5 +1,6 @@
 import type { VoxelAnalysis } from "../solver/voxel";
 import { computeLoadPath } from "../solver/loadPath";
+import type { DeformationField } from "../viewer/deformationField";
 interface AnalysisPanelProps {
   result: VoxelAnalysis | null;
   message: string;
@@ -9,6 +10,13 @@ interface AnalysisPanelProps {
   setDeformed: (value: boolean) => void;
   scale: number;
   setScale: (value: number) => void;
+  field?: DeformationField;
+  actualScale: number;
+  reference: boolean;
+  setReference: (value: boolean) => void;
+  shared: boolean;
+  scored: boolean;
+  draft: boolean;
   utilization: boolean;
   setUtilization: (value: boolean) => void;
   loads: boolean;
@@ -26,6 +34,7 @@ export function AnalysisPanel({
   setDeformed,
   scale,
   setScale,
+  field, actualScale, reference, setReference, shared, scored, draft,
   utilization,
   setUtilization,
   loads,
@@ -35,6 +44,8 @@ export function AnalysisPanel({
   selectMember,
 }: AnalysisPanelProps) {
   const path = result && loadPath ? computeLoadPath(result, combo) : null;
+  const scopes = result?.combos[combo]?.components ?? [];
+  const partial = scopes.some(s => s.status === "computed") && scopes.some(s => s.status !== "computed");
   return (
     <div className="analysis preview-analysis">
       <header className="result-header"><span className="result-eyebrow">02 · Scene preview</span><h3>Explore the response</h3><p className="result-source"><span>Source</span><strong>Approximate voxel solver</strong></p></header><p className="result-caption">These values drive the 3D overlays. They are a separate calculation from the selected structural solver.</p>
@@ -49,7 +60,7 @@ export function AnalysisPanel({
       ) : (
         <>
           <h3>
-            {result.mechanism
+            {partial ? "Partial component results" : result.unresolved ? "Analysis unresolved" : result.mechanism
               ? "Unstable structure"
               : result.floating.length
                 ? "Disconnected structure"
@@ -58,9 +69,11 @@ export function AnalysisPanel({
                   : "Simulation complete · review checks"}{" "}
             {result.stars ? "★".repeat(result.stars) : ""}
           </h3>
-          {(result.mechanism || result.floating.length > 0) && (
+          {(result.mechanism || result.unresolved || result.floating.length > 0) && (
             <p role="status">
-              {result.mechanism
+              {partial || result.unresolved
+                ? scopes.filter(s => s.status !== "computed").map(s => `${s.memberIds.length ? "Members " + s.memberIds.join(", ") : "Nodes " + s.nodes.join(", ")} — ${s.reason}`).join(" ")
+                : result.mechanism
                 ? "The model has a movement that is not resisted. Add a support, brace, or connection before interpreting force results."
                 : `${result.floating.length} node(s) have no connection to a support.`}
             </p>
@@ -78,9 +91,9 @@ export function AnalysisPanel({
             <b>{result.mass?.toFixed(2)} t</b>
           </div>
           <div className="stat">
-            <span>Maximum displacement</span>
+            <span>{partial ? "Maximum computed displacement" : "Maximum displacement"}</span>
             <b>
-              {result.mechanism || result.combos[combo]?.maxD === undefined
+              {result.combos[combo]?.maxD === undefined
                 ? "—"
                 : `${(result.combos[combo].maxD! * 1000).toFixed(2)} mm`}
             </b>
@@ -100,7 +113,7 @@ export function AnalysisPanel({
                 <div className="stat" key={key}>
                   <span>{key}</span>
                   <b>
-                    {reaction && !result.mechanism
+                    {reaction
                       ? `${reaction[0].toFixed(2)}, ${reaction[1].toFixed(2)}, ${reaction[2].toFixed(2)} kN`
                       : "Unavailable"}
                   </b>
@@ -143,14 +156,14 @@ export function AnalysisPanel({
                   {result.designChecksAvailable === false ? (
                     (() => {
                       const force = result.combos[combo]?.ef?.get(member.e)?.f;
-                      return force && !result.mechanism
+                      return force
                         ? `#${id} · |N| ${Math.max(Math.abs(force[0]), Math.abs(force[6])).toFixed(1)} kN · |V| ${Math.max(...[1, 2, 7, 8].map((i) => Math.abs(force[i]))).toFixed(1)} kN · |M| ${Math.max(...[4, 5, 10, 11].map((i) => Math.abs(force[i]))).toFixed(1)} kNm`
                         : `#${id} · Forces unavailable`;
                     })()
                   ) : (
                     <>
                       #{id} · {member.gov}{" "}
-                      <b>{(member.util * 100).toFixed(0)}%</b>
+                      {member.gov !== "Not assessed" && <b>{(member.util * 100).toFixed(0)}%</b>}
                     </>
                   )}
                 </button>
@@ -158,12 +171,15 @@ export function AnalysisPanel({
           </details>
           {result.designChecksAvailable === false && (
             <p>
-              Applied-load response includes self-weight. Capacity and buckling
-              checks require design load combinations.
+              {scored ? (draft ? "Draft preview · staged and persistent gravity cards combined."
+                : "Committed board · all persistent gravity cards combined.")
+                : "Applied-load response includes self-weight."}
             </p>
           )}
-          <div className="view-options"><h4>Visualize in the scene</h4><p className="result-caption">Choose a load case, then compare the shape, forces and supports.</p>
-            <label>
+          <div className="view-options">
+            <h4>Visualize in the scene</h4>
+            <p className="result-caption">Compare the shape, forces and supports for the current load case.</p>
+            {!shared && result.combos.length > 1 && <label>
               Load case{" "}
               <select
                 value={combo}
@@ -175,7 +191,7 @@ export function AnalysisPanel({
                   </option>
                 ))}
               </select>
-            </label>
+            </label>}
             <label>
               <input
                 type="checkbox"
@@ -185,17 +201,19 @@ export function AnalysisPanel({
               />{" "}
               Deformed shape (exaggerated)
             </label>
-            <label>
-              Visual amplification · {scale.toFixed(1)}×{" "}
-              <input
-                type="range"
-                min="0.1"
-                max="3"
-                step="0.1"
-                value={scale}
-                onChange={(e) => setScale(Number(e.target.value))}
-              />
-            </label>
+            {deformed && <>
+              <label>Displacement scale
+                <select aria-label="Displacement scale" value={scale} onChange={e => setScale(Number(e.target.value))}>
+                  <option value={0}>Automatic</option>
+                  <option value={1}>True displacement (1×)</option>
+                  {[10,50,100,250,500].map(n => <option key={n} value={n}>{n}×</option>)}
+                </select>
+              </label>
+              <label><input type="checkbox" checked={reference} onChange={e => setReference(e.target.checked)} /> Undeformed reference</label>
+              <p role="status">Displacement shown at {actualScale}×. {field?.unavailable.size
+                ? "Reference geometry only for members " + [...field.unavailable].map(id => "#" + id).join(", ") + "."
+                : ""}</p>
+            </>}
             <label>
               <input
                 type="checkbox"
@@ -234,7 +252,7 @@ export function AnalysisPanel({
               Loads and reactions
             </label>
           </div>
-          <p className="result-caption">Shape is automatically exaggerated for visibility; the slider multiplies that exaggeration. Read displacement in mm above.</p>
+          <p className="result-caption">Automatic scale exaggerates displacement for visibility. Choose true displacement or a fixed multiplier using Displacement scale. Read displacement in mm above.</p>
           <p>Approximate prototype results; not for engineering design.</p>
         </>
       )}

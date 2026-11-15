@@ -1,5 +1,6 @@
 import { allNodeKeys, CELL_SIZE, parseNodeKey, type GameModel } from "./model";
 import { turnJoints, type TurnState } from "./turns";
+import { findPort } from "./turnPorts";
 
 export interface ConnectivityReport {
   groundedMembers: Set<number>;
@@ -47,6 +48,12 @@ export function analyzeConnectivity(
     );
   }
   if (turn) {
+    // An activated interior station is continuous with its parent. A snapped
+    // but unconnected incoming end still has its own member-end identity.
+    for (const key of nodes) {
+      const port = findPort(model.members, key);
+      if (port) link(key, memberEnd(port.memberId, "a"));
+    }
     for (const connection of [
       ...turn.board.connections,
       ...turn.draft.connections,

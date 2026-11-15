@@ -16,19 +16,15 @@ export function viewBasePoint(key: string, view: SceneView) {
     : basePoint(key);
 }
 export function displayPoint(key: string, v: SceneView) {
-  const p = viewBasePoint(key, v),
-    result = v.result,
-    c = result?.combos[v.combo],
-    index = result?.ctx?.idx.get(key),
-    active = index === undefined ? -1 : (result?.ctx?.aid[index] ?? -1);
-  if (v.deformed && c?.u && active >= 0) {
-    const factor = Math.min(500, 1.2 / (c.maxD || 1)) * v.scale;
+  const p = viewBasePoint(key, v);
+  const displacement = v.deformed && v.field?.nodes.get(key);
+  if (displacement) {
     p.add(
       new THREE.Vector3(
-        c.u[active * 6],
-        c.u[active * 6 + 1],
-        c.u[active * 6 + 2],
-      ).multiplyScalar(factor),
+        displacement[0],
+        displacement[1],
+        displacement[2],
+      ).multiplyScalar(v.scale),
     );
   }
   return p;

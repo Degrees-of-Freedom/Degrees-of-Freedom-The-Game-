@@ -3,6 +3,7 @@ import type {
   StructuralModel,
 } from '@dof/solver-contract';
 import { allNodeKeys, CELL_SIZE, parseNodeKey, type GameModel } from './model';
+import { resolveMemberLaw } from '../solver/voxelSections';
 
 /** Game point loads are stored in kN; the contract uses newtons. */
 const NEWTONS_PER_KILONEWTON = 1e3;
@@ -27,18 +28,17 @@ export interface StructuralModelTranslation {
  *   foundation without a mask restrains all six.
  * - Point loads preserve their selected axis direction.
  *
- * It does not carry member sections, self-weight, wind, or the tower and
- * bridge level loads that the voxel analysis generates, and the contract has
- * no tension-only member. Results from a contract solver are therefore a
- * stability and determinacy check, not a replacement for the voxel analysis.
+ * The optional corotational check carries SI section and cable laws. Both
+ * service checks use only the explicit point loads on this editor geometry.
  */
-export function toStructuralModel(game: GameModel): StructuralModelTranslation {
+export function toStructuralModel(game: GameModel, nonlinear = false): StructuralModelTranslation {
   const directions = { '-Z': [0, 0, -1], '+Z': [0, 0, 1], '+X': [1, 0, 0], '-X': [-1, 0, 0], '+Y': [0, 1, 0], '-Y': [0, -1, 0] } as const;
   const fixityAt = (key: string, cable: boolean): MemberEndFixity =>
     !cable && game.attrs[key]?.joint ? 'fixed' : 'pinned';
 
   const model: StructuralModel = {
     units: 'SI',
+    ...(nonlinear ? { analysis: { type: 'corotational' as const } } : {}),
     nodes: allNodeKeys(game).map((key) => {
       const [i, j, k] = parseNodeKey(key);
       return {
@@ -47,13 +47,19 @@ export function toStructuralModel(game: GameModel): StructuralModelTranslation {
       };
     }),
     members: game.members.map((member) => {
+      if (member.type === 'spring') throw new Error('The separate OpenSees editor check cannot represent this axial spring printing. Use the Shared table applied analysis.');
       const cable = member.type === 'cable';
+      const length = () => {
+        const a = parseNodeKey(member.a), b = parseNodeKey(member.b);
+        return CELL_SIZE * Math.hypot(...a.map((value, i) => value - b[i]));
+      };
       return {
         id: String(member.id),
         startNodeId: member.a,
         endNodeId: member.b,
         startFixity: fixityAt(member.a, cable),
         endFixity: fixityAt(member.b, cable),
+        ...(nonlinear ? { law: resolveMemberLaw(member.type, length()) } : {}),
       };
     }),
     supports: [],
@@ -75,6 +81,7 @@ export function toStructuralModel(game: GameModel): StructuralModelTranslation {
     }
   }
 
+  if (nonlinear) return { model, notes: ['The nonlinear check uses catalogue section properties, reference cable lengths and simultaneous editor point loads. Self-weight and challenge combinations are excluded.'] };
   const notes: string[] = ['The contract check uses point loads only; it does not include self-weight, wind, or voxel member sections.'];
   if (game.members.some((member) => member.type !== 'cable' && !game.attrs[member.a]?.joint && !game.attrs[member.b]?.joint))
     notes.push('The contract solver models members pinned at both ends as axial-only ties, so their bending and torsion differ from the voxel frame model.');

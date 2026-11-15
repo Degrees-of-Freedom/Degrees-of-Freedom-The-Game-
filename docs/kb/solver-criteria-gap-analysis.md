@@ -2,7 +2,6 @@
 title: "Solver Criteria Gap Analysis and Milestones"
 last_validated: 2026-11-14
 validated_against:
-  - docs/kb/multiplayer-refresh-criteria.md
   - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
@@ -32,10 +31,9 @@ status: partial
 
 # Solver Criteria Gap Analysis and Milestones
 
-> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
-
-
 ## Baseline and interpretation
+
+For the implementation branch, the [criteria ledger](criteria-ledger.md) records a new audit at `cdd5c9a` and subsequent game and service checks. The voxel path now isolates independent supported mechanisms and checks residuals and end laws for small-motion frame reactions. The service test suite includes 10,000 seeded linear, unstable and invalid structural states. The historical table below retains its original baseline.
 
 This review compares the owner's [proposed solver criteria](solver-criteria.md) with main at `b01a30edd262ad7718220889d30f897450c6c33b`. The criteria retain their proposed status; recording them does not approve unresolved gameplay rules or demonstrate numerical compliance. This documentation change preserves the working voxel experiment and preliminary shared contract. No criteria milestone is complete.
 

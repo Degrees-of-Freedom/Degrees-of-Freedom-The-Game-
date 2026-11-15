@@ -249,7 +249,7 @@ export function CoordinateEditor({
         <p>
           <button
             onClick={() =>
-              onMessage(game.toggleAttr(a, "found") ?? "Foundation updated.")
+              onMessage(game.placeFoundation(a) ?? "Foundation selected.")
             }
           >
             Foundation at start

@@ -2,7 +2,6 @@
 title: "Development and Testing"
 last_validated: 2026-11-14
 validated_against:
-  - docs/kb/multiplayer-refresh-criteria.md
   - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
@@ -35,8 +34,7 @@ status: partial
 
 # Development and Testing
 
-> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
-
+The [criteria acceptance ledger](criteria-ledger.md) records the current implementation run. The OpenSees suite includes a reproducible 10,000-state test in `services/opensees/tests/test_seeded_states.py`. It compares 6,000 oblique, subdivided cantilevers with analytical displacement and six-axis reaction balance, and checks 4,000 invalid or unstable configurations for classification and absence of fabricated response. The initial Windows x64 run recorded maximum relative displacement error 6.67e-13, normalized force residual 1.24e-12 and moment residual 7.72e-13. The generator-plus-solve p95 was 1.45 ms for these one-to-four-member cases. Nonlinear and game-scale performance need separate evidence.
 
 From the repository root, install dependencies with `npm install`, start the web app with `npm run dev`, build with `npm run build`, check TypeScript with `npm run typecheck`, and run tests with `npm test`. The dev command builds the shared contract before starting Vite; rebuild it after editing its source. The root build builds the contract before the web app.
 
@@ -137,8 +135,8 @@ Run on Windows 11 with Rust 1.100.0 and Node 24.16.0, on the branch that adds `c
 
 Measured errors, the outcome counts of the random states and the limits of this evidence are on the [Rust solver page](rust-solver.md). The evidence shows that the solver's tests pass. It does not show owner acceptance of any criteria milestone, and it includes no comparison with an independent nonlinear program.
 
-## Multiplayer refresh documentation scope
+## Integrated OpenSees nonlinear control
 
-The multiplayer simplification revision and four ordered implementation prompts are documentation only. Future implementation must validate the reduced catalogue, freely allocated four draws/unlimited plays, configurable global-turn cadence, checkpoint replay attribution, minimal local constraints/no new foundations, immutable setup, 15×15/Euclidean maxima, inspector/cursor behavior, active avatar/animation events, axial-flow direction and quit/recovery. No runtime, numerical or browser test result is claimed by this criteria update.
+On the criteria integration branch, selecting OpenSees exposes **Run nonlinear check** in the editor structural analysis panel. It sends the editor model through the corotational service contract, with catalogue section laws and explicit point loads; self-weight and challenge load combinations are excluded. The selected Rust solver continues to use its detailed analysis path. Shared table scoring uses its separate verified linear frame analysis. Springs are not represented by this editor service translation and return an unavailable message.
 
-Documentation validation for this refresh: 277 relative links/anchors across 38 KB/history/prompt pages passed; MR01–MR19 are unique; exactly four ordered session prompts exist. Whitespace checks passed. Application, solver, service, crate and prototype files are unchanged; no runtime implementation or numerical acceptance is claimed.
+Focused verification on the integration worktree: 19 nonlinear and component service tests passed, and 24 web tests passed with a local OpenSees service, including a corotational editor request and support-reaction check. The panel was rendered in a component test; an interactive browser walkthrough remains outstanding.

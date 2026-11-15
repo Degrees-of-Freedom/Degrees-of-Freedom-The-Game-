@@ -384,6 +384,14 @@
   gap: 10px;
   pointer-events: none !important;
 }
+.environment[data-style="grow-dusk"] .deformation-readout {
+  max-width: min(200px, 33vw);
+  padding: 5px 9px;
+  border-radius: 8px;
+  color: #f8eed8;
+  background: #263644;
+  font-size: 12px;
+}
 .environment[data-style="grow-dusk"] #axes {
   width: 76px;
   height: 76px;

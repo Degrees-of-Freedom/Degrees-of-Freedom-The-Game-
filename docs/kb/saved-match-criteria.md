@@ -2,7 +2,6 @@
 title: "Saved Match and Recovery Criteria"
 last_validated: 2026-11-14
 validated_against:
-  - docs/kb/multiplayer-refresh-criteria.md
   - "Project owner completion-criteria request and follow-up decisions, 2026-11-14"
   - docs/kb/structural-state.md
   - docs/kb/turn-criteria.md
@@ -14,9 +13,6 @@ status: needs-review
 ---
 
 # Saved Match and Recovery Criteria
-
-> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
-
 
 ## 1. Scope and authority
 
@@ -36,6 +32,8 @@ Proposed complete-match persistence requirements. The existing structural snapsh
 A save must contain resolved definitions or an immutable retrievable definition version/hash; do not reinterpret old cards using whatever catalogue is current. Record reference geometry and explicit rest strain/damage only where the enabled rules permit it. Readable mesh thickness and camera position never change physical properties.
 
 ## 3. Atomicity and crash recovery
+
+The new local session envelope stores revision and parent. A short origin-wide Web Lock guards the comparison with the tab's expected head and replacement of the complete envelope. A losing tab conceals private state and reloads the winning revision through handoff. Version-one sessions remain readable. The [implementation ledger](criteria-ledger.md) records the two-tab fixture and queued-write interruption coverage.
 
 Treat an accepted turn as one logical commit: structure, card/pile changes, evidence/issue scope, penalty event and turn advancement either all belong to the committed revision or none do. Persist a validated revision and update a current-head pointer using a documented transactional or recoverable journaling protocol. A succession of unrelated localStorage writes is not by itself atomic. Detect orphan/incomplete writes and recover the last complete revision; preserve the incomplete copy for diagnosis/export.
 
@@ -69,7 +67,3 @@ Open: storage backend, retention/backup UX, migration support window, maximum im
 ## 6. System-repair provenance
 
 Persist the retained player move, pre-correction evidence/penalty attribution, versioned repair request/candidates and bounded resolution status, accepted game-owned object/connection IDs/properties, post-correction results and confirmed permanent in-match lifetime. Standard rules do not retire accepted repairs after later player reinforcement. System objects and their reactions have neutral ownership and zero player attraction credit. Save local-contact scope, ground-anchor identity, score denominator and verified neutral reaction share; restore the same physical repairs for the remainder of the match. Crash/retry cannot create another repair or penalty. Keep unequal elastic stiffnesses per connector and historical penalties after repair. Record the confirmed verified-component final-award scope and total-gravity denominator independently of unavailable physical reactions.
-
-## 7. Refresh checkpoint and correction state
-
-Persist four source-deck draw choices, unlimited play reservations/instance locations, 5/7/10 maximum versus actual span, spring k₀/reference version, rotational masks, immutable default setup, interval changes, global committed-turn counter, last attempted/verified checkpoint and ordered pending window. Save original live versus retrospective replay lineage, per-original-turn penalty IDs and separate neutral safety-constraint axes/reactions. No new scaffold/foundation objects or retired-mode migration by silent coercion. Quit at any phase retains resumable state; late results cannot overwrite a changed/resumed revision. Between checkpoints evidence is historical/pending, not current stable.

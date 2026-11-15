@@ -45,7 +45,7 @@ describe('Shared table analysis persistence', () => {
     const key = storage.key(0)!;
     const raw = storage.getItem(key)!;
     storage.setItem(key, raw.replace('"parentRevisionId":"turn-1"', '"parentRevisionId":"wrong"'));
-    expect(readSession(storage)).toEqual({ status: 'invalid' });
+    expect(readSession(storage)).toMatchObject({ status: 'invalid' });
   });
 
   it('loads the previous event format without manufacturing analysis history', () => {

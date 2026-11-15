@@ -2,7 +2,6 @@
 title: "Unified Game Runtime"
 last_validated: 2026-11-14
 validated_against:
-  - docs/kb/multiplayer-refresh-criteria.md
   - "origin/ftroshani at 93851e99692255cd64c2f9f23a64da417e82c782, prototypes/game-environment"
   - "Owner direction to use the prototype branch for visual layouts, styles, and graphics"
   - apps/web/src/pages/Home.tsx
@@ -27,14 +26,13 @@ status: partial
 
 # Unified Game Runtime
 
-> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
-
-
 The visual references are the five standalone environments from the [prototype branch at the captured revision](https://github.com/Degrees-of-Freedom/Degrees-of-Freedom-The-Game-/tree/93851e99692255cd64c2f9f23a64da417e82c782/prototypes/game-environment). The original launcher described four environments; Grow Dusk was present separately and is included here. Launcher images in `apps/web/public/environments` are captures of those original WebGL environments. The full-screen workspace ports their arrangements, palettes, and control groups into React and Three.js. The reference pages and their shared JavaScript model do not run in the app.
 
 ## Entry points and boundaries
 
-- `/` is the title screen (Play, How to play, Settings, About, and a Continue link to `/play`). Play leads to `/modes`, five mode cards from `MODE_CATALOG`, then `/setup/:mode`, which applies the choice with existing store actions (`setStyle("grow-dusk")`, `setMode`, `setLevel`, `reset`, `newMatch`, `importModel`; see `menu/startPlan.ts`) and opens `/play`. Setup names saved progress that Start would resume or overwrite. Shared table setup shows the playtest's fixed values and its rules, taken from the [confirmed turn rules](turn-criteria.md#1-status-and-confirmed-rules); the shared-joint matching rule is shown as confirmed but not yet enforced. `/how`, `/settings` and `/about` are information pages. Settings (`sound`, `reducedMotion`, `showHelpOnStart`) are kept in `localStorage["dof.settings"]`; sound is stored only because the editor sound has no external mute hook. `/play` opens the current workspace and always switches it to Grow Dusk.
+Grow Dusk Creative exposes **Foundation** on the building toolbar (keyboard 0). Clicking solid ground places a fully fixed foundation. Selecting it again opens its six-restraint inspector and preserves the support. Build options → Precise placement → Foundation at start uses the same action. Placement is undoable and saved with the model. Shared table retains its preset player foundations. [Pointer acceptance fixture](../evidence/foundations/check.mjs)
+
+- `/` is the title screen (Play, How to play, Settings, About, and a Continue link to `/play`). Play leads to `/modes`, five mode cards from `MODE_CATALOG`, then `/setup/:mode`, which applies the choice with existing store actions (`setStyle("grow-dusk")`, `setMode`, `setLevel`, `reset`, `newMatch`, `importModel`; see `menu/startPlan.ts`) and opens `/play`. Setup names saved progress that Start would resume or overwrite. Shared table setup shows the playtest's fixed values and its rules, taken from the [confirmed turn rules](turn-criteria.md#1-status-and-confirmed-rules); the first connector establishes the joint law and incoming fixed/ball connectors must match it. `/how`, `/settings` and `/about` are information pages. Settings (`sound`, `reducedMotion`, `showHelpOnStart`) are kept in `localStorage["dof.settings"]`; sound is stored only because the editor sound has no external mute hook. `/play` opens the current workspace and always switches it to Grow Dusk.
 - The workspace has a Menu button and the `P` key (and `Esc` when nothing else uses it) for a pause overlay: Resume, Restart (`reset`, or `newMatch` once a Shared table match has finished), How to play, Settings and Quit to menu. While it is open the app root is inert and keys are not passed to the scene.
 - Grow Dusk is the only environment offered. Grow, Levels, Blocks, Kit and Engineering styles, their CSS, the store's style support and the old launcher (`pages/MainMenu.tsx`, no longer routed) stay in the codebase but cannot be reached from the UI. Grow Dusk shows the Shared table card tray itself (`environment-grow-dusk-hand.css`).
 - Growing a member offers every lattice point within the section's per-axis `maxCells`. Targets that overlap on screen are chosen nearest the camera first; the wheel or `[` and `]` step through them (`viewer/growthStack.ts`). `viewer/growthBloom.ts` draws those targets.
