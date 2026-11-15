@@ -12,7 +12,8 @@ import {
 } from "../game/model";
 import { getSettings } from "../menu/settings";
 import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
-import { addResultArrows, displayPoint } from "./sceneResults";
+import { addResultArrows, displayPoint, viewBasePoint } from "./sceneResults";
+import { buildDisplacementShadow, labelPeakDisplacement } from "./displacementShadow";
 import { createFlowParticles } from "./flowParticles";
 import { buildReleaseFlow, markInstability } from "./releaseFlow";
 import { drawBoardDiagram } from "./boardDiagrams";
@@ -53,6 +54,8 @@ export function Scene({
   loads,
   loadPath,
   onToggleLoadPath,
+  shadow,
+  labels,
   onMessage,
   baySize,
 }: SceneView) {
@@ -72,6 +75,8 @@ export function Scene({
     loads,
     loadPath,
     onToggleLoadPath,
+    shadow,
+    labels,
     onMessage,
     baySize,
   });
@@ -91,6 +96,8 @@ export function Scene({
     loads,
     loadPath,
     onToggleLoadPath,
+    shadow,
+    labels,
     onMessage,
     baySize,
   };
@@ -99,10 +106,10 @@ export function Scene({
   const refreshPermissions = useRef<() => void>(() => {});
   useEffect(() => {
     refreshPermissions.current();
-  }, [jointLayer, result, combo, deformed, scale, field]);
+  }, [jointLayer, result, combo, deformed, scale, field, labels]);
   useEffect(() => {
     refresh.current();
-  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath, trueScale, showInstability, diagrams]);
+  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath, trueScale, showInstability, diagrams, shadow, labels]);
   const workK = useGameStore((state) => state.workK);
   const style = useGameStore((state) => state.style);
   const host = useRef<HTMLDivElement>(null);
@@ -353,12 +360,19 @@ export function Scene({
       particles.reset();
       const releaseFlow = !!view.current.cameraMemory && view.current.loadPath;
       buildStructure(structure, state, releaseFlow ? { ...view.current, loadPath: false } : view.current, point, particles.add);
-      if (releaseFlow && view.current.result) buildReleaseFlow(structure, view.current.result, point, particles.add);
+      // Labels default to shown; the release board's view panel can hide them all at once.
+      const labels = view.current.labels !== false;
+      if (releaseFlow && view.current.result) buildReleaseFlow(structure, view.current.result, point, particles.add, labels);
       for (const diagram of view.current.diagrams ?? []) {
-        drawBoardDiagram(structure, diagram, point, view.current.field, view.current.scale);
+        drawBoardDiagram(structure, diagram, point, view.current.deformed ? view.current.field : undefined, view.current.scale, labels);
       }
-      if (view.current.showInstability && view.current.result) markInstability(structure, view.current.result, point);
-      addResultArrows(structure, view.current, point, state.style !== 'engineering');
+      const field = view.current.field;
+      if (view.current.shadow && field) {
+        structure.add(buildDisplacementShadow(field, view.current.scale, key => viewBasePoint(key, view.current), view.current.trueScale));
+      }
+      if (labels && field && (view.current.shadow || view.current.deformed)) labelPeakDisplacement(structure, field, view.current.scale);
+      if (view.current.showInstability && view.current.result) markInstability(structure, view.current.result, point, labels);
+      addResultArrows(structure, view.current, point, state.style !== 'engineering' && labels);
       buildGuides(
         guides,
         level,
