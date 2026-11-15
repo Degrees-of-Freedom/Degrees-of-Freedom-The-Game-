@@ -71,6 +71,25 @@ describe("undeformed section material in the scored frame preset", () => {
     expect(findMaterialClash(overlap,[piece(5,"5,7,1","9,7,1","heb")])).toMatch(/intersect/);
   });
 
+  it("shares only a deliberately named fitting between multiple through-members and incoming ends", () => {
+    const column = piece(1,"5,7,0","5,7,1","heb");
+    const first = {...piece(3,"3,7,1","7,7,1","heb"),interiorTargets:{q2:"5,7,1"}};
+    const second = {...piece(4,"5,5,1","5,9,1","heb"),interiorTargets:{q2:"5,7,1"}};
+    expect(findMaterialClash(second,[column,first])).toBeNull();
+    expect(findMaterialClash(first,[second,column])).toBeNull();
+    expect(findMaterialClash({...second,interiorTargets:undefined},[column,first])).toMatch(/intersect/);
+
+    // Both parents refer to one explicit original host port. Replacing that
+    // identity by the same coordinates must not authorize an interior crossing.
+    const named = {...first,interiorTargets:{q2:"port:9:1"}};
+    const samePort = {...second,interiorTargets:{q2:"port:9:1"}};
+    expect(findMaterialClash(samePort,[named])).toBeNull();
+    expect(findMaterialClash(second,[named])).toMatch(/intersect/);
+    const incoming = {...piece(5,"5,7,1","5,7,3","heb"),endTargets:{a:"port:9:1"}};
+    expect(findMaterialClash(incoming,[named])).toBeNull();
+    expect(findMaterialClash({...incoming,endTargets:undefined},[named])).toMatch(/intersect/);
+  });
+
   it("rejects the seed-0 crossing without spending a card or changing replay history", () => {
     const first = createTurnGame(0, SCORED_CATALOGUE);
     const card = activeTurnHand(first).find(c => c.kind === "element" && c.maxSteps >= 2)!;

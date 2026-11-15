@@ -125,13 +125,21 @@ function contacts(a: Placed, b: Placed): [number[], number[]] {
       const at = attachmentPoint(source, site);
       const station = attachmentQuarter(site) / 4;
       for (const [index, end] of (["a", "b"] as const).entries()) {
-        if (declared === target[end] && at === target[end]) {
+        if ((declared === target[end] || declared === target.endTargets?.[end]) && at === target[end]) {
           sourceStations.push(station); targetStations.push(index);
         }
       }
       for (const port of originalPorts(target)) {
         if (port.available && declared === port.id && at === port.point.join(",")) {
           sourceStations.push(station); targetStations.push(port.quarter / 4);
+        }
+      }
+      for (const otherSite of ["q1", "q2", "q3"] as const) {
+        // Independent parents may fit the same established interface. Their
+        // stored target identity must agree; coincident quarter geometry alone
+        // is insufficient, including a raw coordinate in place of a named port.
+        if (target.interiorTargets?.[otherSite] === declared && attachmentPoint(target, otherSite) === at) {
+          sourceStations.push(station); targetStations.push(attachmentQuarter(otherSite) / 4);
         }
       }
     }

@@ -57,6 +57,23 @@ describe("explicit fixed interior collars", () => {
     expect(state.events).toEqual([]);
   });
 
+  it("places a second perpendicular midpoint beam at the same existing support without changing the first collar", () => {
+    const first = accept(stageConnection(accept(stageElement(fixture(frame,fixed[0]),frame.id,
+      "3,7,1","7,7,1",{quarter:2,target:"5,7,1"})),fixed[0].id,3,"q2"));
+    // Physical placement fixture: the first validated beam and collar are now
+    // committed objects; replay and full turn assessment have separate coverage.
+    const state = fixture(frame,fixed[1]);
+    state.nextId = 4;
+    state.board = {...first.board,members:[...first.board.members,...first.draft.members],
+      connections:[...first.board.connections,...first.draft.connections],joints:turnJoints(first)};
+    const before = structuredClone(state.board);
+    const second = accept(stageElement(state,frame.id,"5,5,1","5,9,1",{quarter:2,target:"5,7,1"}));
+    const joined = accept(stageConnection(second,fixed[1].id,4,"q2"));
+    expect(joined.board).toEqual(before);
+    expect(joined.draft.connections).toMatchObject([{memberId:4,end:"q2",jointId:"5,7,1"}]);
+    expect(stageElement(state,frame.id,"5,5,1","5,9,1").ok).toBe(false);
+  });
+
   it("requires one compatible fixed card and protects each fitted source", () => {
     const placed = accept(stageElement(fixture(frame, fixed[0], fixed[1], partial), frame.id,
       "4,7,1", "8,7,1", {quarter:1,target:"5,7,1"}));
