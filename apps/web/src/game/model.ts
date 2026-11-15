@@ -28,6 +28,8 @@ export interface Member {
   a: string;
   b: string;
   type: MemberType;
+  /** Immutable rest length in metres of a scored tension-only cable. */
+  restLengthM?: number;
   /** Printed built-up member. Its section type applies to its actual chords and webs. */
   assembly?: AssemblyId;
 }

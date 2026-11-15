@@ -14,7 +14,7 @@ const FOUND_CAP = { Nc: 1500, Nt: 250, H: 350, M: 300 }; // kN, kNm
 function memberDemandULS(e: Element, r: ElementForce, amp: number) {
   const { f, ul } = r,
     L = e.L,
-    N = f[6];
+    N = r.cableTension ?? f[6];
   const out = {
     N,
     Vy: 0,

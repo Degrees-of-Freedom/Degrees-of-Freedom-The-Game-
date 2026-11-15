@@ -9,6 +9,7 @@ import { conflictingJointAxes, connectionFrame, CONNECTION_PROFILES, type Connec
 import { findMaterialClash } from "./materialClashes";
 import { findPort, systemTarget, targetCoordinate, turnJoints } from "./turnPorts";
 import { analyzeTurn } from "./turnAnalysis";
+import { resolveMemberLaw, S } from "../solver/voxelSections";
 import { correctTurnIssues, LEGACY_REPAIR_POLICY, REPAIR_POLICY, type CorrectionReceipt, type RepairPolicy, type SystemProvenance } from "./turnRepair";
 import { assessTurnIssues, matchesIssueEvidence, type IssueAssessment } from "./turnIssues";
 import { decidePenalty, type PenaltyDecision } from "./turnPenalty";
@@ -278,6 +279,9 @@ export function stageElement(
     b: pointB,
     ...(portA || portB ? { endTargets: { ...(portA && { a }), ...(portB && { b }) } } : {}),
     type: card.type,
+    ...(card.type === "cable" && card.definitionId.startsWith("element/tension-cable-25/") && {
+      restLengthM: resolveMemberLaw("cable", S * Math.hypot(...lengths)).restLength,
+    }),
     ...(card.assembly && { assembly: card.assembly }),
     owner: activePlayer(state).id,
     cardId,
@@ -536,7 +540,7 @@ export function projectTurnModel(state: TurnState): GameModel {
     };
   }
   const members = [...state.board.members, ...state.draft.members].map(
-    ({ id, a, b, type, assembly }) => ({ id, a, b, type, ...(assembly && { assembly }) }),
+    ({ id, a, b, type, assembly, restLengthM }) => ({ id, a, b, type, ...(assembly && { assembly }), ...(restLengthM !== undefined && { restLengthM }) }),
   );
   return { attrs, members, nextId: state.nextId };
 }

@@ -1,6 +1,7 @@
 import type { VoxelModel } from './voxelInput';
 import type { ComponentResponse, VoxelAnalysis } from './voxelResults';
 import type { BeamSection, BeamType } from './voxelSections';
+import { verifiedResponse } from './voxelVerification';
 
 /** Printed playtest limit states. Values are kN and kN·m. Section axial,
  * bending and shear strengths come from the same section used for analysis.
@@ -97,8 +98,8 @@ export function assessCardCapacity(
     const to = (m.parentSpan?.toQuarter ?? 4)/4;
     const e = elements.get(m.id), scope = scopes.get(m.id);
     const forces = e && combo?.ef?.get(e);
-    if (m.type === 'cable' || !e || e.it.kind === 'cable' || !forces ||
-        scope?.verification?.status !== 'verified-linear' || !forces.f.every(Number.isFinite)) {
+    if (!e || !scope || !forces || !verifiedResponse(scope.verification) ||
+        (e.cable && !Number.isFinite(forces.cableTension)) || !forces.f.every(Number.isFinite)) {
       invalid.set(parent, scope?.verification?.reason ?? scope?.reason ?? 'Verified linear frame actions unavailable.');
       continue;
     }
@@ -118,8 +119,10 @@ export function assessCardCapacity(
     }
     for (const end of ['a', 'b'] as const) {
       const station = end === 'a' ? from : to;
-      const actions = sectionCut(forces.f, end);
-      let check: CapacityCheck = e.it.kind === 'spring'
+      const actions = e.cable ? {N:forces.cableTension!, Vy:0, Vz:0, T:0, My:0, Mz:0} : sectionCut(forces.f, end);
+      let check: CapacityCheck = e.it.kind === 'cable'
+        ? {status:'verified', utilization:actions.N/e.it.NRd, governing:'Cable tensile force', actions, station}
+        : e.it.kind === 'spring'
         ? { status: 'verified', utilization: Math.abs(actions.N) / (e.it.axialForceLimitN / 1000),
           governing: 'Spring axial force', actions, station }
         : memberCheck(m.type as BeamType, e.it, actions, station);

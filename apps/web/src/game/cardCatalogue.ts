@@ -13,16 +13,18 @@ export const PLANAR_CATALOGUE = 'shared-table-planar-1' as const;
 export const TRUSS_CATALOGUE = 'shared-table-trusses-1' as const;
 export const SPRING_CATALOGUE = 'shared-table-springs-1' as const;
 export const JOINT_CATALOGUE = 'shared-table-joints-1' as const;
-export type ScoredCatalogue = typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE | typeof TRUSS_CATALOGUE | typeof SPRING_CATALOGUE | typeof JOINT_CATALOGUE;
+export const CABLE_CATALOGUE = 'shared-table-cables-1' as const;
+export type ScoredCatalogue = typeof SCORED_CATALOGUE | typeof PLANAR_CATALOGUE | typeof TRUSS_CATALOGUE | typeof SPRING_CATALOGUE | typeof JOINT_CATALOGUE | typeof CABLE_CATALOGUE;
 export type CatalogueId = typeof LEGACY_CATALOGUE | ScoredCatalogue;
 export function isScoredCatalogue(catalogue: unknown): catalogue is ScoredCatalogue {
-  return catalogue === SCORED_CATALOGUE || catalogue === PLANAR_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === SPRING_CATALOGUE || catalogue === JOINT_CATALOGUE;
+  return catalogue === SCORED_CATALOGUE || catalogue === PLANAR_CATALOGUE || catalogue === TRUSS_CATALOGUE || catalogue === SPRING_CATALOGUE || catalogue === JOINT_CATALOGUE || catalogue === CABLE_CATALOGUE;
 }
 
 const legacyTypes = ['shs', 'glulam', 'ipe', 'heb', 'cable'] as const;
 const scoredTypes = ['shs', 'glulam', 'ipe', 'heb'] as const;
 
 export function memberDeckTypes(catalogue: CatalogueId): readonly (MemberType | AssemblyId)[] {
+  if (catalogue === CABLE_CATALOGUE) return legacyTypes;
   if (catalogue === SPRING_CATALOGUE) return [...scoredTypes, 'spring'];
   if (catalogue === TRUSS_CATALOGUE) return [...scoredTypes, PLANAR.id, TRICHORD.id];
   if (catalogue === PLANAR_CATALOGUE) return [...scoredTypes, PLANAR.id];
@@ -50,6 +52,10 @@ for (const type of [...legacyTypes, 'spring'] as const) {
   }
 }
 export const GRAVITY_CARDS_KN = [5, 10, 20, 50] as const;
+for (const maxSteps of [1, 2, 3, 4]) printings.push({
+  definitionId: 'element/tension-cable-25/axis-' + maxSteps, definitionVersion: CARD_DEFINITION_VERSION,
+  kind: 'element', type: 'cable', maxSteps, label: 'Cable Ø24 · ≤' + maxSteps + ' cells/axis',
+});
 for (const [assembly, name] of [[PLANAR.id, 'Planar truss'], [TRICHORD.id, 'Trichord truss']] as const) {
   for (const maxSteps of [1, 2, 3, 4]) printings.push({
     definitionId: 'element/' + assembly + '/axis-' + maxSteps, definitionVersion: CARD_DEFINITION_VERSION,
@@ -91,7 +97,7 @@ export function printedCards(index: number, catalogue: CatalogueId) {
   const load = GRAVITY_CARDS_KN[index % GRAVITY_CARDS_KN.length];
   const profile = catalogue === JOINT_CATALOGUE ? jointPrintings[index % jointPrintings.length] : index % 2 === 0 ? 'fixed' : 'ball';
   return {
-    element: { id: 'element-' + index, ...resolveCardDefinition(`element/${type}/axis-${maxSteps}`, CARD_DEFINITION_VERSION) },
+    element: { id: 'element-' + index, ...resolveCardDefinition(`element/${type === 'cable' && catalogue === CABLE_CATALOGUE ? 'tension-cable-25' : type}/axis-${maxSteps}`, CARD_DEFINITION_VERSION) },
     load: { id: 'load-' + index, ...resolveCardDefinition(`gravity/${load}kN`, CARD_DEFINITION_VERSION) },
     connection: { id: 'connection-' + index, ...resolveCardDefinition(`connection/${profile}`, CARD_DEFINITION_VERSION) },
   };
@@ -118,6 +124,7 @@ export function describePrinting(card: CardDefinition): string {
   if (card.assembly === TRICHORD.id) return 'Four-panel trichord truss · three SHS 100×6 chords on a 500 mm equilateral triangle. Welded rings and pin-ended diagonals brace all three faces. External tips and 25%, 50% and 75% branch joints lie on the first chord. ' + reach;
   if (card.assembly === PLANAR.id) return 'Four-panel planar truss · 500 mm deep · two continuous SHS 100×6 chords, welded posts and pin-ended alternating diagonals. External connectors fit the lower chord tips. Branch ports lie on its 25%, 50% and 75% joints. ' + reach;
   if (section.kind === 'cable') {
+    if (card.definitionId.startsWith('element/tension-cable-25/')) return 'Cable Ø24 · E 160 GPa · metallic area 360 mm² · 260 kN tensile limit. The installed straight length gives 25 kN initial tension between stationary ends. Original quarter clamps retain their share of the material rest length. Slack carries zero force. ' + reach;
     return `${section.label} · E ${section.E / 1e6} GPa · area ${section.A * 1e6} mm². Reference tension ${section.P0} kN. Experimental two-end cable. ${reach}`;
   }
   return `${section.label} · ${section.sub} · E ${section.E / 1e6} GPa · G ${section.G / 1e6} GPa · area ${Math.round(section.A * 1e6)} mm². ${reach}`;

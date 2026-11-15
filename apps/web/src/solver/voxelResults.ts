@@ -61,6 +61,8 @@ export type ElementForce = {
   f: Float64Array;
   ul: Float64Array;
   slack?: boolean;
+  /** Magnitude along the actual deformed chord, in kN. End vectors remain in the reference frame. */
+  cableTension?: number;
 };
 export type Solved = {
   u: Float64Array;

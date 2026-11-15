@@ -32,8 +32,7 @@ export function originalPorts(member: Member): QuarterPort[] {
     return {
       id: `port:${member.id}:${quarter}`, memberId: member.id, quarter,
       point: [at(0), at(1), at(2)],
-      // Cable subdivisions require an independently validated rest-state law.
-      available: member.type !== "cable",
+      available: member.type !== "cable" || (member.restLengthM ?? 0) > 0,
     };
   });
 }

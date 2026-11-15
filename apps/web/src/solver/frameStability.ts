@@ -34,6 +34,9 @@ export function alphaCr(ctx: FrameSystem, sol: Solved, minimumFactor?: number) {
   const flexible: { element: Element; kg: Float64Array; slips: ReturnType<typeof connectorSlips> }[] = [];
   let comp = false;
   for (const e of els) {
+    // The mounted cable tangent already contains its current N/l stress stiffness.
+    // The frame compression screen varies frame forces with cable state held fixed.
+    if (e.cable && e.m.restLengthM !== undefined) continue;
     if (e.cable && !sol.active.get(e)) continue;
     const N = sol.ef.get(e)!.f[6];
     if (N < -1e-6) comp = true;

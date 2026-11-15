@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { TurnState } from "./turns";
 import type { VoxelAnalysis } from "../solver/voxelResults";
+import { CABLE_FORMULATION, verifiedResponse } from "../solver/voxelVerification";
 
 export const SCORE_POLICY = "signed-card-gravity-v1";
 export const TIE_TOLERANCE = 0.01;
@@ -25,7 +26,7 @@ const componentEvidence = z.strictObject({
 });
 const receiptSchema = z.strictObject({
   policy: z.literal(SCORE_POLICY),
-  solver: z.literal("voxel-linear-frame-v1"),
+  solver: z.enum(["voxel-linear-frame-v1", CABLE_FORMULATION]),
   modelId: z.string(),
   components: z.array(componentEvidence).min(1).max(2048),
 });
@@ -59,14 +60,14 @@ export function finalReceipt(turn: TurnState, analysis: VoxelAnalysis | null): S
   const scopes = combo?.components;
   const board = turn.board;
   const receipt = (components: ScopeEvidence[]): ScoreReceipt => ({
-    policy: SCORE_POLICY, solver: "voxel-linear-frame-v1", modelId: modelId(turn), components,
+    policy: SCORE_POLICY, solver: board.members.some(m => m.restLengthM !== undefined) ? CABLE_FORMULATION : "voxel-linear-frame-v1", modelId: modelId(turn), components,
   });
   if (!ctx || !combo || !scopes?.length) {
     return receipt([unknownScope(board, analysis?.error ?? "Final card-gravity response unavailable.")]);
   }
   const components = scopes.map(scope => {
     const foundations = board.joints.filter(j => j.foundationOwner && scope.nodes.includes(j.id));
-    let verified = scope.status === "computed" && scope.verification?.status === "verified-linear";
+    let verified = scope.status === "computed" && verifiedResponse(scope.verification);
     const forces = foundations.map(j => {
       const index = ctx.idx.get(j.id);
       const upward = index === undefined ? undefined : combo.reac?.[ctx.aid[index]]?.[2];
@@ -75,7 +76,7 @@ export function finalReceipt(turn: TurnState, analysis: VoxelAnalysis | null): S
     });
     return {
       nodes: scope.nodes, memberIds: scope.memberIds, verified,
-      reason: verified ? "Verified linear frame response." : scope.verification?.reason ?? scope.reason ?? "Response unavailable.",
+      reason: verified ? (scope.verification?.status === "verified-cable" ? "Verified cable equilibrium and frame response." : "Verified linear frame response.") : scope.verification?.reason ?? scope.reason ?? "Response unavailable.",
       ...(scope.verification?.residuals && { residuals: scope.verification.residuals }),
       foundations: forces.map(f => ({ jointId: f.jointId, upwardKN: verified ? f.upwardKN : null })),
     };
@@ -90,6 +91,7 @@ export function readFinalReceipt(turn: TurnState, raw: unknown): ScoreReceipt | 
   const parsed = receiptSchema.safeParse(raw);
   if (!parsed.success || parsed.data.modelId !== modelId(turn)) return null;
   const { board } = turn;
+  if ((parsed.data.solver === CABLE_FORMULATION) !== board.members.some(m => m.restLengthM !== undefined)) return null;
   const foundations = new Map(board.joints.filter(j => j.foundationOwner).map(j => [j.id, j.foundationOwner]));
   const seen = new Set<string>();
   const seenSupports = new Set<string>();

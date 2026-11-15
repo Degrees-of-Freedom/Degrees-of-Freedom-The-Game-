@@ -92,9 +92,11 @@ export function inspectIssues(turn: TurnState, analysis?: ReturnType<typeof anal
     if (scope.status === 'unsupported' && !scope.nodes.some(key => input.attrs[key]?.found)) {
       for (const id of ids) motion.set(id, { motion: 'free translation', memberIds: ids, contactNodes: [] });
     }
-    const verified = scope.verification?.status === 'verified-linear';
+    const cable = scope.verification?.status === 'verified-cable';
+    const verified = scope.verification?.status === 'verified-linear' || cable;
     for (const id of ids) scopes.set(id, { ids, stable: verified,
-      reason: scope.verification?.reason ?? scope.reason ?? 'Stability verification unavailable.' });
+      reason: verified ? (cable ? 'Verified cable equilibrium and frame response.' : 'Verified small-displacement frame response.')
+        : scope.verification?.reason ?? scope.reason ?? 'Stability verification unavailable.' });
   }
   const findings: IssueFinding[] = [];
   for (const member of members) {
@@ -107,7 +109,7 @@ export function inspectIssues(turn: TurnState, analysis?: ReturnType<typeof anal
         contactNodes: witness.contactNodes, reason: `Zero-strain rigid motion: ${witness.motion}.` });
     } else if (scope?.stable) {
       findings.push({ ...subject, validity: 'verified', active: false, memberIds: ids,
-        reason: 'Verified small-displacement frame response.' });
+        reason: scope.reason });
     } else {
       findings.push({ ...subject, validity: 'unknown', active: null, memberIds: ids,
         reason: scope?.reason ?? 'No verified stability classification.' });
