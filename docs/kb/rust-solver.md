@@ -40,7 +40,7 @@ The scored Grow Dusk release uses the nonlinear Rust 0.2.0 module for End Turn, 
 | Solver | `crates/dof-solver` | The native regression suites cover the detailed kernel. The crate has no third-party dependencies. |
 | Detailed contract types | `packages/solver-contract/src/analysis.ts` | `AnalysisModel`, `AnalysisOptions`, `DetailedAnalysisResult`, `DetailedSolver`. |
 | Browser adapter | `apps/web/src/solver/wasm/wasmSolver.ts`, `runner.ts`, `solverWorker.ts` | Serves the detailed contract, several load cases per call (`analyzeCases`), and the original `StructuralModel` contract. In a browser the module runs on a Web Worker, which is terminated on abort or after a wall-clock limit. See [Cancellation and time limit](#cancellation-and-time-limit). |
-| Compiled module | `apps/web/src/solver/wasm/dof_solver.wasm` | Checked-in 729 kB module. Rebuild with `npm run build:solver`. |
+| Compiled module | `apps/web/src/solver/wasm/dof_solver.wasm` | Checked-in 747,070-byte module. Rebuild with `npm run build:solver`. |
 | Game integration | `apps/web/src/solver/index.ts`, `apps/web/src/game/analysisModel.ts`, `apps/web/src/game/useStabilityCheck.ts` | Default solver for the workspace check, which sends the detailed model. See [Game integration](#game-integration). |
 
 The workspace uses `game/analysisModel.ts` for Rust's detailed contract. The optional OpenSees v2 service uses `game/structuralModel.ts` for catalogue properties, end laws, support masks and linear or corotational analysis. The Shared table release worker uses its own immutable SI turn model.
@@ -56,6 +56,8 @@ The workspace uses `game/analysisModel.ts` for Rust's detailed contract. The opt
 A large displacement can coexist with stable equilibrium. The release preserves a verified reaction under the kernel's excessive-displacement flag and discloses that flag. The spring card separately withholds its component's scoreable response past 10% axial stroke. In the 10 m seed-14 fixture, transverse sag exceeds the component displacement limit while axial stroke stays inside the card limit. Both supports carry 2.5 kN. The spring exceeds its printed force capacity. A separate overstroke fixture withholds the affected response and retains an independent frame's 5 kN reaction.
 
 Verified tangent instability can produce a comparison of negative inertia and translational nullity, with unloaded pure spins excluded. The game compares only identical component geometry, card properties, connector freedoms, supports and solver configuration. The adapter supplies a physical witness when it can localize the motion. A failed recovery alone does not establish an additional instability.
+
+The revision integrating the v2 shared contract records accepted load increments and filters roundoff-only model-node motion from mode diagrams. The release consumes the detailed Rust result; accepted-increment counts are diagnostic. `node scripts/physics/check-saved-solver.mjs 91d551b` reads the previous WASM from Git, repeats the purposeful production plays for seeds 0–19 and checks their archived public decisions and awards. The current private-match decoder accepted 320 planning, 320 confirmed-assessment and 20 final records from the previous binary. Draws, placements, issue history, correction receipts and scores reproduced exactly. The public evidence and the previous solver are read from the same Git revision.
 
 ### Workspace editor
 
@@ -152,7 +154,7 @@ Tal's always-on 10,000-state run and 2-to-4-support load-sharing tests already h
 
 ## Acceptance evidence
 
-Run with `npm run test:solver`. The 15 November 2026 merged suite passed 81 native tests, including seven numerical range and work-budget cases. The 10,000 generated states form one test. One timing harness is opt-in.
+Run with `npm run test:solver`. The 15 November 2026 merged suite passed 82 native tests, including seven numerical range and work-budget cases and the connection-spin reporting regression. The 10,000 generated states form one test. One timing harness is opt-in.
 
 | Acceptance row | Tests (`crates/dof-solver/tests`) | Measured |
 | --- | --- | --- |
@@ -183,14 +185,14 @@ The independent service's v2 driver identifies the above-critical column as unst
 
 | Case | Members | Unknowns | Median | p95 | Proposed target |
 | --- | --- | --- | --- | --- | --- |
-| Game-sized frame, linear | 46 | 376 | 3.1 ms | 5.4 ms | preview p95 ≤ 50 ms |
-| Game-sized frame, nonlinear | 46 | 376 | 17.1 ms | 23.5 ms | turn ≤ 250 ms |
-| Stress frame, linear, 1 element per beam | 504 | 1,280 | 24.5 ms | 30.8 ms | |
-| Stress frame, linear, 2 elements per beam | 504 | 4,124 | 70.3 ms | 82.5 ms | |
-| Stress frame, nonlinear, 1 element per beam | 504 | 1,280 | 138.3 ms | 147.4 ms | difficult ≤ 2 s |
-| Stress frame, nonlinear, 2 elements per beam | 504 | 4,124 | 451.2 ms | 468.5 ms | difficult ≤ 2 s |
+| Game-sized frame, linear | 46 | 376 | 3.8 ms | 6.5 ms | preview p95 ≤ 50 ms |
+| Game-sized frame, nonlinear | 46 | 376 | 15.3 ms | 18.2 ms | turn ≤ 250 ms |
+| Stress frame, linear, 1 element per beam | 504 | 1,280 | 23.6 ms | 27.2 ms | |
+| Stress frame, linear, 2 elements per beam | 504 | 4,124 | 65.4 ms | 78.2 ms | |
+| Stress frame, nonlinear, 1 element per beam | 504 | 1,280 | 112.2 ms | 124.0 ms | difficult ≤ 2 s |
+| Stress frame, nonlinear, 2 elements per beam | 504 | 4,124 | 331.7 ms | 390.0 ms | difficult ≤ 2 s |
 
-The ordinary preview, ordinary turn and difficult nonlinear cases met their targets in this run. The 4,124-DOF linear stress run took 82.5 ms at p95. An earlier run during development with other suites active took 2,286.5 ms for the largest nonlinear stress case. These measurements cover the kernel on this host. Production browser rendering, worker scheduling, private saves and device variation require separate measurements.
+The ordinary preview, ordinary turn and difficult nonlinear cases met their targets in this run. The 4,124-DOF linear stress run took 78.2 ms at p95. An earlier run during development with other suites active took 2,286.5 ms for the largest nonlinear stress case. These measurements cover the kernel on this host. Production browser rendering, worker scheduling, private saves and device variation require separate measurements.
 
 The 4,124-DOF case was profiled separately with 40 linear calls. Of the sampled CPU time, 65.4% went to the skyline LDLᵀ factorization, 4.4% to element assembly, 2.4% to forward/back substitution and 1.7% to system construction. The optimized WASM factor uses packed two-lane double-precision multiply and add. The native phase harness measured 44.3 ms for one factorization, 3.7 ms for system construction and 1.4 ms for one substitution. Closing the measured preview gap calls for work on the matrix algorithm. The measured binary retains its validated factorization and both elements per beam.
 
