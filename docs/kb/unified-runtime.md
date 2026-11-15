@@ -1,7 +1,8 @@
 ---
 title: "Unified Game Runtime"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
+  - docs/kb/grow-dusk-runtime.md
   - "origin/ftroshani at 93851e99692255cd64c2f9f23a64da417e82c782, prototypes/game-environment"
   - "Owner direction to use the prototype branch for visual layouts, styles, and graphics"
   - apps/web/src/pages/Home.tsx
@@ -25,6 +26,8 @@ status: partial
 ---
 
 # Unified Game Runtime
+
+The normal title-screen Play action now enters the [Grow Dusk release match](grow-dusk-runtime.md). The following environment and setup notes describe the secondary workspaces.
 
 The visual references are the five standalone environments from the [prototype branch at the captured revision](https://github.com/Degrees-of-Freedom/Degrees-of-Freedom-The-Game-/tree/93851e99692255cd64c2f9f23a64da417e82c782/prototypes/game-environment). The original launcher described four environments; Grow Dusk was present separately and is included here. Launcher images in `apps/web/public/environments` are captures of those original WebGL environments. The full-screen workspace ports their arrangements, palettes, and control groups into React and Three.js. The reference pages and their shared JavaScript model do not run in the app.
 

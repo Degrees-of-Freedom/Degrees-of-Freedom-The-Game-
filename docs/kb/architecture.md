@@ -1,7 +1,8 @@
 ---
 title: "Architecture"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
+  - docs/kb/grow-dusk-runtime.md
   - docs/kb/turn-criteria.md
   - package.json
   - apps/web/src/game
@@ -28,6 +29,8 @@ status: partial
 ---
 
 # Architecture
+
+The normal match has a dedicated route, an IndexedDB transaction coordinator and an End Turn worker that reuses the versioned TurnState domain. The release board and engineering inspector consume that state. See the [release runtime and recovery boundary](grow-dusk-runtime.md).
 
 The npm workspace contains a React and TypeScript site in `apps/web`, using React Router, Zustand, Three.js and Vite. The shared `packages/solver-contract` defines two contracts: the original structural model, result types and asynchronous adapter interface, and a detailed analysis model and result written against the solver criteria. TypeScript project references build the shared package before the app.
 
