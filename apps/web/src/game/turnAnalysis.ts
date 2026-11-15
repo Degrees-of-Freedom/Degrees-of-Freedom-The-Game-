@@ -9,6 +9,8 @@ import { assessCardCapacity } from '../solver/voxelCapacity';
 import type { VoxelLevel, VoxelModel } from '../solver/voxelInput';
 import { createTurnSolver } from '../solver/wasm/turnSolver';
 import type { WasmSource } from '../solver/wasm/wasmSolver';
+import { isReleaseCatalogue } from './cardCatalogue';
+import { attachmentId, isInteriorSite } from './attachmentSites';
 
 let releaseSolver = createTurnSolver();
 /** Initialize once in the transaction worker before replaying or assessing
@@ -28,10 +30,15 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
   const attrs: VoxelModel['attrs'] = {};
   const positions: NonNullable<VoxelModel['positions']> = {};
   const inactiveRotations = new Set<string>();
+  // Fixed collars identify the same six-DOF analytical node while preserving
+  // every physical source/target id in the turn model. Coincidence is irrelevant.
+  const canonical = (id: string) => analysisLoadJoint(turn, id);
   for (const joint of turnJoints(turn)) {
-    attrs[joint.id] = joint.foundationOwner ? { found: true, locked: true } : { joint: true };
-    if (joint.point) positions[joint.id] = parseNodeKey(joint.point);
-    if (!joint.foundationOwner) inactiveRotations.add(joint.id);
+    const key = canonical(joint.id);
+    attrs[key] = { ...attrs[key], ...(joint.foundationOwner ? { found: true, locked: true } : { joint: true }) };
+    positions[key] = parseNodeKey(joint.point ?? joint.id);
+    if (!joint.foundationOwner && !attrs[key].found) inactiveRotations.add(key);
+    else inactiveRotations.delete(key);
   }
   for (const load of [...turn.board.loads, ...turn.draft.loads]) {
     const joint = attrs[analysisLoadJoint(turn, load.jointId)];
@@ -42,7 +49,7 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
     const spring = member.springStiffnessNPerM === undefined ? {} : { springStiffnessNPerM: member.springStiffnessNPerM };
     function end(side: 'a' | 'b', point: string) {
       const connection = connections.get(`${id}:${side}`);
-      const key = connection?.jointId ?? `endpoint:${id}:${side}`;
+      const key = connection ? canonical(connection.jointId) : `endpoint:${id}:${side}`;
       if (!connection) positions[key] = parseNodeKey(point);
       const profile = connection?.profile ?? 'fixed';
       const axial = type === 'cable' || type === 'spring';
@@ -75,7 +82,8 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
           ...(part.chord && {unbracedLengthM: chordLength})},
       }));
     }
-    const ports = originalPorts(member).filter(port => port.available && attrs[port.id]);
+    const ports = originalPorts(member).filter(port => port.available && attrs[canonical(port.id)])
+      .map(port => ({ ...port, id: canonical(port.id) }));
     if (!ports.length) return [{ id, a: start.key, b: finish.key, type, ...spring, endA: start.profile, endB: finish.profile,
       ...(member.restLengthM !== undefined && {restLengthM: member.restLengthM}),
       ...(start.law && {connectionA:start.law}), ...(finish.law && {connectionB:finish.law}) }];
@@ -103,11 +111,30 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
 /** Scoring uses card gravity alone. Ordinary experimental previews retain their original load case. */
 export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card-gravity' = 'with-self-weight') {
   const input = toTurnVoxelInput(turn);
-  const release = turn.catalogue === 'grow-dusk-release-1';
+  const release = isReleaseCatalogue(turn.catalogue);
   const response = release ? releaseSolver.analyze(input, turn.catalogue)
     : analyzeVoxel(input, { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });
+  const fittings = [...turn.board.connections, ...turn.draft.connections];
+  const bySource = new Map(fittings.map(c => [attachmentId(c.memberId, c.end), c]));
+  const collarLoads = [...turn.board.loads, ...turn.draft.loads].flatMap(load => {
+    let target = load.jointId;
+    const visited = new Set<string>();
+    // A load on an attached endpoint acts at its receiving joint. Attribute
+    // it to the first collar source encountered, then let nested-collar demand
+    // recovery carry it onward exactly once. A host-joint load never crosses
+    // the collar merely because its analytical node has been aliased.
+    while (!visited.has(target)) {
+      visited.add(target);
+      const connection = bySource.get(target);
+      if (!connection) break;
+      if (isInteriorSite(connection.end)) return [{ memberId: connection.memberId, end: connection.end,
+        force: [0, 0, -load.magnitude] as [number, number, number] }];
+      target = connection.jointId;
+    }
+    return [];
+  });
   const capacity = release || loading === 'card-gravity'
-    ? assessCardCapacity(input, response, [...turn.board.connections, ...turn.draft.connections])
+    ? assessCardCapacity(input, response, fittings, collarLoads)
     : undefined;
   const physicalParents = new Map(input.members.filter(m => m.parentSpan).map(m => [m.id, m.parentSpan!.memberId]));
   return { ...response, capacity, physicalParents };

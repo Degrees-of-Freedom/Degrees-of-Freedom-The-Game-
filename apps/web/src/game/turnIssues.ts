@@ -3,6 +3,7 @@ import { analyzeTurn, toTurnVoxelInput } from './turnAnalysis';
 import { rigidBodyWitnesses } from '../solver/rigidBodyFreedom';
 import type { CapacityCheck } from '../solver/voxelCapacity';
 import { verifiedResponse } from '../solver/voxelVerification';
+import type { AttachmentSite } from './attachmentSites';
 
 export const ISSUE_POLICY = 'card-gravity-issues-1' as const;
 const overloadEntry = 1.001, overloadExit = 0.999, worseningIncrement = 0.10;
@@ -14,7 +15,7 @@ export interface IssueFinding {
   id: string;
   category: IssueCategory;
   memberId: number;
-  end?: 'a' | 'b';
+  end?: AttachmentSite;
   validity: 'verified' | 'unknown';
   active: boolean | null;
   reason: string;
@@ -33,7 +34,7 @@ export interface IssueChange {
   id: string;
   category: IssueCategory;
   memberId: number;
-  end?: 'a' | 'b';
+  end?: AttachmentSite;
   change: 'new' | 'worsened' | 'persistent' | 'improved' | 'resolved' | 'unknown';
   eligible: boolean;
   before: IssueFinding | null;
