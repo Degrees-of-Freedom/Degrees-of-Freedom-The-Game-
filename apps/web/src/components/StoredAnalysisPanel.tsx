@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createAnalysisResultsStore, parseStructuralAnalysisRequest, type StructuralAnalysisResult } from '@dof/solver-contract';
-import { LOCAL_OPENSEES_URL } from '../solver';
+import { getSettings } from '../menu/settings';
 import { runStoredOpenSees } from '../solver/runStoredOpenSees';
 import { exampleStructuralRequest } from '../solver/exampleStructuralRequest';
 
@@ -29,8 +29,8 @@ export function StoredAnalysisPanel() {
     } catch { setRuns([]); setMessage('Browser storage is unavailable.'); }
   }
   async function run() {
-    const baseUrl = import.meta.env.VITE_OPENSEES_URL || (import.meta.env.DEV ? LOCAL_OPENSEES_URL : undefined);
-    if (!baseUrl) { setMessage('No OpenSees service is configured.'); return; }
+    // This flow always uses OpenSees, at the address chosen in Settings.
+    const baseUrl = getSettings().openSeesUrl;
     if (new TextEncoder().encode(text).byteLength > 2_000_000) { setMessage('The request must be smaller than 2 MB.'); return; }
     let request;
     try { request = parseStructuralAnalysisRequest(JSON.parse(text)); }

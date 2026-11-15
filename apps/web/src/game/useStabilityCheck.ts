@@ -27,9 +27,9 @@ const isDetailedSolver = (solver: SolverAdapter): solver is SolverAdapter & Deta
 /**
  * Run the shared-contract solver on a game model, alongside the voxel analysis.
  *
- * The returned check always belongs to `model` and `level`, because the level
- * decides the loads: editing the model or changing level returns the check
- * to idle, and starting a new run cancels the previous one, so a slow
+ * The returned check always belongs to `model`, `level` and `solver`, because
+ * the level decides the loads: editing the model, changing level or switching
+ * solver in Settings returns the check to idle, and starting a new run cancels the previous one, so a slow
  * response can never be shown against a structure it does not describe.
  */
 export function useStabilityCheck(
@@ -40,6 +40,7 @@ export function useStabilityCheck(
   const [state, setState] = useState<{
     model: GameModel;
     level: Level;
+    solver: SolverAdapter;
     check: StabilityCheck;
   } | null>(null);
   const inFlight = useRef<AbortController | null>(null);
@@ -51,7 +52,7 @@ export function useStabilityCheck(
       inFlight.current?.abort();
       const controller = new AbortController();
       inFlight.current = controller;
-      setState({ model: target, level, check: { phase: 'running' } });
+      setState({ model: target, level, solver, check: { phase: 'running' } });
 
       let check: StabilityCheck;
       try {
@@ -69,13 +70,16 @@ export function useStabilityCheck(
         check = { phase: 'done', result: { status: 'error', message }, notes: [] };
       }
       if (controller.signal.aborted) return;
-      setState({ model: target, level, check });
+      setState({ model: target, level, solver, check });
     },
     [solver],
   );
 
   return {
-    check: state?.model === model && state.level === level ? state.check : IDLE,
+    check:
+      state?.model === model && state.level === level && state.solver === solver
+        ? state.check
+        : IDLE,
     run,
     /** Display name of the solver that produces the check. */
     solverName: solver.name,
