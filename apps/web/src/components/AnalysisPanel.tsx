@@ -1,5 +1,6 @@
 import type { VoxelAnalysis } from "../solver/voxel";
 import { computeLoadPath } from "../solver/loadPath";
+import type { DeformationField } from "../viewer/deformationField";
 interface AnalysisPanelProps {
   result: VoxelAnalysis | null;
   message: string;
@@ -9,6 +10,13 @@ interface AnalysisPanelProps {
   setDeformed: (value: boolean) => void;
   scale: number;
   setScale: (value: number) => void;
+  field?: DeformationField;
+  actualScale: number;
+  reference: boolean;
+  setReference: (value: boolean) => void;
+  shared: boolean;
+  scored: boolean;
+  draft: boolean;
   utilization: boolean;
   setUtilization: (value: boolean) => void;
   loads: boolean;
@@ -26,6 +34,7 @@ export function AnalysisPanel({
   setDeformed,
   scale,
   setScale,
+  field, actualScale, reference, setReference, shared, scored, draft,
   utilization,
   setUtilization,
   loads,
@@ -162,12 +171,15 @@ export function AnalysisPanel({
           </details>
           {result.designChecksAvailable === false && (
             <p>
-              Applied-load response includes self-weight. Capacity and buckling
-              checks require design load combinations.
+              {scored ? (draft ? "Draft preview · staged and persistent gravity cards combined."
+                : "Committed board · all persistent gravity cards combined.")
+                : "Applied-load response includes self-weight."}
             </p>
           )}
-          <div className="view-options"><h4>Visualize in the scene</h4><p className="result-caption">Choose a load case, then compare the shape, forces and supports.</p>
-            <label>
+          <div className="view-options">
+            <h4>Visualize in the scene</h4>
+            <p className="result-caption">Compare the shape, forces and supports for the current load case.</p>
+            {!shared && result.combos.length > 1 && <label>
               Load case{" "}
               <select
                 value={combo}
@@ -179,7 +191,7 @@ export function AnalysisPanel({
                   </option>
                 ))}
               </select>
-            </label>
+            </label>}
             <label>
               <input
                 type="checkbox"
@@ -189,17 +201,19 @@ export function AnalysisPanel({
               />{" "}
               Deformed shape (exaggerated)
             </label>
-            <label>
-              Visual amplification · {scale.toFixed(1)}×{" "}
-              <input
-                type="range"
-                min="0.1"
-                max="3"
-                step="0.1"
-                value={scale}
-                onChange={(e) => setScale(Number(e.target.value))}
-              />
-            </label>
+            {deformed && <>
+              <label>Displacement scale
+                <select aria-label="Displacement scale" value={scale} onChange={e => setScale(Number(e.target.value))}>
+                  <option value={0}>Automatic</option>
+                  <option value={1}>True displacement (1×)</option>
+                  {[10,50,100,250,500].map(n => <option key={n} value={n}>{n}×</option>)}
+                </select>
+              </label>
+              <label><input type="checkbox" checked={reference} onChange={e => setReference(e.target.checked)} /> Undeformed reference</label>
+              <p role="status">Displacement shown at {actualScale}×. {field?.unavailable.size
+                ? "Reference geometry only for members " + [...field.unavailable].map(id => "#" + id).join(", ") + "."
+                : ""}</p>
+            </>}
             <label>
               <input
                 type="checkbox"
@@ -238,7 +252,7 @@ export function AnalysisPanel({
               Loads and reactions
             </label>
           </div>
-          <p className="result-caption">Shape is automatically exaggerated for visibility; the slider multiplies that exaggeration. Read displacement in mm above.</p>
+          <p className="result-caption">Automatic scale exaggerates displacement for visibility. Choose true displacement or a fixed multiplier using Displacement scale. Read displacement in mm above.</p>
           <p>Approximate prototype results; not for engineering design.</p>
         </>
       )}

@@ -167,7 +167,7 @@ const TOGGLES: { key: ToggleKey; title: string; text: string }[] = [
   {
     key: "sound",
     title: "Sound",
-    text: "Stored for later. The editor sound is switched on in the workspace with the ♪ button or M.",
+    text: "Play game sound effects. Press M or use the ♪ button on the board to toggle sound.",
   },
   {
     key: "reducedMotion",
@@ -202,6 +202,16 @@ export function SettingToggles() {
             />
             <span className="track" />
           </span>
+        </label>
+      ))}
+      {(["masterVolume", "effectsVolume"] as const).map(key => (
+        <label className="setting" key={key}>
+          <span><b>{key === "masterVolume" ? "Master volume" : "Effects volume"}</b>
+            <span className="d">{settings[key]}%</span></span>
+          <input type="range" min="0" max="100" value={settings[key]} style={{ accentColor: "var(--amber)" }}
+            aria-label={key === "masterVolume" ? "Master volume" : "Effects volume"}
+            aria-valuetext={settings[key] + "%"}
+            onChange={event => updateSettings({ [key]: Number(event.target.value) })} />
         </label>
       ))}
     </>

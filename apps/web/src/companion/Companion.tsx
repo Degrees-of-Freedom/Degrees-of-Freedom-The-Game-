@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { FigureName } from "./figure";
 import type { PublicRepairReport } from "../game/publicRepairReport";
 import { RepairExplanation } from "./RepairExplanation";
+import { useSettings } from "../menu/settings";
 import "./companion.css";
 
 type Area = "home" | "menu" | "board" | "drawer";
@@ -67,33 +68,59 @@ function Figure({ name, retry, onFailure }: {
   </span>;
 }
 
-export function Companion({ area, repairs, announceRepair = false, onPresented }: {
+export function Companion({ area, repairs, announceRepair = false, onPresented, onForemanAccent }: {
   area: Area;
   repairs?: PublicRepairReport[];
   announceRepair?: boolean;
   onPresented?: () => void;
+  onForemanAccent?: () => void | (() => void);
 }) {
   const id = useId();
+  const settings = useSettings();
   const button = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState(false), [foreman, setForeman] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [foreman, setForeman] = useState<"preview" | "reaction" | null>(null);
   const [failed, setFailed] = useState(false), [retry, setRetry] = useState(0);
   const [selectedTurn, setSelectedTurn] = useState<number | null>(null);
+  const presentedTurn = useRef<number | null>(null);
+  const stopAccent = useRef<(() => void) | null>(null);
+  const latest = repairs?.at(-1);
   const repair = repairs?.find(entry => entry.turn === selectedTurn) ?? repairs?.at(-1);
   useEffect(() => {
-    if (announceRepair) {
+    if (announceRepair && latest && presentedTurn.current !== latest.turn) {
+      presentedTurn.current = latest.turn;
       setSelectedTurn(null);
-      setForeman(false);
+      setForeman(latest.foreman ? "reaction" : null);
+      if (latest.foreman && settings.sound && !document.hidden) stopAccent.current = onForemanAccent?.() ?? null;
       setOpen(true);
       onPresented?.();
     }
-  }, [announceRepair, onPresented]);
+  }, [announceRepair, latest, onPresented, onForemanAccent, settings.sound]);
+  useEffect(() => {
+    if (foreman !== "reaction") return;
+    const settle = () => { setForeman(null); setFailed(false); };
+    const timer = window.setTimeout(settle, 4000);
+    const hidden = () => { if (document.hidden) settle(); };
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", hidden);
+      stopAccent.current?.();
+      stopAccent.current = null;
+    };
+  }, [foreman]);
+  useEffect(() => {
+    if (!settings.sound) stopAccent.current?.();
+    return () => { stopAccent.current?.(); };
+  }, [settings.sound]);
   const name = foreman ? "Conkeldurr" : "Timburr";
   function close() {
     setOpen(false);
-    if (foreman) { setForeman(false); setFailed(false); }
+    if (foreman) { setForeman(null); setFailed(false); }
     button.current?.focus();
   }
   return <aside className={"companion companion-" + area} aria-label="Site companion"
+    data-foreman={foreman ?? undefined} data-motion={settings.reducedMotion ? "reduced" : "system"}
     onKeyDown={e => {
       if (open && e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); }
     }}>
@@ -103,19 +130,20 @@ export function Companion({ area, repairs, announceRepair = false, onPresented }
       <Figure key={name} name={foreman ? "conkeldurr" : "timburr"} retry={retry} onFailure={setFailed} />
       <span>{name}</span>
     </button>
-    {open && <div id={id} className={"companion-note" + (repair && !foreman ? " companion-repair" : "")}>
-      {repair && !foreman ? <>
+    {open && <div id={id} className={"companion-note" + (repair && foreman !== "preview" ? " companion-repair" : "")}>
+      {foreman === "reaction" && <span className="companion-announcement" role="status">Conkeldurr has a foreman report for turn {repair?.turn}.</span>}
+      {repair && foreman !== "preview" ? <>
         {repairs && repairs.length > 1 && <label>Recorded repair
-          <select value={repair.turn} onChange={e => setSelectedTurn(Number(e.target.value))}>
+          <select value={repair.turn} onChange={e => { setForeman(null); setSelectedTurn(Number(e.target.value)); }}>
             {repairs.map(entry => <option key={entry.turn} value={entry.turn}>Turn {entry.turn}</option>)}
           </select>
         </label>}
-        <RepairExplanation report={repair} />
+        <RepairExplanation report={repair} foreman={foreman === "reaction"} />
       </> : <p>{foreman ? "Conkeldurr · Foreman preview" : area === "board" || area === "drawer"
         ? "Got a tricky joint? Inspect it to see which ends are connected."
         : "Ready to build? Pick a game mode and I’ll meet you on the board."}</p>}
-      <button type="button" onClick={() => { setFailed(false); setForeman(!foreman); }}>
-        {foreman ? "Back to Timburr" : "Preview Conkeldurr"}
+      <button type="button" onClick={() => { setFailed(false); setForeman(foreman ? null : "preview"); }}>
+        {foreman === "reaction" ? "Skip transformation" : foreman ? "Back to Timburr" : "Preview Conkeldurr"}
       </button>
       {failed && <button type="button" onClick={() => { setFailed(false); setRetry(value => value + 1); }}>
         Retry 3D model

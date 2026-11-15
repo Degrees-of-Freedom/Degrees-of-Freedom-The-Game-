@@ -61,6 +61,8 @@ export type ElementForce = {
   f: Float64Array;
   ul: Float64Array;
   slack?: boolean;
+  /** Magnitude along the actual deformed chord, in kN. End vectors remain in the reference frame. */
+  cableTension?: number;
 };
 export type Solved = {
   u: Float64Array;
@@ -97,6 +99,8 @@ export function displacementAt(combo: Combo | undefined, active: number): Float6
 }
 /** Prototype analysis in kN and metres. Results are approximate and not engineering design. */
 export interface VoxelAnalysis {
+  /** Turn projection of analytical submembers onto their playable card, including unsolved regions. */
+  physicalParents?: ReadonlyMap<number, number>;
   error?: string;
   mechanism: boolean;
   /** A supported component exceeded the numerical solver's available scope. */

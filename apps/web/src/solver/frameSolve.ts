@@ -3,6 +3,7 @@ import { recover } from './frameElement';
 import { cholesky, cholSolve } from './frameMath';
 import { inactiveConnectorSpins } from './frameSpins';
 import { validFrameConnection } from './frameConnections';
+import { solveCableEquilibrium } from './cableEquilibrium';
 function assemble(ctx: FrameSystem, active: Map<Element, boolean>) {
   const { nf, els } = ctx,
     K = new Float64Array(nf * nf);
@@ -32,6 +33,7 @@ export function solveCombo(
   if (els.some(e => e.connector && !e.connector.reduction.stable)) return { fail: true };
   const inactiveSpins = inactiveConnectorSpins(ctx, F);
   if (!inactiveSpins) return { fail: true };
+  if (els.some(e => e.cable && e.m.restLengthM !== undefined)) return solveCableEquilibrium(ctx,F,inactiveSpins);
   const cables = els.filter((e) => e.cable);
   const active = new Map(cables.map((e) => [e, true]));
   let u = new Float64Array(NA * 6),

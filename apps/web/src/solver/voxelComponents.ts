@@ -130,7 +130,7 @@ export function solveComponents(
     // combinations retain their existing checks and numerical work budget.
     const checkApplied = combo.type === 'SLS' && combo.dir.every(value => value === 0);
     if (combo.type === 'ULS' || checkApplied) {
-      const critical = checkApplied && elements.some(element => element.cable)
+      const critical = checkApplied && elements.some(element => element.cable && element.m.restLengthM === undefined)
         ? null : alphaCr(frame, solved, checkApplied ? minimumBucklingFactor : undefined);
       if (checkApplied) verificationInputs.push({ scope, system, factor: critical });
       if (combo.type === 'ULS' && critical !== null) {

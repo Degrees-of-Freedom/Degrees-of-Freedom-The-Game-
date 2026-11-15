@@ -37,6 +37,7 @@ import { createJointGlyphs } from "./jointGlyphs";
 /** Three.js owns only presentation and picking; the game store owns the model and rules. */
 export function Scene({
   jointLayer,
+  field, reference,
   result,
   combo,
   deformed,
@@ -50,6 +51,7 @@ export function Scene({
 }: SceneView) {
   const view = useRef<SceneView>({
     jointLayer,
+    field, reference,
     result,
     combo,
     deformed,
@@ -63,6 +65,7 @@ export function Scene({
   });
   view.current = {
     jointLayer,
+    field, reference,
     result,
     combo,
     deformed,
@@ -78,10 +81,10 @@ export function Scene({
   const refreshPermissions = useRef<() => void>(() => {});
   useEffect(() => {
     refreshPermissions.current();
-  }, [jointLayer, result, combo, deformed, scale]);
+  }, [jointLayer, result, combo, deformed, scale, field]);
   useEffect(() => {
     refresh.current();
-  }, [result, combo, deformed, scale, utilization, loads, loadPath]);
+  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath]);
   const workK = useGameStore((state) => state.workK);
   const style = useGameStore((state) => state.style);
   const host = useRef<HTMLDivElement>(null);

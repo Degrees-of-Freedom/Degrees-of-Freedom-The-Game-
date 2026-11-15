@@ -4,6 +4,7 @@ import { CELL_SIZE, type Member } from '../game/model';
 import { springParts } from '../game/springParts';
 import { localAxes } from '../solver/frameMath';
 import type { VoxelAnalysis } from '../solver/voxelResults';
+import { verifiedResponse } from '../solver/voxelVerification';
 
 /** Displacement at an unactivated collar interpolates the ends of its exact
  * condensed spring segment. Use coordinates from verified regions only. */
@@ -15,7 +16,7 @@ export function springDisplayAxis(
   if (!ctx || !combo) return;
   const segments = ctx.els.filter(e => (e.m.parentSpan?.memberId ?? e.m.id) === parentId);
   if (!segments.length || !combo.components?.some(c =>
-    c.verification?.status === 'verified-linear' && c.memberIds.includes(segments[0].m.id))) return;
+    verifiedResponse(c.verification) && c.memberIds.includes(segments[0].m.id))) return;
   const ranges = segments.map(e => ({
     start: (e.m.parentSpan?.fromQuarter ?? 0)/4, end: (e.m.parentSpan?.toQuarter ?? 4)/4,
     a: point(e.m.a), b: point(e.m.b),

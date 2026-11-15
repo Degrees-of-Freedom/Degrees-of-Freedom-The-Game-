@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { CELL_SIZE, parseNodeKey, type GridPoint } from '../game/model';
 import { addSceneLabel, forceLabel } from './sceneLabels';
 import type { SceneView } from './sceneView';
-import { displacementAt } from '../solver/voxelResults';
 export const basePoint = (key: string) =>
   new THREE.Vector3(
     ...(parseNodeKey(key).map((v) => v * CELL_SIZE) as GridPoint),
@@ -17,20 +16,15 @@ export function viewBasePoint(key: string, view: SceneView) {
     : basePoint(key);
 }
 export function displayPoint(key: string, v: SceneView) {
-  const p = viewBasePoint(key, v),
-    result = v.result,
-    c = result?.combos[v.combo],
-    index = result?.ctx?.idx.get(key),
-    active = index === undefined ? -1 : (result?.ctx?.aid[index] ?? -1);
-  const displacement = v.deformed && displacementAt(c, active);
-  if (displacement && c) {
-    const factor = Math.min(500, 1.2 / (c.maxD || 1)) * v.scale;
+  const p = viewBasePoint(key, v);
+  const displacement = v.deformed && v.field?.nodes.get(key);
+  if (displacement) {
     p.add(
       new THREE.Vector3(
         displacement[0],
         displacement[1],
         displacement[2],
-      ).multiplyScalar(factor),
+      ).multiplyScalar(v.scale),
     );
   }
   return p;

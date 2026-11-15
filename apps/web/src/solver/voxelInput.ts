@@ -3,6 +3,8 @@ import type { FrameConnection } from './frameConnections';
 export type VoxelMemberType = 'shs' | 'glulam' | 'ipe' | 'heb' | 'cable' | 'spring';
 export interface VoxelMember {
   id: number; a: string; b: string; type: VoxelMemberType;
+  /** Unstressed length of this particular versioned cable segment, metres. */
+  restLengthM?: number;
   endA?: 'fixed' | 'ball'; endB?: 'fixed' | 'ball';
   /** Physical six-axis interface, when supplied by a printed frame connector. */
   connectionA?: FrameConnection; connectionB?: FrameConnection;

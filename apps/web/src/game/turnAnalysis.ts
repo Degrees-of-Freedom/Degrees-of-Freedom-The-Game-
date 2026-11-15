@@ -64,16 +64,18 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
     }
     const ports = originalPorts(member).filter(port => port.available && attrs[port.id]);
     if (!ports.length) return [{ id, a: start.key, b: finish.key, type, endA: start.profile, endB: finish.profile,
+      ...(member.restLengthM !== undefined && {restLengthM: member.restLengthM}),
       ...(start.law && {connectionA:start.law}), ...(finish.law && {connectionB:finish.law}) }];
     // Parent continuity passes all six DOFs across internal stations, even if
     // a new external connector releases moment at that same location.
-    if (type !== 'spring') for (const port of ports) inactiveRotations.delete(port.id);
+    if (type !== 'spring' && type !== 'cable') for (const port of ports) inactiveRotations.delete(port.id);
     const stations = [{ id: start.key, quarter: 0 }, ...ports, { id: finish.key, quarter: 4 }];
     return stations.slice(1).map((to, i) => {
       const from = stations[i];
       return {
         // Player IDs are positive. Analytical pieces never re-enter the playable catalogue.
         id: -(id * 4 + from.quarter), type, a: from.id, b: to.id,
+        ...(member.restLengthM !== undefined && {restLengthM: member.restLengthM * (to.quarter-from.quarter)/4}),
         endA: i === 0 ? start.profile : 'fixed',
         endB: to.quarter === 4 ? finish.profile : 'fixed',
         ...(i === 0 && start.law && {connectionA:start.law}),
@@ -92,7 +94,8 @@ export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card
   const capacity = loading === 'card-gravity'
     ? assessCardCapacity(input, response, [...turn.board.connections, ...turn.draft.connections])
     : undefined;
-  return { ...response, capacity };
+  const physicalParents = new Map(input.members.filter(m => m.parentSpan).map(m => [m.id, m.parentSpan!.memberId]));
+  return { ...response, capacity, physicalParents };
 }
 
 export function assessTurn(turn: TurnState): 'stable' | 'unstable' | 'partial' | 'unresolved' {
