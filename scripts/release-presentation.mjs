@@ -19,11 +19,13 @@ try {
   browser = await chromium.launch(launch);
   evidence.browser = browser.version();
   await mkdir(output, { recursive: true });
-  for (const scenario of ["keyboard", "tablet-layout", "portrait-recovery", "narrow-layout", "device-failures", "native-zoom", "model-failure", "decoder-failure", "full-hand"]) {
+  for (const scenario of ["keyboard", "tablet-layout", "portrait-recovery", "narrow-layout", "device-failures", "native-zoom", "model-failure", "decoder-failure", "full-hand", "companion"]) {
+    if (process.env.DOF_PRESENTATION_CASE && scenario !== process.env.DOF_PRESENTATION_CASE) continue;
     const viewport = scenario === "tablet-layout" ? { width: 1024, height: 768 }
       : scenario === "portrait-recovery" ? { width: 412, height: 915 }
       : scenario === "narrow-layout" ? { width: 683, height: 384 } : { width: 1366, height: 900 };
-    const layout = { viewport, hasTouch: scenario === "tablet-layout" || scenario === "portrait-recovery", reducedMotion: "reduce" };
+    const layout = { viewport, hasTouch: scenario === "tablet-layout" || scenario === "portrait-recovery",
+      reducedMotion: scenario === "companion" ? "no-preference" : "reduce" };
     // The browser's own zoom preference is profile-scoped. Playwright creates
     // and removes an isolated temporary profile for this single test.
     const context = scenario === "native-zoom" ? await chromium.launchPersistentContext("", { ...launch, ...layout })
@@ -36,6 +38,7 @@ try {
         await page.getByRole("combobox", { name: "Page zoom", exact: true }).selectOption({ label: "200%" });
       }
       const errors = [];
+      let companionResult;
       page.on("pageerror", error => errors.push(error.message));
       const blocked = scenario === "model-failure" ? "**/companion/timburr.glb"
         : scenario === "decoder-failure" ? "**/companion/draco/**" : undefined;
@@ -74,13 +77,21 @@ try {
         } else await control.selectOption({ index });
         assert.equal(await control.evaluate(el => el.selectedIndex), index);
       }
+      async function drawFour() {
+        for (const deck of ["members", "members", "connections", "loads"]) {
+          const preferred = page.locator('[data-deck="' + deck + '"]');
+          await activate(await preferred.isEnabled() ? preferred : page.locator("[data-deck]:enabled").first());
+        }
+        assert.equal(await page.locator("[data-deck]").count(), 0);
+      }
       await activate(page.getByRole("link", { name: "Play", exact: true }));
       const ready = button("Ready · Reveal my hand");
       await ready.waitFor();
       assert.equal(await page.locator("[data-card-id]").count(), 0);
       await activate(ready);
+      await drawFour();
       await page.getByRole("region", { name: "Active hand" }).waitFor();
-      assert.equal(await page.locator(".release-board").getAttribute("data-still"), "true");
+      assert.equal(await page.locator(".release-board").getAttribute("data-still"), String(layout.reducedMotion === "reduce"));
       const width = await page.evaluate(() => ({ body: document.documentElement.scrollWidth, viewport: innerWidth }));
       if (scenario === "native-zoom") {
         assert.ok(width.viewport >= viewport.width/2-1 && width.viewport <= viewport.width/2+1,
@@ -115,15 +126,15 @@ try {
         assert.equal(await page.locator(".figure-stage").getAttribute("data-view"), "portrait");
       }
       if (scenario === "full-hand") {
-        for (let i = 0; i < 6; i++) { await activate(button("Pass")); await activate(ready); }
+        for (let i = 0; i < 6; i++) { await activate(button("Pass")); await activate(ready); await drawFour(); }
         await activate(page.locator("[data-card-id]").last());
         await activate(button("Cancel targeting"));
         assert.ok(await page.locator(".release-cards").evaluate(el => el.scrollWidth > el.clientWidth && el.scrollLeft > 0));
       }
       await activate(button("Inspect"));
-      await activate(button("Inspect committed response"));
-      await page.getByLabel("Board overlay").waitFor();
-      await choose(page.getByLabel("Board overlay"), 3);
+      const boardOverlay = page.getByRole("combobox", {name:/^Board overlay/});
+      await boardOverlay.waitFor();
+      await choose(boardOverlay, 3);
       await page.getByText(/^Frame displacement/).waitFor();
       await page.getByText(/^Signed gravity transfer/).waitFor();
       await activate(page.getByText("Foundation forces and moments", { exact: true }));
@@ -150,7 +161,7 @@ try {
         assert.ok(fits, selector + " left the viewport while inspecting this hand");
       }
       await activate(button("Close inspection"));
-      const frame = page.locator('[data-kind="element"]').filter({ hasText: /HEB/i }).first();
+      const frame = page.locator('[data-kind="element"]').first();
       await activate(frame);
       await activate(page.getByText("Precise placement", { exact: true }));
       for (const [label, value] of [["End A grid x,y,z", "5,7,1"], ["End B grid x,y,z", "5,8,2"]]) {
@@ -175,22 +186,82 @@ try {
       await activate(button("End turn"));
       await ready.waitFor();
       assert.equal(await page.locator("[data-card-id], .companion-board").count(), 0);
-      if (scenario === "keyboard" || scenario === "model-failure") {
-        // The deliberately unattached HEB is a committed instability. Its
-        // public foreman cue may first appear after the incoming seat is ready.
+      if (["keyboard", "model-failure", "companion"].includes(scenario)) {
         await activate(ready);
-        const report = page.getByText("Conkeldurr has a foreman report for turn 1.", { exact: true });
-        await report.waitFor();
-        assert.equal(await page.locator(".companion-board").getAttribute("data-foreman"), "reaction");
-        if (scenario === "model-failure") await activate(button("Skip transformation"));
-        await button("Talk to Timburr").waitFor({ timeout: 7000 });
-        assert.equal(await report.count(), 0);
+        const warning = page.locator('.companion-note[data-instability="true"]');
+        // The first committed turn is waiting on the third-turn checkpoint.
+        assert.equal(await warning.count(), 0);
+        assert.equal(await page.locator(".companion-board").getAttribute("data-foreman"), null);
+        if (scenario !== "keyboard") {
+          // Separate loose members create distinct charged turns for both
+          // seats. Reload after their second pair to exercise restored counts.
+          for (let turn = 2; turn <= 6; turn++) {
+            await drawFour();
+            if (turn < 6) {
+              await activate(page.locator('[data-kind="element"]').first());
+              await activate(page.getByText("Precise placement", { exact: true }));
+              await page.getByLabel("End A grid x,y,z").fill(`${turn*2},6,4`);
+              await page.getByLabel("End B grid x,y,z").fill(`${turn*2},7,4`);
+              await activate(button("Stage element"));
+              await activate(button("End turn"));
+            } else await activate(button("Pass"));
+            await ready.waitFor();
+            assert.equal(await page.locator(".companion-board").count(), 0);
+            if (turn === 6) {
+              await page.evaluate(() => {
+                window.companionPhases = [];
+                const watch = new MutationObserver(() => {
+                  const actor = document.querySelector(".companion-board[data-foreman]");
+                  if (!actor || window.companionPhases.at(-1)?.phase === actor.dataset.foreman) return;
+                  window.companionPhases.push({phase:actor.dataset.foreman,
+                    motion:getComputedStyle(actor.querySelector(".figure-motion")).animationName});
+                });
+                watch.observe(document.body, {subtree:true, attributes:true, attributeFilter:["data-foreman"], childList:true});
+              });
+            }
+            await activate(ready);
+            if (turn === 3 || turn === 6) await warning.waitFor();
+            else assert.equal(await warning.count(), 0);
+            if (turn < 6) assert.equal(await page.locator(".companion-board").getAttribute("data-foreman"), null);
+            if (turn === 4) {
+              await page.reload();
+              await activate(ready);
+              assert.equal(await warning.count(), 0);
+            }
+          }
+          await page.getByText("Conkeldurr has a foreman report for turn 5.", { exact: true }).waitFor();
+          await page.getByText(/Player 1 has 3 deductions/).waitFor();
+          const phases = await page.evaluate(() => window.companionPhases);
+          companionResult = { checkpoint:6, originatingTurn:5, player:1, chargedTurns:3, phases };
+          if (layout.reducedMotion === "reduce") {
+            assert.deepEqual(phases, [{ phase:"reaction", motion:"none" }]);
+            await activate(button("Skip transformation"));
+          } else {
+            assert.deepEqual(phases, [{phase:"shrink",motion:"foreman-shrink"}, {phase:"reaction",motion:"foreman-arrival"}]);
+            await page.locator('.companion-board[data-foreman="reaction"] .figure-motion').evaluate(async el => {
+              await Promise.all(el.getAnimations().map(animation => animation.finished));
+            });
+            await page.locator('.companion-board[data-foreman="reaction"] .figure-stage[data-view="model"]').waitFor();
+            await page.screenshot({path:resolve(output, "conkeldurr.png")});
+          }
+          await button("Talk to Timburr").waitFor({timeout:7000});
+          await page.reload(); await activate(ready);
+          assert.equal(await page.getByRole("button", {name:"Talk to Conkeldurr"}).count(), 0);
+        }
       }
       assert.deepEqual(errors, []);
-      evidence.cases.push({ scenario, viewport, cssWidth: width.viewport,
+      evidence.cases.push({ scenario, viewport, cssWidth: width.viewport, ...(companionResult && {companion:companionResult}),
         input: scenario === "keyboard" ? "keyboard only" : layout.hasTouch ? "emulated touch" : "mouse", result: "pass" });
+    } catch (error) {
+      const page = context.pages().at(-1);
+      if (page) {
+        console.error(scenario, await page.locator("h1, .release-status, .release-decks header, .companion-note").allTextContents());
+        await page.screenshot({path:resolve(output, scenario + "-failed.png")}).catch(() => {});
+      }
+      throw error;
     } finally { await context.close(); }
   }
+  assert.ok(evidence.cases.length, "No matching presentation case");
   await writeFile(resolve(output, "presentation.json"), JSON.stringify(evidence, null, 2));
   console.log(JSON.stringify(evidence));
 } finally {
