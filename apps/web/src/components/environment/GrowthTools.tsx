@@ -1,3 +1,4 @@
+import { placesFoundations } from "../../game/modes";
 import { useGameStore } from "../../game/store";
 import {
   parseNodeKey,
@@ -183,7 +184,7 @@ export function GrowthTools({
   }
 
   const tools = [
-    ...(creative && game.style === "grow-dusk" ? [{ id: "foundation", label: "Foundation", shortcut: "0", active: game.tool === "found", icon: <ConnectionIcon />, action: () => choose("found") }] : []),
+    ...(placesFoundations(game.mode) && game.style === "grow-dusk" ? [{ id: "foundation", label: "Foundation", shortcut: "0", active: game.tool === "found", icon: <ConnectionIcon />, action: () => choose("found") }] : []),
     {
       id: "member",
       label: "Member",

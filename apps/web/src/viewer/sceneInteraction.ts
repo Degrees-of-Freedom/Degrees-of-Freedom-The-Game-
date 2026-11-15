@@ -1,3 +1,4 @@
+import { placesFoundations } from "../game/modes";
 import * as THREE from "three";
 import { controlOwnsKey } from "./keyboardTarget";
 import { useGameStore } from "../game/store";
@@ -139,7 +140,7 @@ export function bindSceneInteraction(
         );
       }
       getView().onMessage?.(issue ?? "");
-    } else if (s.mode === "creative" && s.tool === "found") {
+    } else if (placesFoundations(s.mode) && s.tool === "found") {
       if (hit?.kind === "point") {
         const issue = s.placeFoundation(hit.p);
         getView().onMessage?.(issue ?? "");

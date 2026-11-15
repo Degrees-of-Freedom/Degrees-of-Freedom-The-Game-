@@ -10,7 +10,7 @@ import { isScoredCatalogue } from "../game/cardCatalogue";
 import { deformationField } from "../viewer/deformationField";
 import { useStabilityCheck } from "../game/useStabilityCheck";
 import { StabilityCheckPanel } from "../components/StabilityCheckPanel";
-import { modeProgress } from "../game/modes";
+import { modeProgress, placesFoundations } from "../game/modes";
 import { environmentExample } from "../game/environmentExamples";
 import { useEditorSound } from "../game/useEditorSound";
 import { createGameSave } from "../game/structuralState";
@@ -611,8 +611,10 @@ export function Workspace() {
         )}
         <div id="dock">
           <div id="hint" role="status">
-            {game.mode === "creative" && game.tool === "found"
-              ? "Click solid ground to place a fixed foundation or select an existing support"
+            {placesFoundations(game.mode) && game.tool === "found"
+              ? game.mode === "load-space"
+                ? "Click solid ground to place a fixed foundation"
+                : "Click solid ground to place a fixed foundation or select an existing support"
               : game.mode === "forensics"
               ? progress === "complete"
                 ? "Structure repaired · experimental checks passed"

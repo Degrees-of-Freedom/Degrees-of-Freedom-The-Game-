@@ -1,3 +1,4 @@
+import { placesFoundations } from "../game/modes";
 import * as THREE from "three";
 import { controlOwnsKey } from "./keyboardTarget";
 import { useGameStore } from "../game/store";
@@ -251,7 +252,7 @@ export function createPicker(
               h.face.normal.z > 0.5 &&
               h.object.userData.pickTerrain === true,
           );
-        if (s.mode === "creative" && tool === "found") {
+        if (placesFoundations(s.mode) && tool === "found") {
           // The diorama surface sits slightly below the physical grid.
           // Require a land hit and snap at its structural elevation, even
           // when the active member-construction plane is several levels up.
