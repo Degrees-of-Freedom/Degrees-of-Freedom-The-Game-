@@ -2,6 +2,7 @@
 title: "Architecture"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/multiplayer-refresh-criteria.md
   - docs/kb/turn-criteria.md
   - package.json
   - apps/web/src/game
@@ -28,6 +29,9 @@ status: partial
 ---
 
 # Architecture
+
+> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
+
 
 The npm workspace contains a React and TypeScript site in `apps/web`, using React Router, Zustand, Three.js and Vite. The shared `packages/solver-contract` defines two contracts: the original structural model, result types and asynchronous adapter interface, and a detailed analysis model and result written against the solver criteria. TypeScript project references build the shared package before the app.
 

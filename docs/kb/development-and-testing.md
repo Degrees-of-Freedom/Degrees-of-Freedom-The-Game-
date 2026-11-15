@@ -2,6 +2,7 @@
 title: "Development and Testing"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/multiplayer-refresh-criteria.md
   - docs/kb/game-completion-criteria.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/joint-dof-criteria.md
@@ -33,6 +34,9 @@ status: partial
 ---
 
 # Development and Testing
+
+> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
+
 
 From the repository root, install dependencies with `npm install`, start the web app with `npm run dev`, build with `npm run build`, check TypeScript with `npm run typecheck`, and run tests with `npm test`. The dev command builds the shared contract before starting Vite; rebuild it after editing its source. The root build builds the contract before the web app.
 
@@ -132,3 +136,9 @@ Run on Windows 11 with Rust 1.100.0 and Node 24.16.0, on the branch that adds `c
 | `npm run bench:solver` | Timings recorded on the [Rust solver page](rust-solver.md#timings). |
 
 Measured errors, the outcome counts of the random states and the limits of this evidence are on the [Rust solver page](rust-solver.md). The evidence shows that the solver's tests pass. It does not show owner acceptance of any criteria milestone, and it includes no comparison with an independent nonlinear program.
+
+## Multiplayer refresh documentation scope
+
+The multiplayer simplification revision and four ordered implementation prompts are documentation only. Future implementation must validate the reduced catalogue, freely allocated four draws/unlimited plays, configurable global-turn cadence, checkpoint replay attribution, minimal local constraints/no new foundations, immutable setup, 15×15/Euclidean maxima, inspector/cursor behavior, active avatar/animation events, axial-flow direction and quit/recovery. No runtime, numerical or browser test result is claimed by this criteria update.
+
+Documentation validation for this refresh: 277 relative links/anchors across 38 KB/history/prompt pages passed; MR01–MR19 are unique; exactly four ordered session prompts exist. Whitespace checks passed. Application, solver, service, crate and prototype files are unchanged; no runtime implementation or numerical acceptance is claimed.

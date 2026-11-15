@@ -2,6 +2,7 @@
 title: "Multiplayer and Information Visibility Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/multiplayer-refresh-criteria.md
   - "Project owner completion-criteria request and follow-up decisions, 2026-11-14"
   - docs/kb/turn-criteria.md
   - docs/kb/scoring-match-criteria.md
@@ -12,6 +13,9 @@ status: needs-review
 ---
 
 # Multiplayer and Information Visibility Criteria
+
+> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
+
 
 ## 1. Confirmed release scope
 
@@ -52,3 +56,7 @@ For any future online edition, the server must own hidden decks/RNG, permission 
 | End of fixed-round match | No extra player hand revealed or extra turn begun. |
 
 Open: player-count presets, public hand/discard counts, practice privacy override, concession/abandonment and shared-device pause policy. Online/session identity requirements must be separately reviewed before extending the release scope.
+
+## 6. Only multiplayer and revised turn economy
+
+Remove all nonmultiplayer type routes/menu/setup/help flows from the supported product; preserve legacy saves non-destructively. Each turn chooses a source independently for each of four draws, then can play any cards held, including loads. Hot-seat cover/readiness remains; checkpoints occur every three global completed player turns by default, not every handoff. A player who ends the checkpoint turn is not automatically responsible for earlier issues. Quit suspends the entire local match and resumes behind the private cover.

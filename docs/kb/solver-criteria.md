@@ -2,6 +2,7 @@
 title: "Solver Criteria"
 last_validated: 2026-11-14
 validated_against:
+  - docs/kb/multiplayer-refresh-criteria.md
   - docs/kb/element-representation-criteria.md
   - docs/kb/turn-criteria.md
   - docs/kb/game-completion-criteria.md
@@ -13,6 +14,9 @@ status: needs-review
 ---
 
 # Degrees of Freedom — Solver Criteria
+
+> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
+
 
 **Status:** Proposed implementation requirements. Review against the current repository before starting work. The confirmed model uses a 3D grid and six potential degrees of freedom per node. Other gameplay defaults below are proposals, not established rules.
 
@@ -129,3 +133,7 @@ The owner’s [element representation criteria](element-representation-criteria.
 ## 11. Local neutral repair boundary
 
 The game may generate permanent neutral scaffolding/ground anchors as an explicit system-only exception to setup-only player foundations. [Local repair criteria](failure-repair-criteria.md#7-permanent-neutral-repairs-with-local-intervention) restrict direct intervention to the flagged element/incident interfaces; this does not imply zero indirect response elsewhere or first-order-only linear analysis. The solver verifies each explicit corrected model, including real repair geometry/properties, common-law compatibility, member/connection capacity and global equilibrium. It must not hide a remote edit, erase loads or use numerical stabilization as a scored physical support. Valid neutral reactions participate in equilibrium but earn no player attraction; total gravity remains the denominator. Repair persistence is part of the model, not merely a marker in the viewer.
+
+## 12. Current simplified game and solve cadence
+
+The current game consumes only one axial/bending beam-column, tension-only cable and axial spring variants 0.25k₀/0.5k₀, with published reference k₀ in N/m. Broader backend capabilities/fixtures may remain internal. Player connections restrain 1/2/3 rotational axes with compatible connected translations; no translational/elastic connection deck. Calls occur only at scheduled global-turn checkpoints and match end; internal ordered replay/correction solves happen within a checkpoint. Diagnose local modes, add the minimum explicit rotational and only required system translational safety constraints, verify corrected equilibrium/capacities and report their neutral reactions separately. No downward columns/new bases, unreported stiffness clamps or fabricated success. Preserve working Rust/OpenSees interfaces and accurate capability provenance.
