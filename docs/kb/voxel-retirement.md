@@ -58,10 +58,10 @@ The Rust solver returns the detailed result in `packages/solver-contract/src/ana
 | Utilisation and governing check | Section strength per member and connection | None |
 | Member end forces | `[N, Vy, Vz, T, My, Mz]` in local axes | Axial (signed), shear, torsion and end moments as magnitudes |
 | Slack cables | Yes | No: cables are two-way ties |
-| Self-weight, card sections | Yes | No: one steel section, no member loads |
+| Self-weight, card sections, uniform member loads | Yes | No: one steel section, no member loads |
 | Level loads (tower payload, bridge traffic) | Yes | No: the original translation sends placed point loads only |
-| Load combinations, wind, partial factors, notional loads | **No.** One load set per call | No |
-| Member buckling factor, slenderness, deflection limit | Buckling appears as instability instead; no member deflection output | No |
+| Load combinations, wind, partial factors, notional loads | **Partly.** Several load cases per call (`analyzeCases`), each factored by its own load factor and gravity; enveloping, wind and notional loads would be game code | No |
+| Member buckling factor, slenderness, deflection limit | Buckling appears as instability instead. Member deflection is reported at each element boundary, with the sag from the chord; the limit check itself would be game code | No |
 | Joint and foundation capacities | Connection capacities exist in the contract but the game sends none; foundation capacity would be a TypeScript check on reactions | No |
 | Auto-design | Possible as a loop over Rust results; not written | No |
 
@@ -85,7 +85,7 @@ Each step can ship on its own.
 2. **A Rust adapter to that type**, so the viewer and panel show the selected backend's results. Results will differ visibly: the 3D analysis with pinned connections reports mechanisms the voxel analysis does not.
 3. **An OpenSees adapter**, showing what it cannot supply as unavailable, and adding level loads to its translation.
 4. **Move shared code out of `solver/`**: the section catalogue and grid size into game card data; cost, mass and geometric objectives into game code; foundation and connection capacity checks.
-5. **Load combinations**: in TypeScript as several Rust solves enveloped together (about four times the run time), or as load cases in the crate.
+5. **Load combinations**: build each combination as a load case and send them in one `analyzeCases` call, then envelope the results in TypeScript. Each case is still a full solve, so four combinations cost about four times one analysis.
 6. **Objectives and stars** on the neutral type, with levels re-tuned.
 7. **Auto-design** on the Rust solver, or retire the feature.
 8. **Shared table** turns through the Rust solver, keeping the recorded status mapping.

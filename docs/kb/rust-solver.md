@@ -33,10 +33,10 @@ Status in one paragraph: the solver implements the model, connection, stability,
 
 | Part | Location | State |
 | --- | --- | --- |
-| Solver | `crates/dof-solver` | Implemented, 53 tests passing. No third-party dependencies. |
+| Solver | `crates/dof-solver` | Implemented, 69 tests passing. No third-party dependencies. |
 | Detailed contract types | `packages/solver-contract/src/analysis.ts` | `AnalysisModel`, `AnalysisOptions`, `DetailedAnalysisResult`, `DetailedSolver`. |
-| Browser adapter | `apps/web/src/solver/wasm/wasmSolver.ts` | Serves the detailed contract and the original `StructuralModel` contract. |
-| Compiled module | `apps/web/src/solver/wasm/dof_solver.wasm` | Committed build artefact, 704 kB (231 kB gzipped in the production bundle). Rebuild with `npm run build:solver`. |
+| Browser adapter | `apps/web/src/solver/wasm/wasmSolver.ts`, `runner.ts`, `solverWorker.ts` | Serves the detailed contract, several load cases per call (`analyzeCases`), and the original `StructuralModel` contract. In a browser the module runs on a Web Worker, which is terminated on abort or after a wall-clock limit. See [Cancellation and time limit](#cancellation-and-time-limit). |
+| Compiled module | `apps/web/src/solver/wasm/dof_solver.wasm` | Committed build artefact, 708 kB (237 kB gzipped in the production bundle). Rebuild with `npm run build:solver`. |
 | Game integration | `apps/web/src/solver/index.ts`, `apps/web/src/game/analysisModel.ts`, `apps/web/src/game/useStabilityCheck.ts` | Default solver for the workspace check, which sends the detailed model. See [Game integration](#game-integration). |
 
 The workspace now sends the detailed model: `game/analysisModel.ts` translates the game to it, and `game/useStabilityCheck.ts` uses the detailed contract whenever the selected solver implements it. The original-contract translation in `game/structuralModel.ts` remains for the OpenSees service.
@@ -53,7 +53,7 @@ With the Rust solver, Run analysis in the workspace runs a geometrically nonline
 - **Loads.** A tower level puts the payload on its highest nodes. A bridge level spreads traffic times span over the deck nodes between the cliffs. Other levels use the point loads placed on nodes, each along its chosen axis. As in the voxel analysis, only nodes joined to a foundation through members are considered, so a loose member cannot attract the payload.
 - **Unconnected things.** Every member is sent, so a part with no foundation is reported as unsupported, under its own weight only. Nodes with no member are not sent: a foundation nothing stands on, or a weight nothing is attached to, does not appear, and a note counts the placed loads left out.
 
-What the translation leaves out: loads are unfactored, there is no wind, and there are no load combinations. The voxel analysis uses four ultimate and serviceability combinations with wind and notional loads, and this check does not reproduce them, so its numbers are not comparable one to one with the voxel analysis. Utilisation is section strength only: there is no buckling reduction factor (buckling shows as instability in the nonlinear analysis instead), no deflection limit, and no joint or foundation capacity, all of which the voxel analysis checks. Shear is checked as the resultant against the smaller shear area, which is conservative. The translation returns notes saying what is left out.
+What the translation leaves out: loads are unfactored, there is no wind, and there are no load combinations. The solver can now analyse several load cases in one call and reports deflection along members, but the workspace uses neither yet. The voxel analysis uses four ultimate and serviceability combinations with wind and notional loads, and this check does not reproduce them, so its numbers are not comparable one to one with the voxel analysis. Utilisation is section strength only: there is no buckling reduction factor (buckling shows as instability in the nonlinear analysis instead), no deflection limit, and no joint or foundation capacity, all of which the voxel analysis checks. Shear is checked as the resultant against the smaller shear area, which is conservative. The translation returns notes saying what is left out.
 
 The panel ("Structural check", `components/StabilityCheckPanel.tsx`, with the reduction in `game/structuralSummary.ts`) shows the overall verdict, which is the worst component status (stable, marginal, unstable or unresolved) and is not shown as a pass when a member or connection is overstressed, reasons in plain language from the solver's reason codes, the number of separate parts, free DOFs, mechanisms, redundancy, the largest movement, the highest utilisation with its member id and limit state, the number of slack cables, and the vertical reaction at each foundation in kN, marked "up" or "uplift". Values the solver did not verify show as "unavailable", never as zero. With the OpenSees service selected (`VITE_OPENSEES_URL` or `VITE_SOLVER=opensees`), the original contract and the "Degrees of freedom" panel are used unchanged.
 
@@ -65,6 +65,16 @@ Because the analysis is 3D and connections are pinned unless a moment connection
 
 Not done: the 3D viewer does not use the detailed result (no highlighting of unstable nodes, mode shapes, slack cables or utilisation colours from this solver); there is no turn system; scoring and load shares are not computed; the panel was checked by hand in a browser once, on the Tower I example only (see [development and testing](development-and-testing.md)); and the results have no independent nonlinear cross-check.
 
+## Cancellation and time limit
+
+WebAssembly cannot be interrupted from inside, so the adapter (`runner.ts`) runs the module on a Web Worker (`solverWorker.ts`) and stops an analysis by terminating the worker. Requests go to the worker one at a time, in call order. The main thread compiles the module once and sends the compiled module with each request, so a replacement worker starts without downloading it again.
+
+- **Abort.** Aborting the signal passed to `analyzeDetailed` or `analyzeCases` terminates the worker at once and rejects with the signal's reason. The workspace check already aborts the previous run when a new one starts, so a superseded analysis now actually stops.
+- **Time limit.** `createWasmSolver({ timeLimitMs })`, default 10 s. It counts from when the worker starts the analysis, so time in the queue or downloading the module does not count. A timeout returns an `invalid` result with reason `timeLimitExceeded` and a message naming the limit; for `analyzeCases` every case gets it. The 10 s default is an implementation choice, not an owner decision.
+- **Without a worker** (Node, the tests) the module runs on the calling thread, which it blocks, and neither applies.
+
+Checked once by hand in the desktop app's built-in Chromium browser through the Vite dev server: a 1,344-member nonlinear frame took 4.7 s while the page's 10 ms timer kept firing (466 ticks); a 100 ms limit stopped the same frame after about 170 ms and the next call succeeded on a fresh worker; an abort after 150 ms rejected after 154 ms. The unit tests use a stand-in worker that runs the real module in-process.
+
 ## Coverage of the criteria
 
 "Met" means implemented with a passing test that exercises it. It is a claim about this code and its tests, not owner acceptance.
@@ -75,9 +85,9 @@ Not done: the 3D viewer does not use the detailed result (no highlighting of uns
 | M02 connectivity separate from coincidence | Met | Connectivity is by node id. Each member end has its own connection. A fully released end is not a connection. |
 | M03 beam-column, brace, cable | Met | Beam-columns have optional shear deformation. Cables are straight and tension-only. |
 | M04 six-law connections | Met | `rigid`, `free` or `elastic` per local DOF. Pinned, moment, partial-release and semi-rigid are combinations. Axes are the member's undeformed local axes, attached to the node. |
-| M05 exact rigid constraints | Partly | Rigid laws and restraints are exact (shared or eliminated DOFs). Two foundations on one node are rejected as redundant. The model has no general constraints or prescribed displacements, so incompatible constraints cannot be expressed or detected. |
+| M05 exact rigid constraints | Partly | Rigid laws and restraints are exact (shared or eliminated DOFs). Two foundations on one node are rejected as redundant. The model has no general constraints or prescribed (forced) displacements, so incompatible constraints cannot be expressed or detected, and support settlement cannot be modelled. |
 | M06 foundations and reactions | Met | Any of six DOFs restrained per foundation id; six signed reaction components. |
-| M07 loads and self-weight | Met | Nodal forces and moments with ids. Self-weight is a uniform member load, applied once as consistent nodal loads. Loads keep their original direction. |
+| M07 loads and self-weight | Met | Nodal forces and moments with ids, and uniform member loads (`memberLoads`, N/m, global) along a whole member. Self-weight and member loads are applied once as consistent nodal loads. Loads keep their original direction. Several load cases can share one call. |
 | M08 card properties, one unit system | Met | Sections carry E, G, A, Iy, Iz, J, shear areas, density and capacities; braces and cables carry rest length or initial strain. SI throughout. |
 | M09 stable ids, subdivision | Partly | Members, foundations and loads have ids; a connection is identified by member id and end. Subdivision for accuracy is internal and invisible. The solver does not split a member at an interior attachment: the game must send separate members and may tag them with `parentId`, which is echoed. |
 | A01 linear baseline | Met | Closed-form cases to `1e-9`. |
@@ -87,15 +97,15 @@ Not done: the 3D viewer does not use the detailed result (no highlighting of uns
 | A05 bounded recovery | Met | Shifted tangent, energy line search, adaptive load increments, iteration limits. No verified conclusion gives `unknown`. |
 | A06 component isolation | Met | Each component is a separate system. |
 | A07 verification | Met | Residual, global force balance and global moment balance are gated at run time. Cable states follow from the deformed length. Nothing is stabilised artificially, so no artificial reaction exists. |
-| A08 robustness | Partly | Invalid input, singular systems, extreme stiffness ratios and non-finite numbers give explicit results. The time limit is an iteration count, not wall-clock time, and an analysis cannot be cancelled while it runs. |
+| A08 robustness | Met in the browser | Invalid input, singular systems, extreme stiffness ratios and non-finite numbers give explicit results. The solver bounds itself by iteration counts; the browser adapter adds a wall-clock limit (`timeLimitExceeded`) and cancellation by terminating its worker. In Node the module runs inline and has only the iteration limits. |
 | Section 4 turn resolution | Outside the solver | The solver gives what a turn engine needs: an immutable input, an echoed model version, repeatable results, capacity checks and an optional bounded failure sequence. Each analysis starts from the undeformed geometry, which matches the proposed reapply-loads policy. Transactions, previews and penalties are game work and do not exist. |
-| Section 5 result contract | Met | Analysis, component, node, member, connection and foundation results with explicit `null` for unavailable values. Run time is added by the browser adapter. Load shares are not computed: signed reactions and the applied force per component are returned for the game to apply its scoring policy. |
+| Section 5 result contract | Met | Analysis, component, node, member, connection and foundation results with explicit `null` for unavailable values. Beam members also report displacement stations along their length and the largest sag from the chord. Run time is added by the browser adapter. Load shares are not computed: signed reactions and the applied force per component are returned for the game to apply its scoring policy. |
 | Section 6 speed and surrogate | Partly | Timings below. No surrogate exists. The benchmark is one synthetic frame at two sizes on one machine, not a representative suite of game states. |
 | Section 7 acceptance tests | Met | See the next table. |
 
 ## Acceptance evidence
 
-Run with `npm run test:solver`. Rust 1.100.0, 14 November 2026. Result: 53 passed, 0 failed, 1 ignored (the timing harness).
+Run with `npm run test:solver`. Rust 1.100.0, 14 November 2026. Result: 69 passed, 0 failed, 1 ignored (the timing harness). The 16 added since the first acceptance run cover deflection, member loads and load cases.
 
 | Acceptance row | Tests (`crates/dof-solver/tests`) | Measured |
 | --- | --- | --- |
@@ -129,7 +139,15 @@ Nothing comparable exists for the nonlinear results. They are checked against an
 | Stress frame, nonlinear, 1 element per beam | 504 | 1,280 | 304 ms | 431 ms | difficult ≤ 2 s |
 | Stress frame, nonlinear, 2 elements per beam | 504 | 4,124 | 818 ms | 1,720 ms | difficult ≤ 2 s |
 
-The targets are met on this frame and machine. They are not validated in a browser, on slower hardware, or on states that need many load increments. The analysis runs on the calling thread and blocks it while it runs.
+The targets are met on this frame and machine. They are not validated in a browser, on slower hardware, or on states that need many load increments. In the browser the analysis now runs on a worker, so it does not block the page; the benchmark measures the inline call in Node.
+
+## Deflection, member loads and load cases
+
+These were added after the acceptance table and have their own tests (`deflection.rs`, `member_loads.rs`, `cases.rs` and `wasmSolver.test.ts`).
+
+- **Deflection along members.** Every beam member result has `deflection.stations`: the global displacement at each element boundary, `subdivisions + 1` points. `maxFromChord` is the largest distance of a deformed station from the line through the deformed ends, which excludes the member's rigid-body motion and its supports' movement, and `atMax` says where. On a simply supported beam under a uniform load every station matches the closed-form curve to `1e-9`, and the mid-span sag is 5wL⁴/384EI. With the default two subdivisions the only interior station is mid-span. Braces, cables and unverified results report `null`.
+- **Uniform member loads.** `memberLoads` apply a force per metre, in global axes, along a whole member, handled exactly like self-weight. A member load equal to the self-weight gives the self-weight result.
+- **Load cases.** A request with `cases` returns one complete result per case; each is tested to equal a separate call character for character. The saving is one model transfer and parse instead of several.
 
 ## Decisions made in the implementation
 
@@ -139,6 +157,7 @@ These are implementation choices, not owner decisions. Each is a default that th
 - **Excessive deformation is `unstable` with valid results.** An equilibrium displaced by more than 10 % of the component's bounding-box diagonal is `unstable` with reason `excessiveDeformation`, and its results are still returned.
 - **`marginal` means a reserve below 25 %.** A stable state that is not stable at 1.25 times its loads is `marginal`. This costs an extra solve.
 - **Failure removes or releases.** A failed member is removed; a failed beam connection is fully released. One object fails per event, the most overloaded first, ties broken by id.
+- **A removed member takes its own load with it.** When the failure sequence removes a member, its self-weight and member loads leave the model rather than being moved to its end nodes.
 - **Linear axial–bending interaction** for member utilisation.
 - **Two beam elements per member** by default, which gives the Euler load to 0.8 %.
 - **Self-weight needs a gravity vector** in the options; there is no default direction.
@@ -150,6 +169,9 @@ These are implementation choices, not owner decisions. Each is a default that th
 - Loads keep their direction; applied moments are not follower moments.
 - A perfectly straight column past its buckling load is reported unstable; the post-buckled shape is not traced.
 - Self-weight on a slack cable is still carried to its end nodes.
-- The solver cannot be cancelled mid-analysis, and its time limit is an iteration count.
+- Cancellation and the wall-clock limit exist only on the browser worker. Inline (Node, tests) an analysis runs to its iteration limits once started.
+- Deflection is reported only at element boundaries, with no interpolation between them; a finer spacing needs more subdivisions, which cost run time.
+- No prescribed displacements, and no partial-length or varying member loads. Plasticity and dynamic collapse are deferred by the criteria (section 8).
+- Load cases share one request, not one factorisation: each case costs a full analysis.
 - The workspace check uses gravity loads only, with no wind and no load combinations, so it is not the voxel analysis's load cases.
 - The original-contract path, used only when the OpenSees service is selected, is linear and uses one steel section.
