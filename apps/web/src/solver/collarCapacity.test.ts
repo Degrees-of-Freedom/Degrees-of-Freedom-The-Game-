@@ -34,6 +34,10 @@ function fixture(quarter: 1 | 2 | 3, directSourceKN = 0, receivingJointKN = 0, r
   return { model, analysis, report, site };
 }
 
+function solve(model: VoxelModel) {
+  return analyzeVoxel(model, { type: 'sandbox', q0: 0, budget: Infinity, inv: null, loadCase: 'applied', appliedSelfWeight: false });
+}
+
 describe('fixed interior collar capacity', () => {
   it.each([1, 2, 3] as const)('recovers one signed external resultant at original quarter %i', quarter => {
     const { report } = fixture(quarter);
@@ -78,5 +82,53 @@ describe('fixed interior collar capacity', () => {
     expect(report.members[3].status).toBe('unavailable');
     expect(report.connections['3:q2'].status).toBe('unavailable');
     expect(report.connections['3:q2']).not.toHaveProperty('utilization');
+  });
+
+  it('carries an incoming branch through the source collar by identity, independent of coincidence', () => {
+    const { model } = fixture(1);
+    model.positions!.branch = [1, 3, 1];
+    model.attrs.branch = { load: 4 };
+    model.members.push({ id: 4, type: 'heb', a: 'collar', b: 'branch', endA: 'fixed', endB: 'fixed' });
+    const analysis = solve(model);
+    const attachment = { memberId: 3, end: 'q1' as const, profile: 'fixed' as const, jointId: 'collar' };
+    const branch = { memberId: 4, end: 'a' as const, profile: 'fixed' as const };
+    const source = assessCardCapacity(model, analysis, [attachment, { ...branch, jointId: 'port:3:1' }]);
+    const receiving = assessCardCapacity(model, analysis, [attachment, { ...branch, jointId: 'collar' }]);
+    const sourceCheck = verified(source.connections['3:q1']);
+    expect(sourceCheck.actions.Vz).toBeCloseTo(12, 8);
+    expect(sourceCheck.actions.T).toBeCloseTo(8, 8);
+    expect(sourceCheck.actions.My).toBeCloseTo(-24, 8);
+    expect(sourceCheck.utilization).toBeCloseTo(Math.hypot(12 / 700, Math.hypot(8, 24) / 220), 8);
+    const receivingCheck = verified(receiving.connections['3:q1']);
+    expect(receivingCheck.actions.Vz).toBeCloseTo(8, 8);
+    expect(receivingCheck.actions.T).toBeCloseTo(0, 8);
+  });
+
+  it('recovers nested collar demands once and refuses a cyclic source attribution', () => {
+    const { model } = fixture(1);
+    model.positions!.lower = [1, 1, 1];
+    model.positions!.upper = [1, 3, 1];
+    model.attrs.lower = { load: 2 };
+    model.attrs.upper = { load: 6 };
+    model.members.push(
+      { id: -16, type: 'heb', a: 'lower', b: 'collar', endA: 'fixed', endB: 'fixed', parentSpan: { memberId: 4, fromQuarter: 0, toQuarter: 2 } },
+      { id: -18, type: 'heb', a: 'collar', b: 'upper', endA: 'fixed', endB: 'fixed', parentSpan: { memberId: 4, fromQuarter: 2, toQuarter: 4 } },
+    );
+    const analysis = solve(model);
+    const root = { memberId: 3, end: 'q1' as const, profile: 'fixed' as const, jointId: 'collar' };
+    const nested = { memberId: 4, end: 'q2' as const, profile: 'fixed' as const, jointId: 'port:3:1' };
+    const report = assessCardCapacity(model, analysis, [root, nested]);
+    const rootCheck = verified(report.connections['3:q1']);
+    expect(rootCheck.actions.Vz).toBeCloseTo(16, 8);
+    expect(rootCheck.actions.T).toBeCloseTo(8, 8);
+    expect(rootCheck.actions.My).toBeCloseTo(-24, 8);
+    const nestedCheck = verified(report.connections['4:q2']);
+    expect(nestedCheck.actions.Vz).toBeCloseTo(8, 8);
+    expect(Object.keys(report.connections)).toEqual(['3:q1', '4:q2']);
+    const cycle = assessCardCapacity(model, analysis, [{ ...root, jointId: 'port:4:2' }, nested]);
+    for (const key of ['3:q1', '4:q2']) {
+      expect(cycle.connections[key]).toMatchObject({ status: 'unavailable', reason: expect.stringContaining('Cyclic') });
+      expect(cycle.connections[key]).not.toHaveProperty('utilization');
+    }
   });
 });
