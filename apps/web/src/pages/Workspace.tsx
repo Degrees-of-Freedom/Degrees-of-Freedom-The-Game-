@@ -39,7 +39,7 @@ type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 /** The environment variants compose the same store, scene and analysis boundary. */
 export function Workspace() {
   const game = useGameStore();
-  const stability = useStabilityCheck(game.model);
+  const stability = useStabilityCheck(game.model, LEVELS[game.levelId]);
   // Multiplayer uses independent member-end connections, not the node model.
   const contractCompatible = game.mode !== "multiplayer";
   const [analysis, setAnalysis] = useState<{
@@ -73,7 +73,7 @@ export function Workspace() {
   const progress = result ? modeProgress(game.mode, result) : null;
 
   function run() {
-    if (contractCompatible) void stability.run(game.model);
+    if (contractCompatible) void stability.run(game.model, LEVELS[game.levelId]);
     try {
       setCombo(0);
       setAnalysis({
@@ -675,7 +675,12 @@ export function Workspace() {
                       game.setSelected({ type: "node", key })
                     }
                   />
-                  {contractCompatible && <StabilityCheckPanel check={stability.check} />}
+                  {contractCompatible && (
+                    <StabilityCheckPanel
+                      check={stability.check}
+                      solverName={stability.solverName}
+                    />
+                  )}
                 </>
               )}
               {drawer === "model" && (

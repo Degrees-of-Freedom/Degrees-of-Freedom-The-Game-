@@ -109,6 +109,7 @@ export type AnalysisResult =
 /** Adapters translate models to their solver and explicitly report unsupported input. */
 export interface SolverAdapter { readonly id: string; readonly name: string; analyze(model: StructuralModel, signal?: AbortSignal): Promise<AnalysisResult> }
 
+export * from './analysis.js';
 export * from './structural-state.js';
 export * from './structural-state-service.js';
 

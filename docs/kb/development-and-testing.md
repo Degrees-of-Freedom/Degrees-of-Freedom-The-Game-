@@ -15,11 +15,19 @@ validated_against:
   - apps/web/src/solver/loadPath.test.ts
   - apps/web/src/solver/opensees.test.ts
   - apps/web/src/game/structuralModel.test.ts
+  - apps/web/src/game/analysisModel.test.ts
+  - apps/web/src/game/analysisModel.ts
+  - apps/web/src/game/structuralSummary.ts
   - services/opensees/pyproject.toml
   - services/opensees/tests
   - prototypes/voxel-struct/README.md
   - docs/kb/solver-criteria.md
   - docs/kb/solver-criteria-gap-analysis.md
+  - docs/kb/rust-solver.md
+  - crates/dof-solver
+  - scripts/build-solver-wasm.mjs
+  - scripts/bench-solver.mjs
+  - apps/web/src/solver/wasm
 owner: unknown
 status: partial
 ---
@@ -30,9 +38,26 @@ From the repository root, install dependencies with `npm install`, start the web
 
 Vitest covers voxel editing rules, undo, examples, persistence, turn replay and attachment rules, viewer picking candidates, force labels, and selected analysis cases including equilibrium, signed loads and Shared table connection behavior. These tests do not independently validate numerical accuracy or exercise the viewer in a browser. The proposed [solver acceptance suite and numerical gates](solver-criteria.md#7-acceptance-tests) now define the target coverage. Most fixtures, absolute tolerances, characteristic scales, and turn/replay tests still need implementation; see the [gap analysis](solver-criteria-gap-analysis.md). Passing the current tests does not establish compliance with those gates.
 
-Vitest also covers the OpenSees adapter against a stubbed `fetch`, solver selection, and the translation from the game model to the shared contract. Two further tests run only when `VITE_OPENSEES_URL` points at a running service; they send a cantilever and the reference examples through it.
+Vitest also covers the OpenSees adapter against a stubbed `fetch`, solver selection, and the translation from the game model to the shared contract. Further tests run only when `VITE_OPENSEES_URL` points at a running service: two send a cantilever and the reference examples through it, and three compare its answers with the Rust solver's.
 
-The OpenSees service in `services/opensees` is a Python project that needs [uv](https://docs.astral.sh/uv/); uv installs the pinned Python 3.12 and dependencies on first use. Start it with `npm run dev:opensees` (port 8000) and test it with `npm run test:opensees`. Its pytest suite compares results with closed-form cases and covers mechanisms, validation, and the HTTP layer; see [structural solver](structural-solver.md#opensees-service). `npm test` does not run the Python tests. The service Dockerfile has not been built or tested. To see the OpenSees stability check in the app, run the service and the web app in two terminals and press Run analysis; the panel and its agreement with the voxel result on the Tower I example were checked by hand in a browser.
+`analysisModel.test.ts` covers the translation of the game to the detailed contract (SI sections and capacities, pinned and rigid ends, cables, foundations, level loads) and runs the three reference examples and small frames through the real WebAssembly module, including the reduction of the result for the panel. Vitest runs the Rust solver as the real WebAssembly module, loaded from `apps/web/src/solver/wasm/dof_solver.wasm`. That file is a committed build artefact, so `npm install`, `npm test` and `npm run build` need no Rust toolchain. They test whatever module is committed: after changing `crates/dof-solver`, run `npm run build:solver` or the web tests will exercise the old build.
+
+## Rust solver
+
+Working on `crates/dof-solver` needs [Rust](https://rustup.rs) with the WebAssembly target (`rustup target add wasm32-unknown-unknown`). It was built here with Rust 1.100.0; on Windows the `stable-x86_64-pc-windows-gnu` toolchain works without Visual Studio.
+
+| Command | Does |
+| --- | --- |
+| `npm run test:solver` | `cargo test`: 11 unit tests and 42 acceptance tests, about a minute. |
+| `npm run build:solver` | Builds the release module and copies it into the web app. |
+| `npm run bench:solver` | Times the committed module in Node on a game-sized and a stress frame. |
+| `cargo test --release --test profile -- --ignored --nocapture` (in the crate) | Prints the time spent in assembly, factorisation and each analysis. |
+
+The crate deliberately has no third-party dependencies and carries its own JSON reader and writer. One reason is a small, self-contained module. The other is practical: on the machine it was developed on, endpoint security removed the build script of the `serde` JSON library as soon as it was compiled, so a dependency on it could not be built there.
+
+Run Cargo from the crate directory when calling it directly, because its `.cargo/config.toml` sets the WebAssembly stack size and SIMD flag. The npm scripts do this for you, except `test:solver`, which runs natively and does not need those settings.
+
+The OpenSees service in `services/opensees` is a Python project that needs [uv](https://docs.astral.sh/uv/); uv installs the pinned Python 3.12 and dependencies on first use. Start it with `npm run dev:opensees` (port 8000) and test it with `npm run test:opensees`. Its pytest suite compares results with closed-form cases and covers mechanisms, validation, and the HTTP layer; see [structural solver](structural-solver.md#opensees-service). `npm test` does not run the Python tests. The service Dockerfile has not been built or tested. To see the OpenSees stability check in the app, run the service in one terminal and the web app with `VITE_SOLVER=opensees` in another, and press Run analysis; the panel and its agreement with the voxel result on the Tower I example were checked by hand in a browser. Without that setting the panel shows the Rust solver's check.
 
 Run the maintained workspace with `npm run dev`. The [original prototype notes](../../prototypes/voxel-struct/README.md) link to the archived standalone implementation and describe its historical checks.
 
@@ -90,3 +115,20 @@ Reviewed the completion criteria against latest main baseline `d18e5e2`, preserv
 Validated 226 relative documentation links/anchors across the root README and all 27 KB pages, plus whitespace checks. Cross-checked final-only adjusted scoring, unequal elastic stiffnesses, original-quarter attachments, assembly plays, retained historical penalties, permanent neutral local repairs, and separate verified-neutral versus unavailable reaction scope. Existing visualization art/overlay decisions were preserved and linked to the confirmed scoring/repair policy. Remaining numerical, balance, physical-catalogue and device parameters stay explicitly proposed/open.
 
 The merge changes documentation only; application, shared-contract, service and archived-prototype bytes are unchanged from the latest main baseline. Runtime/numerical/browser tests were not rerun for this documentation-only review, and no implementation, solver correctness or performance acceptance is claimed. Future release evidence must follow [whole-game acceptance](release-acceptance-criteria.md).
+
+## Rust solver validation — 2026-11-14
+
+Run on Windows 11 with Rust 1.100.0 and Node 24.16.0, on the branch that adds `crates/dof-solver`.
+
+| Check | Result |
+| --- | --- |
+| `npm run test:solver` | Pass: 53 tests, 1 ignored timing harness. Includes 10,000 seeded random states with no unhandled failure. |
+| `npm test` | Pass after merging main at `3c6aa90`: 31 test files and 178 tests; 1 file and 6 tests are skipped, 5 of them for want of an OpenSees service. The adapter and game-translation tests run the committed WebAssembly module. |
+| `VITE_OPENSEES_URL=http://127.0.0.1:8000 npm test` with the service running | Pass: 9 test files, 55 tests, before the game-translation tests were added and before main was merged; not re-run since. The Rust solver and OpenSees agree on a space frame, a mechanism and the three reference examples. |
+| `npm run typecheck` | Pass. |
+| `npm run build` | Pass. The bundle includes `dof_solver.wasm` (704 kB, 231 kB gzipped). The existing chunk-size warning remains. |
+| Module served by the Vite dev server | Pass: served as `application/wasm` and gives the closed-form cantilever deflection when loaded from the dev server and from the production bundle. |
+| Structural check panel in a browser | Checked once by hand on the tree merged with main at `3c6aa90`: Engineering challenges, Tower I, Load example, Run simulation. The Results drawer showed "Structural check: Stable", one part, no mechanisms, four foundation reactions totalling 77.0 kN, and "Computed by Rust solver (WebAssembly) in 67 ms", with no console errors. The reactions equal the 40 kN payload plus the 3.78 t mass the voxel panel reports. Other levels, unstable structures and the verdict colours were not looked at. |
+| `npm run bench:solver` | Timings recorded on the [Rust solver page](rust-solver.md#timings). |
+
+Measured errors, the outcome counts of the random states and the limits of this evidence are on the [Rust solver page](rust-solver.md). The evidence shows that the solver's tests pass. It does not show owner acceptance of any criteria milestone, and it includes no comparison with an independent nonlinear program.

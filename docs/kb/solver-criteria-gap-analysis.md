@@ -22,6 +22,9 @@ validated_against:
   - services/opensees/README.md
   - services/opensees/src/dof_opensees
   - services/opensees/tests
+  - docs/kb/rust-solver.md
+  - crates/dof-solver/src
+  - crates/dof-solver/tests
 owner: unknown
 status: partial
 ---
@@ -61,6 +64,17 @@ The coverage table below was written against the baseline above, before the Open
 | Section 5 | Displacements, reactions, member force magnitudes, stability counts and modes. | Model version, fidelity, residuals, runtime, component scope, utilization, connection forces, and explicit unavailable markers. |
 | Section 6 | Single timings in the service README: about 70 ms at 600 free DOFs and 1.7 s at 2,688. | Not a benchmark; dense matrix extraction scales with the cube of the DOF count and misses the proposed stress target. |
 
+## Rust solver addendum
+
+After the OpenSees service, a Rust solver was added in `crates/dof-solver`, written against the criteria and delivered to the browser as WebAssembly. The [Rust solver page](rust-solver.md) holds its requirement-by-requirement coverage, test evidence, timings and open decisions, and is the place to read its status. In short:
+
+- It implements M01 to M04, M06 to M08, A01 to A07 and the section 5 result contract, with a passing test for every row of the section 7 acceptance table, including 10,000 seeded states.
+- M05, M09 and A08 are partly met: there are no general constraints to detect incompatibility in, interior attachment is left to the game, and the time limit is an iteration count with no mid-analysis cancellation.
+- Turn resolution (section 4) and the surrogate (section 6) are outside it. Timings exist for one synthetic frame on one machine.
+- The game now sends the detailed contract to it, with gravity loads only: no wind and no load combinations. The workspace panel shows the result, checked by hand in a browser on one example only, and the 3D viewer does not use it. See [Game integration](rust-solver.md#game-integration).
+
+The coverage table below describes the voxel experiment and the original contract. It was not rewritten for the Rust solver; read the two together. The milestone table has a column for it.
+
 ## Requirement coverage
 
 “Partial” means related code exists, with outstanding semantics or verification. It does not mean an acceptance gate has passed. “Missing” means the reviewed code does not demonstrate the required behavior.
@@ -94,14 +108,14 @@ The coverage table below was written against the baseline above, before the Open
 
 Follow [criteria section 8](solver-criteria.md#8-implementation-order-and-scope-control). Keep gameplay and scoring outside the numerical kernel. Do not replace the working experiment with unsupported claims; migrate only capabilities backed by regression evidence.
 
-| Milestone | Deliverable and acceptance evidence | Status |
-| --- | --- | --- |
-| 1. Contract and linear kernel | Immutable/versioned analytical input; explicit units, axes, connections, constraints, properties and result validity; axial bar, cantilever, simply supported beam, torsion and unequal support reaction fixtures. Report errors against analytical solutions and documented zero tolerances. | Not complete; preliminary types and limited linear evidence only. |
-| 2. Stability and isolation | Relevant DOF selection, exact constraint diagnostics, scaled stiffness modes and component-scoped results. Test unloaded/loaded mechanisms, coincident unconnected members, trusses, disconnected parts and unrelated stable components. | Not complete. |
-| 3. Nonlinear frame/cable physics | Validated large-displacement frame/axial formulation, consistent tangent, adaptive increments/recovery and unresolved handling. Report column/sway/cable reference errors, force/moment residuals and buckling mesh convergence. | Not complete. |
-| 4. Turns, reactions and capacities | Completed-turn transaction with persistent-load policy and stable model ID; signed six-component reactions and unavailable scopes; card limit states/utilization; deterministic replay and preview-mutation tests. | Not complete. |
-| 5. Optional failures / connection behaviors | Owner-defined permanent failure policy, bounded deterministic release/removal events and redistribution; overloaded member/connection and redundant-member-removal fixtures. | Not complete; policy requires confirmation before enabling. |
-| 6. Optional surrogate | Reference-generated diverse dataset, topology-family evaluation, preview error distribution and instability false negatives; OOD/confidence fallback and physics verification. | Not started. |
+| Milestone | Deliverable and acceptance evidence | Status | Rust solver |
+| --- | --- | --- | --- |
+| 1. Contract and linear kernel | Immutable/versioned analytical input; explicit units, axes, connections, constraints, properties and result validity; axial bar, cantilever, simply supported beam, torsion and unequal support reaction fixtures. Report errors against analytical solutions and documented zero tolerances. | Not complete; preliminary types and limited linear evidence only. | Implemented with evidence: detailed contract, conventions and the linear fixtures at 1e-9. Zero tolerances and scales are documented in the crate README. Not owner-accepted. |
+| 2. Stability and isolation | Relevant DOF selection, exact constraint diagnostics, scaled stiffness modes and component-scoped results. Test unloaded/loaded mechanisms, coincident unconnected members, trusses, disconnected parts and unrelated stable components. | Not complete. | Implemented with evidence for every listed fixture. Constraint diagnostics are limited to redundant foundations. Not owner-accepted. |
+| 3. Nonlinear frame/cable physics | Validated large-displacement frame/axial formulation, consistent tangent, adaptive increments/recovery and unresolved handling. Report column/sway/cable reference errors, force/moment residuals and buckling mesh convergence. | Not complete. | Implemented with evidence: errors and mesh convergence are recorded on the Rust solver page. No independent nonlinear program was used. Not owner-accepted. |
+| 4. Turns, reactions and capacities | Completed-turn transaction with persistent-load policy and stable model ID; signed six-component reactions and unavailable scopes; card limit states/utilization; deterministic replay and preview-mutation tests. | Not complete. | Solver side only: model version echo, signed reactions, unavailable scopes, utilisation, repeatable results. Turn transactions and the load policy are game work and do not exist. |
+| 5. Optional failures / connection behaviors | Owner-defined permanent failure policy, bounded deterministic release/removal events and redistribution; overloaded member/connection and redundant-member-removal fixtures. | Not complete; policy requires confirmation before enabling. | A remove-or-release policy is implemented behind an option, off by default, with overload and redundant-removal fixtures. The policy itself is an implementation choice awaiting confirmation. |
+| 6. Optional surrogate | Reference-generated diverse dataset, topology-family evaluation, preview error distribution and instability false negatives; OOD/confidence fallback and physics verification. | Not started. | Not started. |
 
 For each milestone, record commands, fixtures, physical assumptions/load paths, measured errors, classifications, runtime/hardware and pass/fail evidence in this knowledge base. Proposed gates are <= 0.1% nonzero linear relative error, <= 1% nonlinear reference error, <= 2% mesh-converged buckling error and <= 1e-5 normalized equilibrium residual. Define characteristic force/moment scales and absolute zero tolerances before claiming a pass. Correct prescribed classifications and zero unhandled failures in at least 10,000 seeded generated states are also required. Performance targets and surrogate metrics are specified in the criteria; none are validated by this documentation update.
 

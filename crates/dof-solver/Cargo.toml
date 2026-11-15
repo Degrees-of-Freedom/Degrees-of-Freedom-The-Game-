@@ -1,0 +1,21 @@
+[package]
+name = "dof-solver"
+version = "0.1.0"
+edition = "2021"
+description = "Structural reference solver for Degrees of Freedom, built for WebAssembly"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# Tests run optimised: the element tangent is formed by automatic
+# differentiation, which is very slow without inlining.
+[profile.test]
+opt-level = 2
