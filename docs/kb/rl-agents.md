@@ -21,7 +21,7 @@ status: partial
 
 The goal-based mode is **Load in space** (`GameMode` `"load-space"`, level `pickup1`; see [unified runtime](unified-runtime.md)): weights hang in space and the player must connect every one to a foundation with a stable structure that passes the level's checks. `apps/web/src/rl` lets software agents play that mode headlessly and learn to meet its goal. It is a training and evaluation harness only. Nothing in the web UI uses it, and the game's rules and solver are unchanged.
 
-Status: the environment, a learner, a bridge for external agents and tests are implemented. A trained agent solves the one-weight level reliably. Results on the three-weight level are recorded under [Measured results](#measured-results); the random layout is untested for learning.
+Status: the environment, a learner, a bridge for external agents and tests are implemented. A trained agent solves the one-weight level reliably. It does not yet solve the game's three-weight level (see [Measured results](#measured-results)); the random layout is untested for learning.
 
 ## Why it reuses the game instead of reimplementing it
 
@@ -105,7 +105,7 @@ All numbers are from this branch on one machine and are not a benchmark.
 - Training takes about 35 s for 400 episodes on `single`.
 - A policy trained on `single` does not transfer zero-shot to `pickup1`: it keeps building and spends 6,120 against a 3,000 budget without solving.
 
-Three-weight (`pickup1`) results: see the section added when those runs finished, below.
+Three-weight (`pickup1`), 640 episodes, seed 1, one run each (20 held-out episodes): trained from scratch and warm-started from the `single` policy both solved **0%** (random also 0%). Greedy checks every 40 episodes never solved it either. Mean reward improved from −0.52 (random) to about −0.1, so the agents learn something (they connect weights and fix mechanisms with joints), but not the goal. Inspecting the warm-start policy showed it places all four foundations early, builds diagonal members that leave mechanisms and exhausts supply. Likely causes, untested: the foundation features cannot tell a weight that already has a foundation from one that does not, and 640 episodes is small for 37-step episodes. Each run took about 5 minutes of training after a slow start; larger budgets and more seeds are the obvious next experiment.
 
 ## Limitations and open questions
 
