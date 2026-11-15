@@ -61,6 +61,22 @@ describe('tension-only cable printing',()=>{
     expect(score.unknownGravityKN).toBe(0);
   });
 
+  it.each([[40, 234.9400210068], [50, 271.2746506218]])(
+    'compares the recovered midspan cable tension to its printed 260 kN strength under %i kN',
+    (gravityKN, tensionKN) => {
+      const { turn } = parentFixture(2);
+      turn.board.loads[0].magnitude = gravityKN;
+      const result = analyzeTurn(turn, 'card-gravity');
+      const capacity = result.capacity!.members[3];
+      expect(capacity.status).toBe('verified');
+      if (capacity.status !== 'verified') throw Error(capacity.reason);
+      expect(capacity.actions.N).toBeCloseTo(tensionKN, 7);
+      expect(capacity.utilization).toBeCloseTo(tensionKN / 260, 8);
+      expect(capacity.utilization > 1.001).toBe(gravityKN === 50);
+      expect(result.mechanism).toBe(false);
+    },
+  );
+
   it('carries no compression or bending when slack and provides transverse stiffness only in tension',()=>{
     const loose=cableState([1.9,0,0],2,57600);
     expect(loose.force).toBe(0); expect([...loose.tangent]).toEqual(Array(9).fill(0));
