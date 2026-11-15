@@ -65,3 +65,13 @@ def test_size_cap_keeps_the_most_probable_members():
 def test_load_falls_back_to_highest_node():
     s = decode(probs(column_edges(6)))
     assert s is not None and s.loads == {(3, 3, 6)}
+
+
+def test_free_ended_stubs_are_pruned_but_load_tips_are_kept():
+    column = column_edges(6)
+    stub = [(((3, 3, 3), (4, 3, 4)), 0.9), (((4, 3, 4), (4, 3, 5)), 0.9)]  # dangling branch off the column
+    s = decode(probs(column + stub, loads=[((3, 3, 6), 0.9)]))
+    assert s is not None
+    assert ((3, 3, 3), (4, 3, 4)) not in s.edges and ((4, 3, 4), (4, 3, 5)) not in s.edges
+    loaded = decode(probs(column + stub, loads=[((3, 3, 6), 0.9), ((4, 3, 5), 0.9)]))
+    assert loaded is not None and ((4, 3, 4), (4, 3, 5)) in loaded.edges and (4, 3, 5) in loaded.loads

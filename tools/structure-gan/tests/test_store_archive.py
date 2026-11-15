@@ -89,3 +89,17 @@ def test_preview_svg_is_stored_and_wellformed(tmp_path, excellent):
     with StructureStore(tmp_path / "p.sqlite") as store:
         store.add(excellent, run_id="r", generation=0, source="seed", load_kn=1)
     assert sqlite3.connect(tmp_path / "p.sqlite").execute("SELECT preview_svg FROM evolved_structures").fetchone()[0] == svg
+
+
+def test_shape_index_rejects_near_duplicates_but_not_distinct_forms(arc, column):
+    from dof_structure_gan.archive import ShapeIndex
+
+    index = ShapeIndex()
+    assert index.add(arc) and not index.add(arc.transformed(3)) and index.add(column)
+    assert len(index) == 2
+
+
+def test_store_rebuilds_structures_from_saves(tmp_path, excellent):
+    with StructureStore(tmp_path / "s.sqlite") as store:
+        store.add(excellent, run_id="r", generation=0, source="seed", load_kn=1)
+        assert store.structures() == [excellent.structure]

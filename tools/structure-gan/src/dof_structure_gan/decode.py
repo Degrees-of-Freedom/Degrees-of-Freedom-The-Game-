@@ -90,6 +90,24 @@ def _ground_component(edges: list[Edge]) -> list[Edge]:
     return max(grounded, key=len) if grounded else []
 
 
+def _prune_free_ends(edges: list[Edge], keep: set[Node]) -> list[Edge]:
+    """Repeatedly drop members whose far end is a free tip.
+
+    A node with a single member that is neither on the ground nor a load point
+    carries nothing; such stubs gave the earlier output a scaffold-pole look.
+    """
+    edges = list(edges)
+    while True:
+        degree: dict[Node, int] = {}
+        for a, b in edges:
+            degree[a] = degree.get(a, 0) + 1
+            degree[b] = degree.get(b, 0) + 1
+        dead = {n for n, d in degree.items() if d == 1 and n[2] > 0 and n not in keep}
+        if not dead:
+            return edges
+        edges = [e for e in edges if e[0] not in dead and e[1] not in dead]
+
+
 def decode(
     probabilities: np.ndarray,
     *,
@@ -131,6 +149,16 @@ def decode(
         ends.append(np.array(edge[1], dtype=float))
 
     body = _ground_component(accepted)
+    load_scores = probabilities[LOAD_CHANNEL]
+    raised = {n for e in body for n in e if n[2] > 0}
+    if not raised:
+        return None
+    ranked = sorted(raised, key=lambda n: (-float(load_scores[n]), -n[2], n))
+    loads = [n for n in ranked if load_scores[n] > threshold][:max_loads]
+    if not loads:  # no flagged load: load the highest node, the structure's natural tip
+        loads = [max(raised, key=lambda n: (n[2], float(load_scores[n]), n))]
+    # Free tips other than load points carry nothing; prune them before judging size.
+    body = _ground_component(_prune_free_ends(body, set(loads)))
     if len(body) < MIN_MEMBERS:
         return None
     nodes = {n for e in body for n in e}
@@ -141,12 +169,7 @@ def decode(
     ground = sorted((n for n in nodes if n[2] == 0), key=lambda n: (-degree[n], n))
     supports = frozenset(ground[:MAX_SUPPORTS])
 
-    load_scores = probabilities[LOAD_CHANNEL]
-    raised = [n for n in nodes if n[2] > 0]
-    if not raised:
-        return None
-    ranked = sorted(raised, key=lambda n: (-float(load_scores[n]), -n[2], n))
-    loads = [n for n in ranked if load_scores[n] > threshold][:max_loads]
+    loads = [n for n in loads if n in nodes]
     if not loads:
-        loads = [max(raised, key=lambda n: (n[2], float(load_scores[n]), n))]
+        return None
     return Structure(frozenset(body), supports, frozenset(loads))

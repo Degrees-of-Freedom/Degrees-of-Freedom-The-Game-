@@ -98,3 +98,25 @@ def test_density_asymmetry_separates_balanced_from_lopsided():
         [(2, 2, 0)], [(9, 3, 6)],
     )
     assert metrics.asymmetry(balanced) < 0.3 < metrics.asymmetry(lopsided)
+
+
+def test_boxy_braced_frame_is_not_curved():
+    """Regression: posts turning into 45-degree braces used to score as bends."""
+    frame = []
+    for x in range(0, 6):
+        frame += chain((x, 3, 0), (x, 3, 4))
+        if x:
+            frame += chain((x - 1, 3, 4), (x, 3, 4)) + chain((x - 1, 3, 0), (x, 3, 2)) + chain((x - 1, 3, 4), (x, 3, 2))
+    boxy = make(frame, [(0, 3, 0)], [(5, 3, 4)])
+    assert metrics.curvature(boxy) == 0.0
+
+
+def test_short_or_axis_aligned_bends_are_not_sustained_curves():
+    two_bends = make(chain((2, 5, 0), (2, 5, 2), (3, 5, 3), (5, 5, 4), (5, 5, 5)), [(2, 5, 0)], [(5, 5, 5)])
+    assert metrics.curvature(two_bends) == 0.0
+
+
+def test_shape_similarity_ignores_symmetry_but_sees_different_forms(arc, column):
+    assert metrics.shape_similarity(arc, arc) == pytest.approx(1.0)
+    assert metrics.shape_similarity(arc, arc.transformed(5)) == pytest.approx(1.0)
+    assert metrics.shape_similarity(arc, column) < 0.95

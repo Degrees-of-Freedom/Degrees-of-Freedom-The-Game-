@@ -12,6 +12,7 @@ import numpy as np
 
 from .evaluation import Evaluation
 from .lattice import Structure
+from .metrics import shape_similarity
 
 BINS = 4
 Cell = tuple[int, int, int]
@@ -68,3 +69,32 @@ class Archive:
 
     def best_fitness(self) -> float:
         return max((e.fitness for e in self._cells.values()), default=0.0)
+
+
+NEAR_DUPLICATE = 0.985
+"""Coarse-shape cosine similarity at or above which two structures count as the same form."""
+
+
+class ShapeIndex:
+    """Remembers stored structures so near-duplicates are not stored again.
+
+    Exact hashing misses forms that differ by a member or two; this compares
+    coarse mass distribution under footprint symmetries.
+    """
+
+    def __init__(self, threshold: float = NEAR_DUPLICATE) -> None:
+        self.threshold = threshold
+        self._stored: list[Structure] = []
+
+    def __len__(self) -> int:
+        return len(self._stored)
+
+    def is_novel(self, structure: Structure) -> bool:
+        return all(shape_similarity(structure, other) < self.threshold for other in self._stored)
+
+    def add(self, structure: Structure) -> bool:
+        """Remember ``structure`` unless it duplicates one already remembered; returns whether it was added."""
+        if not self.is_novel(structure):
+            return False
+        self._stored.append(structure)
+        return True

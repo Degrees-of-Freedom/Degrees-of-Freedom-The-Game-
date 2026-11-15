@@ -70,42 +70,57 @@ def _continuation(adjacency: dict[Node, list[Node]], came_from: Node, at: Node) 
     return node if angle <= 60.0 else None
 
 
-def curvature(structure: Structure) -> float:
-    """Share of members on sustained, smooth bends of a chord.
+RUN_MEMBERS = 4
+"""A curve needs this many consecutive chord members (three consecutive bends)."""
 
-    Braced structures have no degree-2 nodes, so a chord is followed through
-    junctions by always taking the *straightest continuation*; rungs and
-    diagonals (turning near 90 degrees) never continue a chord. For each
-    directed member ``a -> b``, the chord bends smoothly (8-60 degrees) both
-    where it arrives at ``a`` and where it leaves ``b``, about the same axis,
-    when it is a curve; a zig-zag turns opposite ways and a corner turns too
-    sharply, so neither counts. The three members around such a pair are curved.
+
+def _chord_run(adjacency: dict[Node, list[Node]], first: Node, second: Node) -> list[Node] | None:
+    """Follow the straightest continuation from ``first -> second`` for ``RUN_MEMBERS`` members."""
+    path = [first, second]
+    while len(path) <= RUN_MEMBERS:
+        nxt = _continuation(adjacency, path[-2], path[-1])
+        if nxt is None or nxt in path:
+            return None
+        path.append(nxt)
+    return path
+
+
+def _is_axis_aligned(a: Node, b: Node) -> bool:
+    return sum(1 for x, y in zip(a, b) if x != y) == 1
+
+
+def curvature(structure: Structure) -> float:
+    """Share of members on sustained, smooth, mostly oblique curves.
+
+    A chord is followed through junctions by always taking the *straightest
+    continuation*, so rungs and braces never continue it. A run of four
+    consecutive members is a curve only if it bends smoothly (8-60 degrees)
+    at all three interior nodes, about one common axis and in one rotational
+    sense, with at least 30 degrees of total turn, and at most one of its
+    members is axis-aligned. The last two rules exclude the failure mode of the
+    first version, where a vertical post turning into one 45-degree brace in a
+    boxy braced frame scored as a bend.
     """
     adjacency = _adjacency(structure)
     curved: set[frozenset[Node]] = set()
     for a, b in structure.edges:
-        for first, second in ((a, b), (b, a)):  # both travel directions
-            after = _continuation(adjacency, first, second)
-            if after is None:
+        for first, second in ((a, b), (b, a)):
+            path = _chord_run(adjacency, first, second)
+            if path is None:
                 continue
-            arrivals = [n for n in adjacency[first] if n != second]
-            # The member arriving at `first` whose straightest continuation is `second`.
-            before = next(
-                (n for n in sorted(arrivals, key=lambda n: _turn(n, first, second)[0])
-                 if _continuation(adjacency, n, first) == second),
-                None,
-            )
-            if before is None:
+            turns = [_turn(path[i], path[i + 1], path[i + 2]) for i in range(RUN_MEMBERS - 1)]
+            axes = [axis for _, axis in turns]
+            if any(axis is None for axis in axes):
                 continue
-            angle_first, axis_first = _turn(before, first, second)
-            angle_second, axis_second = _turn(first, second, after)
-            if (
-                axis_first is not None and axis_second is not None
-                and 8.0 <= angle_first <= 60.0 and 8.0 <= angle_second <= 60.0
-                and float(axis_first @ axis_second) > 0.5
-            ):
-                curved.update(frozenset(pair) for pair in ((before, first), (first, second), (second, after)))
-    return _clip01(len(curved) / max(len(structure.edges), 1) / 0.45)
+            if not all(8.0 <= angle <= 60.0 for angle, _ in turns) or sum(angle for angle, _ in turns) < 30.0:
+                continue
+            if not all(float(axes[0] @ axis) > 0.5 for axis in axes[1:]):  # type: ignore[operator]
+                continue
+            members = list(zip(path, path[1:]))
+            if sum(_is_axis_aligned(u, v) for u, v in members) > 1:
+                continue
+            curved.update(frozenset(pair) for pair in members)
+    return _clip01(len(curved) / max(len(structure.edges), 1) / 0.35)
 
 
 def organic(structure: Structure) -> float:
@@ -227,3 +242,27 @@ def score(structure: Structure) -> Aesthetics:
         complexity=complexity(structure),
         dynamism=dynamism(structure),
     )
+
+
+def shape_signature(structure: Structure) -> np.ndarray:
+    """Unit-norm coarse mass-density vector, used to compare overall shapes."""
+    flat = _density(structure).ravel()
+    return flat / max(float(np.linalg.norm(flat)), 1e-12)
+
+
+def shape_similarity(a: Structure, b: Structure) -> float:
+    """Best cosine similarity of coarse mass density over the 8 footprint symmetries (1 = same shape)."""
+    base = _density(a)
+    base = base.ravel() / max(float(np.linalg.norm(base)), 1e-12)
+    best = 0.0
+    for op in range(8):
+        grid = _density(b)
+        if op & 4:
+            grid = grid.transpose(1, 0, 2)
+        if op & 1:
+            grid = grid[::-1, :, :]
+        if op & 2:
+            grid = grid[:, ::-1, :]
+        other = grid.ravel() / max(float(np.linalg.norm(grid)), 1e-12)
+        best = max(best, float(base @ other))
+    return best

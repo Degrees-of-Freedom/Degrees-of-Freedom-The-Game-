@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .evaluation import Evaluation
-from .lattice import CELL_METRES, Structure
+from .lattice import CELL_METRES, Structure, canonical_edge
 from .preview import render_svg
 
 SCHEMA_VERSION = 2
@@ -81,6 +81,21 @@ def with_loads(save: dict, structure: Structure, kilonewtons: float) -> dict:
     return save
 
 
+def structure_from_save(save: dict) -> Structure:
+    """Inverse of :func:`voxel_save` + :func:`with_loads` for saves this tool wrote."""
+
+    def node(key: str) -> tuple[int, int, int]:
+        x, y, z = (int(v) for v in key.split(","))
+        return (x, y, z)
+
+    model = save["model"]
+    return Structure(
+        frozenset(canonical_edge(node(m["a"]), node(m["b"])) for m in model["members"]),
+        frozenset(node(k) for k, a in model["attrs"].items() if a.get("found")),
+        frozenset(node(k) for k, a in model["attrs"].items() if "load" in a),
+    )
+
+
 class StructureStore:
     """Thin, explicit wrapper over the ``evolved_structures`` table."""
 
@@ -136,6 +151,13 @@ class StructureStore:
         cursor = self._db.execute(f"INSERT INTO evolved_structures ({columns}) VALUES ({marks}) ON CONFLICT(canonical_hash) DO NOTHING", row)
         self._db.commit()
         return ident if cursor.rowcount else None
+
+    def structures(self) -> list[Structure]:
+        """Every stored structure, rebuilt from its game save (for novelty checks)."""
+        out: list[Structure] = []
+        for (text,) in self._db.execute("SELECT save_json FROM evolved_structures ORDER BY id"):
+            out.append(structure_from_save(json.loads(text)))
+        return out
 
     def top(self, limit: int = 10) -> list[sqlite3.Row]:
         self._db.row_factory = sqlite3.Row

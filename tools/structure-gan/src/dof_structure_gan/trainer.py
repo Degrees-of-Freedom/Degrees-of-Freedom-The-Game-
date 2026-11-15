@@ -22,7 +22,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from .archive import Archive
+from .archive import Archive, ShapeIndex
 from .decode import decode
 from .evaluation import Criteria, Evaluation, Evaluator
 from .lattice import CHANNELS, GRID, Structure
@@ -111,6 +111,9 @@ class Trainer:
         self.replay = Replay(config.replay_size)
         self.evaluator = Evaluator(config.load_case, config.criteria, config.workers)
         self.stats = Stats()
+        self.shapes = ShapeIndex()
+        for existing in store.structures():
+            self.shapes.add(existing)
         self._baseline_stored = len(store)
         self.step = 0
 
@@ -125,7 +128,7 @@ class Trainer:
         log.info("seeded archive: %d cells, best fitness %.3f", len(self.archive), self.archive.best_fitness())
 
     def _record(self, evaluation: Evaluation, *, generation: int, source: str) -> None:
-        if self.archive.offer(evaluation) and evaluation.excellent:
+        if self.archive.offer(evaluation) and evaluation.excellent and self.shapes.add(evaluation.structure):
             stored = self.store.add(
                 evaluation, run_id=self.config.run_id, generation=generation, source=source,
                 load_kn=self.config.load_case.vertical_n / 1000,
