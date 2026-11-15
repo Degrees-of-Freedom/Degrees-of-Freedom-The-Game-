@@ -487,22 +487,16 @@ export function createPicker(
     stack.step(delta);
     if (lastEvent) pick(lastEvent);
   };
-  canvas.addEventListener(
-    "wheel",
-    (e: WheelEvent) => {
+  const onWheel = (e: WheelEvent) => {
       if (!e.deltaY || !overStack()) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       step(e.deltaY > 0 ? 1 : -1);
-    },
-    { capture: true, passive: false },
-  );
-  canvas.addEventListener("pointerleave", () => stack.reset());
+  };
+  const leave = () => stack.reset();
+  canvas.addEventListener("wheel", onWheel, { capture: true, passive: false });
+  canvas.addEventListener("pointerleave", leave);
   const onKey = (e: KeyboardEvent) => {
-    if (!canvas.isConnected) {
-      window.removeEventListener("keydown", onKey, true);
-      return;
-    }
     if (
       (e.key !== "[" && e.key !== "]") ||
       e.defaultPrevented || controlOwnsKey(e.target) ||
@@ -517,5 +511,9 @@ export function createPicker(
     step(e.key === "]" ? 1 : -1);
   };
   window.addEventListener("keydown", onKey, true);
-  return pick;
+  return Object.assign(pick, { dispose() {
+    canvas.removeEventListener("wheel", onWheel, true);
+    canvas.removeEventListener("pointerleave", leave);
+    window.removeEventListener("keydown", onKey, true);
+  } });
 }

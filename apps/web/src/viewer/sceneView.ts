@@ -15,6 +15,8 @@ export interface SceneView {
   /** Kept in the workspace only, so privacy handoff can unmount every private scene resource. */
   cameraMemory?: CameraMemory;
   still?: boolean;
+  trueScale?: boolean;
+  showInstability?: boolean;
   jointLayer?: JointLayer;
   field?: DeformationField;
   reference?: boolean;

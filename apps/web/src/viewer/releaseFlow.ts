@@ -29,3 +29,16 @@ export function buildReleaseFlow(group: THREE.Group, result: VoxelAnalysis, poin
     addMotion(segment, relative);
   }
 }
+
+/** A dashed marker identifies the witnessed region. No displacement or mode
+ * direction is inferred from a failed solve or from free joint permissions. */
+export function markInstability(group: THREE.Group, result: VoxelAnalysis, point: (key: string) => THREE.Vector3) {
+  const ids = new Set(result.combos[0]?.components?.flatMap(scope => scope.instabilityWitness?.memberIds ?? []));
+  const points = (result.ctx?.els ?? []).filter(e => ids.has(e.m.id)).flatMap(e => [point(e.m.a), point(e.m.b)]);
+  if (!points.length) return;
+  const line = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(points),
+    new THREE.LineDashedMaterial({ color: 0xff477e, dashSize: .24, gapSize: .12, depthTest: false, depthWrite: false }));
+  line.computeLineDistances();
+  line.renderOrder = 3;
+  group.add(line);
+}

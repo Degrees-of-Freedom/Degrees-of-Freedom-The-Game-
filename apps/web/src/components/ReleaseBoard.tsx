@@ -61,6 +61,8 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   const [responseOpen, setResponseOpen] = useState(false);
   const [layer, setLayer] = useState<"reference" | "shape" | "path">("reference");
   const [amplification, setAmplification] = useState(0);
+  const [trueScale, setTrueScale] = useState(false);
+  const [showInstability, setShowInstability] = useState(false);
   const [focusJoint, setFocusJoint] = useState<string>();
   const [skip, setSkip] = useState(false);
   const [action, setAction] = useState(0);
@@ -117,9 +119,10 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
         <button ref={inspectButton} aria-expanded={inspecting} onClick={() => setInspecting(!inspecting)}>Inspect</button>
         <button aria-haspopup="dialog" onClick={onMenu}>Menu</button>
       </div>
+      <p className="release-phone-note">For a larger building surface, open this match on a desktop or landscape tablet. Private export is in Menu.</p>
     </header>
     <section className="release-stage" aria-label="Structure board">
-      <SceneBoundary release><Scene cameraMemory={cameraMemory} still={skip || settings.reducedMotion} jointLayer={jointLayer} combo={0} deformed={layer === "shape"}
+      <SceneBoundary release><Scene cameraMemory={cameraMemory} trueScale={trueScale} showInstability={showInstability} still={skip || settings.reducedMotion} jointLayer={jointLayer} combo={0} deformed={layer === "shape"}
         reference field={field} scale={scale} loads utilization={false} loadPath={layer === "path"} result={result} onMessage={notify} /></SceneBoundary>
       {!turn.finished && <p className="release-status" key={action} role="status">{status}</p>}
       {turn.finished && turn.finalScore && !inspecting && <div className="release-final"><FinalScorePanel score={turn.finalScore} /></div>}
@@ -128,9 +131,16 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
         <header><h2 ref={heading} tabIndex={-1}>Inspect structure</h2><button aria-label="Close inspection" onClick={() => {
           setInspecting(false); game.setSelected(null); inspectButton.current?.focus();
         }}>×</button></header>
+        <label>Section display<select value={trueScale ? "true" : "readable"} onChange={e => setTrueScale(e.target.value === "true")}>
+          <option value="readable">Readable sections</option><option value="true">True scale</option>
+        </select></label>
         <ReleaseInspection game={game} turn={turn} joints={joints} joint={joint} selectJoint={id => { game.setSelected(null); setFocusJoint(id); }}
           responseOpen={responseOpen} onResponse={() => setResponseOpen(true)} draft={!!draftSize} reading={reading}
-          layer={layer} setLayer={setLayer} scale={scale} amplification={amplification} setAmplification={setAmplification} />
+          layer={layer} peakM={field?.peakM} setLayer={setLayer} scale={scale} amplification={amplification} setAmplification={setAmplification} />
+        {result && <label className="release-check"><input type="checkbox" checked={showInstability} onChange={e => setShowInstability(e.target.checked)} />
+          Mark witnessed instability</label>}
+        {showInstability && result && <p>{result.combos[0]?.components?.some(c => c.instabilityWitness)
+          ? "Dashed rose segments mark the witnessed region." : "No instability witness is available on this board."}</p>}
       </aside>}
       {!skip && <button className="release-skip" onClick={() => setSkip(true)}>Skip effects</button>}
     </section>

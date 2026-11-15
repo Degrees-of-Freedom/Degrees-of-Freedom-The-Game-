@@ -345,6 +345,7 @@ export function bindSceneInteraction(
     buildPlane,
     clearPreview,
     dispose() {
+      pick.dispose();
       canvas.removeEventListener("pointerdown", pointerDown, true);
       canvas.removeEventListener("pointermove", move);
       canvas.removeEventListener("pointerup", up);

@@ -14,7 +14,7 @@ import { getSettings } from "../menu/settings";
 import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
 import { addResultArrows, displayPoint } from "./sceneResults";
 import { createFlowParticles } from "./flowParticles";
-import { buildReleaseFlow } from "./releaseFlow";
+import { buildReleaseFlow, markInstability } from "./releaseFlow";
 import { buildStructure } from "./structureMeshes";
 import { bindSceneInteraction } from "./sceneInteraction";
 import { selectedTurnCard } from "./turnPicking";
@@ -39,6 +39,8 @@ import { createJointGlyphs } from "./jointGlyphs";
 export function Scene({
   cameraMemory,
   still,
+  trueScale,
+  showInstability,
   jointLayer,
   field, reference,
   result,
@@ -55,6 +57,8 @@ export function Scene({
   const view = useRef<SceneView>({
     cameraMemory,
     still,
+    trueScale,
+    showInstability,
     jointLayer,
     field, reference,
     result,
@@ -71,6 +75,8 @@ export function Scene({
   view.current = {
     cameraMemory,
     still,
+    trueScale,
+    showInstability,
     jointLayer,
     field, reference,
     result,
@@ -92,7 +98,7 @@ export function Scene({
   }, [jointLayer, result, combo, deformed, scale, field]);
   useEffect(() => {
     refresh.current();
-  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath]);
+  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath, trueScale, showInstability]);
   const workK = useGameStore((state) => state.workK);
   const style = useGameStore((state) => state.style);
   const host = useRef<HTMLDivElement>(null);
@@ -342,6 +348,7 @@ export function Scene({
       const releaseFlow = !!view.current.cameraMemory && view.current.loadPath;
       buildStructure(structure, state, releaseFlow ? { ...view.current, loadPath: false } : view.current, point, particles.add);
       if (releaseFlow && view.current.result) buildReleaseFlow(structure, view.current.result, point, particles.add);
+      if (view.current.showInstability && view.current.result) markInstability(structure, view.current.result, point);
       addResultArrows(structure, view.current, point, state.style !== 'engineering');
       buildGuides(
         guides,
