@@ -1,9 +1,13 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { Scene } from "../viewer/Scene";
+import { controlOwnsKey } from "../viewer/keyboardTarget";
 import { LEVELS } from "../game/levels";
 import { useGameStore } from "../game/store";
 import { analyzeGame } from "../game/analysis";
 import { analyzeTurn } from "../game/turnAnalysis";
+import { isScoredCatalogue } from "../game/cardCatalogue";
+import { deformationField } from "../viewer/deformationField";
 import { useStabilityCheck } from "../game/useStabilityCheck";
 import type { VoxelAnalysis } from "../solver/voxel";
 import { StabilityCheckPanel } from "../components/StabilityCheckPanel";
@@ -11,10 +15,15 @@ import { modeProgress } from "../game/modes";
 import { environmentExample } from "../game/environmentExamples";
 import { useEditorSound } from "../game/useEditorSound";
 import { createGameSave } from "../game/structuralState";
+import { publicTurnModel } from "../game/publicTurnModel";
+import { publicRepairReport } from "../game/publicRepairReport";
 import { AnalysisPanel } from "../components/AnalysisPanel";
 import { ConnectivityPanel } from "../components/ConnectivityPanel";
 import { CoordinateEditor, ModelIO } from "../components/RuntimeControls";
 import { TurnPanel } from "../components/TurnPanel";
+import { SharedTableHandoff } from "../components/SharedTableHandoff";
+import { SessionRecovery } from "../components/SessionRecovery";
+import { Companion } from "../companion/Companion";
 import {
   EnvironmentTools,
   EnvironmentTray,
@@ -31,6 +40,8 @@ import { SceneBoundary } from "../components/environment/SceneBoundary";
 import { PauseMenu } from "../components/PauseMenu";
 import { getSettings, useSettings } from "../menu/settings";
 import { solverForSettings } from "../solver";
+import { JointPermissions } from "../components/JointPermissions";
+import { editorJointPermissions, jointAtSceneSelection, sharedJointPermissions } from "../viewer/jointPermissions";
 import { StructureLibrary } from "../components/StructureLibrary";
 import { StoredAnalysisPanel } from "../components/StoredAnalysisPanel";
 import { GrowthHelp, growthHint } from "../components/environment/GrowthHelp";
@@ -47,6 +58,20 @@ export function Workspace() {
     LEVELS[game.levelId],
     solverForSettings(useSettings()),
   );
+  const { jointDisplay } = useSettings();
+  const board = game.mode === "multiplayer" ? game.turn?.board : undefined;
+  const editorModel = game.mode !== "multiplayer" ? game.model : undefined;
+  const joints = useMemo(() => game.style !== "grow-dusk" ? [] : board ? sharedJointPermissions(board)
+    : editorModel ? editorJointPermissions(editorModel) : [], [game.style, board, editorModel]);
+  const [permissionPick, setPermissionPick] = useState<{ id: string; selection: typeof game.selected; board: typeof board } | null>(null);
+  const selectedJoint = useMemo(() => {
+    if (permissionPick && permissionPick.selection === game.selected && permissionPick.board === board)
+      return joints.find(joint => joint.id === permissionPick.id);
+    if (game.selected?.type === "node") return jointAtSceneSelection(joints, game.selected.key, board ? game.turn : null);
+  }, [joints, permissionPick, game.selected, board, game.turn]);
+  const jointLayer = useMemo(() => game.style === "grow-dusk" && jointDisplay !== "off"
+    ? { joints: jointDisplay === "all" ? joints : selectedJoint ? [selectedJoint] : [], selected: selectedJoint?.id }
+    : undefined, [game.style, jointDisplay, joints, selectedJoint]);
   // Multiplayer uses independent member-end connections, not the node model.
   const contractCompatible = game.mode !== "multiplayer";
   const [analysis, setAnalysis] = useState<{
@@ -54,22 +79,47 @@ export function Workspace() {
     result: VoxelAnalysis;
   } | null>(null);
   const [drawer, setDrawer] = useState<Drawer>(() =>
-    new URLSearchParams(window.location.search).has("library") ? "library" : null,
+    new URLSearchParams(window.location.search).has("library") ? "library" :
+      game.mode === "multiplayer" && game.turn?.finalScore ? "turn" : null,
   );
   const [message, setMessage] = useState("");
   const [help, setHelp] = useState(() => getSettings().showHelpOnStart);
   const [paused, setPaused] = useState(false);
+  // A committed board is immutable through staging and cancel. Each advance,
+  // new match or restore produces a new board, even for the same seed/seat.
+  const [readyBoard, setReadyBoard] = useState<NonNullable<typeof game.turn>["board"] | null>(null);
+  // Only a turn actually ended in this workspace can prompt Timburr after
+  // handoff. Resume and replay retain the report for deliberate inspection.
+  const [pendingRepairNotice, setPendingRepairNotice] = useState<string | null>(null);
+  const reports = game.mode === "multiplayer" ? game.turn?.reports : undefined;
+  const repairs = useMemo(() => reports?.map(publicRepairReport).filter(item => item !== null), [reports]);
+  const latestRepair = repairs?.at(-1);
+  const repairNoticeId = game.turn && latestRepair &&
+    `repair-speech-1/${game.turn.catalogue}/${game.turn.seed}/${latestRepair.turn}`;
+  const companion = { repairs, announceRepair: !!repairNoticeId && repairNoticeId === pendingRepairNotice,
+    onPresented: () => setPendingRepairNotice(null) };
+  const privateTurn = game.mode === "multiplayer" && !game.turn?.finished ? game.turn : null;
+  const privateMatchActive = privateTurn !== null;
+  const needsHandoff = !!privateTurn && readyBoard !== privateTurn.board;
+  const saveCovered = game.sessionSave === "invalid" || game.sessionSave === "failed" ||
+    game.sessionSave === "committing" || (game.sessionSave === "writing" && needsHandoff);
+  const covered = game.sessionConflict || saveCovered || needsHandoff;
   const [combo, setCombo] = useState(0);
   const [deformed, setDeformed] = useState(false);
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(0); // zero selects automatic display amplification
+  const [reference, setReference] = useState(true);
   const [utilization, setUtilization] = useState(true);
   const [loads, setLoads] = useState(true);
   const [loadPath, setLoadPath] = useState(false);
   const [exampleIndex, setExampleIndex] = useState(0);
   const [libraryIndex, setLibraryIndex] = useState(0);
-  const sound = useEditorSound(game.model);
+  const sound = useEditorSound(game.model, covered || paused);
   const settings = useSettings();
   const result = analysis?.model === game.model ? analysis.result : null;
+  const field = useMemo(() => deformed && result ? deformationField(result, combo) : undefined, [result, combo, deformed]);
+  const autoScale = field?.peakM ? Math.max(1, Math.min(500, Math.round(1.2/field.peakM))) : 1;
+  const actualScale = scale || autoScale;
+  const scoredPreview = game.mode === "multiplayer" && game.turn && isScoredCatalogue(game.turn.catalogue);
   const style = game.style === "engineering" ? "levels" : game.style;
   const isKit = style === "kit";
   const isLevels = style === "levels";
@@ -79,6 +129,48 @@ export function Workspace() {
   const isSharedTable = game.mode === "multiplayer";
   const progress = result ? modeProgress(game.mode, result) : null;
 
+  async function endPrivateTurn() {
+    const current = useGameStore.getState();
+    // A queued click from the previous render cannot pass the new player's turn.
+    if (current.mode !== "multiplayer" || !current.turn || current.turn.finished ||
+        current.turn.board !== readyBoard || paused || document.hidden || current.turnAnalysing) return;
+    const ended = current.turn;
+    setMessage("Analysing the turn…");
+    const error = await current.endTurn();
+    if (error) { setMessage(error); return; }
+    setPendingRepairNotice(`repair-speech-1/${ended.catalogue}/${ended.seed}/${ended.turn}`);
+    setReadyBoard(null);
+    setDrawer(null);
+    setMessage("");
+  }
+  function pause() {
+    setReadyBoard(null);
+    setPaused(true);
+  }
+  useLayoutEffect(() => {
+    if (game.mode === "multiplayer" && game.turn?.finalScore) setDrawer("turn");
+  }, [game.mode, game.turn?.finalScore]);
+  useLayoutEffect(() => {
+    if (game.sessionSave === "failed") setReadyBoard(null);
+  }, [game.sessionSave]);
+  useLayoutEffect(() => {
+    if (!privateMatchActive) return;
+    // Conceal before the browser snapshots a backgrounded page. The turn and
+    // its reserved cards stay in the store; readiness exists only in this tab.
+    const conceal = () => flushSync(() => {
+      setReadyBoard(null);
+      setMessage("");
+    });
+    const visibilityChanged = () => { if (document.hidden) conceal(); };
+    window.addEventListener("blur", conceal);
+    window.addEventListener("pagehide", conceal);
+    document.addEventListener("visibilitychange", visibilityChanged);
+    return () => {
+      window.removeEventListener("blur", conceal);
+      window.removeEventListener("pagehide", conceal);
+      document.removeEventListener("visibilitychange", visibilityChanged);
+    };
+  }, [privateMatchActive]);
   function run() {
     if (contractCompatible) void stability.run(game.model, LEVELS[game.levelId]);
     try {
@@ -87,7 +179,7 @@ export function Workspace() {
         model: game.model,
         result:
           game.mode === "multiplayer" && game.turn
-            ? analyzeTurn(game.turn)
+            ? analyzeTurn(game.turn, scoredPreview ? "card-gravity" : "with-self-weight")
             : analyzeGame(game.model, LEVELS[game.levelId]),
       });
       setDrawer("analysis");
@@ -131,9 +223,8 @@ export function Workspace() {
   useEffect(() => {
     const keys = (event: KeyboardEvent) => {
       if (
-        (event.target as HTMLElement)?.matches(
-          "input, textarea, select, button",
-        ) ||
+        covered || paused || event.defaultPrevented ||
+        controlOwnsKey(event.target) ||
         event.ctrlKey ||
         event.metaKey ||
         event.altKey
@@ -142,13 +233,15 @@ export function Workspace() {
       if (event.key.toLowerCase() === "h" || event.key === "?")
         setHelp((value) => !value);
       if (event.key.toLowerCase() === "r") run();
-      if (event.key.toLowerCase() === "m") void sound.toggle();
+      if (event.key.toLowerCase() === "m" && !event.repeat) sound.toggle();
       if (event.key === "Escape") {
         setDrawer(null);
         game.setSelected(null);
       }
-      if (event.key === "Enter" && game.mode === "multiplayer")
-        void game.endTurn().then((issue) => setMessage(issue ?? "Turn committed"));
+      if (event.key === "Enter" && !event.repeat && privateTurn) {
+        event.preventDefault();
+        void endPrivateTurn();
+      }
     };
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
@@ -210,7 +303,7 @@ export function Workspace() {
       <span className="sep" />
       <button
         className={`btn icon${sound.enabled ? " on" : ""}`}
-        title="Sound (M)"
+        title={sound.enabled ? "Mute sound (M)" : "Enable sound (M)"}
         aria-label="Sound"
         aria-pressed={sound.enabled}
         onClick={() => void sound.toggle()}
@@ -229,7 +322,7 @@ export function Workspace() {
         className="btn"
         title="Menu (P)"
         aria-haspopup="dialog"
-        onClick={() => setPaused(true)}
+        onClick={pause}
       >
         Menu
       </button>
@@ -390,6 +483,20 @@ export function Workspace() {
     utilization &&
     !loadPath &&
     result.designChecksAvailable !== false;
+  const pauseMenu = (
+    <PauseMenu open={paused} onOpen={pause} onClose={() => setPaused(false)}
+      escapeBusy={!covered && drawer !== null} onMessage={setMessage} />
+  );
+  if (game.sessionConflict) return <SharedTableHandoff player={1} conflict onReady={() => window.location.reload()} />;
+  if (saveCovered) return <SessionRecovery />;
+  if (covered && privateTurn) return (
+    <>
+      <SharedTableHandoff player={privateTurn.playerIndex + 1} onReady={() => {
+        if (!paused && !document.hidden) setReadyBoard(privateTurn.board);
+      }} />
+      {pauseMenu}
+    </>
+  );
   return (
     <main
       className={`environment${game.turn?.playerIndex === 1 ? " p2" : ""}${settings.reducedMotion ? " rm" : ""}`}
@@ -398,10 +505,13 @@ export function Workspace() {
       <div id="stage">
         <SceneBoundary>
           <Scene
+            jointLayer={jointLayer}
             result={result}
             combo={combo}
             deformed={deformed}
-            scale={scale}
+            scale={actualScale}
+            field={field}
+            reference={reference}
             utilization={utilization && result?.designChecksAvailable !== false}
             loads={loads}
             loadPath={loadPath}
@@ -415,7 +525,7 @@ export function Workspace() {
           <>
             <div id="top-left">{historyActions}</div>
             <div id="top-right">{analysisActions}</div>
-            <TurnBanner onMessage={setMessage} />
+            <TurnBanner onEndTurn={() => void endPrivateTurn()} />
             <div id="corner">
               <EnvironmentBrand />
               <EnvironmentStats />
@@ -449,7 +559,7 @@ export function Workspace() {
           <>
             <div id="topleft">
               <EnvironmentBrand />
-              <TurnBanner onMessage={setMessage} />
+              <TurnBanner onEndTurn={() => void endPrivateTurn()} />
             </div>
             <div id="actions" className="chip">
               {growthActions}
@@ -486,7 +596,7 @@ export function Workspace() {
           <>
             <div id="topleft">
               <EnvironmentBrand />
-              {!isLevels && <TurnBanner onMessage={setMessage} />}
+              {!isLevels && <TurnBanner onEndTurn={() => void endPrivateTurn()} />}
             </div>
             <div
               id={isBlocks ? "top-right" : "actions"}
@@ -497,13 +607,16 @@ export function Workspace() {
             </div>
             <div id="cornerleft">
               <EnvironmentStats />
+              {field && <span className="deformation-readout" role="status">
+                {field.spans.size ? `Displacement ×${actualScale}${reference ? " · dashed reference" : ""}` : "Displacement unavailable"}
+              </span>}
             </div>
           </>
         )}
         <div id="dock">
           <div id="hint" role="status">
-            {isGrowth
-              ? growthHint(game, progress === "complete")
+            {game.mode === "creative" && game.tool === "found"
+              ? "Click solid ground to place a fixed foundation or select an existing support"
               : game.mode === "forensics"
               ? progress === "complete"
                 ? "Structure repaired · experimental checks passed"
@@ -542,16 +655,17 @@ export function Workspace() {
           </div>
         )}
         <EnvironmentInspector onMessage={setMessage} />
-        {!isGrowth && (
-          <div className="environment-switch">{secondaryActions}</div>
-        )}
-        <PauseMenu
-          open={paused}
-          onOpen={() => setPaused(true)}
-          onClose={() => setPaused(false)}
-          escapeBusy={drawer !== null}
-          onMessage={setMessage}
-        />
+        <div className="environment-switch">
+          <button className="btn" onClick={() => setDrawer("build")}>
+            Build options
+          </button>
+          {game.mode === "multiplayer" && (
+            <button className="btn" onClick={() => setDrawer("turn")}>
+              Turn details
+            </button>
+          )}
+        </div>
+        {pauseMenu}
         {message && (
           <div id="toast" className="chip show" role="status">
             {message}
@@ -640,6 +754,7 @@ export function Workspace() {
                       ? "Shared table"
                       : "Build options"}
               </h2>
+              {!paused && <Companion area="drawer" {...companion} onForemanAccent={sound.foremanAccent} />}
               <button
                 className="btn icon"
                 aria-label="Close drawer"
@@ -657,6 +772,7 @@ export function Workspace() {
                     <StabilityCheckPanel
                       check={stability.check}
                       solverName={stability.solverName}
+                      onNonlinear={stability.supportsNonlinearService ? () => void stability.run(game.model, LEVELS[game.levelId], true) : undefined}
                     />
                   )}
                   {!contractCompatible && <p className="result-source">Selected structural solver: <strong>{stability.solverName}</strong><br />Shared-table analysis currently uses the approximate voxel solver. The selected structural solver is used for single-player checks.</p>}
@@ -669,6 +785,13 @@ export function Workspace() {
                     setDeformed={setDeformed}
                     scale={scale}
                     setScale={setScale}
+                    field={field}
+                    actualScale={actualScale}
+                    reference={reference}
+                    setReference={setReference}
+                    shared={game.mode === "multiplayer"}
+                    scored={!!scoredPreview}
+                    draft={!!game.turn && (game.turn.draft.members.length + game.turn.draft.loads.length + game.turn.draft.connections.length > 0)}
                     utilization={utilization}
                     setUtilization={setUtilization}
                     loads={loads}
@@ -697,14 +820,14 @@ export function Workspace() {
                   <p>
                     Versioned shared model ·{" "}
                     {game.mode === "multiplayer"
-                      ? "the turn log retains individual end connections"
+                      ? "public view of the committed board and its end connections"
                       : "grid coordinates are converted at the analysis boundary"}
                     .
                   </p>
                   <pre>
                     {JSON.stringify(
                       game.mode === "multiplayer"
-                        ? game.turn
+                        ? game.turn && publicTurnModel(game.turn)
                         : game.exportModel(),
                       null,
                       2,
@@ -716,6 +839,8 @@ export function Workspace() {
               )}
               {drawer === "build" && (
                 <>
+                  {style === "grow-dusk" && <JointPermissions joints={joints} selected={selectedJoint} mode={jointDisplay}
+                    select={id => setPermissionPick({ id, selection: game.selected, board })} />}
                   {game.mode === "challenge" && (
                     <label>
                       Challenge
@@ -764,12 +889,17 @@ export function Workspace() {
                 </>
               )}
               {drawer === "turn" && (
-                <TurnPanel game={game} onMessage={setMessage} />
+                <>
+                  <TurnPanel game={game} onMessage={setMessage} onEndTurn={() => void endPrivateTurn()} />
+                  <p role="status">{game.sessionSave === "writing" ? "Saving draft. " : ""}{game.savedRevision === null
+                    ? "No confirmed save yet." : `Last confirmed save revision ${game.savedRevision}`}</p>
+                </>
               )}
             </div>
           </aside>
         )}
       </div>
+      {!paused && !drawer && !help && <Companion area="board" {...companion} onForemanAccent={sound.foremanAccent} />}
     </main>
   );
 }

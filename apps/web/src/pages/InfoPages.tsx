@@ -167,7 +167,7 @@ const TOGGLES: { key: ToggleKey; title: string; text: string }[] = [
   {
     key: "sound",
     title: "Sound",
-    text: "Stored for later. The editor sound is switched on in the workspace with the ♪ button or M.",
+    text: "Play game sound effects. Press M or use the ♪ button on the board to toggle sound.",
   },
   {
     key: "reducedMotion",
@@ -202,6 +202,16 @@ export function SettingToggles() {
             />
             <span className="track" />
           </span>
+        </label>
+      ))}
+      {(["masterVolume", "effectsVolume"] as const).map(key => (
+        <label className="setting" key={key}>
+          <span><b>{key === "masterVolume" ? "Master volume" : "Effects volume"}</b>
+            <span className="d">{settings[key]}%</span></span>
+          <input type="range" min="0" max="100" value={settings[key]} style={{ accentColor: "var(--amber)" }}
+            aria-label={key === "masterVolume" ? "Master volume" : "Effects volume"}
+            aria-valuetext={settings[key] + "%"}
+            onChange={event => updateSettings({ [key]: Number(event.target.value) })} />
         </label>
       ))}
     </>
@@ -269,13 +279,13 @@ export function About() {
             <li>Five modes and five building environments</li>
             <li>Run simulation and Results, an experimental analysis</li>
             <li>A local two-player Shared table playtest</li>
+            <li>Final foundation load-share scoring and turn deductions for verified new or worsened issues</li>
             <li>Progress saved in this browser</li>
           </ul>
         </div>
         <div className="panel">
           <h2>Not implemented yet</h2>
           <ul className="ticks no">
-            <li>Scoring and the new-or-worsened-issue penalty</li>
             <li>Matches of three or four players, and player names</li>
             <li>Online play</li>
             <li>Verified results for engineering design</li>

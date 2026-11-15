@@ -6,7 +6,7 @@ import type {
   StructuralModel,
   Vector3,
 } from '@dof/solver-contract';
-import { ITEMS, type BeamSection } from '../solver/voxelSections';
+import { ITEMS, resolveMemberLaw, type BeamSection } from '../solver/voxelSections';
 import { allNodeKeys, CELL_SIZE, parseNodeKey, type GameModel, type LoadDirection, type Member } from './model';
 
 /** Game point loads are stored in kN; the contract uses newtons. */
@@ -95,7 +95,7 @@ function voxelLocalY(a: Vector3, b: Vector3): Vector3 {
  * pretension as initial strain. Connections are the caller's business.
  */
 export function catalogMember(
-  type: Member['type'],
+  type: Exclude<Member['type'], 'spring'>,
   start: Vector3,
   end: Vector3,
 ): Pick<StructuralMember, 'kind' | 'properties' | 'orientation' | 'initialStrain'> {
@@ -113,7 +113,7 @@ export function gridPosition(key: string): Vector3 {
 }
 
 export interface TranslationOptions {
-  /** Contract analysis fidelity, always written to the model. Defaults to `nonlinear`. */
+  /** Contract analysis fidelity. Omitted means linear, the service default. */
   fidelity?: AnalysisFidelity;
 }
 
@@ -136,14 +136,19 @@ export interface TranslationOptions {
  *   explicit restraint mask, which is passed through unchanged.
  * - Point loads act along their selected axis, -Z when none is selected.
  *
- * `analysis.fidelity` is always set explicitly (nonlinear unless the caller
- * asks for linear); self-weight stays off. The model carries no `version`: the game has no model
- * revision at this layer.
+ * Nonlinear analysis is opt-in, as the service expects: with no option the
+ * model carries no `analysis` and the service solves it linearly. Asked for
+ * nonlinear (`true`, or `{ fidelity: 'nonlinear' }`), the model selects the
+ * corotational formulation and each member carries its physical law: the
+ * catalogue section, or for a cable its rest length. Axial spring printings
+ * cannot be represented and are refused.
  */
 export function toStructuralModel(
   game: GameModel,
-  options: TranslationOptions = {},
+  options: boolean | TranslationOptions = {},
 ): StructuralModelTranslation {
+  const fidelity = typeof options === 'boolean' ? (options ? 'nonlinear' : undefined) : options.fidelity;
+  const nonlinear = fidelity === 'nonlinear';
   const positions = new Map<string, Vector3>();
   const nodes = allNodeKeys(game).map((key) => {
     const position = gridPosition(key);
@@ -155,10 +160,20 @@ export function toStructuralModel(
     game.attrs[key]?.joint ? FIXED_END : BENDING_RELEASED_END;
 
   const translateMember = (member: Member): StructuralMember => {
+    if (member.type === 'spring')
+      throw new Error('The OpenSees check cannot represent this axial spring printing. Use the Shared table applied analysis.');
+    const start = positions.get(member.a) ?? gridPosition(member.a);
+    const end = positions.get(member.b) ?? gridPosition(member.b);
     const base = { id: String(member.id), startNodeId: member.a, endNodeId: member.b };
-    const section = catalogMember(member.type, positions.get(member.a) ?? gridPosition(member.a), positions.get(member.b) ?? gridPosition(member.b));
-    if (member.type === 'cable') return { ...base, ...section };
-    return { ...base, ...section, startConnection: endAt(member.a), endConnection: endAt(member.b) };
+    const section = catalogMember(member.type, start, end);
+    // Nonlinear: the member law replaces the section and initial strain. The
+    // law is built from the same catalogue, so the two are equivalent; a
+    // cable's rest length L / (1 + P0 / EA) gives the same pretension.
+    const physical = nonlinear
+      ? { kind: section.kind, ...(section.orientation && { orientation: section.orientation }), law: resolveMemberLaw(member.type, Math.hypot(end[0] - start[0], end[1] - start[1], end[2] - start[2])) }
+      : section;
+    if (member.type === 'cable') return { ...base, ...physical };
+    return { ...base, ...physical, startConnection: endAt(member.a), endConnection: endAt(member.b) };
   };
 
   const model: StructuralModel = {
@@ -167,7 +182,7 @@ export function toStructuralModel(
     members: game.members.map(translateMember),
     supports: [],
     loads: [],
-    analysis: { fidelity: options.fidelity ?? 'nonlinear' },
+    ...(nonlinear ? { analysis: { type: 'corotational' as const } } : fidelity ? { analysis: { fidelity } } : {}),
   };
   for (const [key, attrs] of Object.entries(game.attrs)) {
     if (attrs.found)
@@ -187,7 +202,9 @@ export function toStructuralModel(
   }
 
   const notes: string[] = [
-    'Wind, the tower and bridge loads the game generates, and load combinations are not sent, and self-weight is not applied, so this checks the structure under the point loads you placed.',
+    nonlinear
+      ? 'The nonlinear check uses catalogue section properties, reference cable lengths and the point loads you placed. Self-weight and challenge load combinations are excluded.'
+      : 'Wind, the tower and bridge loads the game generates, and load combinations are not sent, and self-weight is not applied, so this checks the structure under the point loads you placed.',
   ];
   // The turn criteria say a cable card must define its own pretension. The
   // voxel catalog has one value for every cable, so that is what is sent, and

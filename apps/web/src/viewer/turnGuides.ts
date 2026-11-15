@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { useGameStore } from "../game/store";
-import { turnConnectionTargets } from "./turnPicking";
+import { turnConnectionTargets, turnPointPorts } from "./turnPicking";
+import { CELL_SIZE } from "../game/model";
 
 type GameState = ReturnType<typeof useGameStore.getState>;
 type Point = (key: string) => THREE.Vector3;
@@ -20,6 +21,9 @@ export function buildTurnGuides(
 ) {
   if (state.mode !== "multiplayer" || !state.turn) return;
   const positions: number[] = [];
+  for (const port of turnPointPorts(state)) {
+    if (port.available) positions.push(...port.point.map(v => v * CELL_SIZE));
+  }
   for (const { memberId, end } of turnConnectionTargets(state)) {
     const member = state.model.members.find(({ id }) => id === memberId);
     if (!member) continue;

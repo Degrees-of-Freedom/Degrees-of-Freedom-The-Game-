@@ -34,6 +34,8 @@ status: partial
 
 # Development and Testing
 
+The [criteria acceptance ledger](criteria-ledger.md) records the current implementation run. The OpenSees suite includes a reproducible 10,000-state test in `services/opensees/tests/test_seeded_states.py`. It compares 6,000 oblique, subdivided cantilevers with analytical displacement and six-axis reaction balance, and checks 4,000 invalid or unstable configurations for classification and absence of fabricated response. The initial Windows x64 run recorded maximum relative displacement error 6.67e-13, normalized force residual 1.24e-12 and moment residual 7.72e-13. The generator-plus-solve p95 was 1.45 ms for these one-to-four-member cases. Nonlinear and game-scale performance need separate evidence.
+
 From the repository root, install dependencies with `npm install`, start the web app with `npm run dev`, build with `npm run build`, check TypeScript with `npm run typecheck`, and run tests with `npm test`. The dev command builds the shared contract before starting Vite; rebuild it after editing its source. The root build builds the contract before the web app.
 
 Vitest covers voxel editing rules, undo, examples, persistence, turn replay and attachment rules, viewer picking candidates, force labels, and selected analysis cases including equilibrium, signed loads and Shared table connection behavior. These tests do not independently validate numerical accuracy or exercise the viewer in a browser. The proposed [solver acceptance suite and numerical gates](solver-criteria.md#7-acceptance-tests) now define the target coverage. Most fixtures, absolute tolerances, characteristic scales, and turn/replay tests still need implementation; see the [gap analysis](solver-criteria-gap-analysis.md). Passing the current tests does not establish compliance with those gates.
@@ -122,8 +124,8 @@ Run on Windows 11 with Rust 1.100.0 and Node 24.16.0, on the branch that adds `c
 
 | Check | Result |
 | --- | --- |
-| `npm run test:solver` | Pass: 53 tests, 1 ignored timing harness. Includes 10,000 seeded random states with no unhandled failure. |
-| `npm test` | Pass after merging main at `3c6aa90`: 31 test files and 178 tests; 1 file and 6 tests are skipped, 5 of them for want of an OpenSees service. The adapter and game-translation tests run the committed WebAssembly module. |
+| `npm run test:solver` | Pass: 69 tests, 1 ignored timing harness. Includes 10,000 seeded random states with no unhandled failure. Re-run on the branch adding deflection, member loads, load cases and the worker. |
+| `npm test` | Pass on the branch adding the solver worker: 31 test files and 189 tests; 1 file and 6 tests are skipped, 5 of them for want of an OpenSees service. The adapter and game-translation tests run the committed WebAssembly module. |
 | `VITE_OPENSEES_URL=http://127.0.0.1:8000 npm test` with the service running | Pass: 9 test files, 55 tests, before the game-translation tests were added and before main was merged; not re-run since. The Rust solver and OpenSees agree on a space frame, a mechanism and the three reference examples. |
 | `npm run typecheck` | Pass. |
 | `npm run build` | Pass. The bundle includes `dof_solver.wasm` (704 kB, 231 kB gzipped). The existing chunk-size warning remains. |
@@ -132,3 +134,9 @@ Run on Windows 11 with Rust 1.100.0 and Node 24.16.0, on the branch that adds `c
 | `npm run bench:solver` | Timings recorded on the [Rust solver page](rust-solver.md#timings). |
 
 Measured errors, the outcome counts of the random states and the limits of this evidence are on the [Rust solver page](rust-solver.md). The evidence shows that the solver's tests pass. It does not show owner acceptance of any criteria milestone, and it includes no comparison with an independent nonlinear program.
+
+## Integrated OpenSees nonlinear control
+
+On the criteria integration branch, selecting OpenSees exposes **Run nonlinear check** in the editor structural analysis panel. It sends the editor model through the corotational service contract, with catalogue section laws and explicit point loads; self-weight and challenge load combinations are excluded. The selected Rust solver continues to use its detailed analysis path. Shared table scoring uses its separate verified linear frame analysis. Springs are not represented by this editor service translation and return an unavailable message.
+
+Focused verification on the integration worktree: 19 nonlinear and component service tests passed, and 24 web tests passed with a local OpenSees service, including a corotational editor request and support-reaction check. The panel was rendered in a component test; an interactive browser walkthrough remains outstanding.

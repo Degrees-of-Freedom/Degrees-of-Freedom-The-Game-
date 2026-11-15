@@ -1,4 +1,6 @@
-export type MemberType = "shs" | "glulam" | "ipe" | "heb" | "cable";
+import type { AssemblyId } from "./assembly";
+
+export type MemberType = "shs" | "glulam" | "ipe" | "heb" | "cable" | "spring";
 export type NodeItem = "joint" | "found" | "load";
 export type Tool =
   | MemberType
@@ -26,6 +28,10 @@ export interface Member {
   a: string;
   b: string;
   type: MemberType;
+  /** Immutable rest length in metres of a scored tension-only cable. */
+  restLengthM?: number;
+  /** Printed built-up member. Its section type applies to its actual chords and webs. */
+  assembly?: AssemblyId;
 }
 export interface NodeAttributes {
   found?: boolean;

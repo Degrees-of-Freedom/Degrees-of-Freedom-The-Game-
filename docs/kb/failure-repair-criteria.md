@@ -22,6 +22,8 @@ A reported strength exceedance, instability or disconnected region is a conditio
 
 ## 2. Issue evidence and eligibility
 
+For the first versioned playtest preset the owner approved verified structural instability and verified member or connector overload, including system pieces. A capacity issue enters above utilization 1.001 and clears below 0.999. A further rise of 0.10 from the last charged level counts as worsening. Aggregate qualifying changes once per originating turn. Do not charge retroactive penalties. The [ledger](criteria-ledger.md) records implementation and verification separately.
+
 Each issue records stable ID/category, affected objects/component lineage, prior/current model/result/version, physical fidelity/validity, severity or utilization where available, governing limit state, comparison status and reason. Mark new, persistent, worsened, resolved and unknown separately. Identify remote effects on other players' pieces, not just the newly played card.
 
 Proposed initial penalty-eligible categories: verified structural instability and member/connection capacity exceedance. Eligibility for unsupported/disconnected geometry, near-mechanisms or excessive deformation must be explicitly approved; do not expand the confirmed generic issue penalty by inventing new categories. Ordinary slack, uplift, illegal input, rejected placement, timeout, nonconvergence and unavailable evidence are not automatically penalized.
@@ -29,6 +31,8 @@ Proposed initial penalty-eligible categories: verified structural instability an
 Strength and instability are different findings. A mechanism does not provide a valid force/utilization field merely because a regularized solve returns numbers. An unloaded mechanism can still be unstable. Compare only compatible verified scopes/options; unknown prior results cannot establish that a region was previously issue-free. Preserve results for unrelated stable components.
 
 ## 3. New, worsened and resolved
+
+The scored turn report now records a policy-versioned comparison of the committed and staged structures. Frame strength findings come from the card-gravity component check. A sufficient geometric motion witness can establish a mechanism for the eligible frame configurations. A solver failure on its own leaves the comparison unknown. [Acceptance evidence](criteria-ledger.md)
 
 | Comparison | Required interpretation |
 | --- | --- |
@@ -86,6 +90,10 @@ Required future fixtures: new instability repaired by a real added load path; ov
 
 ## 7. Permanent neutral repairs with local intervention
 
+**Current implementation for the scored frame preset.** A verified new/worsened issue can create one historical deduction on the frozen player move. The `local-steel-prop-2` policy attempts up to three candidate local steel members with explicit fittings and a fixed neutral ground anchor. Accepted geometry is permanent and inspection-only. Each accepted candidate has verified equilibrium, strength and a signed neutral reaction. The public Turn details and final history report accepted and rejected candidates and pending problems. Earlier version-1 repair receipts retain their original physics on replay. See [G10–G17 and full-match evidence](criteria-ledger.md#cards-placement-match-and-recovery).
+
+For this preset the owner approved up to three candidate neutral steel props or braces running from the flagged end or original quarter port to real ground, within one grid cell horizontally. System objects are inspection-only. A candidate must pass clash, equilibrium and capacity checks, including consequences elsewhere, before it can be accepted.
+
 **Confirmed:** automatic repairs may add neutral safety scaffolding or ground anchors; these are game-owned, not another player foundation or a playable card. Ground support is an explicit system-only exception to the setup-only player-foundation rule; it is not additional neutral ownership for a player foundation. No player earns attraction from neutral support reactions; include all applied gravity in the same denominator. Once accepted, repair objects and their physical effects remain for the rest of the match, including after player-built reinforcement. Save/reload, a later safe result, view changes and replay do not retire them. A new match starts under its own setup and does not inherit old repairs.
 
 The owner requires the fix to affect the local element/connection at first order. **Interpretation used in this specification:** restrict the direct intervention and player-object contact to the flagged element and its incident end/quarter interfaces; never silently edit neighboring player elements, change another joint's laws or tie unrelated frame regions together. This is a locality rule for repair placement, not a request to use only linear first-order analysis, and not an assertion that structural influence outside that location is exactly zero. Forces, displacements, modes and player foundation reactions may redistribute globally through the shared structure; recompute and show those genuine consequences.
@@ -101,3 +109,13 @@ Verify the whole post-repair structure for equilibrium, instability and overload
 Timburr explains, for example: “This connection left the member unstable. I added a permanent neutral prop here. It carries some load, earns nobody points, and your turn's penalty stays.” The explanation must match verified evidence and identify the actual local object/contact; if correction is pending, say so. The regular issue/result/score panels expose the same information when the avatar is hidden, muted or reduced-motion.
 
 Acceptance fixtures must show: a local correction without changing unrelated player definitions; real global force redistribution reported honestly; correctly modeled neutral ground reactions and unchanged scoring denominator; a verified overload correction preserving original player properties/loads; a repair remaining after later reinforcement and reload; no scoring credit or retirement through reordering/replay; and a failed local candidate remaining explicit rather than becoming a hidden nonlocal fix. This is future design/validation work, not existing solver support.
+
+## Delegated first-release decisions — 2026-11-14
+
+The owner delegated the remaining product decisions to Codex, prioritizing simplicity, quality and a complete functional game. These are selected release requirements, not implementation or test evidence. They supersede earlier proposals on the same subjects; other confirmed requirements and numerical acceptance gates remain in force.
+
+Keep one -1 event per originating turn for verified new/worsened instability or member/connector overload. Use the existing capacity hysteresis: enter above utilization 1.001, clear below 0.999, and charge worsening only after a further 0.10 increase from the last charged level. Witnessed new or worsened physical instability must have valid comparable evidence; mode reordering or solver timeout is insufficient. No retroactive deduction after an unresolved turn. Historical penalties survive repair and replay.
+
+Retain the existing physical local repair policy, limited to three deterministic candidate attempts per offending turn, assessed with whole-structure equilibrium/capacity checks. System props/anchors are permanent, neutral and unscored; player properties and loads remain unchanged. Players cannot target, edit or remove system repair objects. Later reinforcement does not retire them. Record rejected and accepted candidates. If none verifies, keep explicit pending/unknown scope and continue under the confirmed partial-evidence policy; never fabricate fixity or a successful repair.
+
+Present one concise public outcome such as “Overload: -1. Neutral brace added.” or “Check incomplete; affected load share unavailable.” Full issue, local-contact, signed reaction and repair evidence is available on inspection. Do not add a second confirmation dialog for a legal adverse move.

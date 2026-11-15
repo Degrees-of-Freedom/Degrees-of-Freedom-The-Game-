@@ -4,8 +4,28 @@ import { type GameModel } from '../game/model';
 import { analyzeVoxel } from './voxel';
 import { autoDesignVoxel } from './voxelSizing';
 import { exampleModel } from '../game/examples';
+import type { VoxelModel } from './voxelInput';
 
 describe('prototype voxel analysis', () => {
+  it('isolates a component above the browser equation limit without dropping a small supported frame', () => {
+    const model: VoxelModel = {
+      members: [{ id: 0, a: '1,0,0', b: '1,0,1', type: 'shs' }],
+      attrs: { '1,0,0': { found: true, joint: true }, '1,0,1': { joint: true, load: 8 }, '0,0,0': { found: true } },
+      nextId: 402,
+    };
+    for (let i = 1; i <= 401; i++) {
+      model.members.push({ id: i, a: `0,0,${i - 1}`, b: `0,0,${i}`, type: 'ipe' });
+      model.attrs[`0,0,${i}`] = { joint: true };
+    }
+    const result = analyzeVoxel(model, { ...LEVELS.sandbox, loadCase: 'applied' });
+    const response = result.combos[0];
+    expect(result.unresolved).toBe(true);
+    expect(result.mechanism).toBe(false);
+    expect(response.components?.find(scope => scope.memberIds.includes(401))).toMatchObject({ status: 'unresolved', reason: expect.stringContaining('2400') });
+    const base = result.ctx!.aid[result.ctx!.idx.get('1,0,0')!];
+    expect(response.reac![base][2]).toBeGreaterThan(8);
+    expect(Object.keys(response.reac!)).toHaveLength(1);
+  });
   it('reports an empty model without attempting a solve', () => {
     expect(
       analyzeVoxel({ members: [], attrs: {}, nextId: 1 }, LEVELS.sandbox).error,

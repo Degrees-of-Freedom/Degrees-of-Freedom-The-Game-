@@ -87,6 +87,8 @@ export function PauseMenu({
       const key = event.key;
       if (!now.open) {
         if (event.ctrlKey || event.metaKey || event.altKey) return;
+        // Let Escape dismiss the focused companion conversation first.
+        if (key === "Escape" && target?.closest?.(".companion")?.querySelector('[aria-expanded="true"]')) return;
         if (target?.closest?.("input, textarea, select, [contenteditable]"))
           return;
         const state = useGameStore.getState();

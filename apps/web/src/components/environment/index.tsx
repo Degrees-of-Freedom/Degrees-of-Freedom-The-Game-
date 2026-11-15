@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { useGameStore } from "../../game/store";
+import { TRICHORD } from "../../game/assembly";
 import {
   parseNodeKey,
   type MemberType,
@@ -26,12 +26,13 @@ type IconKind =
 
 /** The tool glyphs follow the Levels and Blocks prototype artwork. */
 function Icon({ kind, style }: { kind: IconKind; style: PresentationStyle }) {
-  if (kind === "foundation")
-    return (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-        <path d="M12 3v11M5 14h14M3 18h18M6 21l2-3m3 3 2-3m3 3 2-3" />
-      </svg>
-    );
+  if (kind === "foundation") return (
+    <svg viewBox="0 0 30 30" aria-hidden="true" stroke="#3f4654" strokeWidth="1.7" strokeLinejoin="round">
+      <path d="M12 5h6v12h-6z" fill="#fbf7ef" />
+      <path d="M7 17h16l3 7H4z" fill="#b9b4aa" />
+      <path d="M3 25h24" stroke="#836747" />
+    </svg>
+  );
   if (style === "kit") {
     if (kind === "member")
       return (
@@ -402,7 +403,6 @@ export function EnvironmentTools({ style, onMessage }: Props) {
 /** Physical piece palette, or the active player's actual card hand in Kit. */
 export function EnvironmentTray({ style }: Props) {
   const game = useGameStore();
-  const [revealedTurn, setRevealedTurn] = useState<string | null>(null);
   if (style !== "kit" && style !== "blocks") return null;
   if (game.mode === "multiplayer" && game.turn) {
     if (game.turn.finished)
@@ -412,21 +412,6 @@ export function EnvironmentTray({ style }: Props) {
             <h4>Match complete</h4>
             <button className="token" onClick={() => game.newMatch()}>
               <small>New match</small>
-            </button>
-          </div>
-        </div>
-      );
-    const handKey = `${game.turn.seed}:${game.turn.turn}`;
-    if (revealedTurn !== handKey)
-      return (
-        <div className="env-tray panel">
-          <div className="well">
-            <h4>Player {game.turn.playerIndex + 1}</h4>
-            <button
-              className="token"
-              onClick={() => setRevealedTurn(handKey)}
-            >
-              <small>Reveal hand</small>
             </button>
           </div>
         </div>
@@ -566,7 +551,7 @@ export function EnvironmentInspector({ onMessage }: Pick<Props, "onMessage">) {
               Member <span>{member.id}</span>
             </div>
             <div className="dc-sub">
-              {ITEMS[member.type].label} · [{member.a}] → [{member.b}]
+              {member.assembly === TRICHORD.id ? "Four-panel trichord truss" : member.assembly ? "Four-panel planar truss" : ITEMS[member.type].label} · [{member.a}] → [{member.b}]
             </div>
           </div>
           <button
@@ -614,7 +599,8 @@ export function EnvironmentInspector({ onMessage }: Pick<Props, "onMessage">) {
     { name: "Fixed", values: [true, true, true, true, true, true] },
   ];
   return (
-    <section className="env-card card pop" aria-label="Connection and load">
+    <section className="env-card card pop" aria-label="Connection and load"
+      data-foundation={creative && attrs.found ? "true" : undefined}>
       <div className="dc-head">
         <div>
           <div className="dc-title">

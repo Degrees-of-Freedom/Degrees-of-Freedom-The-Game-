@@ -124,11 +124,11 @@ def model(
     fidelity: str | None = None,
     timeout_ms: float | None = None,
 ) -> dict:
-    """Contract-shaped model. ``fidelity=None`` leaves the contract default (nonlinear)."""
+    """Contract-shaped model. ``fidelity=None`` means nonlinear, set explicitly: these
+    models were written for the old nonlinear default, and the contract default is
+    now linear (nonlinear is opt-in)."""
     data = {"units": "SI", "nodes": nodes, "members": members, "supports": supports, "loads": loads}
-    analysis = {}
-    if fidelity is not None:
-        analysis["fidelity"] = fidelity
+    analysis = {"fidelity": "nonlinear" if fidelity is None else fidelity}
     if timeout_ms is not None:
         analysis["timeoutMs"] = timeout_ms
     if analysis:

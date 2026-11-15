@@ -343,6 +343,10 @@ def _generate_random(seed: int) -> tuple[dict[str, Any], bool]:
         model["version"] = f"seed-{seed}"
     if analysis or rng.random() < 0.5:
         model["analysis"] = analysis
+    # These states were generated for the old nonlinear default; the default is
+    # now linear (nonlinear is opt-in), so it is set explicitly. This comes after
+    # every draw from rng, so the generated states are otherwise unchanged.
+    model.setdefault("analysis", {}).setdefault("fidelity", "nonlinear")
     return model, probe_state
 
 

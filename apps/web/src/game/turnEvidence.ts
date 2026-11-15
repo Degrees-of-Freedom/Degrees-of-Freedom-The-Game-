@@ -34,6 +34,7 @@ export function buildTurnRequest(turn: TurnState, matchId: string): StructuralAn
   const kinds = [...new Set(entries.map((entry) => entry.type))];
   const materials = kinds.map((id) => {
     const section = ITEMS[id];
+    if (section.kind === 'spring') throw new Error('Spring turn evidence is not supported by the saved analysis schema.');
     return {
       id,
       elasticModulus: section.E * toSI,
@@ -43,6 +44,7 @@ export function buildTurnRequest(turn: TurnState, matchId: string): StructuralAn
   });
   const sections = kinds.map((id) => {
     const section = ITEMS[id];
+    if (section.kind === 'spring') throw new Error('Spring turn evidence is not supported by the saved analysis schema.');
     return {
       id,
       area: section.A,

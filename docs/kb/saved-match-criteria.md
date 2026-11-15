@@ -33,6 +33,8 @@ A save must contain resolved definitions or an immutable retrievable definition 
 
 ## 3. Atomicity and crash recovery
 
+The new local session envelope stores revision and parent. A short origin-wide Web Lock guards the comparison with the tab's expected head and replacement of the complete envelope. A losing tab conceals private state and reloads the winning revision through handoff. Version-one sessions remain readable. The [implementation ledger](criteria-ledger.md) records the two-tab fixture and queued-write interruption coverage.
+
 Treat an accepted turn as one logical commit: structure, card/pile changes, evidence/issue scope, penalty event and turn advancement either all belong to the committed revision or none do. Persist a validated revision and update a current-head pointer using a documented transactional or recoverable journaling protocol. A succession of unrelated localStorage writes is not by itself atomic. Detect orphan/incomplete writes and recover the last complete revision; preserve the incomplete copy for diagnosis/export.
 
 Serialize writes per match, reject conflicting/stale parent revisions and avoid silent last-writer-wins across tabs. An interrupted draw resumes with the same recorded card identities; it must not reroll randomness. A pending analysis request may be retried with the same idempotent intent/model/options, but a stale reply cannot overwrite newer evidence or duplicate a penalty. Completed animation callbacks never decide whether a turn was saved.
@@ -65,3 +67,11 @@ Open: storage backend, retention/backup UX, migration support window, maximum im
 ## 6. System-repair provenance
 
 Persist the retained player move, pre-correction evidence/penalty attribution, versioned repair request/candidates and bounded resolution status, accepted game-owned object/connection IDs/properties, post-correction results and confirmed permanent in-match lifetime. Standard rules do not retire accepted repairs after later player reinforcement. System objects and their reactions have neutral ownership and zero player attraction credit. Save local-contact scope, ground-anchor identity, score denominator and verified neutral reaction share; restore the same physical repairs for the remainder of the match. Crash/retry cannot create another repair or penalty. Keep unequal elastic stiffnesses per connector and historical penalties after repair. Record the confirmed verified-component final-award scope and total-gravity denominator independently of unavailable physical reactions.
+
+## Delegated first-release decisions — 2026-11-14
+
+The owner delegated the remaining product decisions to Codex, prioritizing simplicity, quality and a complete functional game. These are selected release requirements, not implementation or test evidence. They supersede earlier proposals on the same subjects; other confirmed requirements and numerical acceptance gates remain in force.
+
+Save one active local match plus one last validated recovery revision. Use IndexedDB for match records with transactional version checks; preferences may remain in localStorage. Maximum imported private save size is 8 MiB; validate versions, definitions, IDs and replay before replacing any current save. Preserve rejected original bytes for download. Do not migrate legacy saves silently; retain explicit read-only/export recovery when conversion is unsupported.
+
+Persist accepted draws and draft changes, and acknowledge atomic turn/penalty/repair/final-score commits before handoff. On write failure keep the exact pending transaction with Retry, private export and an explicit safe exit; never claim the save succeeded. Read-only public summary export and clearly labelled private recovery export are separate. Settings do not belong in the game replay. Reload resumes behind the privacy cover. Keep current and recovery record identities so retries cannot duplicate draws, repairs or deductions.

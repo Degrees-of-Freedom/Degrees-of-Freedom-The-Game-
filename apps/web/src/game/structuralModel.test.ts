@@ -71,8 +71,20 @@ describe('game model to solver contract', () => {
     expect(notes[0]).toContain('self-weight');
     expect(notes[1]).toContain('25 kN pretension');
     expect(toStructuralModel({ ...frame, members: frame.members.slice(0, 2) }).notes).toHaveLength(1);
-    expect(model.analysis).toEqual({ fidelity: 'nonlinear' });
+    // Nonlinear analysis is opt-in: no option, no analysis object.
+    expect(model.analysis).toBeUndefined();
+    expect(toStructuralModel(frame, { fidelity: 'nonlinear' }).model.analysis).toEqual({ type: 'corotational' });
     expect(toStructuralModel(frame, { fidelity: 'linear' }).model.analysis).toEqual({ fidelity: 'linear' });
+  });
+
+  it('opts into corotational catalogue sections and a tension-only rest length', () => {
+    const model = toStructuralModel(frame, true).model;
+    expect(model.analysis?.type).toBe('corotational');
+    expect(model.members[0].law).toMatchObject({ kind: 'frame', elasticModulus: 210e9 });
+    const cable = model.members[2].law;
+    if (cable?.kind !== 'cable') throw new Error('Expected a cable law');
+    expect(cable.elasticModulus * cable.area * (4 / cable.restLength - 1)).toBeCloseTo(25_000, 5);
+    expect(toStructuralModel(frame).model.members[2].law).toBeUndefined();
   });
 
   it('preserves partial restraint masks and directional loads in SI units', () => {
@@ -135,5 +147,33 @@ describe('solver selection', () => {
     // The same address gives the same adapter, so a check is not reset on every render.
     expect(solverForSettings({ solver: 'opensees', openSeesUrl: 'http://solver.test' })).toBe(opensees);
     expect(solverFor('opensees', 'http://other.test')).not.toBe(opensees);
+  });
+});
+
+describe('corotational service translation', () => {
+  it('includes physical member laws and explicit loads only when requested', () => {
+    const linear = toStructuralModel(frame);
+    const nonlinear = toStructuralModel(frame, true);
+    expect(linear.model.analysis).toBeUndefined();
+    expect(nonlinear.model.analysis).toEqual({ type: 'corotational' });
+    expect(nonlinear.model.members[0].law?.kind).toBe('frame');
+    expect(nonlinear.model.members[2].law?.kind).toBe('cable');
+    expect(nonlinear.model.loads).toEqual(linear.model.loads);
+    expect(nonlinear.notes.join(' ')).toContain('Self-weight');
+  });
+});
+
+describe('live corotational editor request', () => {
+  it.skipIf(!process.env.VITE_OPENSEES_URL)('returns nonlinear equilibrium through the adapter', async () => {
+    const model: GameModel = { nextId: 2, members: [{ id: 1, type: 'shs', a: '0,0,0', b: '0,0,2' }], attrs: {
+      '0,0,0': { found: true, joint: true }, '0,0,2': { joint: true, load: 1 },
+    } };
+    const solver = createOpenSeesSolver(process.env.VITE_OPENSEES_URL!);
+    const result = await solver.analyze(toStructuralModel(model, true).model);
+    expect(result.status).toBe('success');
+    if (result.status === 'success') {
+      expect(result.nonlinear?.segmentsPerFrame).toBeGreaterThan(0);
+      expect(result.reactions?.['0,0,0']?.[2]).toBeCloseTo(1000, 1);
+    }
   });
 });

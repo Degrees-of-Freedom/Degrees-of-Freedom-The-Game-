@@ -100,6 +100,12 @@ class ComponentOutcome:
     displacements: dict[str, list[float]] = field(default_factory=dict)
     reactions: dict[str, list[float]] = field(default_factory=dict)
     member_forces: dict[str, dict] = field(default_factory=dict)
+    #: (force, moment, nodal) equilibrium residuals of a verified state.
+    residual_parts: tuple[float, float, float] | None = None
+    #: Under nonlinear fidelity, for a valid component: ``segments`` (largest
+    #: elements per beam used, None without beams) and ``attempts`` (Newton
+    #: attempts this component spent).
+    nonlinear: dict | None = None
 
     @property
     def results_valid(self) -> bool:
@@ -120,6 +126,7 @@ def _report(data: StabilityData, max_modes: int) -> dict:
 
 
 def _component(outcome: ComponentOutcome, max_modes: int) -> dict:
+    """``max_modes``: how many of this component's modes are shown (the request's remaining mode budget)."""
     body = {
         "id": outcome.component.id,
         "nodeIds": list(outcome.component.node_ids),
@@ -158,8 +165,17 @@ def assemble(
     model_version: str | None,
     warnings: list[str],
     max_modes: int,
+    inactive_node_ids: list[str] | None = None,
+    segments_per_frame: int | None = None,
 ) -> dict:
-    """The JSON-ready ``AnalysisResult`` for a completed analysis."""
+    """The JSON-ready ``AnalysisResult`` for a completed analysis.
+
+    ``max_modes`` is a budget for the whole request: components show their
+    modes in contract order until it is used up (counts are never cut).
+    ``inactiveNodeIds`` is present when some node was left out. ``nonlinear``
+    is present when a nonlinear analysis succeeded (DESIGN.md, "Result
+    extras"); ``segments_per_frame`` is the fixed count requested, if any.
+    """
     displacements: dict[str, list[float]] = {}
     reactions: dict[str, list[float]] = {}
     member_forces: dict[str, dict] = {}
@@ -169,15 +185,21 @@ def assemble(
             reactions.update(outcome.reactions)
             member_forces.update(outcome.member_forces)
 
-    total = StabilityData(stable=all(outcome.stability.stable for outcome in outcomes), free_dofs=0)
+    shown: list[int] = []
+    left = max_modes
     for outcome in outcomes:
+        shown.append(min(left, len(outcome.stability.modes)))
+        left -= shown[-1]
+
+    total = StabilityData(stable=all(outcome.stability.stable for outcome in outcomes), free_dofs=0)
+    for outcome, count in zip(outcomes, shown):
         data = outcome.stability
         total.free_dofs += data.free_dofs
         total.translational += data.translational
         total.rotational += data.rotational
         total.static_indeterminacy += data.static_indeterminacy
         total.unstable_node_ids += data.unstable_node_ids
-        total.modes += data.modes[:max_modes]
+        total.modes += data.modes[:count]
 
     if any(outcome.state == UNSTABLE for outcome in outcomes):
         status = "unstable"
@@ -201,7 +223,7 @@ def assemble(
     result.update(
         {
             "analysis": analysis,
-            "components": [_component(outcome, max_modes) for outcome in outcomes],
+            "components": [_component(outcome, count) for outcome, count in zip(outcomes, shown)],
             "displacements": displacements,
             "reactions": reactions,
             "memberForces": member_forces,
@@ -209,4 +231,38 @@ def assemble(
             "warnings": list(warnings),
         }
     )
+    if inactive_node_ids:
+        result["inactiveNodeIds"] = list(inactive_node_ids)
+    if status == "success" and fidelity == "nonlinear":
+        result["nonlinear"] = _nonlinear_report(outcomes, segments_per_frame)
     return native(result)
+
+
+def _nonlinear_report(outcomes: list[ComponentOutcome], segments_per_frame: int | None) -> dict:
+    """``NonlinearReport`` of a successful nonlinear analysis.
+
+    * ``segmentsPerFrame``: the fixed count requested, else the largest number
+      of elements any beam was given by adaptive subdivision (1 without beams).
+    * ``steps``: Newton attempts spent by the whole request (the attempt budget's count).
+    * ``forceResidual``, ``momentResidual``, ``nodalResidual``: largest over
+      components of the normalised global force, global moment and free-DOF
+      nodal residuals (each at most 1e-5, the verification gate).
+    * ``cableState``: every cable, ``taut`` or ``slack``.
+    """
+    reports = [outcome.nonlinear or {} for outcome in outcomes]
+    used = [report["segments"] for report in reports if report.get("segments") is not None]
+    parts = [outcome.residual_parts or (0.0, 0.0, 0.0) for outcome in outcomes]
+    cables = {
+        member_id: "slack" if forces.get("state") == "slack" else "taut"
+        for outcome in outcomes
+        for member_id, forces in outcome.member_forces.items()
+        if "state" in forces
+    }
+    return {
+        "segmentsPerFrame": segments_per_frame if segments_per_frame is not None else max(used, default=1),
+        "steps": sum(report.get("attempts", 0) for report in reports),
+        "forceResidual": max((part[0] for part in parts), default=0.0),
+        "momentResidual": max((part[1] for part in parts), default=0.0),
+        "nodalResidual": max((part[2] for part in parts), default=0.0),
+        "cableState": cables,
+    }

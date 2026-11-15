@@ -17,6 +17,7 @@ Configuration is by environment variable:
   call the service. When unset, any port on localhost is allowed, because the
   Vite dev server picks another port when its usual one is taken.
 * ``DOF_OPENSEES_MAX_NODES`` / ``DOF_OPENSEES_MAX_MEMBERS`` - request limits.
+* ``DOF_OPENSEES_MAX_NONLINEAR_ATTEMPTS`` - request-wide Newton attempt budget.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ from fastapi.responses import JSONResponse
 
 from . import __version__, engine
 from .model import DEFAULT_PROPERTIES
-from .schema import StructuralModel
+from .schema import MAX_SEGMENTS_PER_FRAME, StructuralModel
 
 #: Development default: a page served from this machine, on any port.
 LOCAL_ORIGIN_PATTERN = r"http://(localhost|127\.0\.0\.1)(:\d+)?"
@@ -58,6 +59,9 @@ def _limits() -> engine.Limits:
     return engine.Limits(
         max_nodes=int(os.environ.get("DOF_OPENSEES_MAX_NODES", defaults.max_nodes)),
         max_members=int(os.environ.get("DOF_OPENSEES_MAX_MEMBERS", defaults.max_members)),
+        max_nonlinear_attempts=int(
+            os.environ.get("DOF_OPENSEES_MAX_NONLINEAR_ATTEMPTS", defaults.max_nonlinear_attempts)
+        ),
     )
 
 
@@ -99,19 +103,38 @@ def create_app() -> FastAPI:
             "solver": engine.solver_name(),
             "units": "SI",
             "fidelities": ["linear", "nonlinear"],
-            "defaultFidelity": "nonlinear",
+            "defaultFidelity": "linear",
+            "analysisOptions": {
+                "fidelity": "linear (default) or nonlinear.",
+                "type": "corotational: the same as fidelity 'nonlinear'. Contradicting fidelity 'linear' is an error.",
+                "segmentsPerFrame": f"Integer 1 to {MAX_SEGMENTS_PER_FRAME}, nonlinear only: fixes the elements per "
+                "beam. Without it beams are subdivided adaptively by compression and end rotation.",
+                "selfWeight": "Apply weightPerLength along -Z.",
+                "timeoutMs": "Optional wall-clock safeguard; none by default. The primary bound is the request's "
+                "Newton attempt count, so results do not depend on machine load.",
+                "displacementLimit": "Flag excessive_deformation above this displacement.",
+            },
             "memberKinds": {
-                "beam": "Elastic 3D beam-column (elasticBeamColumn); "
-                "subdivided under nonlinear fidelity by its axial compression (1 to 32 elements).",
+                "beam": "Elastic 3D beam-column (elasticBeamColumn); under nonlinear fidelity subdivided into "
+                f"segmentsPerFrame elements, or adaptively by its compression and rotation (1 to {MAX_SEGMENTS_PER_FRAME}).",
                 "brace": "Axial element, tension and compression.",
                 "cable": "Axial element, tension only at both fidelities.",
+            },
+            "memberLaws": {
+                "frame": "{kind, elasticModulus, shearModulus, area, iy, iz, torsionConstant}: a beam with these "
+                "properties.",
+                "cable": "{kind, elasticModulus, area, restLength}: a tension-only cable with force "
+                "EA max(0, length / restLength - 1); linearised at linear fidelity.",
+                "combination": "kind, properties and initialStrain may accompany a law only when they agree with it "
+                "(same kind, equal defined values, initialStrain 0); otherwise the request is an error.",
             },
             "connectionLaws": ["locked", "free", "elastic"],
             "connectionShorthands": ["fixed", "pinned", "free"],
             "connectionPatterns": CONNECTION_PATTERNS,
             "initialStrain": ["brace", "cable"],
             "loads": ["nodal-force", "nodal-moment", "self-weight"],
-            "results": ["components", "displacements", "reactions", "memberForces", "stability"],
+            "results": ["components", "displacements", "reactions", "memberForces", "stability",
+                        "inactiveNodeIds", "nonlinear"],
             "defaultMemberProperties": {
                 "elasticModulus": p.elastic_modulus,
                 "shearModulus": p.shear_modulus,
@@ -125,6 +148,9 @@ def create_app() -> FastAPI:
                 "maxNodes": limits.max_nodes,
                 "maxMembers": limits.max_members,
                 "maxModes": limits.max_modes,
+                "maxLinearEquations": limits.max_linear_equations,
+                "maxNonlinearEquations": limits.max_nonlinear_equations,
+                "maxNonlinearAttempts": limits.max_nonlinear_attempts,
                 "defaultTimeoutMs": limits.default_timeout_ms,
             },
         }

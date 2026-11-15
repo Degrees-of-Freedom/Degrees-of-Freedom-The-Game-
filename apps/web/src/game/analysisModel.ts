@@ -67,6 +67,7 @@ export interface AnalysisModelTranslation {
  */
 export function sectionFor(type: MemberType): AnalysisSection {
   const item = ITEMS[type];
+  if (item.kind === 'spring') throw new Error('Spring members are not supported by the detailed solver translation.');
   const density = (item.w * SI_PER_KILO) / (item.A * GRAVITY);
   if (item.kind === 'cable')
     return {

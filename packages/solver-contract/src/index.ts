@@ -72,6 +72,17 @@ export interface MemberProperties {
   weightPerLength?: number;
 }
 
+/** SI properties of the optional geometrically nonlinear service formulation. */
+export type MemberLaw =
+  | { kind: 'frame'; elasticModulus: number; shearModulus: number; area: number; iy: number; iz: number; torsionConstant: number }
+  | { kind: 'cable'; elasticModulus: number; area: number; restLength: number };
+
+export interface CorotationalAnalysis {
+  type: 'corotational';
+  /** Elastic segments along each frame, 1 through 32. */
+  segmentsPerFrame?: number;
+}
+
 export interface StructuralMember {
   id: string;
   startNodeId: string;
@@ -96,6 +107,8 @@ export interface StructuralMember {
   startConnection?: MemberEndConnection;
   /** Full six-axis connection at the end node. */
   endConnection?: MemberEndConnection;
+  /** With corotational analysis, the cable force is EA max(0, length/restLength − 1). */
+  law?: MemberLaw;
 }
 
 /** Global translations X/Y/Z followed by rotations X/Y/Z. */
@@ -110,14 +123,26 @@ export type AnalysisFidelity = 'linear' | 'nonlinear';
 export interface StructuralAnalysisOptions {
   /**
    * `linear` is a small-displacement solve for fast preview. `nonlinear` is
-   * the authoritative geometrically nonlinear solve: large displacements and
-   * rotations, P-Delta and member buckling, and cable slackening. Defaults to
-   * `nonlinear`. Cables are tension-only at both fidelities.
+   * the geometrically nonlinear solve: large displacements and rotations,
+   * P-Delta and member buckling, and cable slackening. Nonlinear is opt-in:
+   * with no `analysis` object, or neither `fidelity` nor `type`, the
+   * analysis is linear. Cables are tension-only at both fidelities.
    */
   fidelity?: AnalysisFidelity;
+  /** Same as `fidelity: 'nonlinear'`; the corotational formulation. */
+  type?: CorotationalAnalysis['type'];
+  /**
+   * Elements per beam-column, 1 to 32. When given it fixes the subdivision;
+   * otherwise the solver subdivides each beam by its compression and rotation.
+   */
+  segmentsPerFrame?: CorotationalAnalysis['segmentsPerFrame'];
   /** Apply each member's `weightPerLength` along -Z. Defaults to false. */
   selfWeight?: boolean;
-  /** Wall-clock budget in milliseconds. Work left unfinished is reported as `unknown`, never guessed. */
+  /**
+   * Optional wall-clock budget in milliseconds. The primary limit is a
+   * request-wide count of solver attempts, so results do not depend on
+   * machine speed; this is only an outer safeguard and is off by default.
+   */
   timeoutMs?: number;
   /** Displacement, in metres, above which a component is flagged `excessive_deformation`. No limit when omitted. */
   displacementLimit?: number;
@@ -269,6 +294,21 @@ export interface AnalysisBody {
   /** Stability of the whole model: counts summed over components. */
   stability: StabilityReport;
   warnings: string[];
+  /** Nodes left out of the analysis because nothing is attached and nothing loads them. */
+  inactiveNodeIds?: string[];
+  /** Nonlinear solve report, present when a nonlinear analysis succeeded. */
+  nonlinear?: NonlinearReport;
+}
+
+/** How a nonlinear solve reached equilibrium, and the state of each cable there. */
+export interface NonlinearReport {
+  /** Elements per beam-column: the fixed count requested, or the largest the solver chose. */
+  segmentsPerFrame: number;
+  steps: number;
+  forceResidual: number;
+  momentResidual: number;
+  nodalResidual: number;
+  cableState: Record<string, 'taut' | 'slack'>;
 }
 
 export type AnalysisResult =

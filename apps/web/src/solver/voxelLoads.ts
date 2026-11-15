@@ -65,10 +65,16 @@ export function buildLoads(
     F = new Float64Array(ctx.NA * 6),
     vis = [],
     d = combo.dir;
-  for (const e of ctx.els) {
-    const W = e.it.w * e.L * g.G;
-    F[e.a * 6 + 2] -= W / 2;
-    F[e.b * 6 + 2] -= W / 2;
+  if (LV.loadCase !== 'applied' || LV.appliedSelfWeight !== false) {
+    for (const e of ctx.els) {
+      const span = e.m.parentSpan?.assemblyPart ? undefined : e.m.parentSpan;
+      // Existing voxel self-weight is lumped at the original element ends.
+      // Adding an interior connector must not move that existing load.
+      const length = span ? e.L * 4 / (span.toQuarter - span.fromQuarter) : e.L;
+      const halfWeight = e.it.w * length * g.G / 2;
+      if (!span || span.fromQuarter === 0) F[e.a * 6 + 2] -= halfWeight;
+      if (!span || span.toQuarter === 4) F[e.b * 6 + 2] -= halfWeight;
+    }
   }
   for (const { a, f, direction } of variableLoads(model, LV, ctx)) {
     const vector = direction.map((component) => component * f * g.Q);

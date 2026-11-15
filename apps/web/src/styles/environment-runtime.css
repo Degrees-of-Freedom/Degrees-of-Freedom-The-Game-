@@ -138,6 +138,15 @@ body,
   justify-content: space-between;
   gap: 8px;
 }
+.environment[data-style="grow-dusk"] .env-card[data-foundation="true"] {
+  display: block;
+  left: auto;
+  top: 86px;
+  color: var(--cream);
+}
+.environment[data-style="grow-dusk"] .env-card[data-foundation="true"] .seg button:not(.on) {
+  color: var(--slate);
+}
 .environment .dc-title {
   font-size: 15px;
   font-weight: 700;
@@ -425,6 +434,20 @@ body,
 }
 .environment .drawer-content .turn-card small {
   display: block;
+}
+.environment[data-style="grow-dusk"] .drawer-content .turn-panel button {
+  color: var(--ink);
+}
+.environment[data-style="grow-dusk"] .drawer-content .turn-card[aria-pressed="false"]:hover {
+  background: #e0d4bf;
+}
+.environment[data-style="grow-dusk"] .drawer-content .turn-card[aria-pressed="true"] {
+  background: var(--amber);
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+.environment[data-style="grow-dusk"] .drawer-content .turn-card[aria-pressed]:focus-visible {
+  outline: 3px solid #9cdded;
+  outline-offset: 2px;
 }
 .environment .storage-alert {
   position: absolute;

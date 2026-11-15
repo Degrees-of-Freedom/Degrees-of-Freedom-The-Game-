@@ -18,12 +18,18 @@ def test_health_reports_the_opensees_version():
 def test_capabilities_describe_the_solver():
     body = client.get("/capabilities").json()
     assert body["units"] == "SI"
-    assert body["fidelities"] == ["linear", "nonlinear"] and body["defaultFidelity"] == "nonlinear"
+    # Nonlinear is opt-in since the merge with Tal's engine (her default wins).
+    assert body["fidelities"] == ["linear", "nonlinear"] and body["defaultFidelity"] == "linear"
+    assert set(body["memberLaws"]) >= {"frame", "cable"}
+    assert {"type", "segmentsPerFrame"} <= set(body["analysisOptions"])
     assert set(body["memberKinds"]) == {"beam", "brace", "cable"}
     assert body["connectionLaws"] == ["locked", "free", "elastic"]
     assert {"LLLLLL", "LLLFFF", "FFFFFF"} <= {item["pattern"] for item in body["connectionPatterns"]}
     assert body["defaultMemberProperties"]["elasticModulus"] > 0
-    assert body["limits"]["maxNodes"] > 0 and body["limits"]["defaultTimeoutMs"] == 2000
+    # No wall-clock limit by default; the primary bound is the Newton attempt count.
+    assert body["limits"]["maxNodes"] > 0 and body["limits"]["defaultTimeoutMs"] is None
+    assert body["limits"]["maxNonlinearAttempts"] == 96
+    assert body["limits"]["maxLinearEquations"] == 2688 and body["limits"]["maxNonlinearEquations"] == 1200
     assert body["solver"].startswith("OpenSees ")
 
 

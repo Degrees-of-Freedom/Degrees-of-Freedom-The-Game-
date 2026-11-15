@@ -4,29 +4,21 @@ import {
   parseNodeKey,
   type GameModel,
   type Member,
-  type MemberType,
 } from "./model";
+import { LEGACY_CATALOGUE, isScoredCatalogue, printedCards, type CardDefinition, type CatalogueId } from "./cardCatalogue";
+import { conflictingJointAxes, connectionFrame, CONNECTION_PROFILES, type ConnectionProfile } from "./jointFreedom";
+import { findMaterialClash } from "./materialClashes";
+import { findPort, systemTarget, targetCoordinate, turnJoints } from "./turnPorts";
+import { analyzeTurn } from "./turnAnalysis";
+import { resolveMemberLaw, S } from "../solver/voxelSections";
+import { correctTurnIssues, LEGACY_REPAIR_POLICY, REPAIR_POLICY, type CorrectionReceipt, type RepairPolicy, type SystemProvenance } from "./turnRepair";
+import { assessTurnIssues, matchesIssueEvidence, type IssueAssessment } from "./turnIssues";
+import { decidePenalty, type PenaltyDecision } from "./turnPenalty";
+import { awardFinalScore, finalReceipt, recoverFinalScore, type FinalScore } from "./finalScore";
+export { turnJoints } from "./turnPorts";
+export { CONNECTION_PROFILES } from "./jointFreedom";
 
-export type TurnCard =
-  | {
-      id: string;
-      kind: "element";
-      label: string;
-      type: MemberType;
-      maxSteps: number;
-    }
-  | { id: string; kind: "load"; label: string; magnitude: number }
-  | {
-      id: string;
-      kind: "connection";
-      label: string;
-      profile: "fixed" | "ball";
-    };
-
-export const CONNECTION_PROFILES = {
-  fixed: ["locked", "locked", "locked", "locked", "locked", "locked"],
-  ball: ["locked", "locked", "locked", "free", "free", "free"],
-} as const;
+export type TurnCard = CardDefinition & { id: string };
 
 export const KIT_PLAYTEST = {
   version: 1,
@@ -36,8 +28,13 @@ export const KIT_PLAYTEST = {
   description: "Two players, eight rounds, unplayed cards stay in hand.",
 } as const;
 
-type TurnMember = Member & { owner: string; cardId?: string };
-type Joint = { id: string; foundationOwner?: string };
+type TurnMember = Member & {
+  owner: string; cardId?: string;
+  system?: SystemProvenance;
+  /** Selection provenance only. A separate connector must activate this attachment. */
+  endTargets?: Partial<Record<"a" | "b", string>>;
+};
+type Joint = { id: string; foundationOwner?: string; point?: string; system?: SystemProvenance };
 type Load = {
   cardId: string;
   jointId: string;
@@ -46,10 +43,11 @@ type Load = {
 };
 type Connection = {
   cardId?: string;
+  system?: SystemProvenance;
   memberId: number;
   end: "a" | "b";
   jointId: string;
-  profile: "fixed" | "ball";
+  profile: ConnectionProfile;
   owner: string;
 };
 type Placements = {
@@ -69,19 +67,23 @@ type Event =
       end: "a" | "b";
       jointId?: string;
     }
-  | { kind: "end"; turn: number; status?: TurnReport["status"]; analysis?: StructuralAnalysisResult; reason?: string };
+  | { kind: "end"; turn: number; status?: TurnReport["status"]; analysis?: StructuralAnalysisResult; final?: FinalScore; issues?: IssueAssessment; penaltyDecision?: PenaltyDecision; repairPolicy?: RepairPolicy; correction?: CorrectionReceipt; reason?: string };
 
 export type TurnReport = {
   turn: number;
   playerId: string;
   status: "stable" | "unstable" | "partial" | "unresolved";
   reason: string;
-  penalty: 0;
+  penalty: 0 | -1;
   analysis?: StructuralAnalysisResult;
+  issues?: IssueAssessment;
+  penaltyDecision?: PenaltyDecision;
+  correction?: CorrectionReceipt;
 };
 
 export interface TurnState {
   version: typeof KIT_PLAYTEST.version;
+  catalogue: CatalogueId;
   seed: number;
   turn: number;
   playerIndex: number;
@@ -93,6 +95,7 @@ export interface TurnState {
   reports: TurnReport[];
   events: Event[];
   finished: boolean;
+  finalScore?: FinalScore;
 }
 
 type Transition =
@@ -116,35 +119,14 @@ function shuffle(cards: TurnCard[], seed: number): TurnCard[] {
   return cards;
 }
 
-function createDecks(seed: number): TurnState["decks"] {
+function createDecks(seed: number, catalogue: CatalogueId): TurnState["decks"] {
   const deck1: TurnCard[] = [],
     deck2: TurnCard[] = [];
-  const types: MemberType[] = ["shs", "glulam", "ipe", "heb", "cable"];
   const count = KIT_PLAYTEST.players * KIT_PLAYTEST.rounds * 2;
   for (let i = 0; i < count; i++) {
-    const type = types[i % types.length];
-    const maxSteps = 1 + (i % 4);
-    const magnitude = [5, 10, 20, 50][i % 4];
-    const profile = i % 2 === 0 ? "fixed" : "ball";
-    deck1.push({
-      id: "element-" + i,
-      kind: "element",
-      type,
-      maxSteps,
-      label: type.toUpperCase() + " · up to " + maxSteps,
-    });
-    deck1.push({
-      id: "load-" + i,
-      kind: "load",
-      magnitude,
-      label: magnitude + " kN down",
-    });
-    deck2.push({
-      id: "connection-" + i,
-      kind: "connection",
-      profile,
-      label: profile === "fixed" ? "Fixed / moment" : "Ball joint",
-    });
+    const cards = printedCards(i, catalogue);
+    deck1.push(cards.element, cards.load);
+    deck2.push(cards.connection);
   }
   return [shuffle(deck1, seed), shuffle(deck2, seed ^ 0x9e3779b9)];
 }
@@ -165,7 +147,7 @@ function draw(state: TurnState): TurnState {
   };
 }
 
-export function createTurnGame(seed = 1): TurnState {
+export function createTurnGame(seed = 1, catalogue: CatalogueId = LEGACY_CATALOGUE): TurnState {
   const players = [
     { id: "player-1", score: 0, hand: [] },
     { id: "player-2", score: 0, hand: [] },
@@ -197,11 +179,12 @@ export function createTurnGame(seed = 1): TurnState {
   seed >>>= 0;
   return draw({
     version: KIT_PLAYTEST.version,
+    catalogue,
     seed,
     turn: 1,
     playerIndex: 0,
     players,
-    decks: createDecks(seed),
+    decks: createDecks(seed, catalogue),
     nextId: 3,
     draft: emptyDraft(),
     board,
@@ -266,10 +249,17 @@ export function stageElement(
     return fail("Choose an element card from your hand.");
   if (state.draft.members.length >= 1)
     return fail("One element may be played per turn.");
-  if (!validPoint(a) || !validPoint(b) || a === b)
+  const parents = state.board.members;
+  if (systemTarget(state, a) || systemTarget(state, b)) return fail("Neutral repair objects are inspection-only.");
+  const portA = findPort(parents, a), portB = findPort(parents, b);
+  if (portA?.available === false || portB?.available === false)
+    return fail("This family’s interior attachment law is unavailable.");
+  const pointA = portA ? nodeKey(...portA.point) : a;
+  const pointB = portB ? nodeKey(...portB.point) : b;
+  if ((!portA && !validPoint(a)) || (!portB && !validPoint(b)) || pointA === pointB)
     return fail("Choose two distinct points on the board.");
-  const start = parseNodeKey(a),
-    end = parseNodeKey(b);
+  const start = parseNodeKey(pointA),
+    end = parseNodeKey(pointB);
   const lengths = end
     .map((value, axis) => Math.abs(value - start[axis]))
     .filter(Boolean);
@@ -279,34 +269,35 @@ export function stageElement(
   if (
     state.board.members.some(
       (member) =>
-        (member.a === a && member.b === b) ||
-        (member.a === b && member.b === a),
+        (member.a === pointA && member.b === pointB) ||
+        (member.a === pointB && member.b === pointA),
     )
   ) {
     return fail("A member already occupies these endpoints.");
   }
   const member: TurnMember = {
     id: state.nextId,
-    a,
-    b,
+    a: pointA,
+    b: pointB,
+    ...(portA || portB ? { endTargets: { ...(portA && { a }), ...(portB && { b }) } } : {}),
     type: card.type,
+    ...(card.type === "cable" && card.definitionId.startsWith("element/tension-cable-25/") && {
+      restLengthM: resolveMemberLaw("cable", S * Math.hypot(...lengths)).restLength,
+    }),
+    ...(card.assembly && { assembly: card.assembly }),
     owner: activePlayer(state).id,
     cardId,
   };
+  if (isScoredCatalogue(state.catalogue)) {
+    const clash = findMaterialClash(member, parents);
+    if (clash) return fail(clash);
+  }
   return stage(
     state,
     { ...state.draft, members: [member] },
     { kind: "element", cardId, a, b },
     state.nextId + 1,
   );
-}
-
-export function turnJoints(state: TurnState): Joint[] {
-  const joints = new Map(state.board.joints.map((joint) => [joint.id, joint]));
-  for (const { jointId } of state.draft.connections) {
-    if (!joints.has(jointId)) joints.set(jointId, { id: jointId });
-  }
-  return [...joints.values()];
 }
 
 export function stageLoad(
@@ -318,6 +309,7 @@ export function stageLoad(
   if (card?.kind !== "load") return fail("Choose a load card from your hand.");
   if (state.draft.loads.length >= 1)
     return fail("One load may be played per turn.");
+  if (systemTarget(state, jointId)) return fail("Neutral repair objects are inspection-only.");
   if (!turnJoints(state).some(({ id }) => id === jointId))
     return fail("Choose an existing or staged shared joint.");
   const load: Load = {
@@ -331,6 +323,30 @@ export function stageLoad(
     { ...state.draft, loads: [load] },
     { kind: "load", cardId, jointId },
   );
+}
+
+/** First attachment owns the permission frame, independent of ground restraints. */
+function jointProfileConflict(connections: readonly Connection[]): string | null {
+  const established = new Map<string, Connection>();
+  for (const candidate of connections) {
+    const first = established.get(candidate.jointId);
+    if (!first) {
+      established.set(candidate.jointId, candidate);
+      continue;
+    }
+    const axes = conflictingJointAxes(
+      CONNECTION_PROFILES[first.profile],
+      CONNECTION_PROFILES[candidate.profile],
+      connectionFrame(first.profile),
+      connectionFrame(candidate.profile),
+    );
+    if (axes.length) return (
+      `Incompatible joint profiles at ${candidate.jointId}. Member ${first.memberId} end ${first.end.toUpperCase()} uses ${first.profile}. ` +
+      `Member ${candidate.memberId} end ${candidate.end.toUpperCase()} with ${candidate.profile} conflicts on ${axes.join(", ")}. ` +
+      "Choose a matching connector or another joint."
+    );
+  }
+  return null;
 }
 
 export function stageConnection(
@@ -350,15 +366,19 @@ export function stageConnection(
   );
   if (!member || (end !== "a" && end !== "b"))
     return fail("Choose one end of an existing or staged member.");
-  if (
-    [...state.board.connections, ...state.draft.connections].some(
-      (item) => item.memberId === memberId && item.end === end,
-    )
-  ) {
+  if (member.system) return fail("Neutral repair objects are inspection-only.");
+  const connections = [...state.board.connections, ...state.draft.connections];
+  if (connections.some((item) => item.memberId === memberId && item.end === end)) {
     return fail("This end already has an immutable connection.");
   }
-  const target = jointId ?? member[end];
-  if (target !== member[end]) return fail("Choose a joint at the member end.");
+  const target = jointId ?? member.endTargets?.[end] ?? member[end];
+  if (systemTarget(state, target)) return fail("Neutral repair objects are inspection-only.");
+  const parents = [...state.board.members, ...state.draft.members];
+  const port = findPort(parents, target);
+  if (port && (!port.available || port.memberId === memberId))
+    return fail("Choose a supported quarter port on a different parent.");
+  if (targetCoordinate(parents, target) !== member[end] || (!port && !validPoint(target)))
+    return fail("Choose a shared joint or original quarter port at the member end.");
   const connection: Connection = {
     cardId,
     memberId,
@@ -367,6 +387,8 @@ export function stageConnection(
     profile: card.profile,
     owner: activePlayer(state).id,
   };
+  const conflict = jointProfileConflict([...connections, connection]);
+  if (conflict) return fail(conflict);
   return stage(
     state,
     { ...state.draft, connections: [...state.draft.connections, connection] },
@@ -397,10 +419,63 @@ export function endTurn(
   /** The analysis's own explanation; a generic one for the status otherwise. */
   reason?: string,
 ): Transition {
+  return commitTurn(state, expectedTurn, status, undefined, analysis, reason);
+}
+
+function commitTurn(
+  state: TurnState,
+  expectedTurn: number,
+  status: TurnReport["status"] = "unresolved",
+  replay?: { final: unknown; issues: unknown; penaltyDecision: unknown; repairPolicy: unknown; correction: unknown },
+  analysis?: StructuralAnalysisResult,
+  /** Account of the turn to record and replay; a generic sentence for the status otherwise. */
+  reason?: string,
+): Transition {
   if (state.finished || expectedTurn !== state.turn)
     return fail("This turn has already ended.");
+  if (isScoredCatalogue(state.catalogue)) {
+    const occupied = [...state.board.members];
+    for (const member of state.draft.members) {
+      const clash = findMaterialClash(member, occupied);
+      if (clash) return fail(clash);
+      occupied.push(member);
+    }
+  }
+  const connections = [...state.board.connections, ...state.draft.connections];
+  const conflict = jointProfileConflict(connections);
+  if (conflict) return fail(conflict);
   const player = activePlayer(state),
     spent = draftIds(state);
+  // Old scored receipts did not record an assessment. Keep their historical
+  // evidence scope while replaying. A new assessed event must reproduce it.
+  const previous = state.reports.at(-1);
+  const issues = isScoredCatalogue(state.catalogue) && (!replay || replay.issues !== undefined)
+    ? assessTurnIssues(state, previous?.correction?.memory ?? previous?.issues?.memory) : undefined;
+  if (replay?.issues !== undefined && !matchesIssueEvidence(issues, replay.issues))
+    return fail("The saved issue assessment does not match the replayed structure.");
+  // Earlier matches recorded issue comparisons before penalties were in force.
+  // Keep their original awards even if those comparisons contain eligible changes.
+  const penaltyDecision = issues && (!replay || replay.penaltyDecision !== undefined)
+    ? decidePenalty(state, issues) : undefined;
+  if (replay?.penaltyDecision !== undefined && !matchesIssueEvidence(penaltyDecision, replay.penaltyDecision))
+    return fail("The saved penalty decision does not match the originating turn.");
+  const frozen = { ...state, board: {
+    members: [...state.board.members, ...state.draft.members], connections,
+    loads: [...state.board.loads, ...state.draft.loads], joints: turnJoints(state),
+  }, draft: emptyDraft() };
+  const repairPolicy = replay ? replay.repairPolicy : penaltyDecision && REPAIR_POLICY;
+  if (repairPolicy !== undefined && ((repairPolicy !== REPAIR_POLICY && repairPolicy !== LEGACY_REPAIR_POLICY) || !penaltyDecision))
+    return fail("Unsupported or incomplete saved correction policy.");
+  const repair = issues && repairPolicy ? correctTurnIssues(frozen, issues, state.turn, repairPolicy) : undefined;
+  if (replay && !matchesIssueEvidence(repair?.receipt, replay.correction))
+    return fail("The saved corrective work does not match the originating turn and verified structure.");
+  const endEvent: Extract<Event, { kind: "end" }> = {
+    kind: "end", turn: state.turn, status, ...(analysis && { analysis }),
+    ...(issues && { issues }), ...(penaltyDecision && { penaltyDecision }),
+    ...(repairPolicy && { repairPolicy }),
+    ...(repair && { correction: repair.receipt }),
+    ...(reason !== undefined && { reason }),
+  };
   const report: TurnReport = {
     turn: state.turn,
     playerId: player.id,
@@ -411,12 +486,15 @@ export function endTurn(
       partial: "Supported geometry was analyzed. Floating components are excluded from the numerical solve.",
       unresolved: "The experimental solve did not produce a result for this turn.",
     }[status],
-    penalty: 0,
+    penalty: penaltyDecision?.event?.amount ?? 0,
     ...(analysis && { analysis }),
+    ...(issues && { issues }),
+    ...(penaltyDecision && { penaltyDecision }),
+    ...(repair && { correction: repair.receipt }),
   };
   const finished = state.turn === KIT_PLAYTEST.players * KIT_PLAYTEST.rounds;
   const committed: TurnState = {
-    ...state,
+    ...(repair?.state ?? frozen),
     finished,
     turn: finished ? state.turn : state.turn + 1,
     playerIndex: finished
@@ -427,41 +505,64 @@ export function endTurn(
         ? { ...entry, hand: entry.hand.filter(({ id }) => !spent.has(id)) }
         : entry,
     ),
-    board: {
-      members: [...state.board.members, ...state.draft.members],
-      connections: [...state.board.connections, ...state.draft.connections],
-      loads: [...state.board.loads, ...state.draft.loads],
-      joints: turnJoints(state),
-    },
-    draft: emptyDraft(),
     reports: [...state.reports, report],
-    events: [...state.events, { kind: "end", turn: state.turn, status, ...(analysis && { analysis }), ...(reason !== undefined && { reason }) }],
+    events: [...state.events, endEvent],
   };
+  if (finished && isScoredCatalogue(state.catalogue)) {
+    let finalScore: FinalScore | null;
+    if (replay) {
+      finalScore = recoverFinalScore(committed, replay.final);
+      if (!finalScore) return fail("The final score receipt does not match the saved match.");
+    } else {
+      let analysis: ReturnType<typeof analyzeTurn> | null = null;
+      try {
+        analysis = analyzeTurn(committed, "card-gravity");
+      } catch {
+        // A failed solve leaves the full gravity denominator and historical penalties intact.
+      }
+      finalScore = awardFinalScore(committed, finalReceipt(committed, analysis));
+    }
+    const scores = new Map(finalScore.awards.map(a => [a.playerId, a.finalScore]));
+    return { ok: true, state: { ...committed, finalScore,
+      players: committed.players.map(p => ({ ...p, score: scores.get(p.id)! })),
+      events: [...state.events, { ...endEvent, final: finalScore }],
+    } };
+  }
+  if (replay?.final !== undefined) return fail("Unexpected final score before scored-match completion.");
   return { ok: true, state: finished ? committed : draw(committed) };
 }
 
 /** The voxel shape is a render projection. Per-end connector laws live in TurnState. */
 export function projectTurnModel(state: TurnState): GameModel {
   const attrs: GameModel["attrs"] = {};
-  for (const joint of turnJoints(state)) {
-    attrs[joint.id] = joint.foundationOwner
+  const joints = turnJoints(state);
+  for (const joint of joints) {
+    const key = joint.point ?? joint.id;
+    attrs[key] = joint.foundationOwner || attrs[key]?.found
       ? { found: true, locked: true }
       : { joint: true };
   }
   for (const load of [...state.board.loads, ...state.draft.loads]) {
-    attrs[load.jointId] = {
-      ...attrs[load.jointId],
-      load: (attrs[load.jointId]?.load ?? 0) + load.magnitude,
+    const key = joints.find(j => j.id === load.jointId)?.point ?? load.jointId;
+    attrs[key] = {
+      ...attrs[key],
+      load: (attrs[key]?.load ?? 0) + load.magnitude,
     };
   }
   const members = [...state.board.members, ...state.draft.members].map(
-    ({ id, a, b, type }) => ({ id, a, b, type }),
+    ({ id, a, b, type, assembly, restLengthM }) => ({ id, a, b, type, ...(assembly && { assembly }), ...(restLengthM !== undefined && { restLengthM }) }),
   );
   return { attrs, members, nextId: state.nextId };
 }
 
 /** Replay validated user actions so persisted deck order, ownership and scores cannot drift. */
 export function parseTurnState(raw: unknown): TurnState | null {
+  const result = replayTurnState(raw);
+  return result.ok ? result.state : null;
+}
+
+/** Keep the failing event's public diagnosis available to the save-recovery UI. */
+export function replayTurnState(raw: unknown): Transition {
   if (
     !record(raw) ||
     raw.version !== KIT_PLAYTEST.version ||
@@ -472,14 +573,21 @@ export function parseTurnState(raw: unknown): TurnState | null {
     !Array.isArray(raw.events) ||
     raw.events.length > KIT_PLAYTEST.players * KIT_PLAYTEST.rounds * 5
   )
-    return null;
-  let state = createTurnGame(raw.seed);
+    return fail("Unrecognized match format or invalid replay header.");
+  // Original version-one saves predate catalogue selection and keep their
+  // deterministic five-family hands, including experimental cables.
+  const catalogue = raw.catalogue === undefined ? LEGACY_CATALOGUE : raw.catalogue;
+  if (catalogue !== LEGACY_CATALOGUE && !isScoredCatalogue(catalogue)) {
+    return fail("Saved match requires an unsupported physical catalogue.");
+  }
+  let state = createTurnGame(raw.seed, catalogue);
   for (const event of raw.events) {
     const result = replayEvent(state, event);
-    if (!result?.ok) return null;
+    if (!result) return fail("Unrecognized saved turn action.");
+    if (!result.ok) return result;
     state = result.state;
   }
-  return state;
+  return { ok: true, state };
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -491,28 +599,33 @@ function replayEvent(state: TurnState, event: unknown): Transition | null {
   if (event.kind === "end" && typeof event.turn === "number") {
     if (event.status !== undefined && event.status !== "stable" && event.status !== "unstable" &&
       event.status !== "partial" && event.status !== "unresolved") return null;
-    // The recorded reason replays with the turn, so a restored match shows
-    // what the deciding solver said rather than a generic sentence.
+    // The structural cross-check's account replays with the turn, so a
+    // restored match shows what the selected solver said.
     const reason = typeof event.reason === "string" ? event.reason : undefined;
-    if (event.analysis === undefined) return endTurn(state, event.turn, event.status, undefined, reason);
+    let analysis: StructuralAnalysisResult | undefined;
+    if (event.analysis !== undefined) {
     const parsed = structuralAnalysisResultSchema.safeParse(event.analysis);
     if (!parsed.success) return null;
-    const analysis = parsed.data;
+    analysis = parsed.data;
     const snapshot = analysis.request.snapshot;
     const prior = state.reports.at(-1)?.analysis?.request.snapshot;
     if (
       analysis.purpose !== "turn" ||
       analysis.turn?.matchId !== snapshot.modelId ||
-      analysis.turn.turnId !== String(state.turn) ||
+      analysis.turn?.turnId !== String(state.turn) ||
       analysis.turn.playerId !== activePlayer(state).id ||
       analysis.turn.rulesVersion !== String(state.version) ||
-      state.reports.some(report => report.analysis?.runId === analysis.runId) ||
+      state.reports.some(report => report.analysis?.runId === parsed.data.runId) ||
       snapshot.revisionId !== "turn-" + state.turn ||
       analysis.status !== (event.status === "stable" ? "success" : event.status === "unstable" ? "unstable" : "unresolved") ||
       snapshot.parentRevisionId !== prior?.revisionId ||
       (prior && prior.modelId !== snapshot.modelId)
     ) return null;
-    return endTurn(state, event.turn, event.status, analysis, reason);
+    }
+    return commitTurn(state, event.turn, event.status, {
+      final: event.final, issues: event.issues, penaltyDecision: event.penaltyDecision,
+      repairPolicy: event.repairPolicy, correction: event.correction,
+    }, analysis, reason);
   }
   if (typeof event.cardId !== "string") return null;
   if (

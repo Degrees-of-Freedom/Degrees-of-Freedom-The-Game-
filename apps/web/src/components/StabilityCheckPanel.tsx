@@ -25,7 +25,7 @@ function verdict(result: Completed): { className: string; text: string } {
     case 'unstable':
       return { className: 'verdict bad', text: `Unstable. ${result.message}` };
     case 'unresolved':
-      return { className: 'verdict unknown', text: `Not resolved. ${result.message}` };
+      return { className: 'verdict unknown', text: `Equilibrium unresolved. ${result.message}` };
   }
 }
 
@@ -72,6 +72,24 @@ const VERDICT_TEXT: Record<Verdict, string> = {
 
 /** Foundations listed before the rest are summarised in one line. */
 const MAX_REACTIONS = 8;
+
+/** Each connected part, with the verified support reactions of the valid ones. */
+function ComponentResponses({ result }: { result: Completed }) {
+  const solved = result.components.filter((component) => component.resultsValid).length;
+  return <section aria-label="OpenSees component results">
+    <p>{solved} of {result.components.length} connected components returned a verified response.</p>
+    <ul>{result.components.map((component) =>
+      <li key={component.id}>
+        <b>{component.memberIds.length ? 'Members ' + component.memberIds.join(', ') : 'Node ' + component.nodeIds[0]}</b>
+        {component.resultsValid ? <>
+          <span> · {result.analysis.fidelity === 'nonlinear' ? 'Nonlinear equilibrium' : 'Linear equilibrium'}</span>
+          {component.nodeIds.filter((id) => result.reactions[id]).map((id) =>
+            <div key={id}>Support {id} · Rz {Number(result.reactions[id][2].toPrecision(6))} N</div>)}
+        </> : <span> · {describeComponentState(component.state)}. Physical response unavailable.</span>}
+      </li>
+    )}</ul>
+  </section>;
+}
 
 /**
  * Result of the detailed contract: card sections, tension-only cables,
@@ -164,11 +182,14 @@ function DetailedCheck({ result, notes, solverName }: { result: DetailedAnalysis
 export function StabilityCheckPanel({
   check,
   solverName,
+  onNonlinear,
 }: {
   check: StabilityCheck;
   solverName: string;
+  onNonlinear?: () => void;
 }) {
-  if (check.phase === 'idle') return <section className="analysis stability-check"><ResultHeader solverName={solverName} /><p className="result-empty">Run simulation to check this structure. Editing the model or changing solver clears the previous check.</p></section>;
+  const nonlinearControl = onNonlinear && <button className="btn" onClick={onNonlinear}>Run nonlinear check</button>;
+  if (check.phase === 'idle') return <section className="analysis stability-check"><ResultHeader solverName={solverName} /><p className="result-empty">Run simulation to check this structure. Editing the model or changing solver clears the previous check.</p>{nonlinearControl}</section>;
   if (check.phase === 'running')
     return (
       <div className="analysis stability-check">
@@ -187,6 +208,8 @@ export function StabilityCheckPanel({
         <p>
           {solverName} check unavailable: {result.message}
         </p>
+        {notes.map(note => <p key={note}>{note}</p>)}
+        {nonlinearControl}
       </div>
     );
 
@@ -207,13 +230,18 @@ export function StabilityCheckPanel({
           <Stat name="Moving nodes" value={pad(stability.unstableNodeIds.length)} />
         )}
       </div>
+      {result.nonlinear && (
+        <p>Normalized force residual {result.nonlinear.forceResidual.toExponential(2)} · moment residual {result.nonlinear.momentResidual.toExponential(2)}.</p>
+      )}
       <ComponentList components={result.components} />
+      {result.components.length > 1 || result.status === 'unresolved' ? <ComponentResponses result={result} /> : null}
       {[...result.warnings, ...notes].map((line) => (
         <p className="warning" key={line}>
           {line}
         </p>
       ))}
-      <p>Geometry, connections and supports only. Computed by {solverName}.</p>
+      <p>{result.status === 'success' && result.nonlinear ? 'Nonlinear equilibrium' : 'Geometry, connections and supports only'}. Computed by {solverName}.</p>
+      {nonlinearControl}
     </div>
   );
 }

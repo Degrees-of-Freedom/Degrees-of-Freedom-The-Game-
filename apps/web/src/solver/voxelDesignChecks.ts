@@ -9,12 +9,12 @@ import type {
   VoxelAnalysis,
 } from './voxelResults';
 import type { Section } from './voxelSections';
-const JOINT_CAP = { pinF: 350, rigidF: 700, rigidM: 220 }; // kN, kNm
+import { CARD_STRENGTH } from './voxelCapacity';
 const FOUND_CAP = { Nc: 1500, Nt: 250, H: 350, M: 300 }; // kN, kNm
 function memberDemandULS(e: Element, r: ElementForce, amp: number) {
   const { f, ul } = r,
     L = e.L,
-    N = f[6];
+    N = r.cableTension ?? f[6];
   const out = {
     N,
     Vy: 0,
@@ -24,7 +24,7 @@ function memberDemandULS(e: Element, r: ElementForce, amp: number) {
     endF: [Math.hypot(f[0], f[1], f[2]), Math.hypot(f[6], f[7], f[8])],
     endM: [Math.hypot(f[4], f[5]), Math.hypot(f[10], f[11])],
   };
-  if (e.it.kind === 'cable') return out;
+  if (e.it.kind !== 'beam') return out;
   const gl = [0, 0, -e.it.w * GAMMA.ULS.G],
     qy = dot(e.R[1], gl),
     qz = dot(e.R[2], gl);
@@ -53,7 +53,7 @@ function memberDemandULS(e: Element, r: ElementForce, amp: number) {
   return out;
 }
 function memberDeflSLS(e: Element, r: ElementForce) {
-  if (e.it.kind === 'cable') return { dEIy: 0, dEIz: 0 };
+  if (e.it.kind !== 'beam') return { dEIy: 0, dEIz: 0 };
   const ul = r.ul,
     L = e.L,
     gl = [0, 0, -e.it.w],
@@ -79,6 +79,10 @@ export function checkMember(
   rB: boolean,
 ) {
   const c: Record<string, number> = {};
+  if (section.kind === 'spring') {
+    c.axial = Math.max(d.Nc, d.Nt) / (section.axialForceLimitN / 1000);
+    return c;
+  }
   if (section.kind === 'cable') {
     c.tension = d.Nt / section.NRd;
     return c;
@@ -103,8 +107,8 @@ export function checkMember(
     Math.max(d.dEIy / (it.E * it.Iz), d.dEIz / (it.E * it.Iy)) / (L / 250);
   const conn = (F: number, M: number, rigid: boolean) =>
     rigid
-      ? Math.max(F / JOINT_CAP.rigidF, M / JOINT_CAP.rigidM)
-      : F / JOINT_CAP.pinF;
+      ? Math.max(F / CARD_STRENGTH.connections.fixed.force, M / CARD_STRENGTH.connections.fixed.moment)
+      : F / CARD_STRENGTH.connections.ball.force;
   c.connection = Math.max(
     conn(d.endF[0], d.endM[0], rA),
     conn(d.endF[1], d.endM[1], rB),
@@ -125,7 +129,7 @@ export function checkDesign(
   model: VoxelModel,
   ctx: Context,
   out: VoxelAnalysis,
-  amp: number,
+  alphas: ReadonlyMap<number, number>,
 ) {
   const { els, NA, isF, act, keys } = ctx;
   // ---- member design envelope
@@ -135,6 +139,10 @@ export function checkDesign(
     failing = 0,
     connMax = 0;
   for (const e of els) {
+    if (!out.combos.some(c => c.ef?.has(e))) continue;
+    const complete = out.combos.every(c => c.ef?.has(e));
+    const alpha = alphas.get(e.m.id) ?? Infinity;
+    const amp = alpha > 1 && alpha < 10 ? 1 / (1 - 1 / alpha) : 1;
     const d = {
       Nt: 0,
       Nc: 0,
@@ -150,8 +158,8 @@ export function checkDesign(
     };
     let slack = false;
     for (const c of out.combos) {
-      if (c.fail) continue;
-      const r = c.ef!.get(e)!;
+      const r = c.ef?.get(e);
+      if (!r) continue;
       if (c.combo.type === 'ULS') {
         if (r.slack) slack = true;
         const x = memberDemandULS(e, r, amp);
@@ -170,7 +178,7 @@ export function checkDesign(
         d.dmax = Math.max(d.dmax, x.dy || 0, x.dz || 0);
       }
     }
-    const checks = out.mechanism || !out.designChecksAvailable
+    const checks = !complete || !out.designChecksAvailable
       ? {}
       : checkMember(e.it, d, e.L, e.rigidA, e.rigidB);
     const g = govern(checks);
@@ -179,10 +187,10 @@ export function checkDesign(
       demand: d,
       checks,
       util: g.util,
-      gov: out.designChecksAvailable ? g.gov : 'Not assessed',
+      gov: complete && out.designChecksAvailable ? g.gov : 'Not assessed',
       slack,
     };
-    if (!out.mechanism && out.designChecksAvailable) {
+    if (complete && out.designChecksAvailable) {
       maxU = Math.max(maxU, g.util);
       if (g.util > 1) failing++;
       if (checks.connection) connMax = Math.max(connMax, checks.connection);
@@ -192,7 +200,7 @@ export function checkDesign(
       }
     }
   }
-  if (out.designChecksAvailable) {
+  if (out.designChecksAvailable && !out.mechanism && !out.unresolved) {
     out.maxU = maxU;
     out.avgU = nB ? sumU / nB : 0;
     out.failing = failing;
@@ -210,7 +218,8 @@ export function checkDesign(
       worst: Float64Array | null = null;
     for (const c of out.combos) {
       if (c.fail || c.combo.type !== 'ULS') continue;
-      const r = c.reac![a];
+      const r = c.reac?.[a];
+      if (!r) continue;
       const uu = Math.max(
         r[2] > 0 ? r[2] / (FOUND_CAP.Nc * f) : -r[2] / (FOUND_CAP.Nt * f),
         Math.hypot(r[0], r[1]) / (FOUND_CAP.H * f),
@@ -224,6 +233,6 @@ export function checkDesign(
     out.found[k] = { util: u, r: worst, locked };
     foundMax = Math.max(foundMax, u);
   }
-  if (out.designChecksAvailable) out.foundMax = foundMax;
+  if (out.designChecksAvailable && !out.mechanism && !out.unresolved) out.foundMax = foundMax;
   return { maxU, failing, connMax, foundMax };
 }

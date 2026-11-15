@@ -37,6 +37,7 @@ from .model import (
     Limits,
     PreparationError,
     PreparedModel,
+    element_range_problem,
     free_dofs,
     prepare,
     static_counts,
@@ -55,9 +56,16 @@ from .schema import StructuralModel
 
 __all__ = ["Limits", "analyze", "opensees_version", "solver_name"]
 
-#: Largest system for which the buckling shape is read with a dense tangent at a
-#: loaded state; above it the instability is reported without its shape.
-DENSE_SHAPE_LIMIT = 1500
+#: Largest system for which a tangent is read densely at a loaded state (the
+#: buckling shape, slack-cable mechanisms); above it the instability is
+#: reported without its shape. The request's ``Limits.max_nonlinear_equations``
+#: replaces it; this is the default.
+DENSE_SHAPE_LIMIT = Limits().max_nonlinear_equations
+#: A cable's force must equal E A max(0, strain) of its own end displacements
+#: to this relative tolerance (Tal's cable-law check) ...
+CABLE_LAW_TOLERANCE = 1e-6
+#: ... or within this absolute force, in N, or CABLE_COMPRESSION_STRAIN x EA.
+CABLE_LAW_FORCE_FLOOR = 1e-5
 #: Normalised global equilibrium residual above which results are rejected (criteria section 7).
 EQUILIBRIUM_TOLERANCE = 1e-5
 #: Largest displacement of an accepted recovered equilibrium, as a multiple of
@@ -101,7 +109,14 @@ def analyze(model: StructuralModel, limits: Limits = Limits()) -> dict:
     except Exception as error:  # noqa: BLE001 - nothing may escape analyze
         return {"status": "error", "message": f"Internal error while preparing the model: {error}"}
 
-    budget = _Budget(started, prepared.timeout_ms / 1000.0)
+    budget = _Budget(
+        started,
+        None if prepared.timeout_ms is None else prepared.timeout_ms / 1000.0,
+        nonlinear.AttemptBudget(limits.max_nonlinear_attempts),
+        dense_equations=limits.max_linear_equations,
+        nonlinear_equations=limits.max_nonlinear_equations,
+        dense_shape_limit=limits.max_nonlinear_equations,
+    )
     warnings = list(prepared.warnings)
     try:
         with _LOCK:
@@ -121,6 +136,8 @@ def analyze(model: StructuralModel, limits: Limits = Limits()) -> dict:
             model_version=model.version,
             warnings=warnings,
             max_modes=limits.max_modes,
+            inactive_node_ids=prepared.inactive_node_ids,
+            segments_per_frame=prepared.segments_per_frame,
         )
     except Exception as error:  # noqa: BLE001
         return {"status": "error", "message": f"Internal error during analysis: {error}"}
@@ -129,10 +146,19 @@ def analyze(model: StructuralModel, limits: Limits = Limits()) -> dict:
 # --- per component ------------------------------------------------------------
 
 
-@dataclass(frozen=True)
+@dataclass
 class _Budget:
-    """The request's time budget.
+    """The request's work budgets (DESIGN.md, "Work limits").
 
+    The primary bounds count work and are shared by all components in work
+    order, so results do not depend on machine load:
+
+    * ``attempts``: Newton attempts (``nonlinear.AttemptBudget``);
+    * ``dense_equations``: equations left for dense reference classifications;
+    * ``nonlinear_equations``: equations left for subdivided nonlinear systems.
+
+    The wall-clock budget is an optional outer safeguard: ``seconds`` is None
+    unless the request sets ``timeoutMs``, and then no clock is consulted.
     Elapsed time is measured with ``perf_counter``: on Windows
     ``time.monotonic`` advances in steps of about 16 ms, too coarse to judge a
     budget of a few milliseconds. The driver's interface takes a monotonic
@@ -140,15 +166,23 @@ class _Budget:
     """
 
     started: float
-    seconds: float
+    seconds: float | None
+    attempts: nonlinear.AttemptBudget
+    dense_equations: int
+    nonlinear_equations: int
+    dense_shape_limit: int = DENSE_SHAPE_LIMIT
 
     def remaining(self) -> float:
+        if self.seconds is None:
+            return math.inf
         return self.seconds - (time.perf_counter() - self.started)
 
     def expired(self) -> bool:
-        return self.remaining() <= 0.0
+        return self.seconds is not None and self.remaining() <= 0.0
 
     def deadline(self) -> float:
+        if self.seconds is None:
+            return math.inf
         return time.monotonic() + self.remaining()
 
 
@@ -182,21 +216,21 @@ class _Counts:
 def _work_order(prepared: PreparedModel) -> list[Component]:
     """Order in which components are analysed (results keep the contract order).
 
-    The budget is shared, so an expensive component analysed first could
-    starve cheap ones. Components whose verdict needs no solve go first:
-    those with no free DOF (statics at zero displacement) and those with no
-    support at all (``unsupported_component`` follows from statics). The rest
-    follow by increasing free-DOF count, a proxy for cost that needs no
-    OpenSees, ties by id so the order is deterministic. Each component is
-    classified and solved in one go: splitting classification from solving
-    would build every domain twice, and a component classified as a mechanism
-    is never reported as a timeout anyway (see ``_analyse``).
+    The budgets are shared, so a component analysed first could starve
+    others. Components with no free DOF go first: statics at zero
+    displacement, no budget spent. Then anchored components, then those with
+    no support at all, whose verdict (``unsupported_component``) follows from
+    statics, so they cannot starve an anchored one of its Newton attempts or
+    equations (Tal's rule). Within each group by increasing free-DOF count, a
+    proxy for cost that needs no OpenSees, ties by id, so the order and every
+    budget boundary are reproducible. Each component is classified and solved
+    in one go: splitting classification from solving would build every
+    domain twice.
     """
     def key(component: Component) -> tuple[int, int, str]:
         size = free_dofs(prepared, component)
         supported = any(prepared.joints[node_id].supported for node_id in component.node_ids)
-        no_solve = size == 0 or not supported
-        return (0 if no_solve else 1, size, component.id)
+        return (0 if size == 0 else 1 if supported else 2, size, component.id)
 
     return sorted(prepared.components, key=key)
 
@@ -204,7 +238,18 @@ def _work_order(prepared: PreparedModel) -> list[Component]:
 def _guarded(prepared: PreparedModel, component: Component, budget: _Budget, warnings: list[str]) -> ComponentOutcome:
     counts = _Counts(*static_counts(prepared, component), free_dofs(prepared, component))
     try:
-        return _analyse(prepared, component, budget, warnings, counts)
+        outcome = _analyse(prepared, component, budget, warnings, counts)
+        if not _finite(outcome):
+            # Every number that reaches the result is checked, at any depth
+            # (modes, factors, residuals and reports included).
+            warnings.append(f"Component '{component.id}': numerical response unavailable (non-finite value).")
+            return _unknown(component, counts, ["non_finite_result"])
+        return outcome
+    except ArithmeticError as error:
+        warnings.append(
+            f"Component '{component.id}': numerical response unavailable ({type(error).__name__}: {error})."
+        )
+        return _unknown(component, counts, ["non_finite_result"])
     except _IllConditioned as error:
         warnings.append(
             f"Component '{component.id}': a stiffness mode with scaled eigenvalue {error.eigenvalue:.1e} is too "
@@ -217,6 +262,26 @@ def _guarded(prepared: PreparedModel, component: Component, budget: _Budget, war
             "no conclusion was reached."
         )
         return _unknown(component, counts, ["solver_error"])
+
+
+def _finite_value(value) -> bool:
+    """Whether every number in a nested structure is finite (Tal's recursive check)."""
+    if isinstance(value, (float, np.floating)):
+        return math.isfinite(float(value))
+    if isinstance(value, np.ndarray):
+        return bool(np.all(np.isfinite(value))) if value.dtype.kind in "fc" else True
+    if isinstance(value, dict):
+        return all(_finite_value(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return all(_finite_value(item) for item in value)
+    return True
+
+
+def _finite(outcome: ComponentOutcome) -> bool:
+    return _finite_value([
+        outcome.displacements, outcome.reactions, outcome.member_forces, outcome.load_factor, outcome.residual,
+        outcome.residual_parts, outcome.nonlinear, [mode.displacements for mode in outcome.stability.modes],
+    ])
 
 
 def _unknown(component: Component, counts: _Counts, codes: list[str], load_factor: float | None = None,
@@ -242,6 +307,19 @@ def _analyse(prepared: PreparedModel, component: Component, budget: _Budget, war
         if counts.linear_free_dofs != 0:
             return _unknown(component, counts, ["timeout"], load_factor=0.0)
         # No free DOF: no solve needed, carry on.
+    size = counts.linear_free_dofs
+    if size > budget.dense_equations:
+        # Counted before anything is built: no dense matrix is allocated.
+        warnings.append(
+            f"Component '{component.id}': the {size}-equation linear model exceeds the {budget.dense_equations}-"
+            "equation dense analysis limit left for this request; it was not analysed."
+        )
+        if not supported:
+            warnings.append(f"Component '{component.id}': unsupported; mode shapes were not computed.")
+            data = StabilityData(stable=False, free_dofs=size)
+            return ComponentOutcome(component, UNSTABLE, ["unsupported_component"], data, load_factor=0.0)
+        return _unknown(component, counts, ["not_converged"], load_factor=0.0)
+    budget.dense_equations -= size
     if prepared.fidelity == "nonlinear":
         for member_id in component.member_ids:
             member = prepared.members[member_id]
@@ -611,13 +689,31 @@ class ComponentProblem:
     """
 
     def __init__(self, prepared: PreparedModel, component: Component, segments: dict[str, int],
-                 reference: tuple[stability.Assessment, list[tuple[int, int]]] | None = None) -> None:
+                 reference: tuple[stability.Assessment, list[tuple[int, int]]] | None = None,
+                 dense_limit: int = DENSE_SHAPE_LIMIT) -> None:
         self.prepared = prepared
         self.component = component
         self.segments = segments
+        self.dense_limit = dense_limit
+        #: True when the last solve stopped on the request's attempt budget.
+        self.exhausted = False
         self.temp_tag_base = builder.tag_bound(prepared, component, segments)
         lengths = [prepared.members[member_id].length for member_id in component.member_ids]
         self.recovery_displacement_limit = RECOVERY_DISPLACEMENT_LIMIT * min(lengths) if lengths else 0.0
+        #: Recovery springs on every equation instead of the mode DOFs only (cables only).
+        self.recovery_holds_all_equations = False
+        if lengths and all(prepared.members[member_id].kind == "cable" for member_id in component.member_ids):
+            # Cables only: a far recovered equilibrium is a real hanging state,
+            # not a collapsed frame, so the bound does not apply (DESIGN.md,
+            # "Recovery"). Every other acceptance condition still does, and
+            # the work stays bounded by the request's Newton attempts.
+            self.recovery_displacement_limit = math.inf
+            self.recovery_holds_all_equations = True
+            #: Spring scale when the tangent is zero (every cable slack): the largest cable E A / L.
+            self.recovery_translational_scale = max(
+                prepared.members[m].properties.elastic_modulus * prepared.members[m].properties.area
+                / prepared.members[m].length for m in component.member_ids
+            )
         self.domain: builder.Domain | None = None
         self.reference: stability.Assessment | None = reference[0] if reference else None
         self.warnings: list[str] = []
@@ -648,13 +744,13 @@ class ComponentProblem:
             return stability.Assessment(free_dofs=size)
         if not self._shape_read:
             self._shape_read = True
-            if size <= DENSE_SHAPE_LIMIT:
+            if size <= self.dense_limit:
                 assessment, equations = _assess(self.domain)
                 self._owners = list(equations.owners)
                 return assessment
             self.warnings.append(
                 f"Component '{self.component.id}': the instability shape was not computed because the system "
-                f"has {size} equations (limit {DENSE_SHAPE_LIMIT})."
+                f"has {size} equations (limit {self.dense_limit})."
             )
         return stability.Assessment(free_dofs=size, indefinite=True)
 
@@ -845,39 +941,80 @@ def _analyse_nonlinear(prepared: PreparedModel, component: Component, budget: _B
     # One coarse build serves the zero-DOF statics, the reference
     # classification (the only dense tangent read) and the linear preview;
     # the driver then builds the model it solves.
+    spent = budget.attempts.used
     coarse = builder.build(prepared, component, builder.COROTATIONAL)
     if coarse.free_dofs == 0:
         counts.reference_mechanisms = 0
-        return _fully_restrained(prepared, component, coarse, counts)
+        return _with_report(_fully_restrained(prepared, component, coarse, counts), None, 0)
     assessment, equations, _ = _classify(prepared, component, coarse, deformed=False)
     counts.reference_mechanisms = assessment.mechanisms
     reference = (assessment, list(equations.owners))
-    if assessment.mechanisms and budget.expired():
+    supported = any(prepared.joints[node_id].supported for node_id in component.node_ids)
+    if assessment.mechanisms and (budget.expired() or not supported):
         # The verified fact is the mechanism; never report it as a timeout.
+        # A component with no support keeps its rigid-body modes whatever
+        # recovery does, so it spends no Newton attempts.
         return _instability(prepared, component, coarse, equations, assessment, counts, load_factor=0.0)
+    beams = [prepared.members[m] for m in component.member_ids if not prepared.members[m].axial]
+    fixed = prepared.segments_per_frame
     segments, expected_peak = _preview(prepared, component, coarse, assessment)
+    if fixed is not None:
+        # ``analysis.segmentsPerFrame`` overrides adaptive subdivision.
+        segments = {member.id: fixed for member in beams}
+    else:
+        segments = _representable(segments, beams, warnings)
+
+    def reference_verdict(text: str) -> ComponentOutcome:
+        warnings.append(f"Component '{component.id}': {text}")
+        if assessment.mechanisms:
+            return _instability(prepared, component, coarse, equations, assessment, counts, load_factor=0.0)
+        return _unknown(component, counts, ["not_converged"], load_factor=0.0)
+
+    expanded = _expanded_equations(counts.linear_free_dofs, segments)
+    if expanded > budget.nonlinear_equations:
+        return reference_verdict(
+            f"the {expanded}-equation nonlinear model exceeds the {budget.nonlinear_equations}-equation nonlinear "
+            "limit left for this request; it was not solved."
+        )
+    budget.nonlinear_equations -= expanded
     outcome, problem = _solve_nonlinear(prepared, component, budget, counts, segments, reference, warnings,
                                         expected_peak, (coarse, equations))
     if outcome.state != STABLE and outcome.state != MARGINAL:
         return outcome
 
-    # Size the subdivision again from the actual forces and rotations, and refine once.
-    beams = [prepared.members[m] for m in component.member_ids if not prepared.members[m].axial]
     short = _short_members(problem, beams)
+    if fixed is not None:
+        if short:
+            warnings.append(
+                f"Component '{component.id}': segmentsPerFrame {fixed} may be fewer than {_names(short)} need "
+                "for the 1% accuracy target."
+            )
+        return _with_report(outcome, segments, budget.attempts.used - spent)
+
+    # Size the subdivision again from the actual forces and rotations, and refine once.
     if not short:
-        return outcome
-    refined = {
+        return _with_report(outcome, segments, budget.attempts.used - spent)
+    refined = _representable({
         member.id: max(segments[member.id], builder.required_segments(member, *problem.demand[member.id]))
         for member in beams
-    }
+    }, beams, warnings)
+    extra = _expanded_equations(counts.linear_free_dofs, refined) - expanded
+    if extra > budget.nonlinear_equations:
+        warnings.append(
+            f"Component '{component.id}': refining the subdivision of {_names(short)} would exceed the nonlinear "
+            "equation limit left for this request; results are from the coarser subdivision."
+        )
+        return _with_report(outcome, segments, budget.attempts.used - spent)
+    budget.nonlinear_equations -= extra
     second, problem = _solve_nonlinear(prepared, component, budget, counts, refined, reference, warnings,
                                        expected_peak, (coarse, equations))
-    if second.state == UNKNOWN and "timeout" in second.reason_codes:
+    if second.state == UNKNOWN and ("timeout" in second.reason_codes or problem.exhausted):
+        cause = "ran out of time" if "timeout" in second.reason_codes else "used up the request's Newton attempts"
         warnings.append(
-            f"Component '{component.id}': refining the subdivision of {_names(short)} ran out of time; "
+            f"Component '{component.id}': refining the subdivision of {_names(short)} {cause}; "
             "results are from the coarser subdivision."
         )
-        return outcome
+        return _with_report(outcome, segments, budget.attempts.used - spent)
     if second.state in (STABLE, MARGINAL):
         still_short = _short_members(problem, beams)
         if still_short:
@@ -885,7 +1022,41 @@ def _analyse_nonlinear(prepared: PreparedModel, component: Component, budget: _B
                 f"Component '{component.id}': {_names(still_short)} may need more beam segments than were used "
                 "for the 1% accuracy target."
             )
-    return second
+    return _with_report(second, refined, budget.attempts.used - spent)
+
+
+def _with_report(outcome: ComponentOutcome, segments: dict[str, int] | None, attempts: int) -> ComponentOutcome:
+    """Attach the nonlinear solve report to a valid outcome (``results._nonlinear_report``)."""
+    if outcome.results_valid:
+        outcome.nonlinear = {"segments": max(segments.values()) if segments else None, "attempts": attempts}
+    return outcome
+
+
+def _expanded_equations(linear_free_dofs: int, segments: dict[str, int]) -> int:
+    """Equations of the subdivided system: each interior segment node adds six free DOFs."""
+    return linear_free_dofs + 6 * sum(count - 1 for count in segments.values())
+
+
+def _representable(segments: dict[str, int], beams: list, warnings: list[str]) -> dict[str, int]:
+    """Cap adaptive counts where finer elements would be unrepresentable (``model.element_range_problem``).
+
+    Requested fixed counts are checked in preparation and refused there; an
+    adaptive count is the engine's own choice, so it is reduced instead, to
+    the largest count whose mesh stations are distinct and whose element
+    coefficients are in range. One element always is: preparation checked it.
+    """
+    result = dict(segments)
+    for member in beams:
+        count = result.get(member.id, 1)
+        while count > 1 and element_range_problem(member, count) is not None:
+            count -= 1
+        if count < result.get(member.id, 1):
+            warnings.append(
+                f"Member '{member.id}': {result[member.id]} elements would be unrepresentable at the coordinate "
+                f"precision; {count} used."
+            )
+            result[member.id] = count
+    return result
 
 
 def _short_members(problem: ComponentProblem, beams: list) -> list[str]:
@@ -910,13 +1081,15 @@ def _solve_nonlinear(prepared: PreparedModel, component: Component, budget: _Bud
     is the classified coarse domain and its equations, used to report the
     reference mechanism if the solve cannot conclude.
     """
-    problem = ComponentProblem(prepared, component, segments, reference)
+    problem = ComponentProblem(prepared, component, segments, reference, budget.dense_shape_limit)
 
     def reference_mechanism(codes: list[str]) -> ComponentOutcome:
         # A mechanism at the reference geometry is verified. When recovery
-        # could not show otherwise in time, that is the verdict, not a timeout.
+        # could not show otherwise within the time or attempt budget, that is
+        # the verdict, not a timeout or a convergence failure.
+        dropped = ("timeout", "not_converged")
         return _instability(prepared, component, coarse[0], coarse[1], reference[0], counts,
-                            load_factor=0.0, extra_codes=[code for code in codes if code != "timeout"])
+                            load_factor=0.0, extra_codes=[code for code in codes if code not in dropped])
 
     if budget.expired():
         if reference[0].mechanisms:
@@ -924,10 +1097,17 @@ def _solve_nonlinear(prepared: PreparedModel, component: Component, budget: _Bud
         return _unknown(component, counts, ["timeout"], load_factor=0.0), problem
 
     try:
-        outcome = nonlinear.solve(problem, budget.deadline(), _settings(expected_peak))
+        outcome = nonlinear.solve(problem, budget.deadline(), _settings(expected_peak), budget.attempts)
     finally:
         warnings.extend(problem.warnings)
-    if outcome.state == "unknown" and "timeout" in outcome.reason_codes and reference[0].mechanisms:
+    problem.exhausted = outcome.exhausted
+    if outcome.exhausted:
+        warnings.append(
+            f"Component '{component.id}': the request's budget of {budget.attempts.used} Newton attempts "
+            "(increment budget) was used up before this component was concluded."
+        )
+    stopped = "timeout" in outcome.reason_codes or outcome.exhausted
+    if outcome.state == "unknown" and stopped and reference[0].mechanisms:
         return reference_mechanism(outcome.reason_codes), problem
     domain = problem.domain
     assessment = outcome.assessment
@@ -945,7 +1125,7 @@ def _solve_nonlinear(prepared: PreparedModel, component: Component, budget: _Bud
         if state.slack:
             # The driver's banded test cannot see an exactly singular tangent,
             # and a mechanism held only by slack cables is exactly singular.
-            if domain.free_dofs <= DENSE_SHAPE_LIMIT:
+            if domain.free_dofs <= budget.dense_shape_limit:
                 final, final_equations, _ = _classify(prepared, component, domain, deformed=True)
                 if final.mechanisms:
                     return _instability(prepared, component, domain, final_equations, final, counts,
@@ -953,8 +1133,8 @@ def _solve_nonlinear(prepared: PreparedModel, component: Component, budget: _Bud
             else:
                 warnings.append(
                     f"Component '{component.id}': cables are slack at full load and the system has "
-                    f"{domain.free_dofs} equations (limit {DENSE_SHAPE_LIMIT}); whether the slack cables leave a "
-                    "mechanism was not checked."
+                    f"{domain.free_dofs} equations (limit {budget.dense_shape_limit}); whether the slack cables "
+                    "leave a mechanism was not checked."
                 )
         return _finish(prepared, component, state, codes, counts, domain.free_dofs, load_factor=1.0), problem
     if outcome.state == "unstable" and assessment is not None and (
@@ -1187,6 +1367,8 @@ def _read(prepared: PreparedModel, component: Component, domain: builder.Domain,
                 stiffness = member.properties.elastic_modulus * member.properties.area
                 if axial < -CABLE_COMPRESSION_STRAIN * stiffness:
                     violations.append(member_id)
+                elif not _cable_law_holds(member, domain, built, displacement, axial, deformed):
+                    violations.append(member_id)
                 if axial <= SLACK_STRAIN * stiffness:
                     entry.update(axial=0.0, state="slack")
                     slack.append(member_id)
@@ -1233,6 +1415,31 @@ def _read(prepared: PreparedModel, component: Component, domain: builder.Domain,
             default=0.0,
         ),
     )
+
+
+def _cable_law_holds(member, domain: builder.Domain, built: builder.BuiltMember, displacement: dict[int, np.ndarray],
+                     axial: float, deformed: bool) -> bool:
+    """Whether a cable's force is its tension-only law of its own end displacements.
+
+    The law is ``E' A max(0, strain + initial strain)`` with the strain of the
+    element's geometry: the change of chord length over the reference length
+    under corotational geometry (from the deformed end positions, as
+    ``corotTruss`` forms it), ``x . du / L`` under linear geometry. For a
+    cable ``law`` this is exactly ``E A max(0, l / L0 - 1)`` (``model._resolve_law``).
+    A native force that disagrees is not verified (Tal's cable-law check).
+    """
+    start, end = built.nodes[0], built.nodes[-1]
+    du = displacement[end][:3] - displacement[start][:3]
+    if deformed:
+        chord = (domain.nodes[end].position + displacement[end][:3]) - (domain.nodes[start].position
+                                                                         + displacement[start][:3])
+        strain = math.hypot(*(float(v) for v in chord)) / member.length - 1.0
+    else:
+        strain = float(member.axes[0] @ du) / member.length
+    stiffness = member.properties.elastic_modulus * member.properties.area
+    target = stiffness * max(0.0, strain + member.initial_strain)
+    floor = max(CABLE_LAW_FORCE_FLOOR, CABLE_COMPRESSION_STRAIN * stiffness)
+    return math.isclose(axial, target, rel_tol=CABLE_LAW_TOLERANCE, abs_tol=floor)
 
 
 def _forces(axial: float = 0.0) -> dict:
@@ -1289,16 +1496,17 @@ def _finish(prepared: PreparedModel, component: Component, state: _State, codes:
         data.stable = False
         return ComponentOutcome(component, UNKNOWN, codes + ["non_finite_result"], data, load_factor=load_factor)
 
-    residual = _equilibrium_residual(state)
-    if residual > EQUILIBRIUM_TOLERANCE or state.violations:
+    residual, *parts = _equilibrium_residual(state)
+    if not math.isfinite(residual) or residual > EQUILIBRIUM_TOLERANCE or state.violations:
+        # Finite but unbalanced native responses are withheld (Tal's guard).
         data.stable = False
         return ComponentOutcome(component, UNKNOWN, codes + ["equilibrium_not_verified"], data,
-                                load_factor=load_factor, residual=residual)
+                                load_factor=load_factor, residual=residual if math.isfinite(residual) else None)
 
     if state.slack:
         codes.append("cable_slack")
     limit = prepared.displacement_limit
-    if limit is not None and any(np.linalg.norm(v[:3]) > limit for v in state.displacements.values()):
+    if limit is not None and any(_norm(v[:3]) > limit for v in state.displacements.values()):
         codes.append("excessive_deformation")
     marginal = "near_mechanism" in codes or "excessive_deformation" in codes
     return ComponentOutcome(
@@ -1311,11 +1519,21 @@ def _finish(prepared: PreparedModel, component: Component, state: _State, codes:
         displacements={k: [float(x) for x in v] for k, v in state.displacements.items()},
         reactions={k: [float(x) for x in v] for k, v in state.reactions.items()},
         member_forces=state.forces,
+        residual_parts=tuple(parts),
     )
 
 
-def _equilibrium_residual(state: _State) -> float:
+def _norm(vector) -> float:
+    """Euclidean norm that cannot overflow on representable components (unlike a sum of squares)."""
+    return math.hypot(*(float(value) for value in vector))
+
+
+def _equilibrium_residual(state: _State) -> tuple[float, float, float, float]:
     """Applied loads plus reactions, normalised (DESIGN.md, Verification).
+
+    Returns ``(residual, force, moment, nodal)``: the largest normalised
+    residual, and the global force (with the distributed-load check), global
+    moment and largest free-DOF nodal residuals that make it up.
 
     Moments are taken about the centroid of the component's nodes rather than
     the global origin: the check is the same when forces balance, but a
@@ -1329,47 +1547,67 @@ def _equilibrium_residual(state: _State) -> float:
     moment. So a component loaded only by a torque, or a self-equilibrated
     prestressed one, is judged against its own force level rather than
     against rounding noise.
+
+    Every force is divided by the largest force entry and every arm by the
+    component size before anything is summed or crossed (Tal's scaled
+    balance), so loads near the double range cannot overflow ``r x F``. The
+    ratios are unchanged by the scaling.
     """
     positions = state.positions
     centre = np.mean(list(positions.values()), axis=0) if positions else np.zeros(3)
+    extent = np.ptp(np.array(list(positions.values())), axis=0) if positions else np.zeros(3)
+    size = _norm(extent) or 1.0
+    vectors = list(state.loads.values()) + list(state.reactions.values()) + [
+        item for intended, load, load_moment in state.distributed for item in (intended, load, load_moment)
+    ]
+    peak = max(
+        [float(np.max(np.abs(vector))) for vector in vectors if len(vector)]
+        + [state.force_scale, state.moment_scale / size, state.nodal_force, state.nodal_moment / size,
+           state.force_floor],
+        default=0.0,
+    )
+    unit = peak if 0.0 < peak < math.inf else 1.0
+    torque = unit * size  # unit of moments
+
     force, moment = np.zeros(3), np.zeros(3)
     applied_force = applied_moment = reacted_force = reacted_moment = 0.0
     for tag, load in state.loads.items():
-        arm = positions[tag] - centre
-        force += load[:3]
-        moment += np.cross(arm, load[:3]) + load[3:]
-        applied_force += float(np.linalg.norm(load[:3]))
-        applied_moment += float(np.linalg.norm(load[3:]))
+        arm = (positions[tag] - centre) / size
+        force += load[:3] / unit
+        moment += np.cross(arm, load[:3] / unit) + load[3:] / torque
+        applied_force += _norm(load[:3] / unit)
+        applied_moment += _norm(load[3:] / torque)
     for node_id, reaction in state.reactions.items():
-        arm = positions[state.joint_tags[node_id]] - centre
-        force += reaction[:3]
-        moment += np.cross(arm, reaction[:3]) + reaction[3:]
-        reacted_force += float(np.linalg.norm(reaction[:3]))
-        reacted_moment += float(np.linalg.norm(reaction[3:]))
+        arm = (positions[state.joint_tags[node_id]] - centre) / size
+        force += reaction[:3] / unit
+        moment += np.cross(arm, reaction[:3] / unit) + reaction[3:] / torque
+        reacted_force += _norm(reaction[:3] / unit)
+        reacted_moment += _norm(reaction[3:] / torque)
     load_error = 0.0
     for intended, load, load_moment in state.distributed:
         # Applied as OpenSees applies it (see _read); the moment is shifted
         # from the origin to the centre.
-        force += load
-        moment += load_moment - np.cross(centre, load)
-        applied_force += float(np.linalg.norm(intended))
+        force += load / unit
+        moment += load_moment / torque - np.cross(centre / size, load / unit)
+        applied_force += _norm(intended / unit)
         # Self-weight is a dead load: what the element carries must be the
         # intended w L along global -Z, whatever the member has done.
-        load_error = max(load_error, float(np.linalg.norm(load - intended)))
-    extent = np.ptp(np.array(list(positions.values())), axis=0) if positions else np.zeros(3)
-    size = float(np.linalg.norm(extent)) or 1.0
-    raw_moment_scale = max(applied_moment, reacted_moment, state.moment_scale)
+        load_error = max(load_error, _norm((load - intended) / unit))
+    raw_moment_scale = max(applied_moment, reacted_moment, state.moment_scale / torque)
     # The floor makes an unloaded, unstressed component pass: all its forces
     # are rounding noise, and noise divided by a noise-sized scale is not a
     # residual.
-    force_scale = max(applied_force, reacted_force, state.force_scale, raw_moment_scale / size, state.force_floor)
-    moment_scale = max(force_scale * size, raw_moment_scale)
-    residuals = []
-    for value, scale in ((np.linalg.norm(force), force_scale), (np.linalg.norm(moment), moment_scale),
-                         (state.nodal_force, force_scale), (state.nodal_moment, moment_scale),
-                         (load_error, force_scale)):
+    force_scale = max(applied_force, reacted_force, state.force_scale / unit, raw_moment_scale,
+                      state.force_floor / unit)
+    moment_scale = max(force_scale, raw_moment_scale)
+
+    def ratio(value: float, scale: float) -> float:
         if scale > 0.0:
-            residuals.append(float(value) / scale)
-        else:
-            residuals.append(0.0 if value == 0.0 else math.inf)
-    return max(residuals)
+            return float(value) / scale
+        return 0.0 if value == 0.0 else math.inf
+
+    force_residual = max(ratio(_norm(force), force_scale), ratio(load_error, force_scale))
+    moment_residual = ratio(_norm(moment), moment_scale)
+    nodal_residual = max(ratio(state.nodal_force / unit, force_scale),
+                         ratio(state.nodal_moment / torque, moment_scale))
+    return max(force_residual, moment_residual, nodal_residual), force_residual, moment_residual, nodal_residual

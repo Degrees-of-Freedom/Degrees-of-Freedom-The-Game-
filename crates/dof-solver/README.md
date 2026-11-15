@@ -34,6 +34,10 @@ The module itself has no imports and three exports:
 
 The request is `{"model": {...}, "options": {...}}`. Unknown fields are rejected, so a caller cannot believe a feature was analysed when the solver never read it. From Rust, call `dof_solver::analyze(&model, &options)` or `dof_solver::analyze_json(text)`.
 
+**Several load cases.** A request may add `"cases": [...]`, at most 100 with unique ids. Each case may replace the model's `loads` or `memberLoads`, `loadFactor` and `gravity`, or set `"selfWeight": false`. The answer is then `{"cases": [{"id": ..., "result": {...}}]}`, in request order, and each result is exactly what a separate request with that case would return, so one case can be `invalid` while the others are analysed. The model is sent and parsed once; each case is still solved from scratch, with no stiffness factorisation shared between cases. From Rust, call `dof_solver::analyze_cases`. A request that cannot be parsed at all still returns one `invalid` result.
+
+**In the browser** the adapter runs the module on a Web Worker (`solverWorker.ts`), so an analysis does not block the page. WebAssembly cannot be interrupted from inside, so aborting the caller's signal, or exceeding the wall-clock limit (`timeLimitMs`, default 10 s, counted from when the worker starts the analysis), terminates the worker; the next call starts a new one from the already compiled module. A timeout is returned as an `invalid` result with reason `timeLimitExceeded`. Where there is no `Worker` (Node, the tests) the module runs on the calling thread, and then it can be neither cancelled once started nor time limited.
+
 Every outcome is a result. Bad input gives `analysis.status: "invalid"` with reason codes and messages. A panic is caught natively and reported as `internalError`; in WebAssembly it is a trap, which the TypeScript adapter turns into the same result.
 
 ## Conventions
@@ -56,7 +60,8 @@ Every outcome is a result. Bad input gives `analysis.status: "invalid"` with rea
 - **Braces** are two-way axial members. **Cables** are straight, tension-only axial members. Both are pinned and may have a rest length or an initial strain (pretension).
 - **Connections** join each member end to its node through six independent laws. A rigid law is an exact constraint, not a stiff spring. A free or elastic law adds one unknown, the relative motion across the connection, which is reported.
 - **Foundations** restrain any of a node's six DOFs and return six signed reaction components.
-- **Loads** are nodal forces and moments, plus optional member self-weight when `options.gravity` is given.
+- **Loads** are nodal forces and moments, uniform member loads (`memberLoads`, N/m in global axes along the whole member), and optional member self-weight when `options.gravity` is given. Member loads are applied exactly like self-weight: consistent nodal loads per beam element, half to each end of a brace or cable, fixed global direction.
+- **Deflection along members**: each beam member result has `deflection.stations`, the global displacement at every element boundary (`subdivisions + 1` points, `at` = fraction of the length), and `maxFromChord`, the largest distance of a deformed station from the line through the deformed ends, for limits such as span / 250. Nothing is interpolated between stations. Braces and cables report `null`.
 - **Strength**: section and connection capacities give a utilisation and governing limit state. With `options.failure: "remove"` the most overloaded member is removed, or the most overloaded connection released, one event at a time.
 
 Two fidelities share one element formulation. `linear` is the small-displacement solution about the undeformed, prestressed state. `nonlinear` (the default) is the geometrically nonlinear solution.
@@ -97,8 +102,8 @@ The beam's strain energy is written once. Automatic differentiation gives the in
 | Iterations per load step, per component | 40, 400 (options) | `model.rs` |
 | Model size | 5,000 nodes, 10,000 members | `model.rs` |
 
-Residuals are normalised by the larger of the applied load and the largest element force, with moments divided by the mean member length. The iteration limits are the solver's time limit: they are counts, not wall-clock time, so a state always gives the same answer.
+Residuals are normalised by the larger of the applied load and the largest element force, with moments divided by the mean member length. The iteration limits are the solver's own work limit: they are counts, not wall-clock time, so a state always gives the same answer. The wall-clock limit is the browser adapter's, which stops the worker; a timed-out run has no answer, not a different one.
 
 ## Not modelled
 
-Plasticity, contact, dynamics, post-buckling path tracing, staged construction, sagging cables with distributed weight, member loads other than self-weight, prescribed displacements, general multi-point constraints, and follower loads. Self-weight and applied moments keep their original direction. The reported buckling shape is the direction of the negative pivot, not an eigenvector. Results have not been checked against an independent nonlinear program.
+Plasticity, contact, dynamics, post-buckling path tracing, staged construction, sagging cables with distributed weight, non-uniform or partial-length member loads, prescribed (forced) displacements such as support settlement, general multi-point constraints, and follower loads. Plasticity, dynamic collapse, contact and post-buckling are deferred by the criteria (section 8). Self-weight, member loads and applied moments keep their original direction. The reported buckling shape is the direction of the negative pivot, not an eigenvector. Results have not been checked against an independent nonlinear program.

@@ -76,7 +76,7 @@ describe('solver registry', () => {
     const linear = await runSolver(find(solvers, 'opensees-linear'), context(), undefined, steppedClock());
     const nonlinear = await runSolver(find(solvers, 'opensees-nonlinear'), context(), undefined, steppedClock());
 
-    expect(analyze.mock.calls.map(([model]) => model.analysis)).toEqual([{ fidelity: 'linear' }, { fidelity: 'nonlinear' }]);
+    expect(analyze.mock.calls.map(([model]) => model.analysis)).toEqual([{ fidelity: 'linear' }, { type: 'corotational' }]);
     expect(linear).toMatchObject({ solverId: 'opensees-linear', verdict: 'stable', computeMs: 7, wallMs: 5 });
     expect(nonlinear).toMatchObject({ verdict: 'stable', computeMs: 42 });
     expect(linear.native?.kind).toBe('contract');

@@ -22,12 +22,13 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from fractions import Fraction
 
 import numpy as np
 
 from .properties import STEEL_MEMBER
+from .schema import CableLaw, FrameLaw, StructuralModel
 from .schema import Member as MemberInput
-from .schema import StructuralModel
 
 LOCKED, FREE, ELASTIC = "locked", "free", "elastic"
 AXIS_NAMES = ("UX", "UY", "UZ", "RX", "RY", "RZ")
@@ -82,14 +83,31 @@ def _unsupported(message: str) -> PreparationError:
 
 @dataclass(frozen=True)
 class Limits:
-    """Upper bounds that keep one request from monopolising the service."""
+    """Upper bounds that keep one request from monopolising the service.
+
+    Every bound but the optional wall-clock one counts work, not time, so a
+    result never depends on machine load (DESIGN.md, "Work limits").
+    """
 
     max_nodes: int = 2000
     max_members: int = 8000
-    #: Maximum number of mode shapes returned; counts are never truncated.
+    #: Maximum number of mode shapes returned for the whole request (shared by
+    #: its components, in contract order); counts are never truncated.
     max_modes: int = 12
-    #: Time budget when the request does not give ``analysis.timeoutMs``.
-    default_timeout_ms: float = 2000.0
+    #: Request-wide budget of equations for dense reference classifications
+    #: (one per component, on the unsubdivided system), at either fidelity.
+    #: Benchmarked through the 2,688-DOF lattice. Counted before allocation.
+    max_linear_equations: int = 2688
+    #: Request-wide budget of equations of the subdivided nonlinear systems;
+    #: also the largest system whose tangent is read densely at a loaded state.
+    #: Counted before the subdivided domain is built.
+    max_nonlinear_equations: int = 1200
+    #: Request-wide count of Newton attempts (attempted load increments)
+    #: shared by all components. The primary bound on nonlinear work.
+    max_nonlinear_attempts: int = 96
+    #: Wall-clock budget when the request does not give ``analysis.timeoutMs``.
+    #: None: no wall-clock limit (it is an optional outer safeguard only).
+    default_timeout_ms: float | None = None
 
 
 @dataclass(frozen=True)
@@ -147,6 +165,10 @@ class Member:
     axes: np.ndarray
     length: float
     initial_strain: float
+    #: Rest length of a member given a cable ``law``, else None. Such a cable
+    #: is built with ``properties.elastic_modulus = E L / L0`` and
+    #: ``initial_strain = 1 - L0 / L`` (see ``_resolve_law``).
+    rest_length: float | None = None
 
     @property
     def axial(self) -> bool:
@@ -188,9 +210,15 @@ class PreparedModel:
     components: list[Component]
     fidelity: str
     self_weight: bool
-    timeout_ms: float
+    #: Wall-clock safeguard in milliseconds, or None for none.
+    timeout_ms: float | None
     displacement_limit: float | None
     warnings: list[str] = field(default_factory=list)
+    #: ``analysis.segmentsPerFrame``: fixed elements per beam under nonlinear
+    #: fidelity, or None for adaptive subdivision.
+    segments_per_frame: int | None = None
+    #: Contract nodes left out of the analysis (nothing attached, no load, no support).
+    inactive_node_ids: list[str] = field(default_factory=list)
 
 
 # --- preparation --------------------------------------------------------------
@@ -221,21 +249,28 @@ def prepare(model: StructuralModel, limits: Limits = Limits()) -> PreparedModel:
             raise _error(f"Node '{support.nodeId}' has more than one support.")
         restraints[support.nodeId] = tuple(bool(flag) for flag in support.restrained)
 
-    loads: dict[str, np.ndarray] = {}
-    for load in model.loads:
-        known(load.nodeId, "A load")
-        loads[load.nodeId] = loads.get(load.nodeId, np.zeros(6)) + np.array((*load.force, *load.moment), dtype=float)
+    loads = _combined_loads(model, known)
 
     warnings: list[str] = []
     options = model.analysis
+    fidelity, segments_per_frame = _fidelity(options)
+    # Elements per beam whose coefficients are checked here: the fixed count
+    # when one is requested, else one (adaptive counts are checked when chosen).
+    checked_segments = segments_per_frame or 1
     members: dict[str, Member] = {}
     for item in model.members:
         if item.id in members:
             raise _error(f"Duplicate member id '{item.id}'.")
         owner = f"Member '{item.id}'"
         members[item.id] = _member(item, known(item.startNodeId, owner), known(item.endNodeId, owner), positions)
-        if options.selfWeight and item.properties is not None and item.properties.weightPerLength is None:
-            warnings.append(f"Member '{item.id}' has properties without weightPerLength; its self-weight is taken as zero.")
+        check_element_range(members[item.id], checked_segments, item.law, options.selfWeight)
+        if options.selfWeight:
+            if item.law is not None and (item.properties is None or item.properties.weightPerLength is None):
+                warnings.append(f"Member '{item.id}' has a law without weightPerLength; its self-weight is taken as zero.")
+            elif item.properties is not None and item.properties.weightPerLength is None:
+                warnings.append(
+                    f"Member '{item.id}' has properties without weightPerLength; its self-weight is taken as zero."
+                )
 
     node_ids = [node.id for node in model.nodes]
     attachments = _attachments(members)
@@ -264,46 +299,222 @@ def prepare(model: StructuralModel, limits: Limits = Limits()) -> PreparedModel:
         joints=joints,
         members=members,
         components=components,
-        fidelity=options.fidelity,
+        fidelity=fidelity,
         self_weight=options.selfWeight,
         timeout_ms=options.timeoutMs if options.timeoutMs is not None else limits.default_timeout_ms,
         displacement_limit=options.displacementLimit,
         warnings=warnings,
+        segments_per_frame=segments_per_frame,
+        inactive_node_ids=left_out,
     )
+
+
+def _fidelity(options) -> tuple[str, int | None]:
+    """Resolved fidelity and fixed segment count (DESIGN.md, "Request vocabulary").
+
+    Nonlinear is opt-in: ``fidelity: 'nonlinear'`` or ``type: 'corotational'``
+    (the same thing). Anything else, including no ``analysis`` object, is
+    linear. Contradictory or meaningless combinations are ``error``.
+    """
+    if options.fidelity == "linear" and options.type == "corotational":
+        raise _error("analysis gives fidelity 'linear' and type 'corotational'; corotational analysis is nonlinear.")
+    nonlinear = options.fidelity == "nonlinear" or options.type == "corotational"
+    if options.segmentsPerFrame is not None and not nonlinear:
+        raise _error(
+            "analysis.segmentsPerFrame applies to nonlinear analysis only; "
+            "set fidelity 'nonlinear' or type 'corotational'."
+        )
+    return ("nonlinear" if nonlinear else "linear"), options.segmentsPerFrame
+
+
+def _combined_loads(model: StructuralModel, known) -> dict[str, np.ndarray]:
+    """Total load per node, summed exactly.
+
+    Equal and opposite loads can pass through an intermediate sum larger than
+    a double although the total is small. Each component is summed exactly
+    (``math.fsum``, with rational arithmetic when even its partials overflow)
+    and rounded once. A total outside the double range is an ``error``.
+    """
+    vectors: dict[str, list[tuple[float, ...]]] = {}
+    for load in model.loads:
+        known(load.nodeId, "A load")
+        vectors.setdefault(load.nodeId, []).append((*load.force, *load.moment))
+    loads: dict[str, np.ndarray] = {}
+    for node_id, items in vectors.items():
+        try:
+            loads[node_id] = np.array([_exact_sum(values) for values in zip(*items)], dtype=float)
+        except OverflowError:
+            raise _error(f"The combined force or moment at node '{node_id}' exceeds the numeric range.") from None
+        if not np.all(np.isfinite(loads[node_id])):
+            raise _error(f"The combined force or moment at node '{node_id}' exceeds the numeric range.")
+    return loads
+
+
+def _exact_sum(values: tuple[float, ...]) -> float:
+    try:
+        return math.fsum(values)
+    except OverflowError:
+        # float() of an out-of-range Fraction raises OverflowError too.
+        return float(sum(map(Fraction.from_float, values), Fraction()))
 
 
 def _member(item: MemberInput, start_id: str, end_id: str, positions: dict[str, np.ndarray]) -> Member:
     owner = f"Member '{item.id}'"
     start, end = positions[start_id], positions[end_id]
-    length = float(np.linalg.norm(end - start))
+    # math.dist scales like hypot, so a long but representable span is not
+    # lost to an overflowing sum of squares.
+    length = float(math.dist(start, end))
     if start_id == end_id or length < MIN_MEMBER_LENGTH:
         raise _error(f"{owner} has zero length.")
-    if item.kind == "beam" and item.initialStrain != 0.0:
+    if not math.isfinite(length * length):
+        raise _error(f"{owner} has a reference span outside the numeric range of OpenSees.")
+    kind, properties, initial_strain = _resolve_law(item, length)
+    if kind == "beam" and initial_strain != 0.0:
         raise _unsupported(f"{owner}: initialStrain on a beam is not supported; use a brace or cable.")
-
-    properties = DEFAULT_PROPERTIES
-    if item.properties is not None:
-        p = item.properties
-        properties = Properties(
-            p.elasticModulus, p.shearModulus, p.area, p.inertiaY, p.inertiaZ, p.torsionConstant,
-            p.weightPerLength or 0.0,
-        )
 
     member = Member(
         id=item.id,
-        kind=item.kind,
+        kind=kind,
         start=_normalise(item, "start", start_id, start),
         end=_normalise(item, "end", end_id, end),
         properties=properties,
         axes=_local_axes(item, start, end, length),
         length=length,
-        initial_strain=float(item.initialStrain),
+        initial_strain=initial_strain,
+        rest_length=item.law.restLength if isinstance(item.law, CableLaw) else None,
     )
     if member.axial:
         # An axial member cannot transfer moment whatever its connector says.
         for member_end in member.ends:
             member_end.laws = (*member_end.laws[:3], FREE, FREE, FREE)
     return member
+
+
+#: ``law.kind`` -> member kind it defines.
+LAW_KINDS = {"frame": "beam", "cable": "cable"}
+
+
+def _resolve_law(item: MemberInput, length: float) -> tuple[str, Properties, float]:
+    """Kind, properties and initial strain of a member, from ``law`` or the v2 fields.
+
+    A ``law`` defines all three. The v2 fields may be given alongside it only
+    when they say the same thing (DESIGN.md, "Request vocabulary"):
+
+    * ``kind`` must be the law's kind (``frame`` -> ``beam``, ``cable`` -> ``cable``);
+    * ``properties`` must equal the law in every value the law defines
+      (E and A; for a frame also G, Iy = ``iy``, Iz = ``iz`` and J). Values a
+      law does not define are taken from ``properties``: ``weightPerLength``,
+      and for a cable the beam-only values, which a cable never uses;
+    * ``initialStrain`` must be 0: a cable law expresses pretension through
+      ``restLength``, and a frame has none.
+
+    Anything else is an ``error``.
+
+    A cable law's force is ``E A max(0, l / L0 - 1)``, engineering strain on
+    the rest length ``L0`` at current length ``l``. The axial elements
+    measure strain on the reference length ``L`` instead, so the law is built
+    as a tension-only material of modulus ``E L / L0`` with initial strain
+    ``1 - L0 / L``: ``(E L / L0) ((l - L) / L + 1 - L0 / L) = E (l - L0) / L0``
+    exactly, at every length (as Tal's engine built it with
+    ``InitStrainMaterial`` on ``corotTruss``). Under linear fidelity ``l`` is
+    the small-displacement length, so it is the same law linearised.
+    """
+    law = item.law
+    owner = f"Member '{item.id}'"
+    if law is None:
+        properties = DEFAULT_PROPERTIES
+        if item.properties is not None:
+            p = item.properties
+            properties = Properties(
+                p.elasticModulus, p.shearModulus, p.area, p.inertiaY, p.inertiaZ, p.torsionConstant,
+                p.weightPerLength or 0.0,
+            )
+        return item.kind or "beam", properties, float(item.initialStrain)
+
+    kind = LAW_KINDS[law.kind]
+    if item.kind is not None and item.kind != kind:
+        raise _error(f"{owner} gives kind '{item.kind}' and a {law.kind} law, which defines a {kind}; give one.")
+    if item.initialStrain != 0.0:
+        raise _error(
+            f"{owner} gives initialStrain and a {law.kind} law; "
+            + ("a cable law expresses pretension through restLength." if law.kind == "cable"
+               else "a frame has no initial strain.")
+        )
+    defined = {"elasticModulus": law.elasticModulus, "area": law.area}
+    if isinstance(law, FrameLaw):
+        defined.update(shearModulus=law.shearModulus, inertiaY=law.iy, inertiaZ=law.iz,
+                       torsionConstant=law.torsionConstant)
+    given = item.properties
+    if given is not None:
+        differ = [name for name, value in defined.items() if getattr(given, name) != value]
+        if differ:
+            raise _error(f"{owner}: properties and law disagree on {', '.join(differ)}; give one or make them equal.")
+    base = DEFAULT_PROPERTIES if given is None else Properties(
+        given.elasticModulus, given.shearModulus, given.area, given.inertiaY, given.inertiaZ, given.torsionConstant,
+        given.weightPerLength or 0.0,
+    )
+    weight = 0.0 if given is None else base.weight_per_length
+    if isinstance(law, FrameLaw):
+        properties = Properties(law.elasticModulus, law.shearModulus, law.area, law.iy, law.iz,
+                                law.torsionConstant, weight)
+        return kind, properties, 0.0
+    ratio = length / law.restLength
+    properties = Properties(law.elasticModulus * ratio, base.shear_modulus, law.area, base.inertia_y,
+                            base.inertia_z, base.torsion_constant, weight)
+    return kind, properties, 1.0 - 1.0 / ratio
+
+
+def mesh_stations(member: Member, segments: int) -> list[np.ndarray]:
+    """Node positions along a beam with ``segments`` elements, exactly as the builder places them."""
+    span = member.end.position - member.start.position
+    return [member.start.position + span * index / segments for index in range(segments)] + [member.end.position]
+
+
+def element_range_problem(member: Member, segments: int, law=None, self_weight: bool = False) -> str | None:
+    """Why the coefficients OpenSees would derive for this member are unrepresentable, or None.
+
+    Finite input can still overflow or underflow once OpenSees forms element
+    coefficients: a short element, a huge section, or subdivision of a member
+    far from the origin, where neighbouring stations round to the same point.
+    So the products each element actually forms are checked before any
+    native call (Tal's ``_check_element_range``): ``L^2``, ``EA``, ``EA/L``;
+    for beams ``GJ``, ``GJ/L``, ``L^3``, ``EI``, ``4EI/L``, ``12EI/L^3`` per
+    inertia; for a cable law its length ratio, the derived modulus and the
+    reference force. Each must be positive and finite.
+    """
+    p = member.properties
+    count = 1 if member.axial else segments
+    stations = mesh_stations(member, count) if count > 1 else [member.start.position, member.end.position]
+    for a, b in zip(stations[:-1], stations[1:]):
+        length = float(math.dist(a, b))
+        if length == 0.0:
+            return "coincident mesh stations at the supplied coordinate precision"
+        ea = p.elastic_modulus * p.area
+        values = [length * length, ea, ea / length]
+        if isinstance(law, CableLaw):
+            ratio = member.length / law.restLength
+            if ratio == 0.0:
+                return "an unrepresentable length ratio"
+            values += [ratio, 1.0 / ratio, law.elasticModulus * ratio, law.elasticModulus * law.area / law.restLength]
+            if not math.isfinite(law.elasticModulus * law.area * (ratio - 1.0)):
+                return "an unrepresentable reference force"
+        elif not member.axial:
+            gj = p.shear_modulus * p.torsion_constant
+            values += [gj, gj / length, length * length * length]
+            for inertia in (p.inertia_y, p.inertia_z):
+                ei = p.elastic_modulus * inertia
+                values += [ei, 4.0 * ei / length, 12.0 * ei / length / length / length]
+        if self_weight and p.weight_per_length > 0.0:
+            values.append(p.weight_per_length * length)
+        if not all(value > 0.0 and math.isfinite(value) for value in values):
+            return "geometry or section stiffness outside the OpenSees numeric range"
+    return None
+
+
+def check_element_range(member: Member, segments: int, law=None, self_weight: bool = False) -> None:
+    problem = element_range_problem(member, segments, law, self_weight)
+    if problem is not None:
+        raise _error(f"Member '{member.id}' has {problem}.")
 
 
 def _normalise(item: MemberInput, which: str, node_id: str, position: np.ndarray) -> End:

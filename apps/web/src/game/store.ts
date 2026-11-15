@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { SolverAdapter } from "@dof/solver-contract";
-import { analyzeCompletedTurn } from "./turnAnalysis";
+import { analyzeCompletedTurn, assessTurn } from "./turnAnalysis";
+import { SCORED_CATALOGUE, isScoredCatalogue, type CatalogueId } from "./cardCatalogue";
 import { assessTurnWithSolver } from "./turnSolve";
 import { getSettings } from "../menu/settings";
 import { solverForSettings } from "../solver";
@@ -37,7 +38,7 @@ import {
 import { missingBayEdges, bayIssue } from "./bay";
 import { cycleBayBrace, type BayFace } from "./bayBrace";
 import { nodeValid } from "./terrain";
-import { readSession, writeSession, type Session } from "./session";
+import { openSessionWriter, sessionLocks, SESSION_CONFLICT, SESSION_KEY, SESSION_UNSAVED, type Session } from "./session";
 import {
   activeTurnHand,
   cancelTurnDraft,
@@ -57,6 +58,13 @@ interface GameState {
   levelId: LevelId;
   model: GameModel;
   persistenceError: string | null;
+  sessionConflict: boolean;
+  sessionSave: "idle" | "writing" | "committing" | "failed" | "invalid";
+  savedRevision: number | null;
+  hasSessionBackup: boolean;
+  privateRecoveryBytes: () => string | null;
+  retrySessionSave: () => void;
+  recoverSession: (choice: "backup" | "restart", hasExternalCopy?: boolean) => Promise<"saved" | "failed" | "needs-copy">;
   history: GameModel[];
   future: GameModel[];
   mode: GameMode;
@@ -66,6 +74,8 @@ interface GameState {
   loadBrush: { magnitude: number; direction: LoadDirection };
   setLoadBrush: (magnitude: number, direction: LoadDirection) => void;
   selectCard: (id: string | null) => void;
+  playElement: (cardId: string, a: string, b: string) => string | null;
+  playLoad: (cardId: string, jointId: string) => string | null;
   playConnection: (
     cardId: string,
     memberId: number,
@@ -74,19 +84,21 @@ interface GameState {
   ) => string | null;
   cancelDraft: () => string | null;
   /**
-   * Analyse the staged turn with the authoritative solver, then commit it.
-   * Resolves to an issue message, or null once the turn is committed.
+   * Commit the staged turn. The verified in-browser analysis decides issues,
+   * penalties, repair and score; the structural solver chosen in Settings
+   * runs alongside as a recorded cross-check. Resolves to an issue message,
+   * or null once the turn is committed.
    */
   endTurn: () => Promise<string | null>;
-  /** True while an ended turn is being analysed; staging is frozen meanwhile. */
+  /** True while an ended turn's cross-check runs; staging is frozen meanwhile. */
   turnAnalysing: boolean;
   /**
-   * Solver that decides each completed turn. Null means the solver chosen in
-   * the settings; tests set an explicit one.
+   * Solver for the end-of-turn cross-check. Null means the one chosen in the
+   * settings; tests set an explicit one.
    */
   turnSolver: SolverAdapter | null;
-  setMode: (mode: GameMode) => void;
-  newMatch: () => string | null;
+  setMode: (mode: GameMode, catalogue?: CatalogueId) => void;
+  newMatch: (catalogue?: CatalogueId) => string | null;
   setStyle: (style: PresentationStyle) => void;
   addBay: (
     origin: GridPoint,
@@ -112,6 +124,7 @@ interface GameState {
   setSwapTarget: (type: MemberType) => void;
   undo: () => void;
   setTool: (tool: Tool) => void;
+  placeFoundation: (point: GridPoint) => string | null;
   setWorkK: (k: number) => void;
   setChainStart: (key: string | null) => void;
   setSelected: (selection: Selection) => void;
@@ -171,32 +184,46 @@ export const useGameStore = create<GameState>((set, get) => {
     }
     return save(levelId, model, mode);
   };
+  let writer: ReturnType<typeof openSessionWriter> | undefined;
+  // Keep the exact validated candidate for retry. Replaying the button press
+  // here would run analysis, draw cards or record a final result a second time.
+  let attempted: Session | null = null;
+  let deferredTurn: TurnState | null = null;
+  const turnView = (turn: TurnState) => ({ turn, model: projectTurnModel(turn),
+    selectedCardId: null, chainStart: null, selected: null });
   const saveSession = (session: Session) => {
-    try {
-      return writeSession(localStorage, session);
-    } catch {
-      return false;
+    attempted = session;
+    const result = writer?.save(session) ?? "failed";
+    if (result === "saved") set({ savedRevision: writer!.revision() });
+    if (session.mode === "multiplayer") {
+      if (result === "queued") set({ sessionSave: deferredTurn ? "committing" : "writing" });
+      if (result === "failed") set({ sessionSave: "failed", persistenceError: SESSION_UNSAVED });
     }
+    return result;
   };
+  function saveBlocked() {
+    if (get().sessionConflict) return SESSION_CONFLICT;
+    if (get().sessionSave === "invalid") return "Recover the saved session before playing.";
+    if (get().sessionSave === "failed") return SESSION_UNSAVED;
+    return deferredTurn ? "Saving the current turn." : null;
+  }
   const turnTransition = (
     result: ReturnType<typeof stageElement>,
   ): string | null => {
+    const blocked = saveBlocked();
+    if (blocked) return blocked;
     // The turn criteria freeze edits while a completed turn is analysed.
     if (get().turnAnalysing) return "The turn is being analysed. Wait for the result.";
     if (!result.ok) return result.reason;
     const s = get(),
       turn = result.state;
+    if (turn.board !== s.turn?.board) deferredTurn = turn;
     const saved = saveSession({ mode: s.mode, style: s.style, turn });
-    set({
-      turn,
-      model: projectTurnModel(turn),
-      selectedCardId: null,
-      chainStart: null,
-      selected: null,
-      persistenceError: saved
-        ? null
-        : "Session could not be saved; existing stored data was preserved.",
-    });
+    if (saved === "conflict") return SESSION_CONFLICT;
+    if (saved === "failed") return SESSION_UNSAVED;
+    if (deferredTurn && saved === "queued") return null;
+    deferredTurn = null;
+    set({ ...turnView(turn), persistenceError: null });
     return null;
   };
   const commit = (model: GameModel) =>
@@ -220,11 +247,42 @@ export const useGameStore = create<GameState>((set, get) => {
   };
   let sessionError: string | null = null;
   try {
-    const loaded = readSession(localStorage);
+    writer = openSessionWriter(localStorage, sessionLocks(), (status, lastSaved, target) => {
+      if (status === "conflict") {
+        // Never reveal the other tab's state. A reload reconstructs the newer
+        // revision and goes through the regular private handoff.
+        const turn = lastSaved?.turn ?? null;
+        deferredTurn = null;
+        attempted = null;
+        set({ sessionConflict: true, sessionSave: "idle", persistenceError: SESSION_CONFLICT, turn,
+          ...(get().mode === "multiplayer" && turn ? { model: projectTurnModel(turn) } : {}),
+          selected: null, chainStart: null, selectedCardId: null });
+      } else if (target === attempted && target) {
+        // An earlier queued draft cannot acknowledge a later commit.
+        if (status === "failed") set({ sessionSave: target.mode === "multiplayer" ? "failed" : "idle", persistenceError: SESSION_UNSAVED });
+        if (status === "saved") {
+          const accepted = deferredTurn;
+          attempted = null;
+          deferredTurn = null;
+          set({ sessionSave: "idle", savedRevision: writer?.revision() ?? null, persistenceError: null, ...(accepted ? turnView(accepted) : {}) });
+        }
+      } else if (status === "saved") {
+        set({ savedRevision: writer?.revision() ?? null });
+      }
+    });
+    const loaded = writer.initial;
     if (loaded.status === "found") session = loaded.session;
     else if (loaded.status === "invalid")
-      sessionError =
-        "Session could not be read; existing stored data was preserved.";
+      sessionError = loaded.reason
+        ? `Saved match could not be restored. ${loaded.reason} Existing stored data was preserved.`
+        : "Session could not be read; existing stored data was preserved.";
+    if (typeof window !== "undefined") {
+      const changed = (event: StorageEvent) => {
+        if (event.storageArea === localStorage && (event.key === SESSION_KEY || event.key === null)) writer?.current();
+      };
+      window.addEventListener("storage", changed);
+      import.meta.hot?.dispose(() => window.removeEventListener("storage", changed));
+    }
   } catch {
     /* Storage is optional. */
   }
@@ -248,6 +306,40 @@ export const useGameStore = create<GameState>((set, get) => {
   return {
     levelId,
     model: initialModelValue,
+    sessionConflict: false,
+    sessionSave: sessionError ? "invalid" : "idle",
+    savedRevision: writer?.revision() ?? null,
+    hasSessionBackup: Boolean(sessionError && writer?.hasBackup()),
+    privateRecoveryBytes: () => {
+      if (get().sessionSave === "invalid") return writer?.original() ?? null;
+      if (attempted && writer) return writer.serialize(attempted);
+      if (attempted) return JSON.stringify({ version: 1, mode: attempted.mode, style: attempted.style,
+        turn: attempted.turn && { version: attempted.turn.version, seed: attempted.turn.seed,
+          catalogue: attempted.turn.catalogue, events: attempted.turn.events } });
+      return null;
+    },
+    retrySessionSave: () => {
+      if (get().sessionSave !== "failed" || !attempted) return;
+      const turn = attempted.turn;
+      if (saveSession(attempted) === "saved") {
+        deferredTurn = null;
+        attempted = null;
+        set({ sessionSave: "idle", persistenceError: null, ...(turn ? turnView(turn) : {}) });
+      }
+    },
+    recoverSession: async (choice, hasExternalCopy = false) => {
+      if (!writer || get().sessionSave !== "invalid") return "failed";
+      const target = choice === "backup" ? "backup" :
+        { mode: "multiplayer" as const, style: "grow-dusk" as const, turn: createTurnGame(1, SCORED_CATALOGUE) };
+      const result = await writer.recover(target, hasExternalCopy);
+      if (result === "saved") return "saved";
+      if (result === "needs-copy") {
+        set({ persistenceError: "Local storage could not keep a copy of the damaged session. Download the original to continue." });
+        return result;
+      }
+      if (result !== "conflict") set({ persistenceError: "Recovery could not complete. The original bytes are still available for download." });
+      return "failed";
+    },
     persistenceError:
       sessionError ??
       (other?.status === "error" || (other?.status === "found" && !validOther)
@@ -280,6 +372,18 @@ export const useGameStore = create<GameState>((set, get) => {
             : null,
         chainStart: null,
       })),
+    playElement: (cardId, a, b) => {
+      const s = get();
+      return s.mode === "multiplayer" && s.turn
+        ? turnTransition(stageElement(s.turn, cardId, a, b))
+        : "No multiplayer game is active";
+    },
+    playLoad: (cardId, jointId) => {
+      const s = get();
+      return s.mode === "multiplayer" && s.turn
+        ? turnTransition(stageLoad(s.turn, cardId, jointId))
+        : "No multiplayer game is active";
+    },
     playConnection: (cardId, memberId, end, jointId) => {
       const s = get();
       return s.mode === "multiplayer" && s.turn
@@ -298,6 +402,8 @@ export const useGameStore = create<GameState>((set, get) => {
     turnSolver: null,
     endTurn: async () => {
       const s = get();
+      const blocked = saveBlocked();
+      if (blocked) return blocked;
       if (s.mode !== "multiplayer" || !s.turn) return "No multiplayer game is active";
       if (s.turn.finished) return "This turn has already ended.";
       if (s.turnAnalysing) return "The turn is already being analysed.";
@@ -306,48 +412,58 @@ export const useGameStore = create<GameState>((set, get) => {
       // (a new match, a mode switch), so a slow answer is never applied to a
       // different turn.
       const ended = s.turn;
-      let prepared;
+      let prepared: { status: ReturnType<typeof assessTurn>; analysis: ReturnType<typeof analyzeCompletedTurn>["analysis"] | undefined; spring: boolean };
       try {
-        prepared = analyzeCompletedTurn(ended);
+        // Axial springs are outside the applied-load evidence formulation.
+        prepared = [...ended.board.members, ...ended.draft.members].some((m) => m.type === "spring")
+          ? { status: assessTurn(ended), analysis: undefined, spring: true }
+          : { ...analyzeCompletedTurn(ended), spring: false };
       } catch {
         return "Could not prepare the turn analysis. The draft is still open.";
       }
-      set({ turnAnalysing: true });
-      let assessment;
-      try {
-        const solver = s.turnSolver ?? solverForSettings(getSettings());
-        assessment = await assessTurnWithSolver(ended, solver, prepared.status);
-      } finally {
-        set({ turnAnalysing: false });
+      // Cross-check with the selected structural solver. It does not change
+      // the scored verdict; its account is recorded, and a disagreement is
+      // stated, so the two can be compared turn by turn.
+      let reason: string | undefined;
+      if (!prepared.spring) {
+        set({ turnAnalysing: true });
+        try {
+          const solver = s.turnSolver ?? solverForSettings(getSettings());
+          const check = await assessTurnWithSolver(ended, solver, prepared.status);
+          if (check.solver !== "voxel")
+            reason = check.status === prepared.status
+              ? `Structural check agrees. ${check.reason}`
+              : `Structural check disagrees with the scored analysis (${prepared.status}). ${check.reason}`;
+        } finally {
+          set({ turnAnalysing: false });
+        }
+        if (get().turn !== ended) return "The table changed during analysis, so the turn was not committed.";
       }
-      if (get().turn !== ended) return "The table changed during analysis, so the turn was not committed.";
-      // The saved evidence records the in-browser solve and its verdict. Keep
-      // it only when that verdict is the one the turn is committed with, so a
-      // saved match never carries evidence that contradicts its own report.
-      const evidence = assessment.status === prepared.status ? prepared.analysis : undefined;
-      return turnTransition(endTurn(ended, ended.turn, assessment.status, evidence, assessment.reason));
+      return turnTransition(endTurn(ended, ended.turn, prepared.status, prepared.analysis, reason));
     },
-    newMatch: () => {
+    newMatch: (catalogue) => {
       const s = get();
       if (s.mode !== "multiplayer" || !s.turn?.finished)
         return "Finish the current match before starting another.";
       return turnTransition({
         ok: true,
-        state: createTurnGame(s.turn.seed + 1),
+        state: createTurnGame(s.turn.seed + 1, catalogue ?? (isScoredCatalogue(s.turn.catalogue) ? s.turn.catalogue : SCORED_CATALOGUE)),
       });
     },
-    setMode: (mode) => {
+    setMode: (mode, catalogue = SCORED_CATALOGUE) => {
       if (mode === get().mode) return;
+      if (saveBlocked()) return;
       const prior = get();
       if (mode === "challenge") {
-        set({ mode });
-        get().setLevel(savedLevel());
         const saved = saveSession({
           mode,
           style: prior.style,
           turn: prior.turn,
         });
-        if (!saved)
+        if (saved === "conflict") return;
+        set({ mode });
+        get().setLevel(savedLevel());
+        if (saved === "failed")
           set({
             persistenceError:
               "Session could not be saved; existing stored data was preserved.",
@@ -360,8 +476,9 @@ export const useGameStore = create<GameState>((set, get) => {
         loaded.status === "found" &&
         (mode !== "forensics" || hasForensicsFixture(loaded.model));
       const turn =
-        mode === "multiplayer" ? (prior.turn ?? createTurnGame()) : prior.turn;
+        mode === "multiplayer" ? (prior.turn ?? createTurnGame(1, catalogue)) : prior.turn;
       const saved = saveSession({ mode, style: prior.style, turn });
+      if (saved === "conflict") return;
       set({
         mode,
         turn,
@@ -374,7 +491,7 @@ export const useGameStore = create<GameState>((set, get) => {
               ? loaded.model
               : setup.model,
         persistenceError:
-          !saved ||
+          saved === "failed" ||
           loaded.status === "error" ||
           (loaded.status === "found" && !validLoaded)
             ? "Saved state could not be read or saved; existing data was preserved."
@@ -387,17 +504,19 @@ export const useGameStore = create<GameState>((set, get) => {
       });
     },
     setStyle: (style) => {
+      if (saveBlocked()) return;
       const s = get(),
         saved = saveSession({ mode: s.mode, style, turn: s.turn });
+      if (saved === "conflict") return;
       set({
         style,
         ...((style === 'levels' || style === 'engineering') && s.style !== 'levels' && s.style !== 'engineering' ? { workK: initialWorkK(style, s.levelId, s.model) } : {}),
         chainStart: null,
         selected: null,
-        ...(saved
+        ...(saved !== "failed"
           ? {}
           : {
-              persistenceError:
+              persistenceError: sessionError ??
                 "Session could not be saved; existing stored data was preserved.",
             }),
       });
@@ -586,6 +705,18 @@ export const useGameStore = create<GameState>((set, get) => {
         };
       }),
     setTool: (tool) => set({ tool, chainStart: null }),
+    placeFoundation: (point) => {
+      const state = get();
+      if (state.mode !== "creative") return "Foundation placement is available in Creative.";
+      const key = nodeKey(...point);
+      if (!state.model.attrs[key]?.found) {
+        const issue = state.toggleAttr(point, "found");
+        if (issue) return issue;
+      }
+      // Clicking a placed support reopens its restraints without changing them.
+      set({ selected: { type: "node", key } });
+      return null;
+    },
     setWorkK: (k) =>
       set((s) => ({
         workK: Math.max(0, Math.min(LEVELS[s.levelId].nz, Math.round(k))),

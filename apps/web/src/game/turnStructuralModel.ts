@@ -44,6 +44,8 @@ export function toTurnStructuralModel(
   }
 
   const members: StructuralMember[] = [...turn.board.members, ...turn.draft.members].map((member) => {
+    if (member.type === 'spring')
+      throw new Error('The contract solvers cannot represent an axial spring printing.');
     const ends = (['a', 'b'] as const).map((side) => {
       const point = side === 'a' ? member.a : member.b;
       const connection = connections.get(`${member.id}:${side}`);

@@ -35,15 +35,25 @@ fn reject(code: &'static str, message: String) -> String {
     report::invalid(None, &[model::Issue { code, message, ids: Vec::new() }]).to_json_string()
 }
 
+/// Analyse one model under several load cases; see [`report::analyze_cases`].
+pub fn analyze_cases(model: &model::Model, options: &model::Options, cases: &[model::LoadCase]) -> Json {
+    report::analyze_cases(model, options, cases)
+}
+
 fn analyze_request(request: &str) -> String {
     match request::parse_request(request) {
-        Ok((model, options)) => analyze(&model, &options).to_json_string(),
+        Ok(request::Request { model, options, cases: None }) => analyze(&model, &options).to_json_string(),
+        Ok(request::Request { model, options, cases: Some(cases) }) => analyze_cases(&model, &options, &cases).to_json_string(),
         Err(message) => reject("invalidInput", message),
     }
 }
 
 /// Analyse a JSON request `{"model": ..., "options": ...}` and return the
 /// result as JSON. Malformed input gives a result with status `invalid`.
+///
+/// A request with `"cases": [...]` analyses the model once per load case and
+/// returns `{"cases": [{"id": ..., "result": ...}]}` instead. A request that
+/// cannot be parsed at all still returns a single `invalid` result.
 ///
 /// Natively a panic inside the solver is caught and reported as an
 /// `internalError` result. WebAssembly aborts on panic instead, which the host

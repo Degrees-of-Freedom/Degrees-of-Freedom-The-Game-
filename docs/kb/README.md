@@ -30,12 +30,13 @@ status: partial
 
 ## Purpose and status
 
-This is the canonical entry point for durable project knowledge. The early web prototype presents five environments in one application, with voxel editing, challenges, approximate numerical analysis, and a local Shared table card playtest. Shared table turns commit with experimental applied-load results where available. The OpenSees service implements the shared solver adapter for stability and degree-of-freedom checks. Distinguish implemented behavior from proposed experiments and future decisions. A Rust solver in `crates/dof-solver` also implements that adapter and a detailed analysis contract; it runs in the browser as WebAssembly and is the editor's default structural check.
+This is the canonical entry point for durable project knowledge. The web prototype contains five existing environment presenters, voxel editing, challenges and a local Shared table card playtest. Its two-player, eight-round frame preset supports private handoffs, intentional original-quarter attachments and final scoring from verified component reactions. The editor can request linear or bounded nonlinear analysis through the OpenSees adapter. The Rust solver in `crates/dof-solver` runs in the browser and provides the editor’s default structural check. The [criteria ledger](criteria-ledger.md) records the tested scope and remaining gaps.
 
 ## Pages
 
 | Page | Use this when |
 | --- | --- |
+| [criteria-ledger.md](criteria-ledger.md) | Checking the audited game criteria, implementation assignments, accepted playtest decisions and release evidence. |
 | [unified-runtime.md](unified-runtime.md) | Mapping the source environments, runtime entry points, features and remaining gaps. |
 | [project.md](project.md) | Understanding the concept, status, and repository. |
 | [architecture.md](architecture.md) | Understanding the three intended areas, current frameworks, and modular boundaries. |
@@ -63,31 +64,32 @@ This is the canonical entry point for durable project knowledge. The early web p
 | [avatar-criteria.md](avatar-criteria.md) | Defining Timburr’s personality, compact presence, reactions, Conkeldurr transformation, model sources and deferred implementation handoff. |
 | [animation-criteria.md](animation-criteria.md) | Defining all-action animation and sound requirements, optional structural glow/pulse, accessibility, timing and acceptance scenarios. |
 | [joint-dof-criteria.md](joint-dof-criteria.md) | Defining translation/twist glyphs, global/local views, shared-joint freedoms, foundation defaults and the separate instability overlay. |
+| [Load-path implementation prompt](../implementation-prompts/load-path-primary-direction.md) | Implementing primary-direction load-transfer vectors, with independent tension/compression styling. |
 | [visualization-criteria.md](visualization-criteria.md) | Defining calculated deflected shape, load-path overlays, contours, force inspection and result validity. |
 | [3d-viewer.md](3d-viewer.md) | Working on the 3D grid, interaction, or visual feedback. |
 | [development-and-testing.md](development-and-testing.md) | Finding current setup, commands, and test coverage. |
 
 ## Completion rules and decisions
 
-Start with [core game completion criteria](game-completion-criteria.md) for the eight new specifications and decision register. The owner confirmed fixed rounds, final load-share percentage minus accumulated penalties, local hot-seat privacy, grid/diagonal and quarter-point attachments for all families, no physical clashes, one assembly card per element play, and retained structures repaired through additions. These supersede older contrary proposals; implementation and numerical acceptance remain pending.
+Start with [core game completion criteria](game-completion-criteria.md) for the eight specifications and decision register. The owner confirmed fixed rounds, final load-share percentage minus accumulated penalties, local hot-seat privacy, grid/diagonal and quarter-point attachments for all families, no physical clashes, one assembly card per element play, and retained structures repaired through additions. Check each family's physical and gameplay acceptance in the criteria ledger.
 
 ## Turn rules: source of truth
 
 Start with [turn criteria](turn-criteria.md#1-status-and-confirmed-rules) for the owner's confirmed two-deck rules. The page includes the card families, six-DOF connection profile table, turn lifecycle, whole-structure issue comparison, 1-point penalty policy, a worked example, persistence requirements and acceptance scenarios.
 
-The confirmed decisions are distinct from the proposed connection presets and unresolved balance choices. [Questions still to resolve](turn-criteria.md#9-questions-still-to-resolve) tracks remaining parameters; the [completion decision register](game-completion-criteria.md#2-owner-confirmed-decision-register) now resolves the main scoring, match-format, placement and repair choices. The Shared table implements the card lifecycle and explicit attachments. Verified issue assessment and penalties remain pending. Later confirmed turn decisions supersede earlier gameplay proposals in the solver criteria; numerical solver requirements remain in [solver criteria](solver-criteria.md).
+The [completion decision register](game-completion-criteria.md#2-owner-confirmed-decision-register) specifies scoring, match format, placement and repair choices. The Shared table implements the card lifecycle and explicit attachments. Its versioned scored preset compares verified member/connector overload and witnessed instability on persistent physical IDs. Numerical tests and remaining validation gates are recorded in the [solver criteria](solver-criteria.md) and [criteria ledger](criteria-ledger.md).
 
 ## Animation and sound direction
 
 [Animation and sound criteria](animation-criteria.md) record the owner-confirmed magical arena style: fast, subtle routine feedback with rare dramatic failure, major lead-change and victory moments. They cover all game actions, coordinated sound, optional structural glow/pulse and truthful structural visualization. Timing budgets, settings defaults and rollout details are proposals; this specification does not claim implementation.
 
-## Avatar direction and deferred prototype
+## Avatar and preserved prototype
 
-[Timburr avatar criteria](avatar-criteria.md) are the source of truth for the owner’s criteria-first avatar work: a small companion across screens, expanding for important reactions, with a proposed temporary Conkeldurr foreman mode. The avatar is not implemented in the active app. [Prototype handoff](../../prototypes/timburr-companion/README.md) preserves an unapplied code/asset patch and its known gaps for a future Codex/Claude run. Review the criteria before reusing it; experimental analysis must not trigger a verified-failure reaction.
+[Timburr avatar criteria](avatar-criteria.md) describe the compact companion and reactions. The active Grow Dusk playtest uses the two original attributed models preserved in the [prototype handoff](../../prototypes/timburr-companion/README.md), including a deliberately activated Conkeldurr preview and static portrait fallback. The models have no embedded animation clips. See [presentation acceptance](criteria-ledger.md#viewer-controls-and-presentation) for verified controls and remaining reactions.
 
 ## Joint freedoms and graphical representation
 
-[Joint DOF criteria](joint-dof-criteria.md) record the owner-confirmed Selected joint / All joints / Off display (Selected default), global axes with local detail, brief optional demonstrations and a distinct solver-instability layer. All ends intentionally attached at one shared joint must now use matching freedoms, replacing earlier differing end-release choices there; foundations are fully fixed by default. Turn and solver criteria reflect the revision. Overlay rendering, rule enforcement and legacy migration are future implementation work.
+[Joint DOF criteria](joint-dof-criteria.md) record the owner-confirmed Selected joint / All joints / Off display (Selected default), global axes with local detail, brief optional demonstrations and a distinct solver-instability layer. All ends intentionally attached at one shared joint must now use matching freedoms, replacing earlier differing end-release choices there; foundations are fully fixed by default. Turn and solver criteria reflect the revision. The playtest enforces the law for fixed and ball profiles. Recovery identifies incompatible legacy attachments and preserves their source bytes. See the [implementation ledger](criteria-ledger.md) for overlay and elastic solver status.
 
 ## Structural element representation
 
@@ -95,7 +97,7 @@ The confirmed decisions are distinct from the proposed connection presets and un
 
 ## Automatic correction and final fallback
 
-Later owner decisions confirm historical penalties remain after repair, matching freedom states/physical axes may have different elastic stiffnesses, and final attraction awards use verified components against total applied gravity with zero award for unknown contributions. Player moves are retained while the program applies recorded game-owned repairs for instability and overload, explained by Timburr. See [issue correction](failure-repair-criteria.md#6-automatic-correction-transaction) and the [decision register](game-completion-criteria.md#2-owner-confirmed-decision-register). The owner confirmed permanent neutral scaffolding/ground anchors with no player attraction award and local direct intervention; whole-structure effects are still reanalyzed. See the [local repair policy](failure-repair-criteria.md#7-permanent-neutral-repairs-with-local-intervention). These are requirements, not implemented correction or a promise of stable equilibrium for every arbitrary input.
+In the scored frame preset, the game retains the player move and any originating deduction. It tries physical local reinforcement for verified instability and overload. Accepted props and neutral ground anchors persist, participate in equilibrium and earn no player attraction. Turn details identifies the local contact, checks, signed support redistribution and any pending issue after bounded attempts. The final award uses verified reactions divided by all applied card gravity. See the [repair policy](failure-repair-criteria.md#7-permanent-neutral-repairs-with-local-intervention), [decision register](game-completion-criteria.md#2-owner-confirmed-decision-register) and [tested match and remaining scope](criteria-ledger.md).
 
 ## Maintenance
 
@@ -103,3 +105,13 @@ Later owner decisions confirm historical penalties remain after repair, matching
 - Update affected pages in the same change as durable behavior or decisions. Keep `last_validated` and `status` accurate.
 - Use `current`, `partial`, `needs-review`, or `deprecated` for status. Record unanswered questions rather than guessing.
 - Treat design intent as intent, not shipped functionality. Existing non-KB documents are context unless explicitly cited and validated.
+
+## Frozen first-release product decisions
+
+The owner delegated the remaining simplicity/quality decisions to Codex. Read the **Delegated first-release decisions — 2026-11-14** appendices in [completion](game-completion-criteria.md), [turns](turn-criteria.md), [cards](card-definition-criteria.md), [scoring](scoring-match-criteria.md), [placement](placement-criteria.md), [repair](failure-repair-criteria.md), [controls](controls-camera-criteria.md), [multiplayer](multiplayer-criteria.md), [saves](saved-match-criteria.md), [avatar](avatar-criteria.md), [animation](animation-criteria.md) and [release acceptance](release-acceptance-criteria.md).
+
+They freeze `grow-dusk-release-1`: two players/eight rounds, finite authored decks, no opening hand or hand cap, end-turn assessment, above-ground player-built load targets, compact Timburr feedback, concrete presentation defaults, local recovery and a named platform/test matrix. They resolve earlier open product proposals without claiming implementation or weakening numerical criteria. In particular, load placement directly on setup supports is excluded in the new preset, and experimental multi-turn checkpoints are not its default. Preserve historical evidence and saves under their original ruleset versions.
+
+## Complete-release implementation prompt
+
+[Complete Grow Dusk release implementation prompt](../implementation-prompts/complete-grow-dusk-release.md) provides the implementation handoff for the frozen release decisions: criteria precedence, coordinated agents, integrated milestones, minimal UI, numerical verification, full-game tests and final review. It is an execution prompt, not evidence of completed implementation.

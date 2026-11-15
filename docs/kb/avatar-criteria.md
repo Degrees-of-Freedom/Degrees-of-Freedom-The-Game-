@@ -16,7 +16,7 @@ status: needs-review
 
 ## 1. Authority and scope
 
-**This is a criteria-first design specification, not a shipped avatar feature.** The owner corrected the work's direction to focus on criteria; implementation belongs to a later run. An unfinished implementation experiment is preserved separately in the [prototype handoff](../../prototypes/timburr-companion/README.md). It is not active in the app and must not be treated as an approved design or production-ready code.
+The specifications below originated in the criteria-first pass. The active playtest now uses the two owner-approved provisional assets from the [prototype handoff](../../prototypes/timburr-companion/README.md). Its compact companion, labelled preview and model-derived fallback are implemented in `apps/web/src/companion/`. Separate issue, reaction and accessibility gates are tracked in the [criteria ledger](criteria-ledger.md).
 
 Owner-confirmed direction:
 
@@ -159,6 +159,14 @@ Recommended order for a later implementation run:
 
 ## 10. Open decisions
 
+### Compact character evidence
+
+The launcher, setup, information pages, workspace and open drawers display Timburr. Activating his control opens a tip and lets the player inspect the Conkeldurr foreman preview. The private handoff and session recovery screens suppress the companion. The local loader draws the displayed GLB once and uses a matching PNG portrait during decoding or GPU failure; retry is available in the companion panel. Both source assets are unrigged static meshes with zero embedded clips. Their resting arms and detached props reflect the preserved authored poses. Articulated reaction poses and final art approval remain open.
+
+The [browser runner](../evidence/companion/check.mjs) also regenerates both fallback portraits and verifies the preserved GLBs' hashes. The models by nguyenlouis32 are licensed under CC BY 4.0. Their attribution and pinned sources are preserved in [the distributed credits](../../apps/web/public/companion/CREDITS.md).
+
+The owner authorized the two preserved, attributed GLBs for playtesting and a labelled Conkeldurr transformation preview. Automatic serious-event eligibility and final pose approval remain distinct from that asset decision. Use the recorded issue/repair event for explanations.
+
 - Final serious-issue categories/severity threshold and the compatible verified event source. This blocks automatic evolution, not the design specification.
 - Approval of the candidate models, needed rig/pose work and the final transformation look.
 - Exact timing, cooldown, companion placement and chatter frequency after playtesting.
@@ -171,9 +179,23 @@ The later [completion criteria](game-completion-criteria.md) define fixed rounds
 
 ## 12. Automatic repair explanation
 
+In the scored Grow Dusk playtest, ending a turn with recorded corrective work prompts Timburr after the next private reveal, or on the final results screen. The explanation reads the public repair receipt in order: the affected member and issue, originating deduction, installed prop and its contact, verified outcome or pending work, and the new neutral anchor's signed reaction when available. Closing it or changing the companion model only changes presentation. After reload or later turns, activating Timburr lets the player read the historical explanation again. Turn details keeps the complete evidence independently of the companion. [Browser walkthrough](../evidence/companion-repair/check.mjs).
+
 The owner confirmed game-owned automatic correction for both instability and overload while retaining the player move and historical penalty. Timburr explains the original issue, the specific recorded repair and its score/ownership effect; [repair criteria](failure-repair-criteria.md#6-automatic-correction-transaction) own the transaction and numerical verification. The avatar presents game events rather than modifying physics from an animation callback. Show “verified repaired”, “pending” or “could not verify” accurately, and expose the same explanation without sound/avatar motion. No repaired issue refunds its historical penalty.
 
 
 ## 13. Permanent local neutral scaffolding explanation
 
 The owner confirmed permanent neutral system repairs with no player attraction award. Timburr identifies the local affected element/connection, shows the actual added prop/anchor, explains that it remains for the match and that its carried load earns nobody points, and preserves the historical penalty explanation. Do not promise that other foundation reactions are unchanged: a local physical repair can redistribute forces globally. The normal inspector must show neutral ownership, local contacts, verified reactions and remaining unavailable scope even when Timburr is hidden.
+
+## Delegated first-release decisions — 2026-11-14
+
+The owner delegated the remaining product decisions to Codex, prioritizing simplicity, quality and a complete functional game. These are selected release requirements, not implementation or test evidence. They supersede earlier proposals on the same subjects; other confirmed requirements and numerical acceptance gates remain in force.
+
+Use the preserved attributed Timburr and Conkeldurr assets for the release, with model-derived matching portrait fallback and retained credits. Approve their established recognizable appearance as the starting art direction; rig/pose work must be visually validated and cannot be claimed from static GLBs. Do not replace the characters or add a progression tree.
+
+Timburr is a small edge companion with one dismissible bubble, outside board/control safe zones. Routine actions get a glance/nod rather than narration; the board supplies essential feedback. Show one short useful explanation for a new result, correction or invalid target. Idle motion is limited to subtle breathing/weight shift, with no unsolicited repeated tips. Direct activation is rate-limited to one response per five seconds. Suppress the companion on privacy/recovery covers and wherever it would reveal private information.
+
+Automatic Conkeldurr eligibility is one verified newly penalized committed event with witnessed instability or utilization at least 1.25. Use at most one transformation per originating turn, a 45-second cooldown, an 800 ms introduction and at most three seconds of quiet foreman pose. Explain the actual repair or suggest inspecting the unresolved region. Do not transform for invalid input, preview, persistent issues, timeout or unknown evidence. Repair and scoring remain independent of reaction completion. Final victory supersedes other reactions.
+
+Keep Show companion, motion and audio settings in the main settings disclosure, with a small restore control when hidden. Reduced motion uses a still pose/brief fade. Missing 3D/audio never blocks play or substitutes the wrong character. Deduplicate by committed event IDs on reload. Celebrate a verified repair without claiming the entire structure is safe.

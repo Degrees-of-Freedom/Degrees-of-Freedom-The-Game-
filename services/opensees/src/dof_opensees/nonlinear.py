@@ -139,10 +139,13 @@ class Settings:
     #: The step is on its branch if the state stepped back to is within this
     #: fraction of the step's own displacement of the start state. On one
     #: smooth branch the distance is about ``branch_check_shortfall`` times
-    #: the step (0.01); the margin allows the path to move ten times faster
-    #: near the start than on average (a cable activating there). A snapped
-    #: branch is about one whole step away.
-    branch_check_tolerance: float = 0.1
+    #: the step (0.01); the margin allows the path to move much faster near
+    #: the start than on average (a cable activating there). It was 0.1; it is
+    #: 0.3 so that a path starting from a flat pretensioned cable, whose
+    #: displacement grows like the cube root of the load (0.01^(1/3) = 0.22 of
+    #: the step is left after stepping back), is accepted (Tal's two-leg cable
+    #: fixture). A snapped branch is about one whole step away.
+    branch_check_tolerance: float = 0.3
 
     #: Largest nodal translation of the linear solution of the same problem,
     #: in metres, when the caller has one. Enables the one-step fast path
@@ -198,16 +201,43 @@ class Outcome:
     equation_dofs: list[tuple[int, int]] = field(default_factory=list)
     steps: int = 0
     iterations: int = 0
+    #: True when the work stopped because the attempt budget was used up
+    #: (the outcome is then ``unknown`` with ``not_converged``).
+    exhausted: bool = False
 
 
-def solve(problem: Problem, deadline: float, settings: Settings = Settings()) -> Outcome:
+@dataclass
+class AttemptBudget:
+    """A count of Newton attempts, shared by every solve that is given it.
+
+    One attempt is one attempted load increment: a call of ``_Driver.step``
+    (Newton with its line-search fallback and its branch check), and the
+    one-step fast path's single Newton solve. Counting work instead of time
+    makes the outcome independent of machine load.
+    """
+
+    remaining: int
+    used: int = 0
+
+    def spend(self) -> None:
+        if self.remaining <= 0:
+            raise _Exhausted
+        self.remaining -= 1
+        self.used += 1
+
+
+def solve(problem: Problem, deadline: float, settings: Settings = Settings(),
+          attempts: AttemptBudget | None = None) -> Outcome:
     """Run the nonlinear analysis of one component.
 
     Args:
         problem: The component to analyse.
         deadline: ``time.monotonic()`` value after which the driver must stop
-            and report ``unknown`` with ``timeout``.
+            and report ``unknown`` with ``timeout``; ``math.inf`` for none.
         settings: Work bounds.
+        attempts: Newton attempt budget, possibly shared with other solves.
+            When it runs out the driver stops and reports ``unknown`` with
+            ``not_converged`` and ``Outcome.exhausted``. None: unbounded.
 
     When the outcome is ``stable`` the OpenSees domain is left at the
     full-load equilibrium, with no temporary objects in it, so the caller can
@@ -217,11 +247,15 @@ def solve(problem: Problem, deadline: float, settings: Settings = Settings()) ->
     A component with no free DOFs is reported ``stable`` without analysis
     (OpenSees cannot analyse it); its reactions are the caller's to compute.
     """
-    driver = _Driver(problem, deadline, settings)
+    driver = _Driver(problem, deadline, settings, attempts)
     try:
         return driver.run()
     except _Timeout:
         return driver.unverified("timeout")
+    except _Exhausted:
+        outcome = driver.unverified("not_converged")
+        outcome.exhausted = True
+        return outcome
     except Exception:  # noqa: BLE001 - no exception may escape the solver (A08)
         # Non-convergence never raises: OpenSees reports it through return
         # codes, which the driver turns into ``not_converged`` itself. An
@@ -234,6 +268,10 @@ class _Timeout(Exception):
     """The deadline passed; unwinds to ``solve``."""
 
 
+class _Exhausted(Exception):
+    """The Newton attempt budget is used up; unwinds to ``solve``."""
+
+
 # Results of one load step.
 _FAILED = "failed"
 _JUMPED = "jumped"
@@ -244,10 +282,12 @@ _ALGORITHMS = (("Newton",), ("NewtonLineSearch",))
 
 
 class _Driver:
-    def __init__(self, problem: Problem, deadline: float, settings: Settings) -> None:
+    def __init__(self, problem: Problem, deadline: float, settings: Settings,
+                 attempts: AttemptBudget | None = None) -> None:
         self.problem = problem
         self.deadline = deadline
         self.settings = settings
+        self.attempts = attempts
         self.steps = 0
         self.iterations = 0
         self.tolerance = settings.displacement_tolerance
@@ -368,6 +408,7 @@ class _Driver:
         starts from scratch, unchanged.
         """
         expected = float(self.settings.expected_peak_displacement)
+        self.spend()
         result = self.newton(1.0, _displacements())
         if result == _FAILED:
             return None  # the failed analyze left the domain at factor 0
@@ -504,8 +545,20 @@ class _Driver:
         whatever happens, so no temporary object survives into results.
         """
         held = _held_dofs(reference, dofs, self.settings.mode_participation)
+        if getattr(self.problem, "recovery_holds_all_equations", False):
+            # A cable slack by a finite strain has no stiffness either way, but
+            # the one-sided mechanism modes treat it as resisting lengthening,
+            # so springs on the modes alone leave that direction singular.
+            # Problems that ask for it get springs on every equation instead.
+            every: dict[int, set[int]] = {}
+            for node, dof in dofs:
+                every.setdefault(node, set()).add(dof)
+            held = {node: sorted(directions) for node, directions in every.items()}
         self.analysis = None  # reading the tangent replaces the analysis objects
         translational, rotational = _diagonal_scales()
+        # A fully slack cable net has a zero tangent, so its diagonal gives no
+        # scale; such problems supply their members' own axial stiffness.
+        translational = max(translational, getattr(self.problem, "recovery_translational_scale", 0.0))
         springs = _Springs(self, held, translational, rotational)
         try:
             ratio: float | None = self.settings.recovery_initial_ratio
@@ -626,7 +679,10 @@ class _Driver:
         The check costs two more Newton solves per step and no tangent
         assessment. It is skipped for zero increments (prestress and
         recovery stages), whose change is not in the load.
+
+        Each call is one attempt of the attempt budget, spent before any work.
         """
+        self.spend()
         before = _displacements()
         result = self.newton(increment, before)
         if not isinstance(result, int) or increment == 0.0 or not self.settings.verify_branch:
@@ -698,8 +754,13 @@ class _Driver:
         self.problem.build()
 
     def check_deadline(self) -> None:
-        if time.monotonic() > self.deadline:
+        # No clock is read without a deadline, so nothing depends on time.
+        if self.deadline != math.inf and time.monotonic() > self.deadline:
             raise _Timeout
+
+    def spend(self) -> None:
+        if self.attempts is not None:
+            self.attempts.spend()
 
     def new_tag(self) -> int:
         tag = self.next_tag

@@ -195,3 +195,13 @@ Later [core game criteria](game-completion-criteria.md) confirm attraction score
 ## 14. Recorded system repair sequence
 
 The game now requires recorded game-owned correction of instability and overload. Present pre-correction issue/once-per-turn historical penalty, explicit repair placement and verified post-correction outcome in causal order; Timburr explains the change. Skipping animation never skips repair validation, duplicates objects or refunds penalties. Keep system and player objects distinguishable. Unverified correction remains pending/unknown, never a success effect based only on a completed animation; see [repair workflow](failure-repair-criteria.md#6-automatic-correction-transaction).
+
+## Delegated first-release decisions — 2026-11-14
+
+The owner delegated the remaining product decisions to Codex, prioritizing simplicity, quality and a complete functional game. These are selected release requirements, not implementation or test evidence. They supersede earlier proposals on the same subjects; other confirmed requirements and numerical acceptance gates remain in force.
+
+Freeze normal timings: selection/focus 120 ms; placement/connection/load snap 200 ms; four-card draw 600 ms total with overlapping arrivals; ordinary result/handoff 300 ms; foreman emphasis 800 ms; final victory reveal 1.5 seconds. Ordinary turn presentation stays within 1.2 seconds excluding actual analysis. Input acknowledgement remains within 100 ms. Start analysis immediately rather than waiting for decoration. Skip settles presentation without changing state.
+
+Use warm restrained magical accents, low particle counts and one focal effect. No camera shake or forced camera travel. No breaking/collapse animation without a real authorized transition. Final-only scoring means no dramatic in-match lead-change events; final victory/tie/defeat carries that emphasis. Use original short card/connection/result/repair accents, no music, spoken dialogue or copyrighted character cries in this release.
+
+Default motion follows the system reduced-motion setting; otherwise normal. Restrained glow is on, with an independent off switch. Audio is opt-in at the first deliberate sound control, then persistent; master volume starts at 35%, effects at 70%, with companion cues obeying both. Cap simultaneous voices at four. Public/private views must not leak card identities through cues. Settings are in one disclosure, not several permanent toolbars. Group simultaneous warnings, bound queues, cancel stale effects and pause cosmetic activity in hidden tabs.

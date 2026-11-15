@@ -3,6 +3,7 @@ title: "Visualization Criteria"
 last_validated: 2026-11-14
 validated_against:
   - "Project owner load-path discussion, 2026-11-14"
+  - "Project owner primary-direction load-transfer revision"
   - docs/kb/solver-criteria.md
   - docs/kb/turn-criteria.md
   - docs/kb/scoring-match-criteria.md
@@ -103,3 +104,14 @@ Use the numerical tolerances and validation approach in [solver criteria](solver
 6. Which overlays should appear by default? How should deformation and diagram scaling, component selection and the undeformed reference be controlled?
 
 Record confirmed answers here and update related criteria when decisions affect turns, scoring, solver outputs or the viewer.
+
+
+## 7. Primary load-transfer direction
+
+**Latest owner direction:** animate load-path vectors in the primary direction in which the applied load is transferred through each displayed member/segment toward receiving supports or recorded safety restraints. This replaces the earlier centre-out tension/centre-in compression animation. Tension/compression is separate calculated force-sign styling; it does not reverse the transfer arrows by itself.
+
+Use a documented solver-result-based interpretation of applied loading, member actions and intentional connectivity. Preserve supported branching and redistribution; do not point every arrow downward, choose direction from ownership/axial sign/displacement alone, or collapse the structure into an invented unique path. In mixed/combined-load cases without a defensible primary direction, disclose ambiguity or offer a supported selected-load view. Static analysis does not define actual moving mass or displacement trajectories.
+
+Keep vectors aligned with valid reference/deformed segments and within their connected scope. Use available segment results for quarter/subdivided members; do not invent intermediate values. Slack cables, zero displayed action within declared tolerance and unavailable regions have no moving flow. Zero axial force alone does not erase a valid shear/bending load path; identify the quantity shown. Reduced motion uses static directional arrows and equivalent labels. Historical results remain historical or suppressed, never animated as current verified response after an edit.
+
+Acceptance fixtures: simple source-to-support transfer; branching and asymmetric redistribution; arbitrary member/camera orientation; independent tension/compression styling; mixed-load ambiguity; valid shear/bending transfer; slack/zero/unknown states; segment scope and stale-result labeling. Direction changes must not alter physical geometry, numerical values, connectivity or scoring. See the [focused implementation prompt](../implementation-prompts/load-path-primary-direction.md).

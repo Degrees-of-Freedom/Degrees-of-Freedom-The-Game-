@@ -187,60 +187,11 @@ export function EnvironmentStepper() {
   );
 }
 
-export function TurnBanner({
-  onMessage,
-}: {
-  onMessage: (message: string) => void;
-}) {
+export function TurnBanner({ onEndTurn }: { onEndTurn: () => void }) {
   const game = useGameStore(),
     turn = game.turn;
   if (game.mode !== "multiplayer" || !turn) return null;
-  // Growth styles use the prototype's turn chip: player dot and name, a tag,
-  // End turn. The round count and the independent 1 / 1 / 2 allowances come
-  // from the confirmed turn rules (docs/kb/turn-criteria.md); the prototype
-  // only counted turns.
-  if (game.style === "grow" || game.style === "grow-dusk") {
-    const round = Math.ceil(turn.turn / turn.players.length);
-    return (
-      <div
-        id="turn"
-        className="chip"
-        title="Local playtest. Each turn: up to one member, one load and two connections, or pass."
-      >
-        <span className="who">
-          <span
-            className="dot"
-            style={{ background: PLAYER_COLORS[turn.playerIndex % 4] }}
-          />
-          <span id="turn-text">
-            {turn.finished
-              ? "Match complete"
-              : `Player ${turn.playerIndex + 1} · round ${Math.min(round, KIT_PLAYTEST.rounds)} of ${KIT_PLAYTEST.rounds}`}
-          </span>
-        </span>
-        <span className="turn-pips" aria-label="Turn allowances">
-          <span className={turn.draft.members.length ? "spent" : ""}>
-            1 member
-          </span>
-          <span className={turn.draft.loads.length ? "spent" : ""}>1 load</span>
-          <span className={turn.draft.connections.length >= 2 ? "spent" : ""}>
-            {2 - turn.draft.connections.length} connections
-          </span>
-        </span>
-        <span className="tag">playtest</span>
-        <button
-          className="btn"
-          disabled={turn.finished}
-          title="End turn (Enter)"
-          onClick={() =>
-            void game.endTurn().then((issue) => onMessage(issue ?? "Turn committed · pass the table"))
-          }
-        >
-          End turn
-        </button>
-      </div>
-    );
-  }
+  const lastReport = turn.reports.at(-1);
   return (
     <div id={game.style === "kit" ? "banner" : "turn"} className="chip panel">
       <div id="who">
@@ -248,6 +199,9 @@ export function TurnBanner({
         <span>
           Turn {turn.turn} · round {Math.ceil(turn.turn / 2)}
         </span>
+        {lastReport?.penalty === -1 && (
+          <span role="status">Turn {lastReport.turn} · −1 point</span>
+        )}
       </div>
       <div className="turn-pips" aria-label="Turn allowances">
         <span className={turn.draft.members.length ? "spent" : ""}>
@@ -259,9 +213,7 @@ export function TurnBanner({
       <button
         className="btn"
         disabled={turn.finished}
-        onClick={() =>
-          void game.endTurn().then((issue) => onMessage(issue ?? "Turn committed · pass the table"))
-        }
+        onClick={onEndTurn}
       >
         End turn
       </button>

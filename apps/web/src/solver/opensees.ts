@@ -25,7 +25,8 @@ function isStabilityReport(value: unknown): boolean {
     typeof value.stable === 'boolean' &&
     STABILITY_COUNTS.every((key) => Number.isFinite(value[key])) &&
     isStringArray(value.unstableNodeIds) &&
-    Array.isArray(value.modes)
+    Array.isArray(value.modes) && value.modes.every(mode => isRecord(mode) &&
+      (mode.kind === 'translation' || mode.kind === 'rotation') && isVectors(mode.displacements))
   );
 }
 
@@ -58,12 +59,18 @@ function isAnalysisBody(value: Record<string, unknown>): boolean {
     isAnalysisSummary(value.analysis) &&
     Array.isArray(value.components) &&
     value.components.every(isComponent) &&
-    isRecord(value.displacements) &&
-    isRecord(value.reactions) &&
+    isVectors(value.displacements) &&
+    isVectors(value.reactions) &&
     isRecord(value.memberForces) &&
     isStabilityReport(value.stability) &&
     isStringArray(value.warnings)
   );
+}
+
+function isNonlinearReport(value: unknown): boolean {
+  return isRecord(value) &&
+    ['segmentsPerFrame', 'steps', 'forceResidual', 'momentResidual', 'nodalResidual'].every(key => Number.isFinite(value[key])) &&
+    isRecord(value.cableState) && Object.values(value.cableState).every(state => state === 'taut' || state === 'slack');
 }
 
 /**
@@ -71,14 +78,18 @@ function isAnalysisBody(value: Record<string, unknown>): boolean {
  * is a separate process that may be a different version, so its output is
  * validated here instead of being cast to the contract type.
  */
-function isAnalysisResult(value: unknown): value is AnalysisResult {
+function isResultBody(value: unknown): value is AnalysisResult {
   if (!isRecord(value)) return false;
   switch (value.status) {
     case 'success':
-      return isAnalysisBody(value);
     case 'unstable':
     case 'unresolved':
-      return typeof value.message === 'string' && isAnalysisBody(value);
+      return (
+        (value.status === 'success' || typeof value.message === 'string') &&
+        isAnalysisBody(value) &&
+        (value.nonlinear === undefined || isNonlinearReport(value.nonlinear)) &&
+        (value.inactiveNodeIds === undefined || isStringArray(value.inactiveNodeIds))
+      );
     case 'unsupported':
     case 'error':
       return typeof value.message === 'string';
@@ -120,6 +131,41 @@ export async function checkOpenSees(
   }
 }
 
+function isVectors(value: unknown): boolean {
+  return isRecord(value) && Object.values(value).every(v => Array.isArray(v) && v.length === 6 && v.every(Number.isFinite));
+}
+
+function isAnalysisResult(value: unknown, model: StructuralModel): value is AnalysisResult {
+  if (!isResultBody(value)) return false;
+  if (value.status === 'unsupported' || value.status === 'error') return true;
+  const body = value as Extract<AnalysisResult, { status: 'success' }>;
+  const nodes = new Set(model.nodes.map((node) => node.id));
+  const members = new Set(model.members.map((member) => member.id));
+  const nodeOwner = new Map<string, string>();
+  const memberOwner = new Map<string, string>();
+  const valid = new Set<string>();
+  for (const component of body.components) {
+    for (const id of component.nodeIds) {
+      if (!nodes.has(id) || nodeOwner.has(id)) return false;
+      nodeOwner.set(id, component.id);
+    }
+    for (const id of component.memberIds) {
+      if (!members.has(id) || memberOwner.has(id)) return false;
+      memberOwner.set(id, component.id);
+    }
+    if (component.resultsValid) valid.add(component.id);
+  }
+  const inValidNode = (id: string) => valid.has(nodeOwner.get(id) ?? '');
+  const inValidMember = (id: string) => valid.has(memberOwner.get(id) ?? '');
+  return (
+    Object.keys(body.displacements).every(inValidNode) &&
+    Object.keys(body.reactions).every(inValidNode) &&
+    Object.keys(body.memberForces).every(inValidMember) &&
+    Object.keys(body.nonlinear?.cableState ?? {}).every((id) => members.has(id)) &&
+    (body.inactiveNodeIds ?? []).every((id) => nodes.has(id) && !nodeOwner.has(id))
+  );
+}
+
 /**
  * Client for the OpenSees service in `services/opensees`.
  *
@@ -152,8 +198,9 @@ export function createOpenSeesSolver(baseUrl: string, fetchImpl: typeof fetch = 
         return { status: 'error', message: `Could not reach the OpenSees service at ${endpoint}.` };
       }
       const body: unknown = await response.json().catch(() => undefined);
-      if (isAnalysisResult(body)) return body;
+      if (isAnalysisResult(body, model)) return body;
       return { status: 'error', message: `The OpenSees service returned an unexpected response (HTTP ${response.status}).` };
     },
   };
 }
+

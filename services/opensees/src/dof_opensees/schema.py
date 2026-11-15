@@ -22,6 +22,8 @@ EndFixity = Literal["fixed", "pinned", "free"]
 ConnectionLaw = Literal["locked", "free", "elastic"]
 MemberKind = Literal["beam", "brace", "cable"]
 Fidelity = Literal["linear", "nonlinear"]
+#: Largest ``analysis.segmentsPerFrame`` (and adaptive subdivision count).
+MAX_SEGMENTS_PER_FRAME = 32
 
 
 class _Strict(BaseModel):
@@ -50,14 +52,38 @@ class MemberProperties(_Strict):
     weightPerLength: float | None = Field(default=None, ge=0)
 
 
+class FrameLaw(_Strict):
+    """A beam-column with these section properties (``iy``/``iz`` are ``inertiaY``/``inertiaZ``)."""
+
+    kind: Literal["frame"]
+    elasticModulus: float = Field(gt=0)
+    shearModulus: float = Field(gt=0)
+    area: float = Field(gt=0)
+    iy: float = Field(gt=0)
+    iz: float = Field(gt=0)
+    torsionConstant: float = Field(gt=0)
+
+
+class CableLaw(_Strict):
+    """A tension-only cable whose force is ``EA max(0, length / restLength - 1)``."""
+
+    kind: Literal["cable"]
+    elasticModulus: float = Field(gt=0)
+    area: float = Field(gt=0)
+    restLength: float = Field(gt=0)
+
+
 class Member(_Strict):
     id: str = Field(min_length=1)
     startNodeId: str
     endNodeId: str
-    kind: MemberKind = "beam"
+    # ``None`` means "not given" (default ``beam``), so preparation can check
+    # an explicit kind against ``law``.
+    kind: MemberKind | None = None
     properties: MemberProperties | None = None
     orientation: Vector3 | None = None
     initialStrain: float = 0.0
+    law: FrameLaw | CableLaw | None = Field(default=None, discriminator="kind")
     # ``None`` means "not given", so preparation can tell an omitted shorthand
     # from an explicit one when a full connection is also present.
     startFixity: EndFixity | None = None
@@ -78,7 +104,18 @@ class Load(_Strict):
 
 
 class AnalysisOptions(_Strict):
-    fidelity: Fidelity = "nonlinear"
+    """Analysis options. Nonlinear is opt-in: ``fidelity: 'nonlinear'`` or ``type: 'corotational'``.
+
+    With neither, or with no ``analysis`` object at all, the analysis is
+    linear. ``segmentsPerFrame`` fixes the elements per beam (nonlinear only);
+    without it beams are subdivided adaptively. ``timeoutMs`` is an optional
+    wall-clock safeguard; the primary work bound is the request's Newton
+    attempt budget. Conflicting combinations are refused in preparation.
+    """
+
+    fidelity: Fidelity | None = None
+    type: Literal["corotational"] | None = None
+    segmentsPerFrame: int | None = Field(default=None, ge=1, le=MAX_SEGMENTS_PER_FRAME)
     selfWeight: bool = False
     timeoutMs: float | None = Field(default=None, gt=0)
     displacementLimit: float | None = Field(default=None, gt=0)

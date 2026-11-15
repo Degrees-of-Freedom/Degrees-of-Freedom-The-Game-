@@ -106,6 +106,33 @@ describe('OpenSees solver adapter', () => {
     expect(result).toEqual({ status: 'error', message: expect.stringContaining('Could not reach') });
   });
 
+  it('retains a solved component exclusively on its physical IDs beside an unresolved region', async () => {
+    const model = {...cantilever, nodes:[...cantilever.nodes, {id:'c', position:[9, 0, 0] as const}],
+      loads:[...cantilever.loads, {...cantilever.loads[0], nodeId:'c'}]};
+    // Contract v2: components carry their state, and node, member and
+    // reaction entries exist only for components with valid results.
+    const vec = [0, 0, 0, 0, 0, 0];
+    const stability = { stable: true, freeDofs: 6, mechanisms: 0, translationalMechanisms: 0, rotationalMechanisms: 0, staticIndeterminacy: 0, unstableNodeIds: [], modes: [] };
+    const solved = { id: 'a', nodeIds: ['a', 'b'], memberIds: ['m'], state: 'stable', reasonCodes: [], resultsValid: true, stability };
+    const unknown = { id: 'c', nodeIds: ['c'], memberIds: [], state: 'unknown', reasonCodes: ['not_converged'], resultsValid: false, stability: { ...stability, stable: false } };
+    const response = {
+      status: 'unresolved', message: 'One region unresolved.',
+      analysis: { fidelity: 'nonlinear', solver: 'OpenSees', runtimeMs: 3, reasonCodes: ['not_converged'] },
+      components: [solved, unknown],
+      displacements: { a: vec, b: vec }, reactions: { a: [0, 0, 1000, 0, -3000, 0] }, memberForces: {},
+      stability, warnings: [],
+    };
+    const request = (body: unknown) => createOpenSeesSolver('http://solver.test', respond(body)).analyze(model);
+    expect(await request(response)).toEqual(response);
+    for (const corrupted of [
+      { components: [solved, { ...unknown, nodeIds: ['a'] }] },
+      { components: [solved, { ...unknown, memberIds: ['m'] }] },
+      { reactions: { ...response.reactions, c: vec } },
+      { displacements: { a: vec, b: vec, c: vec } },
+      { displacements: { a: vec, b: [1] } },
+    ]) expect((await request({ ...response, ...corrupted })).status).toBe('error');
+  });
+
   it('rejects when the caller aborts', async () => {
     const controller = new AbortController();
     const hanging = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_, reject) => {

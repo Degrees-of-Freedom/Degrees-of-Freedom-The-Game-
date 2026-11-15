@@ -21,6 +21,8 @@ status: needs-review
 
 ## 1. Status and confirmed scope
 
+**Current Grow Dusk implementation.** IPE and HEB use nominal web and flange dimensions with reference roll. The optional four-panel planar truss uses one parent mesh made from its real SHS chords, welded posts, pin-ended diagonals and terminal pieces. Its lower chord exposes three original quarter joints. Numerical and visual evidence for each family is recorded in [the ledger](criteria-ledger.md). The remaining requirements below describe target behavior.
+
 **Criteria only.** This page specifies future geometry and presentation; it does not implement new meshes, cards, schemas, analytical elements or solver support. [Structural solver](structural-solver.md#required-element-catalogue-and-geometry-direction) records the catalogue and the boundary between geometry and physics. [3D viewer](3d-viewer.md) describes the current implementation.
 
 The owner requires recognizable structural geometry rather than generic straight lines for columns, springs, trusses, trichord trusses, wide flanges, HSS, round HSS and cables. Follow-up decisions confirm:
@@ -80,6 +82,8 @@ Selecting an assembly should show its parent and component detail without implyi
 Keep diameter and attachment identity distinct from load-path overlay width. Taut straight reference cables may be represented by a straight tube. A sagging curve can be physically displayed only when authored as reference geometry or supplied by a compatible validated analysis, with the applicable state identified. A purely cosmetic slack icon/ghost must be labelled illustrative; do not turn every gravity-loaded cable into an invented catenary. No compression capacity, prestress, strand physics, snap or dynamic whip is inferred from geometry.
 
 ## 5. Physical scale, readable scale and orientation
+
+The IPE and HEB viewer meshes use the nominal catalogue width, depth, web and flange dimensions with a 1.5× readable transverse scale. Their length and analytical properties retain their physical values. The 3D stick preview uses the same section orientation. [Five-presenter checks and scope](criteria-ledger.md)
 
 Default game view uses modest section enlargement, visibly identified as **Readable sections**. Proposed initial factor: 1.5× transverse section dimensions, subject to playtesting. It affects display only. Keep physical span, endpoints, joint positions, reference topology and assembly chord spacing/depth unchanged. Scale section thicknesses consistently so I/H and hollow proportions remain recognizable; spring wire/coil readability needs a separately documented symbol policy to avoid changing its apparent analytical attachment span. Cable readability enlargement must be included in the legend.
 

@@ -33,6 +33,8 @@ status: partial
 
 ## Baseline and interpretation
 
+For the implementation branch, the [criteria ledger](criteria-ledger.md) records a new audit at `cdd5c9a` and subsequent game and service checks. The voxel path now isolates independent supported mechanisms and checks residuals and end laws for small-motion frame reactions. The service test suite includes 10,000 seeded linear, unstable and invalid structural states. The historical table below retains its original baseline.
+
 This review compares the owner's [proposed solver criteria](solver-criteria.md) with main at `b01a30edd262ad7718220889d30f897450c6c33b`. The criteria retain their proposed status; recording them does not approve unresolved gameplay rules or demonstrate numerical compliance. This documentation change preserves the working voxel experiment and preliminary shared contract. No criteria milestone is complete.
 
 There are two distinct interfaces: `packages/solver-contract/src/index.ts` is a preliminary shared contract whose placeholder returns `unsupported`; `apps/web/src/solver/voxel.ts` implements experimental game-specific analysis through `voxelInput.ts`. Its existing capabilities are useful starting points, not evidence of a verified reference solver. The standalone prototype is context; this review evaluates the workspace implementation.
@@ -69,7 +71,7 @@ The coverage table below was written against the baseline above, before the Open
 After the OpenSees service, a Rust solver was added in `crates/dof-solver`, written against the criteria and delivered to the browser as WebAssembly. The [Rust solver page](rust-solver.md) holds its requirement-by-requirement coverage, test evidence, timings and open decisions, and is the place to read its status. In short:
 
 - It implements M01 to M04, M06 to M08, A01 to A07 and the section 5 result contract, with a passing test for every row of the section 7 acceptance table, including 10,000 seeded states.
-- M05, M09 and A08 are partly met: there are no general constraints to detect incompatibility in, interior attachment is left to the game, and the time limit is an iteration count with no mid-analysis cancellation.
+- M05 and M09 are partly met: there are no general constraints or prescribed displacements to detect incompatibility in, and interior attachment is left to the game. A08 is met in the browser, where the analysis runs on a worker that is terminated on abort or after a wall-clock limit; in Node it still runs inline with only its iteration limits.
 - Turn resolution (section 4) and the surrogate (section 6) are outside it. Timings exist for one synthetic frame on one machine.
 - The game now sends the detailed contract to it, with gravity loads only: no wind and no load combinations. The workspace panel shows the result, checked by hand in a browser on one example only, and the 3D viewer does not use it. See [Game integration](rust-solver.md#game-integration).
 

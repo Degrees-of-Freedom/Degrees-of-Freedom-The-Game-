@@ -15,6 +15,8 @@ status: needs-review
 
 ## 1. Status and scope
 
+**Updated owner scope.** Grow Dusk is the release presenter. Validate the camera and complete input workflow there. The additional four presenters are preserved historical variants. In Creative/editor, the Foundation tool must be reachable and allow placement on the ground grid. Shared table uses preset foundations.
+
 Proposed interaction requirements for future implementation; no new controls are implemented here. All five environments should expose equivalent legal game actions while retaining their distinct placement styles. Creative/editor conveniences must not bypass Shared table card, turn or immutability rules.
 
 ## 2. Complete input workflow
@@ -58,4 +60,20 @@ A blurred/background tab, lost pointer capture or touch cancellation must stop t
 | Analysis pending / reduced motion / muted | Clear progress and usable safe controls without forced camera motion. |
 | Quarter attachment and opposite-end selection | Correct original-member reference position and interface, including diagonal elements. |
 
+### Shared table input evidence
+
+In the scored frame preset, Turn details provides grid and original-quarter element placement, explicit member-end connection choices, and persistent gravity placement on any playable shared joint. Input uses the same stage and commit operations as the board. Browser controls own their keyboard events. Enter opens a disclosure or activates its focused button. At narrow widths the Grow Dusk hand tray leaves the turn controls reachable.
+
+The [seed 1 match runner](../evidence/match/check.mjs) exercises a load on the opposing starting foundation followed by cancellation, a midpoint branch and load, a staged-draft reload, a new unstable member and all 16 turns. Keyboard tests use Tab or Shift+Tab to reach controls and the native selection keys. Chrome touch emulation uses taps for buttons, native select changes and text entry at 412 × 915 CSS pixels. The release matrix tracks hardware touch and screen-reader coverage separately. [Touch layout](../evidence/input-parity/touch-hand-controls.png) · [Keyboard quarter form](../evidence/input-parity/keyboard-quarter-form.png).
+
 Open: final keymap, touch gesture mapping, camera limits/defaults per environment and assistive-technology/device matrix. Validate against [whole-game release gates](release-acceptance-criteria.md); do not claim controls are complete from desktop mouse testing alone.
+
+## Delegated first-release decisions — 2026-11-14
+
+The owner delegated the remaining product decisions to Codex, prioritizing simplicity, quality and a complete functional game. These are selected release requirements, not implementation or test evidence. They supersede earlier proposals on the same subjects; other confirmed requirements and numerical acceptance gates remain in force.
+
+Use one board, one active-hand tray, one compact turn header and one primary End turn action (Pass when nothing is staged). The header shows active player, round and remaining 1/1/2 allowances. Show cancel only when a draft exists. Inspection opens one contextual drawer; do not stack redundant sidebars, duplicate statistics or permanently expose solver/debug controls. More modes, settings and restart live in one menu.
+
+Card selection enters targeting. Ghosts and valid targets carry the instructions; invalid actions get one short actionable message. Keep endpoint/quarter identity, depth disambiguation, keyboard targeting and precise coordinate fallback. Escape cancels the current targeting step before discarding any staged work. Preserve camera and selection where valid; no automatic orbit or forced cinematic travel. Explicit Fit/Focus are available. All essential actions work without hover, sound, colour or motion.
+
+Use at least 44 CSS-pixel touch controls, visible keyboard focus and readable text at 200% zoom. Desktop and landscape tablet are supported; narrow phones may offer viewing/recovery, with a clear larger-screen message rather than a broken build interface. At narrow sizes collapse decoration before essential cards, targets or turn controls.
