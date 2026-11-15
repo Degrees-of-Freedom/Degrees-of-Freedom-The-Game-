@@ -797,6 +797,7 @@ fn subtract_columns(target: &mut [f64], panel: &[f64], m: usize, from: usize, we
 }
 
 /// A factorised matrix, ready for solves and null-vector extraction.
+#[derive(Clone)]
 pub struct Factor {
     sym: Rc<Symbolic>,
     /// Unit-diagonal scaling, by equation.

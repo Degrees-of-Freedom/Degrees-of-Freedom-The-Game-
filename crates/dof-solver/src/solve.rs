@@ -252,6 +252,8 @@ fn free_rigid_motions(sys: &System) -> usize {
 
 struct LinearStage {
     factor: Factor,
+    /// Cable states the factorised stiffness was assembled with.
+    active: Vec<bool>,
     nulls: Nulls,
     x: Vec<f64>,
     eval: Option<Eval>,
@@ -271,7 +273,7 @@ fn linear_stage(sys: &System, f: &[f64], lam: f64) -> LinearStage {
         let factor = k.factor(0.0);
         let nulls = classify(sys, &factor, &rhs);
         if !nulls.translational.is_empty() || nulls.spin_loaded || !factor.inertia.negative.is_empty() {
-            return LinearStage { factor, nulls, x: zeros, eval: None, settled: false };
+            return LinearStage { factor, nulls, x: zeros, eval: None, settled: false, active };
         }
         let x = factor.solve(&rhs);
         let eval = sys.evaluate(&Config::Linear { x: &x, active: &active }, None);
@@ -293,7 +295,7 @@ fn linear_stage(sys: &System, f: &[f64], lam: f64) -> LinearStage {
         round += 1;
         if next == active || round >= MAX_ACTIVE_SET {
             let settled = next == active;
-            return LinearStage { factor, nulls, x, eval: Some(eval), settled };
+            return LinearStage { factor, nulls, x, eval: Some(eval), settled, active };
         }
         active = next;
     }
@@ -303,6 +305,9 @@ struct Converged {
     eval: Eval,
     /// Factor of the tangent stiffness at the converged state.
     factor: Factor,
+    /// Whether that tangent was assembled as the stored reference
+    /// stiffness (see [`Newton::assemble`]).
+    at_reference: bool,
     residual: f64,
 }
 
@@ -320,10 +325,22 @@ struct Newton<'a> {
     stiffness: SparseMatrix,
     /// A factorised tangent from an earlier, nearby state, to start from.
     carry: Option<Factor>,
+    /// `Some(reference)` when `carry` is exactly the unshifted tangent that
+    /// [`Newton::assemble`] would build, with that `reference` flag, at the
+    /// state the next [`Newton::solve`] starts from. The solve then uses it
+    /// as its own: the same matrix factorised once instead of twice, so
+    /// the result is unchanged.
+    carry_exact: Option<bool>,
     iterations: u32,
     /// Load increments accepted on the way to the target load.
     steps: u32,
     budget: u32,
+}
+
+/// Cable states at the undeformed state as the nonlinear evaluation finds
+/// them: a cable without pretension is slack there.
+fn reference_cable_states(sys: &System) -> Vec<bool> {
+    sys.bars.iter().map(|b| !b.geom.cable || b.geom.initial_force() > 0.0).collect()
 }
 
 /// A residual that falls by less than this factor in one iteration means the
@@ -339,8 +356,7 @@ impl Newton<'_> {
         self.stiffness.clear();
         if reference {
             let zeros = vec![0.0; sys.neq];
-            // The same cable states the nonlinear evaluation finds here.
-            let active: Vec<bool> = sys.bars.iter().map(|b| !b.geom.cable || b.geom.initial_force() > 0.0).collect();
+            let active = reference_cable_states(sys);
             sys.evaluate(&Config::Linear { x: &zeros, active: &active }, Some(&mut self.stiffness));
         } else {
             sys.evaluate(&Config::Nonlinear(state), Some(&mut self.stiffness));
@@ -372,8 +388,9 @@ impl Newton<'_> {
         let mut shift = 0.0;
         let mut previous = f64::INFINITY;
         let mut factor = self.carry.take();
-        // Whether `factor` was formed at the current state.
-        let mut current = false;
+        // Whether `factor` is the unshifted tangent at the current state.
+        let mut current = factor.is_some() && self.carry_exact.take() == Some(reference);
+        self.carry_exact = None;
         for _ in 0..self.options.max_iterations {
             if self.budget == 0 {
                 return Err(Failure::Budget);
@@ -391,9 +408,15 @@ impl Newton<'_> {
                 return Err(Failure::NonFinite);
             }
             if residual <= self.options.tolerance || (residual <= ROUNDING_FLOOR && residual > 0.5 * previous) {
-                self.assemble(state, reference);
-                let factor = self.stiffness.factor(0.0);
-                return Ok(Converged { eval, factor, residual });
+                // Only a tangent already formed here, unshifted, is reused.
+                let factor = match factor.take() {
+                    Some(f) if current && shift == 0.0 => f,
+                    _ => {
+                        self.assemble(state, reference);
+                        self.stiffness.factor(0.0)
+                    }
+                };
+                return Ok(Converged { eval, factor, residual, at_reference: reference });
             }
             if residual > SLOW_CONVERGENCE * previous || shift > 0.0 {
                 factor = None;
@@ -479,11 +502,14 @@ impl Newton<'_> {
         let (mut fraction, mut step) = (0.0_f64, 0.25_f64);
         // Settle prestress on its own before any load is applied.
         self.carry = None;
+        self.carry_exact = None;
         let settled = match self.solve(&mut state, 0.0, true) {
             Ok(result) => result,
             Err(failure) => return Err((0.0, failure)),
         };
-        // Each increment starts from the tangent of the one before.
+        // Each increment starts from the converged state and tangent of the
+        // one before.
+        self.carry_exact = Some(settled.at_reference).filter(|r| !r);
         self.carry = Some(settled.factor);
         loop {
             let next = (fraction + step).min(1.0);
@@ -496,6 +522,7 @@ impl Newton<'_> {
                     if fraction >= 1.0 {
                         return Ok((state, result));
                     }
+                    self.carry_exact = Some(result.at_reference).filter(|r| !r);
                     self.carry = Some(result.factor);
                     step *= 1.5;
                 }
@@ -648,7 +675,24 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
         return out;
     }
 
-    let mut newton = Newton { sys, f: &f, gauge: &linear.nulls.gauge, options, stiffness: sys.stiffness(), carry: None, iterations: 0, steps: 0, budget: options.max_total_iterations };
+    // The first Newton tangent is the reference stiffness. When no spin is
+    // gauged and the cables have the states the nonlinear evaluation finds
+    // at the reference, that is the matrix the linear stage factorised.
+    let linear_nulls = linear.factor.inertia.null.len();
+    let exact = linear.nulls.gauge.is_empty() && linear.active == reference_cable_states(sys);
+    let carry = if exact { Some(linear.factor) } else { None };
+    let mut newton = Newton {
+        sys,
+        f: &f,
+        gauge: &linear.nulls.gauge,
+        options,
+        stiffness: sys.stiffness(),
+        carry_exact: carry.as_ref().map(|_| true),
+        carry,
+        iterations: 0,
+        steps: 0,
+        budget: options.max_total_iterations,
+    };
     let path = newton.path(lam);
     out.iterations = newton.iterations;
     out.load_steps = newton.steps;
@@ -661,7 +705,7 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
             // kinematic proof if its exact rigid motions span the nullspace.
             // Neither outcome supplies forces at a missing equilibrium.
             if first_order_unstable {
-                if linear.factor.inertia.null.len() <= MAX_CLASSIFIED &&
+                if linear_nulls <= MAX_CLASSIFIED &&
                     crate::hinge::spans_reference_modes(sys, &linear.nulls.translational) {
                     out.status = Status::Unstable;
                     out.reasons.push("finiteReferenceMechanism");
@@ -733,7 +777,15 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
                         out.reasons.push("nearMechanism");
                     } else if options.stability_margin > 1.0 && lam != 0.0 {
                         // Does the equilibrium survive a little more load?
-                        let mut probe = Newton { budget: options.max_total_iterations, iterations: 0, stiffness: sys.stiffness(), carry: Some(converged.factor), ..newton };
+                        // It starts from this equilibrium and its tangent.
+                        let mut probe = Newton {
+                            budget: options.max_total_iterations,
+                            iterations: 0,
+                            stiffness: sys.stiffness(),
+                            carry_exact: Some(converged.at_reference).filter(|r| !r),
+                            carry: Some(converged.factor),
+                            ..newton
+                        };
                         let mut state = stable_state;
                         let amplified: Vec<f64> = load.iter().map(|v| v * options.stability_margin).collect();
                         let survives = probe.solve(&mut state, lam * options.stability_margin, false)
@@ -783,14 +835,20 @@ fn finish(sys: &System, options: &Options, out: &mut Outcome, solution: Solution
 /// stability, found by bisection between zero and the applied factor.
 /// Returns the factor, if found, and the Newton iterations the search used.
 fn critical_load(sys: &System, f: &[f64], gauge: &[usize], options: &Options, lam: f64) -> (Option<f64>, u32) {
-    let mut newton = Newton { sys, f, gauge, options, stiffness: sys.stiffness(), carry: None, iterations: 0, steps: 0, budget: options.max_total_iterations };
+    let mut newton = Newton { sys, f, gauge, options, stiffness: sys.stiffness(), carry: None, carry_exact: None, iterations: 0, steps: 0, budget: options.max_total_iterations };
     let factor = critical_load_with(&mut newton, sys, f, lam);
     (factor, newton.iterations)
 }
 
 fn critical_load_with(newton: &mut Newton, sys: &System, f: &[f64], lam: f64) -> Option<f64> {
+    // Every probe starts from the undeformed state, whose tangent is the
+    // same matrix each time: factorise it once.
+    newton.assemble(&sys.reference(), true);
+    let reference = newton.stiffness.factor(0.0);
     let stable_at = |newton: &mut Newton, fraction: f64| -> Option<bool> {
         let mut state = sys.reference();
+        newton.carry = Some(reference.clone());
+        newton.carry_exact = Some(true);
         let load: Vec<f64> = f.iter().map(|v| v * fraction * lam).collect();
         match newton.solve(&mut state, fraction * lam, true) {
             Ok(result) => Some(tangent_stable(sys, &result, &load)),
