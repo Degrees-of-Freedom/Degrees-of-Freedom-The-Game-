@@ -19,7 +19,7 @@
 
 use crate::math::*;
 use crate::model::*;
-use crate::sparse::{Factor, SparseMatrix};
+use crate::linalg::{Factor, Stiffness};
 use crate::system::*;
 
 /// A positive pivot below this marks a near-mechanism.
@@ -322,7 +322,7 @@ struct Newton<'a> {
     f: &'a [f64],
     gauge: &'a [usize],
     options: &'a Options,
-    stiffness: SparseMatrix,
+    stiffness: Stiffness,
     /// A factorised tangent from an earlier, nearby state, to start from.
     carry: Option<Factor>,
     /// `Some(reference)` when `carry` is exactly the unshifted tangent that

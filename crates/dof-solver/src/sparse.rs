@@ -2,9 +2,10 @@
 //! factorisation that reports the inertia of the matrix instead of failing on
 //! a singular one.
 //!
-//! This replaces the skyline (profile) factorisation of solver 0.2 for the
-//! analysis itself; [`crate::skyline`] stays as the reference it is tested
-//! against. The semantics are the same:
+//! [`crate::linalg`] uses it for systems too large for the skyline (profile)
+//! factorisation of solver 0.2, which it keeps for small ones; the skyline is
+//! also the reference this factor is tested against. The semantics are the
+//! same:
 //!
 //! * The matrix is scaled to a unit diagonal and `shift` is added to every
 //!   scaled diagonal entry, so pivots are dimensionless.
@@ -38,6 +39,7 @@ use std::rc::Rc;
 
 /// Pivots of the unit-diagonal matrix at or below this are treated as zero.
 pub const NULL_PIVOT: f64 = 1e-10;
+
 
 /// Outcome of a factorisation.
 #[derive(Clone, Debug, Default)]
@@ -90,25 +92,38 @@ pub struct Symbolic {
 
 impl Symbolic {
     /// Analyse the pattern in which every pair of DOFs that appear together
-    /// in one of `groups` (one group per element) may be nonzero.
+    /// in one of `groups` (one group per element) may be nonzero. The order
+    /// is approximate minimum degree, postordered, unless the equation order
+    /// does no more work (a chain, for example).
     pub fn new(n: usize, groups: &[Vec<usize>]) -> Self {
-        let adjacency = adjacency(n, groups);
-        // Both candidate orders are postordered, which keeps their fill and
-        // makes every subtree of the elimination tree contiguous.
-        let natural = postorder(&adjacency, (0..n).collect());
-        let ordered = postorder(&adjacency, minimum_degree(&adjacency));
-        let candidate = Self::with_order(&adjacency, ordered);
+        Self::from_adjacency(&adjacency(n, groups))
+    }
+
+    /// [`Symbolic::new`] for the neighbour lists of [`adjacency`].
+    pub fn from_adjacency(adjacency: &[Vec<usize>]) -> Self {
+        let n = adjacency.len();
+        let candidate = Self::with_order(adjacency, postorder(adjacency, minimum_degree(adjacency)), true);
         // The skyline's work is an upper bound on the sparse work in the
         // equation order, and cheap to compute. Only when it does not already
         // lose to minimum degree is the equation order analysed exactly; on a
         // tie the equation order is kept.
-        if envelope_work(&adjacency) <= candidate.factor_work {
-            let plain = Self::with_order(&adjacency, natural);
+        if envelope_work(adjacency) <= candidate.factor_work {
+            let plain = Self::with_order(adjacency, (0..n).collect(), false);
             if plain.factor_work <= candidate.factor_work {
-                return Self { reordered: false, ..plain };
+                return plain;
             }
         }
         candidate
+    }
+
+    /// Analyse the pattern with a given ordering policy, whatever its cost.
+    pub fn with_ordering(n: usize, groups: &[Vec<usize>], reorder: bool) -> Self {
+        let adjacency = adjacency(n, groups);
+        if reorder {
+            Self::with_order(&adjacency, postorder(&adjacency, minimum_degree(&adjacency)), true)
+        } else {
+            Self::with_order(&adjacency, (0..n).collect(), false)
+        }
     }
 
     /// Supernode count, largest block and largest front (diagnostics).
@@ -123,7 +138,7 @@ impl Symbolic {
         self.n
     }
 
-    fn with_order(adjacency: &[Vec<usize>], perm: Vec<usize>) -> Self {
+    fn with_order(adjacency: &[Vec<usize>], perm: Vec<usize>, reordered: bool) -> Self {
         let n = adjacency.len();
         let mut inv = vec![0; n];
         for (k, &eq) in perm.iter().enumerate() {
@@ -268,7 +283,7 @@ impl Symbolic {
             owner,
             factor_entries,
             factor_work,
-            reordered: true,
+            reordered,
         }
     }
 }
@@ -344,7 +359,8 @@ fn postorder(adjacency: &[Vec<usize>], perm: Vec<usize>) -> Vec<usize> {
 /// into its parent when it ends directly before the parent's first column
 /// and the merged block would hold few explicit zeros. Larger dense blocks
 /// make the factorisation kernels faster; the zeros change no value, since
-/// they are computed from zeros. Supernodes must be in postorder.
+/// they are computed from zeros. Any order is valid, since only a child that
+/// is contiguous with its parent merges; in postorder every parent has one.
 fn amalgamate(nodes: Vec<Supernode>, owner: &mut [usize]) -> Vec<Supernode> {
     let count = nodes.len();
     let mut nodes: Vec<Option<Supernode>> = nodes.into_iter().map(Some).collect();
@@ -400,7 +416,7 @@ fn amalgamate(nodes: Vec<Supernode>, owner: &mut [usize]) -> Vec<Supernode> {
 }
 
 /// Neighbours of every DOF, ascending, without the DOF itself.
-fn adjacency(n: usize, groups: &[Vec<usize>]) -> Vec<Vec<usize>> {
+pub fn adjacency(n: usize, groups: &[Vec<usize>]) -> Vec<Vec<usize>> {
     let mut adjacency: Vec<Vec<usize>> = vec![Vec::new(); n];
     for group in groups {
         for &a in group {
@@ -419,7 +435,7 @@ fn adjacency(n: usize, groups: &[Vec<usize>]) -> Vec<Vec<usize>> {
 }
 
 /// Multiply-adds of a skyline factorisation in the given equation order.
-fn envelope_work(adjacency: &[Vec<usize>]) -> f64 {
+pub fn envelope_work(adjacency: &[Vec<usize>]) -> f64 {
     adjacency
         .iter()
         .enumerate()
@@ -896,6 +912,19 @@ mod tests {
     use super::*;
     use crate::skyline::Skyline;
 
+    thread_local! {
+        /// Elimination order the property tests use; see [`both_orders`].
+        static REORDER: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+
+    /// Run a property test with the equation order and with minimum degree.
+    fn both_orders(test: impl Fn()) {
+        for reorder in [false, true] {
+            REORDER.with(|r| r.set(reorder));
+            test();
+        }
+    }
+
     /// Deterministic pseudo-random numbers in [0, 1).
     struct Lcg(u64);
     impl Lcg {
@@ -929,7 +958,7 @@ mod tests {
     /// (positive semidefinite) plus `diagonal` times a random diagonal.
     fn both(rng: &mut Lcg, n: usize, groups: &[Vec<usize>], diagonal: f64) -> (Skyline, SparseMatrix) {
         let mut sky = Skyline::with_profile(n, groups);
-        let mut sparse = SparseMatrix::new(Rc::new(Symbolic::new(n, groups)));
+        let mut sparse = SparseMatrix::new(Rc::new(Symbolic::with_ordering(n, groups, REORDER.with(|r| r.get()))));
         for g in groups {
             // Rank-two element: two random vectors on its DOFs.
             for _ in 0..2 {
@@ -959,19 +988,21 @@ mod tests {
 
     #[test]
     fn matches_the_skyline_on_regular_matrices() {
-        let mut rng = Lcg(7);
-        for trial in 0..40 {
-            let (n, groups) = random_groups(&mut rng, 5 + trial * 3, 1 + trial % 6, 12 + trial * 6);
-            let shift = if trial % 3 == 0 { -0.7 } else { 0.0 };
-            let (sky, sparse) = both(&mut rng, n, &groups, 1.0);
-            let (a, b) = (sky.factor(shift), sparse.factor(shift));
-            assert_eq!(a.inertia.null.len(), b.inertia.null.len(), "trial {trial}");
-            assert_eq!(a.inertia.negative.len(), b.inertia.negative.len(), "trial {trial}");
-            let rhs: Vec<f64> = (0..n).map(|_| rng.next() - 0.5).collect();
-            if a.inertia.null.is_empty() {
-                assert!(close(&a.solve(&rhs), &b.solve(&rhs), 1e-8), "trial {trial}");
+        both_orders(|| {
+            let mut rng = Lcg(7);
+            for trial in 0..40 {
+                let (n, groups) = random_groups(&mut rng, 5 + trial * 3, 1 + trial % 6, 12 + trial * 6);
+                let shift = if trial % 3 == 0 { -0.7 } else { 0.0 };
+                let (sky, sparse) = both(&mut rng, n, &groups, 1.0);
+                let (a, b) = (sky.factor(shift), sparse.factor(shift));
+                assert_eq!(a.inertia.null.len(), b.inertia.null.len(), "trial {trial}");
+                assert_eq!(a.inertia.negative.len(), b.inertia.negative.len(), "trial {trial}");
+                let rhs: Vec<f64> = (0..n).map(|_| rng.next() - 0.5).collect();
+                if a.inertia.null.is_empty() {
+                    assert!(close(&a.solve(&rhs), &b.solve(&rhs), 1e-8), "trial {trial}");
+                }
             }
-        }
+        });
     }
 
     /// Nullity of the unit-diagonal matrix by dense elimination with full
@@ -1008,90 +1039,98 @@ mod tests {
 
     #[test]
     fn finds_every_null_vector_of_a_singular_matrix() {
-        // No diagonal term: the rank is at most two per element, so these
-        // matrices are far more singular than any structure (up to 40 %
-        // nullity). Threshold rank detection without pivoting can then keep
-        // a rounding-sized pivot of an exact null direction, in either
-        // factorisation. The sparse factor must never report a false null
-        // and must miss no more null directions, nor report more rounding-
-        // sized negative pivots, in total than the skyline. (Measured: the
-        // skyline misses 46 and reports 27 negatives; this factor 21 and 10.)
-        let mut rng = Lcg(11);
-        let (mut missed_skyline, mut missed_sparse) = (0, 0);
-        let (mut negative_skyline, mut negative_sparse) = (0, 0);
-        for trial in 0..30 {
-            let (n, groups) = random_groups(&mut rng, 6 + trial * 2, 2 + trial % 4, 10 + trial * 3);
-            let (sky, sparse) = both(&mut rng, n, &groups, 0.0);
-            let b = sparse.factor(0.0);
-            let exact = nullity(&sparse, n);
-            assert!(b.inertia.null.len() <= exact, "trial {trial}");
-            missed_sparse += exact - b.inertia.null.len();
-            let reference = sky.factor(0.0);
-            missed_skyline += exact - reference.inertia.null.len().min(exact);
-            negative_sparse += b.inertia.negative.len();
-            negative_skyline += reference.inertia.negative.len();
-            for &dof in &b.inertia.null {
-                let v = b.pivot_vector(dof);
-                let kv = sparse.mul(&v);
-                let size = v.iter().fold(0.0_f64, |m, x| m.max(x.abs()));
-                let diag = (0..n).fold(0.0_f64, |m, i| m.max(sparse.get(i, i).abs()));
-                assert!(kv.iter().all(|x| x.abs() <= 1e-7 * size * diag.max(1.0)), "trial {trial} dof {dof}");
-                assert!(v[dof] != 0.0);
+        both_orders(|| {
+            // No diagonal term: the rank is at most two per element, so these
+            // matrices are far more singular than any structure (up to 40 %
+            // nullity). Threshold rank detection without pivoting can then keep
+            // a rounding-sized pivot of an exact null direction, in either
+            // factorisation. The sparse factor must never report a false null
+            // and must miss no more null directions, nor report more rounding-
+            // sized negative pivots, in total than the skyline. (Measured: the
+            // skyline misses 46 and reports 27 negatives; this factor 21 and 10.)
+            let mut rng = Lcg(11);
+            let (mut missed_skyline, mut missed_sparse) = (0, 0);
+            let (mut negative_skyline, mut negative_sparse) = (0, 0);
+            for trial in 0..30 {
+                let (n, groups) = random_groups(&mut rng, 6 + trial * 2, 2 + trial % 4, 10 + trial * 3);
+                let (sky, sparse) = both(&mut rng, n, &groups, 0.0);
+                let b = sparse.factor(0.0);
+                let exact = nullity(&sparse, n);
+                assert!(b.inertia.null.len() <= exact, "trial {trial}");
+                missed_sparse += exact - b.inertia.null.len();
+                let reference = sky.factor(0.0);
+                missed_skyline += exact - reference.inertia.null.len().min(exact);
+                negative_sparse += b.inertia.negative.len();
+                negative_skyline += reference.inertia.negative.len();
+                for &dof in &b.inertia.null {
+                    let v = b.pivot_vector(dof);
+                    let kv = sparse.mul(&v);
+                    let size = v.iter().fold(0.0_f64, |m, x| m.max(x.abs()));
+                    let diag = (0..n).fold(0.0_f64, |m, i| m.max(sparse.get(i, i).abs()));
+                    assert!(kv.iter().all(|x| x.abs() <= 1e-7 * size * diag.max(1.0)), "trial {trial} dof {dof}");
+                    assert!(v[dof] != 0.0);
+                }
+                // A load orthogonal to the null space is solved exactly.
+                let mut rhs = sparse.mul(&(0..n).map(|_| rng.next() - 0.5).collect::<Vec<_>>());
+                let x = b.solve(&rhs);
+                let back = sparse.mul(&x);
+                assert!(close(&back, &rhs, 1e-6), "trial {trial}");
+                rhs.iter_mut().for_each(|v| *v = 0.0);
+                assert!(b.solve(&rhs).iter().all(|v| *v == 0.0));
             }
-            // A load orthogonal to the null space is solved exactly.
-            let mut rhs = sparse.mul(&(0..n).map(|_| rng.next() - 0.5).collect::<Vec<_>>());
-            let x = b.solve(&rhs);
-            let back = sparse.mul(&x);
-            assert!(close(&back, &rhs, 1e-6), "trial {trial}");
-            rhs.iter_mut().for_each(|v| *v = 0.0);
-            assert!(b.solve(&rhs).iter().all(|v| *v == 0.0));
-        }
-        assert!(missed_sparse <= missed_skyline, "sparse missed {missed_sparse}, skyline {missed_skyline}");
-        assert!(negative_sparse <= negative_skyline, "sparse {negative_sparse} negatives, skyline {negative_skyline}");
+            assert!(missed_sparse <= missed_skyline, "sparse missed {missed_sparse}, skyline {missed_skyline}");
+            assert!(negative_sparse <= negative_skyline, "sparse {negative_sparse} negatives, skyline {negative_skyline}");
+        });
     }
 
     #[test]
     fn negative_curvature_directions_are_negative() {
-        let mut rng = Lcg(3);
-        let (n, groups) = random_groups(&mut rng, 40, 3, 120);
-        let (_, sparse) = both(&mut rng, n, &groups, 1.0);
-        let factor = sparse.factor(-1.2);
-        assert!(!factor.inertia.negative.is_empty());
-        for &dof in &factor.inertia.negative {
-            let v = factor.pivot_vector(dof);
-            // Curvature of the shifted, scaled matrix along v.
-            let kv = sparse.mul(&v);
-            let mut curvature: f64 = v.iter().zip(&kv).map(|(a, b)| a * b).sum();
-            for i in 0..n {
-                curvature -= 1.2 * sparse.get(i, i).abs() * v[i] * v[i];
+        both_orders(|| {
+            let mut rng = Lcg(3);
+            let (n, groups) = random_groups(&mut rng, 40, 3, 120);
+            let (_, sparse) = both(&mut rng, n, &groups, 1.0);
+            let factor = sparse.factor(-1.2);
+            assert!(!factor.inertia.negative.is_empty());
+            for &dof in &factor.inertia.negative {
+                let v = factor.pivot_vector(dof);
+                // Curvature of the shifted, scaled matrix along v.
+                let kv = sparse.mul(&v);
+                let mut curvature: f64 = v.iter().zip(&kv).map(|(a, b)| a * b).sum();
+                for i in 0..n {
+                    curvature -= 1.2 * sparse.get(i, i).abs() * v[i] * v[i];
+                }
+                assert!(curvature < 0.0, "dof {dof}");
             }
-            assert!(curvature < 0.0, "dof {dof}");
-        }
+        });
     }
 
     #[test]
     fn constrain_clears_row_and_column() {
-        let mut rng = Lcg(5);
-        let (n, groups) = random_groups(&mut rng, 20, 3, 50);
-        let (mut sky, mut sparse) = both(&mut rng, n, &groups, 0.5);
-        for dof in [0, 7, n - 1] {
-            sky.constrain(dof);
-            sparse.constrain(dof);
-        }
-        let x: Vec<f64> = (0..n).map(|_| rng.next()).collect();
-        assert!(close(&sky.mul(&x), &sparse.mul(&x), 1e-12));
-        let rhs: Vec<f64> = (0..n).map(|i| if [0, 7, n - 1].contains(&i) { 0.0 } else { rng.next() }).collect();
-        assert!(close(&sky.factor(0.0).solve(&rhs), &sparse.factor(0.0).solve(&rhs), 1e-8));
+        both_orders(|| {
+            let mut rng = Lcg(5);
+            let (n, groups) = random_groups(&mut rng, 20, 3, 50);
+            let (mut sky, mut sparse) = both(&mut rng, n, &groups, 0.5);
+            for dof in [0, 7, n - 1] {
+                sky.constrain(dof);
+                sparse.constrain(dof);
+            }
+            let x: Vec<f64> = (0..n).map(|_| rng.next()).collect();
+            assert!(close(&sky.mul(&x), &sparse.mul(&x), 1e-12));
+            let rhs: Vec<f64> = (0..n).map(|i| if [0, 7, n - 1].contains(&i) { 0.0 } else { rng.next() }).collect();
+            assert!(close(&sky.factor(0.0).solve(&rhs), &sparse.factor(0.0).solve(&rhs), 1e-8));
+        });
     }
 
     #[test]
     fn same_matrix_gives_the_same_factor() {
-        let mut rng = Lcg(9);
-        let (n, groups) = random_groups(&mut rng, 60, 6, 200);
-        let (_, sparse) = both(&mut rng, n, &groups, 0.1);
-        let rhs: Vec<f64> = (0..n).map(|_| rng.next()).collect();
-        let (a, b) = (sparse.factor(0.0).solve(&rhs), sparse.factor(0.0).solve(&rhs));
-        assert!(a.iter().zip(&b).all(|(x, y)| x.to_bits() == y.to_bits()));
+        both_orders(|| {
+            let mut rng = Lcg(9);
+            let (n, groups) = random_groups(&mut rng, 60, 6, 200);
+            let (_, sparse) = both(&mut rng, n, &groups, 0.1);
+            let rhs: Vec<f64> = (0..n).map(|_| rng.next()).collect();
+            let (a, b) = (sparse.factor(0.0).solve(&rhs), sparse.factor(0.0).solve(&rhs));
+            assert!(a.iter().zip(&b).all(|(x, y)| x.to_bits() == y.to_bits()));
+        });
     }
 
     #[test]

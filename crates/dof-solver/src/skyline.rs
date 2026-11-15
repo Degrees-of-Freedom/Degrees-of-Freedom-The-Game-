@@ -25,18 +25,10 @@ pub struct Skyline {
     a: Vec<f64>,
 }
 
-/// Outcome of a factorisation.
-#[derive(Clone, Debug, Default)]
-pub struct Inertia {
-    /// DOFs whose pivot was null, in elimination order.
-    pub null: Vec<usize>,
-    /// DOFs whose pivot was negative.
-    pub negative: Vec<usize>,
-    /// Smallest positive pivot of the unit-diagonal matrix (1 when empty).
-    pub min_pivot: f64,
-}
+pub use crate::sparse::Inertia;
 
 /// A factorised matrix, ready for solves and null-vector extraction.
+#[derive(Clone)]
 pub struct Factor {
     sky: Skyline,
     scale: Vec<f64>,
