@@ -16,6 +16,7 @@ const action = z.discriminatedUnion("type", [
   z.strictObject({type:z.literal("draw"), source:sources}),
   z.strictObject({type:z.literal("stage"), play}),
   z.strictObject({type:z.literal("cancel"), cardId:id}),
+  z.strictObject({type:z.literal("clearDraft")}),
   z.strictObject({type:z.literal("commit")}),
   z.strictObject({type:z.literal("interval"), interval:z.int().positive()}),
   z.strictObject({type:z.literal("checkpoint"), requestId:id, checkpointId:id, solver:id,
@@ -97,6 +98,9 @@ function transition(s:MatchState,c:Configuration,cmd:Command):DomainEvent {
     case "cancel":
       requireRule(s.phase==="play" && s.drafts.some(p=>p.cardId===a.cardId),"No such draft");
       s.drafts=s.drafts.filter(p=>p.cardId!==a.cardId); projected(s.drafts); break;
+    case "clearDraft":
+      requireRule(s.phase==="play","No editable draft");
+      s.drafts=[]; break;
     case "interval":
       s.interval=a.interval; break;
     case "commit": {
@@ -145,7 +149,7 @@ export function createMultiplayerDomain(input:Configuration) {
     const event=transition(next,config,cmd);
     state=next; log.push(cmd);
     for(const listener of listeners) listener(structuredClone(event));
-    return event;
+    return structuredClone(event);
   }
   return {
     dispatch, getSnapshot:()=>structuredClone(state), getConfiguration:()=>structuredClone(config),
@@ -160,6 +164,11 @@ export function createMultiplayerDomain(input:Configuration) {
   };
 }
 export type MultiplayerDomain=ReturnType<typeof createMultiplayerDomain>;
+/** Capture the envelope when the interaction starts. Retrying it cannot draw twice. */
+export function commandFor(state: Pick<MatchState,"matchId"|"sequence"|"actor"|"turn"|"modelRevision">, action: Action): Command {
+  const {matchId,sequence,actor,turn,modelRevision}=state;
+  return {version:1,matchId,sequence:sequence+1,actor,turn,modelRevision,action};
+}
 const save=z.strictObject({format:z.literal("dof-multiplayer"),version:z.literal(1),config:configuration,commands:z.array(command)});
 /** Pure import. Caller keeps original bytes for every unsupported or invalid envelope. */
 export function restoreMultiplayerDomain(raw:string) {

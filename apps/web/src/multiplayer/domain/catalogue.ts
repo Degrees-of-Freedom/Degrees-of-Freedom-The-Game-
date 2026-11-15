@@ -22,6 +22,11 @@ function membersKeys() {
   return ["standard", "cable", "springQuarter", "springHalf"] as const;
 }
 export type Card = z.infer<typeof card>;
+/** k0 is a ruleset input in N/m, independent of current/reference span length. */
+export function springStiffnessNPerM(variant:"springQuarter"|"springHalf", k0NPerM:number|null) {
+  if(k0NPerM===null) return null;
+  return members[variant].factor*z.number().positive().parse(k0NPerM);
+}
 export const sources = z.enum(["elementsLoads", "connections"]);
 export type Source = z.infer<typeof sources>;
 export const coordinate = z.tuple([z.int().nonnegative(), z.int().nonnegative(), z.int().nonnegative()]);

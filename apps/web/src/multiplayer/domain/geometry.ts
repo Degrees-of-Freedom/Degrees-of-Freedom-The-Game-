@@ -27,7 +27,7 @@ const dot = (a: Point,b: Point) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
 const cross = (a: Point,b: Point): Point =>
   [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
 const along = (a: Point,d: Point,t: number): Point => [a[0]+t*d[0],a[1]+t*d[1],a[2]+t*d[2]];
-export function position(model: OriginalModel, port: Port): Point {
+export function position(model: {spans: Pick<Span,"id"|"a"|"b">[]}, port: Port): Point {
   const span = model.spans.find(s => s.id === port.memberId);
   requireRule(span, "Unknown original member");
   return along(span.a, diff(span.b,span.a), port.quarter/4);
