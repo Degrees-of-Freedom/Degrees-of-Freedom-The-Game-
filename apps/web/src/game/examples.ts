@@ -11,6 +11,9 @@ export function exampleModel(id: LevelId): GameModel | null {
   if (id === 'tower2') return towerTwoExample();
   if (id === 'bridge2') return bridgeTwoExample();
   if (id === 'pickup2') return lakeExample();
+  // A reproducible three-weight layout allowed by the random generator.
+  // Loading it replaces the current randomized targets as well as the structure.
+  if (id === 'pickupR') return exampleModel('pickup1');
   if (id !== 'tower1' && id !== 'bridge1' && id !== 'pickup1') return null;
   const m = initialModel(LEVELS[id]);
   const add = (a: string, b: string, type: MemberType) =>

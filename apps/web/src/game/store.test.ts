@@ -34,7 +34,13 @@ describe('voxel game rules', () => {
     useGameStore.getState().undo();
     expect(useGameStore.getState().model.members).toHaveLength(0);
     useGameStore.getState().setLevel('tower2');
-    expect(useGameStore.getState().loadExample()).toBe(false);
+    expect(useGameStore.getState().loadExample()).toBe(true);
+    expect(useGameStore.getState().model.members.length).toBeGreaterThan(0);
+    useGameStore.getState().setLevel('pickupR');
+    const previous = structuredClone(useGameStore.getState().model);
+    expect(useGameStore.getState().loadExample()).toBe(true);
+    useGameStore.getState().undo();
+    expect(useGameStore.getState().model).toEqual(previous);
   });
   it('clears as an undoable edit and opens bridge at deck height', () => {
     const s = useGameStore.getState();

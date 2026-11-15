@@ -428,7 +428,7 @@ export function Workspace() {
       <span className="sep" />
       <button
         className="btn"
-        title="Replace the structure with an example"
+        title={game.levelId === "pickupR" ? "Replace the structure and random weights with an example layout" : "Replace the structure with an example"}
         disabled={isSharedTable}
         onClick={example}
       >
