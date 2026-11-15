@@ -14,7 +14,7 @@ validated_against:
   - apps/web/src/styles
   - apps/web/src/viewer
   - apps/web/src/game
-  - apps/web/src/solver/voxel.ts
+  - apps/web/src/solver/voxel/analyze.ts
   - prototypes/game-environment/grow-dusk/index.html
   - apps/web/src/components/environment/GrowthTools.tsx
   - apps/web/src/components/environment/JointCard.tsx

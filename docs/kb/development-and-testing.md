@@ -12,8 +12,11 @@ validated_against:
   - apps/web/package.json
   - packages/solver-contract/package.json
   - apps/web/src/game/store.test.ts
-  - apps/web/src/solver/voxel.test.ts
-  - apps/web/src/solver/loadPath.test.ts
+  - apps/web/src/solver/voxel/analyze.test.ts
+  - apps/web/src/evaluator/engine/rustDesign.test.ts
+  - apps/web/test/setup.ts
+  - vitest.config.ts
+  - apps/web/src/evaluator/loadPath.test.ts
   - apps/web/src/solver/opensees.test.ts
   - apps/web/src/game/structuralModel.test.ts
   - apps/web/src/game/analysisModel.test.ts
@@ -44,6 +47,16 @@ Vitest covers editing rules, draw conservation, turn replay, attachment laws, vi
 Vitest also covers the OpenSees adapter and its health check against a stubbed `fetch`, solver selection, the stored solver setting, and the translation from the game model to the shared contract. Further tests run only when `VITE_OPENSEES_URL` points at a running service: two send a cantilever and the reference examples through it, and three compare its answers with the Rust solver's.
 
 `analysisModel.test.ts` checks SI units, translation to the detailed contract and reference games against the actual WebAssembly module. Vitest loads the checked-in `apps/web/src/solver/wasm/dof_solver.wasm`. Run `npm run build:solver` after editing Rust. The root production build always rebuilds the binary from source.
+
+The structure evaluator runs on that module in tests too. `apps/web/test/setup.ts`, registered in `vitest.config.ts`, serves `file:` URLs through `fetch`, so the app's default `wasmSolver` loads the checked-in binary under Node (inline, without a worker). `evaluator/engine/rustDesign.test.ts` covers:
+
+- load parity with the voxel kernel's loads;
+- equilibrium in every combination;
+- α_cr against hand Euler loads;
+- classification of buckling, mechanisms, stalls and floating parts;
+- design demand taken from the Rust envelope.
+
+After changing the evaluator or the solver binary, refresh the structure-library baseline deliberately (see [structure library](structure-library.md#regenerate-and-verify)). After rebuilding the binary, also run `node scripts/physics/check-saved-solver.mjs <revision with the previous binary>` to confirm that the release's saved matches reproduce.
 
 ## Rust solver
 
@@ -159,3 +172,18 @@ Checked on `main` at `af45c30` (#16), Windows 11, Node 24.16.0, Rust 1.100.0:
 | Documentation links | 464 relative links and anchors checked, none broken. |
 
 Not checked in this pass: the workspace panels in a browser, and the 10,000-state generated run of the OpenSees service, which runs only when `DOF_GENERATED_STATES` is set.
+
+## Structure evaluator on the Rust solver — 2026-11-15
+
+These checks are for the branch that moved the game logic into `apps/web/src/evaluator/`, ran the editor, levels, auto-design and structure library on the Rust solver, and added the stability reserve search to the crate. They ran in a Linux cloud container with Node 22.23.4 and rustc 1.97.0.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | Pass. |
+| `npm test` | Pass: 80 test files, 579 tests; 2 files and 9 tests are skipped without an OpenSees service. The baseline before the change was 78 files and 564 tests. |
+| `npm run test:solver` | Pass: 93 tests, 1 ignored timing harness. Includes 11 in `tests/reserve.rs`. |
+| `npm run build` | Pass. The production solver's SHA-256 equals the checked-in binary (`c1eba5e6…`). The existing chunk-size warning remains. |
+| `node scripts/physics/check-saved-solver.mjs 39508f0` | Pass: 20 seeds, 20 archived browser matches compared, 660 confirmed records replayed. |
+| Workspace in a browser | Checked once with Playwright and Chromium against the Vite dev server. In the Grow Dusk environment: Load example, then Run simulation. The results panel named "Structure evaluator · Rust solver", listed the four load cases and passed with two stars. The scene showed gravity and wind loads and reactions. There were no console errors. The first run took about 2 s, including module download; a second run took 0.65 s. |
+
+Not checked: the OpenSees-dependent tests and `npm run test:opensees`, because no OpenSees service was running; auto-design in a browser, which is covered by `evaluator/sizing.test.ts`; and Windows.
