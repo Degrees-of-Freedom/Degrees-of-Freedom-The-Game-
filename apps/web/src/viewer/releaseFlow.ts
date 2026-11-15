@@ -3,10 +3,11 @@ import { computeLoadPath, type LoadPathMember } from "../solver/loadPath";
 import type { VoxelAnalysis } from "../solver/voxelResults";
 import { INSTABILITY_COLOR, LOAD_PATH_ARROWS } from "./viewPalette";
 import { addSceneLabel } from "./sceneLabels";
+import { formatValue, isNegligible } from "./viewFormat";
 
 /** Force labels stay readable on busy boards: only the largest transfers above 5% of the peak are labelled. */
 export const MAX_FLOW_LABELS = 16;
-const kN = (n: number) => Number(n.toPrecision(3)).toLocaleString("en", { maximumSignificantDigits: 3 }) + " kN";
+const kN = (n: number) => formatValue(n) + " kN";
 
 /** Each verified gravity transfer has its own direction and scale. Preserve
  * the underlying section geometry and exact solver segment endpoints. */
@@ -15,7 +16,7 @@ export function buildReleaseFlow(group: THREE.Group, result: VoxelAnalysis, poin
   const path = computeLoadPath(result, 0);
   if (!path) return;
   const labelled = new Set(labels ? [...path.members.values()]
-    .filter(segment => segment.direction && segment.force >= 0.05 * path.maxForce)
+    .filter(segment => segment.direction && !isNegligible(segment.force) && segment.force >= 0.05 * path.maxForce)
     .sort((a, b) => b.force - a.force).slice(0, MAX_FLOW_LABELS).map(segment => segment.memberId) : []);
   for (const segment of path.members.values()) {
     if (!segment.direction || segment.force <= 0) continue;

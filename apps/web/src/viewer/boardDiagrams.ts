@@ -3,6 +3,7 @@ import type { VoxelAnalysis } from "../solver/voxelResults";
 import { verifiedResponse } from "../solver/voxelVerification";
 import { DIAGRAM_COLORS } from "./viewPalette";
 import { addSceneLabel } from "./sceneLabels";
+import { formatSigned } from "./viewFormat";
 import { spanPoint, type DeformationField } from "./deformationField";
 
 export type SectionAction = 1 | 2 | 4 | 5;
@@ -29,8 +30,7 @@ export type BoardDiagram = ReturnType<typeof boardDiagram>;
 
 /** Signed peak reading, e.g. "Mz −12.4 kN·m". */
 export function diagramLabel(action: SectionAction, value: number) {
-  const magnitude = Number(Math.abs(value).toPrecision(3)).toLocaleString("en", { maximumSignificantDigits: 3 });
-  return `${boardActions[action].split(" ")[1]} ${value < 0 ? "−" : ""}${magnitude} ${action < 3 ? "kN" : "kN·m"}`;
+  return `${boardActions[action].split(" ")[1]} ${formatSigned(value)} ${action < 3 ? "kN" : "kN·m"}`;
 }
 
 export function drawBoardDiagram(group: THREE.Group, diagram: BoardDiagram, point: (key: string) => THREE.Vector3,

@@ -578,6 +578,9 @@ export function Scene({
           ? Math.atan2(Math.max(0, camera.position.z + CELL_SIZE), 145)
           : 0;
       updateGrowthOverlays(state, time);
+      // Joint glyphs keep a constant on-screen size and avoid each other, so
+      // they are positioned against the current camera before each draw.
+      glyphs.layout(camera, element.clientWidth, element.clientHeight);
       draw();
     });
     /**

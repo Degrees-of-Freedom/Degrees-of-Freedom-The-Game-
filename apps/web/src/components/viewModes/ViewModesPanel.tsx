@@ -4,6 +4,7 @@ import {
   type MomentAction, type ShearAction, type ViewModeAction, type ViewModeId, type ViewModes,
 } from "../../viewer/viewModes";
 import { EyeIcon, ViewModeIcon } from "./ViewModeIcon";
+import { ESCAPE_OWNER } from "../PauseMenu";
 
 export interface ViewModesPanelProps {
   /** Modes as drawn (response modes cleared until the response is open). */
@@ -33,12 +34,16 @@ export function ViewModesPanel({ modes, jointsShown, open, scale, onOpenChange, 
   const active = VIEW_MODES.filter(mode => isModeActive(modes, mode.id, jointsShown)).length;
   useEffect(() => {
     if (!open) return;
+    // Opening by keyboard (V) or click moves focus to the first tile.
+    root.current?.querySelector<HTMLButtonElement>(".view-tile-main")?.focus({ preventScroll: true });
     const close = () => { onOpenChange(false); eye.current?.focus({ preventScroll: true }); };
     const key = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       event.preventDefault();
-      // Keep the board's own Escape handling (draft, selection) for the next press.
-      event.stopPropagation();
+      // This press only closes the panel. Listeners registered before this one
+      // (pause menu, board) yield to ESCAPE_OWNER; later ones never see it.
+      // React may flush the close between listeners, removing the marker.
+      event.stopImmediatePropagation();
       close();
     };
     const pointer = (event: PointerEvent) => {
@@ -48,7 +53,7 @@ export function ViewModesPanel({ modes, jointsShown, open, scale, onOpenChange, 
     window.addEventListener("pointerdown", pointer, true);
     return () => { window.removeEventListener("keydown", key, true); window.removeEventListener("pointerdown", pointer, true); };
   }, [open, onOpenChange]);
-  return <div className="view-modes" ref={root} data-open={open}>
+  return <div className="view-modes" ref={root} data-open={open} {...(open ? { [ESCAPE_OWNER]: "" } : {})}>
     <button ref={eye} className="view-eye" aria-expanded={open} aria-controls={panelId}
       aria-label={`View modes, ${active} active`} title="View modes (V)" onClick={() => onOpenChange(!open)}>
       <EyeIcon />{active > 0 && <span className="view-eye-count" aria-hidden="true">{active}</span>}

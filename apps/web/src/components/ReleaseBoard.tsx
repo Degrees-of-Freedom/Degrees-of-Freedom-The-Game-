@@ -10,6 +10,7 @@ import { boardActions } from "../viewer/boardDiagrams";
 import { overlayLayer } from "../viewer/viewModes";
 import { useBoardView, ViewLegends, ViewModesPanel } from "./viewModes";
 import { FinalScorePanel } from "./FinalScorePanel";
+import { ESCAPE_OWNER } from "./PauseMenu";
 import { Companion, type CompanionProps } from "../companion/Companion";
 import { jointAtSceneSelection, sharedJointPermissions } from "../viewer/jointPermissions";
 import type { CameraMemory } from "../viewer/sceneView";
@@ -82,6 +83,8 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   useEffect(() => {
     const cancel = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
+      // An open view panel closes first; its own listener handles this press.
+      if (document.querySelector(`[${ESCAPE_OWNER}]`)) return;
       if (inspecting) { event.preventDefault(); setInspecting(false); game.setSelected(null); inspectButton.current?.focus(); }
       else if (game.chainStart) { event.preventDefault(); game.setChainStart(null); }
       else if (game.selectedCardId) { event.preventDefault(); game.selectCard(null); }

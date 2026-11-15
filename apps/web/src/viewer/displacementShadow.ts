@@ -4,6 +4,7 @@ import { deflectedFrameGeometry } from "./deflectedGeometry";
 import { SHAPE_INTERVALS, spanDisplacement, spanPoint, type DeflectedSpan, type DeformationField } from "./deformationField";
 import { REFERENCE_COLOR } from "./viewPalette";
 import { addSceneLabel } from "./sceneLabels";
+import { formatValue, isNegligible } from "./viewFormat";
 
 /** Translucency of the deflected ghost; low enough to read the members at rest through it. */
 export const SHADOW_OPACITY = 0.42;
@@ -88,7 +89,6 @@ export function peakDisplacement(field: DeformationField): { span: DeflectedSpan
 /** Label the peak calculated displacement at its displayed position, in millimetres. */
 export function labelPeakDisplacement(group: THREE.Group, field: DeformationField, scale: number) {
   const peak = peakDisplacement(field);
-  if (!peak) return;
-  const mm = Number((1000 * peak.meters).toPrecision(3)).toLocaleString("en", { maximumSignificantDigits: 3 });
-  addSceneLabel(group, spanPoint(peak.span, peak.t, scale), `δ max ${mm} mm`, "deflection");
+  if (!peak || isNegligible(1000 * peak.meters)) return;
+  addSceneLabel(group, spanPoint(peak.span, peak.t, scale), `δ max ${formatValue(1000 * peak.meters)} mm`, "deflection");
 }

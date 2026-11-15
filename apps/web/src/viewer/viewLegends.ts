@@ -1,6 +1,7 @@
 import { boardActions, type SectionAction } from "./boardDiagrams";
 import { displacementGradient } from "./contourRamp";
 import { DIAGRAM_COLORS, INSTABILITY_COLOR, JOINT_AXIS_COLORS, LOAD_PATH_ARROWS, LOAD_PATH_COLORS, REFERENCE_COLOR, RESULT_ARROWS } from "./viewPalette";
+import { formatValue as number, isNegligible } from "./viewFormat";
 import { activeModes, VIEW_MODES, type ViewModeId, type ViewModes } from "./viewModes";
 
 /** Shapes the legend renders as small CSS/SVG keys. Every key pairs colour with shape or text. */
@@ -50,7 +51,6 @@ export interface LegendInput {
   readonly appliedGravityKN?: number;
 }
 
-const number = (n: number) => Number(n.toPrecision(3)).toLocaleString("en", { maximumSignificantDigits: 3 });
 const title = (id: ViewModeId) => VIEW_MODES.find(mode => mode.id === id)?.title ?? id;
 
 function responseStatus(response: ResponseAvailability): string | undefined {
@@ -74,7 +74,7 @@ function deflectionLegend(id: "deflected" | "shadow", input: LegendInput): ViewL
       : [{ shape: "bar", color: "#f2df3a", label: "Deflected member" }, { shape: "dash", color: REFERENCE_COLOR, label: "Reference shape" }],
     notes: [
       `Shown ×${input.scale}. Colours use calculated displacement, not the exaggeration.`,
-      ...(peak ? [] : ["No verified displacement on this board."]),
+      ...(isNegligible(1000 * peak) ? ["No verified displacement on this board."] : []),
     ],
   };
 }
@@ -89,7 +89,8 @@ const builders: Record<ViewModeId, (input: LegendInput) => ViewLegend> = {
       { shape: "thin", color: LOAD_PATH_COLORS.idle, label: "No transfer" },
     ],
     notes: [
-      `Thickness grows with transferred force, up to ${number(input.maxForceKN ?? 0)} kN.`,
+      isNegligible(input.maxForceKN) ? "No load is transferred on this board yet."
+        : `Thickness grows with transferred force, up to ${number(input.maxForceKN ?? 0)} kN.`,
       "Arrows point toward receiving supports. Static equilibrium, not travel in time.",
     ],
   }),

@@ -33,8 +33,12 @@ function swatchShape(shape: LegendSwatch["shape"]) {
  * single chip so legends never hide the board; the list is a polite live region so
  * screen-reader users hear when a legend's values change.
  */
+/** Short screens start with legends folded so the board stays visible. */
+const SHORT_SCREEN = "(max-height: 520px)";
+const startCollapsed = () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia(SHORT_SCREEN).matches;
+
 export function ViewLegends({ legends }: { legends: readonly ViewLegend[] }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(startCollapsed);
   if (!legends.length) return null;
   return <section className="view-legends" aria-label="Legends" data-collapsed={collapsed}>
     <button className="view-legends-toggle" aria-expanded={!collapsed} onClick={() => setCollapsed(!collapsed)}>
