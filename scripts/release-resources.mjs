@@ -80,6 +80,9 @@ try {
   async function sample(cycle, route) {
     await model.waitFor();
     await page.evaluate(async () => { for (let i = 0; i < 4; i++) await new Promise(requestAnimationFrame); });
+    // Audio render time is independent of animation frames. Sample retained
+    // handles once short selection cues have actually disconnected their nodes.
+    await page.waitForFunction(() => window.releaseResourceSample().voices === 0, undefined, { timeout: 5000 });
     await cdp.send("HeapProfiler.collectGarbage");
     const memory = await cdp.send("Memory.getDOMCounters");
     const { detachedNodes } = await cdp.send("DOM.getDetachedDomNodes");
