@@ -2,11 +2,17 @@
 
 Reviewed on 2026-11-15 against the owner's revised Shared table rules, the presentation feedback, [animation criteria](../../kb/animation-criteria.md), [visualization criteria including primary transfer direction](../../kb/visualization-criteria.md), [joint freedoms](../../kb/joint-dof-criteria.md) and the current [criteria ledger](../../kb/criteria-ledger.md). This review covers the integrated normal Play route and preserves the distinction between public results, player-created geometry and system corrections.
 
-## Exact tested package
+## Merged interaction checks
+
+The compact-card build `2f99141` passed 23 browser checks in Chrome 157.0.8103.51. Its four opening cards measured 136.59 × 62.13 CSS pixels each. V opened the eight view tiles and focused Load path. Labels toggled, Clear and Reset updated the active count, and Escape returned focus to the eye while leaving the game menu closed. The first two turns retained their pending receipts. After the startup WASM preload, the eye and inspector caused zero additional numerical requests or analysis workers before the third turn. After that checkpoint, displacement shadow and deflected shape synchronized with the inspector and toolbar. Both browser contexts reported zero uncaught errors. [Raw record and build hashes](independent-draws.json) · [Pending eye menu](pending-view-modes.png) · [Computed displacement shadow](loaded-view-modes.png)
+
+Two focused companion scenarios used the same `2f99141` build. The normal-motion scenario recorded the contributors' foreman clip on the same stage through the character change. The scene rendered Conkeldurr on its islet after Player 1's third verified deduction. The red speech cloud identified member 7 and turn five. The reduced-motion scenario showed a still Conkeldurr and recorded zero voices. Both scenarios exposed 30 returned modes and measured 73 added pink pixels on the board when the diagnostic was enabled. [Recorded events](islet-foreman.json) · [Islet screenshot](islet-foreman.png)
+
+## Earlier integrated package
 
 The immutable package was `.venv/shared-table-forces-ac2b795`, built from clean application source `ac2b7953c6008027b3aa7b92f55c39f13f1c215e`. Its asset SHA-256 was `fd4bb6b7cf13af50e355f3f2fec3cca6bed45f4f6e726e4be28452c34676d812`, and its Rust/WASM SHA-256 was `3c391970e1863f5752538224a5280927246344b4caa4eb104d5d43281acbce17`. The browser was installed Chrome 157.0.8103.51 on Windows, at 1366 × 900, DPR 1, with reduced motion. The two test contexts used fresh profiles and synthetic matches. Their private files were used in memory for assertions and import, and are excluded from this public evidence.
 
-Run `node scripts/review-revised-draws.mjs` after a production build. Set `DOF_TEST_DIST` to the immutable package, `DOF_BROWSER_EXECUTABLE` to the actual browser and `DOF_EVIDENCE_DIR` to an output directory. All game writes go through visible controls. IndexedDB is read only for assertions. [Raw browser record](independent-draws.json)
+Run `node scripts/review-revised-draws.mjs` after a production build. Set `DOF_TEST_DIST` to the immutable package, `DOF_BROWSER_EXECUTABLE` to the actual browser and `DOF_EVIDENCE_DIR` to an output directory. All game writes go through visible controls. IndexedDB is read only for assertions. [Earlier raw browser record](independent-draws-ac2b795.json)
 
 ## Observed results
 

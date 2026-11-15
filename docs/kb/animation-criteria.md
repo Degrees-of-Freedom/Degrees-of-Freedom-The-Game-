@@ -184,6 +184,8 @@ Update this page, [3D viewer](3d-viewer.md) and [development and testing](develo
 
 The release companion uses the procedural clip library in `motion.ts`. Timburr perks up at a turn change, measures a selected member, nods after attachment and breathes or shifts weight while idle. A charged instability opens a red speech cloud with an exclamation mark and the originating member and turn. Every third eligible deduction for one player can start the 800 ms `foreman` clip. Timburr begins its crouch, then Conkeldurr takes over at the first squash peak, 160 ms into the same clip, and finishes the rise and turn. The control publishes one pose stream to the 3D islet figure and the matching fallback. Reduced motion keeps the figure still. The board and camera retain their positions. [Companion event policy and clip table](avatar-criteria.md)
 
+The normal and reduced-motion Play cases on build `2f99141` both displayed the matching Conkeldurr on the islet. The charged player had three deductions and the other player had two. Chrome recorded one foreman accent with sound enabled, and zero voices in the muted, still case. [Two production scenarios](../evidence/shared-table-forces/islet-foreman.json)
+
 ## 12. Joint DOF overlays
 
 [Joint DOF criteria](joint-dof-criteria.md) define the still-by-default motion compass, brief schematic translation/twist demonstrations, separate foundation-restraint subject and independent solver-instability overlay. Demonstration is not a calculated displacement, structural edit or failure event. The newer shared-joint rule requires matching incoming freedoms; connection animations must not imply automatic upgrades or attachment by coincidence.

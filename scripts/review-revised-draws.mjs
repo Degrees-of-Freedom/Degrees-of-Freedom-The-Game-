@@ -74,6 +74,11 @@ try {
   const fullDraw = await head();
   assert.equal(fullDraw.turn.players[0].hand.length, 4);
   assert.ok(fullDraw.turn.players[0].hand.every(card => card.kind === 'element' && card.type === 'heb'));
+  const cardTargets = await page.locator('[data-card-id]').evaluateAll(cards => cards.map(card => {
+    const {width, height} = card.getBoundingClientRect(); return {width, height};
+  }));
+  assert.equal(cardTargets.length, 4);
+  assert.ok(cardTargets.every(card => card.width >= 44 && card.height >= 44), 'compact card targets must reach 44 CSS pixels on both axes');
   await stageMember('2,2,1', '3,2,1');
   await expect.poll(async () => (await head()).turn.draft.members.length).toBe(1);
   await stageMember('2,4,1', '3,4,1');
@@ -157,7 +162,7 @@ try {
     'genuine legacy private import preserves its original two-deck state',
     'revised private export/import restores chosen draws and held cards',
     'restart cancellation preserves the confirmed match',
-  ], structural, errors};
+  ], cardTargets, structural, errors};
   await writeFile(resolve(output, 'draw-and-draft-review.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result));
   await context.close();
@@ -171,6 +176,8 @@ async function structuralReview(browser, base, output) {
   const page = await context.newPage();
   const errors = [];
   const wasmResponses = [];
+  const workerFiles = [];
+  page.on('worker', worker => workerFiles.push(new URL(worker.url()).pathname.split('/').at(-1)));
   page.on('pageerror', error => errors.push(error.message));
   page.on('response', response => {
     if (/\/dof_solver[^/]*\.wasm(?:\?|$)/.test(response.url())) wasmResponses.push({url: response.url(), status: response.status()});
@@ -201,6 +208,12 @@ async function structuralReview(browser, base, output) {
   try {
     await page.goto(base + '?seed=0');
     await page.getByRole('link', {name: 'Play', exact: true}).click(); await ready.click();
+    // The application prepares its shared WASM binary before displaying
+    // the launcher. Only additional requests/jobs can be caused by Play.
+    const startupWasm = [...wasmResponses];
+    assert.ok(startupWasm.some(response => response.status === 200));
+    const analysisWorkers = () => workerFiles.filter(name => /^(releaseInspection\.worker|solverWorker)-/.test(name));
+    const startupAnalysisWorkers = analysisWorkers();
     await draw(['members', 'connections', 'connections', 'loads']);
     const hand = page.getByRole('region', {name: 'Active hand'});
     await hand.locator('[data-kind="element"]').first().click();
@@ -218,7 +231,8 @@ async function structuralReview(browser, base, output) {
     await button('Inspect').click();
     await expect(page.getByText('Current changes are assessed at the next scheduled checkpoint.', {exact: false})).toBeVisible();
     await page.getByRole('button', {name: 'Close inspection', exact: true}).click();
-    assert.deepEqual(wasmResponses, [], 'pending first turn must not request numerical WASM');
+    assert.deepEqual(wasmResponses, startupWasm, 'pending inspection requested numerical WASM');
+    assert.deepEqual(analysisWorkers(), startupAnalysisWorkers, 'pending inspection launched an analysis worker');
     const eye = page.getByRole('button', {name:/^View modes, \d+ active$/});
     const panel = page.getByRole('region', {name:'View modes', exact:true});
     const tile = title => panel.getByRole('button', {name:new RegExp('^' + title)});
@@ -233,7 +247,7 @@ async function structuralReview(browser, base, output) {
     await tile('Instability').click();
     const labelSwitch = panel.getByRole('switch', {name:'Labels'});
     const initialLabels = await labelSwitch.isChecked();
-    await labelSwitch.click();
+    await panel.getByText('Labels', {exact:true}).click();
     assert.equal(await labelSwitch.isChecked(), !initialLabels);
     await button('Clear').click();
     await expect(eye).toHaveAccessibleName('View modes, 0 active');
@@ -245,15 +259,21 @@ async function structuralReview(browser, base, output) {
     await expect(eye).toBeFocused();
     await expect(page.getByRole('dialog')).toHaveCount(0);
     assert.deepEqual(await head(), pending);
-    assert.deepEqual(wasmResponses, [], 'eye controls must not request numerical WASM for a pending checkpoint');
+    assert.deepEqual(wasmResponses, startupWasm, 'pending eye view requested numerical WASM');
+    assert.deepEqual(analysisWorkers(), startupAnalysisWorkers, 'pending eye view launched an analysis worker');
+    assert.equal(pending.turn.checkpoints.lastAnalysis, undefined);
     await draw(['connections', 'connections', 'connections', 'connections']);
     await button('Pass').click(); await ready.click();
     await draw(['loads', 'loads', 'loads', 'loads']);
-    assert.deepEqual(wasmResponses, [], 'draws and both pending End transitions must not request numerical WASM');
+    assert.deepEqual(wasmResponses, startupWasm, 'intermediate End transactions requested numerical WASM');
+    assert.deepEqual(analysisWorkers(), startupAnalysisWorkers, 'intermediate turns launched an analysis worker');
+    const beforeCheckpoint = (await head()).turn.checkpoints;
+    assert.equal(beforeCheckpoint.lastAnalysis, undefined);
+    assert.equal(beforeCheckpoint.pending.length, 2);
     await button('Pass').click(); await ready.click();
     await expect.poll(async () => (await head()).turn.turn).toBe(4);
     await expect(page.getByRole('complementary', {name: 'Analysis legend'})).toBeVisible();
-    assert.ok(wasmResponses.some(response => response.status === 200), 'the due third-turn checkpoint must load the real numerical WASM');
+    assert.ok(analysisWorkers().some(name => name.startsWith('releaseInspection.worker-')), 'expected the computed response inspection worker');
     await expect(button('Load paths')).toHaveAttribute('aria-pressed', 'true');
     await expect(button('Deformation')).toHaveAttribute('aria-pressed', 'true');
     const record = await head();
@@ -268,7 +288,7 @@ async function structuralReview(browser, base, output) {
     await page.screenshot({path:resolve(output,'loaded-view-modes.png')});
     await page.keyboard.press('Escape');
     await button('Inspect').click();
-    const overlay = page.getByLabel('Board overlay');
+    const overlay = page.getByRole('combobox', {name:/^Board overlay/});
     await expect(overlay).toHaveValue('shadow-path');
     await overlay.selectOption('shape');
     await button('Close inspection').click();
@@ -297,15 +317,15 @@ async function structuralReview(browser, base, output) {
     await page.screenshot({path: resolve(output, 'signed-support-reactions.png')});
     assert.deepEqual((await head()).turn, record.turn);
     assert.deepEqual(errors, []);
-    return {checks: ['numerical WASM is first requested at the due third-turn checkpoint',
+    return {checks: ['startup WASM preload is separated from pending turns: no new numerical request or analysis worker until the due checkpoint',
       'V opens all eight view tiles, labels toggle, Clear/Reset restore counts, and Escape returns focus to the eye before Menu',
-      'view controls leave a pending checkpoint and stored match unchanged without requesting numerical WASM',
+      'view controls leave a pending checkpoint and stored match unchanged without an additional numerical request',
       'loaded displacement shadow and deflected shape are exclusive and share state with inspection and the board toolbar',
       'real member/connector/gravity plays become a checkpoint after three player turns',
       'normal board exposes calculated deflection and load paths automatically',
       'shear and bending overlays combine with calculated response',
       'reaction labels support Off and Large',
       'committed member is read-only and foundation six-component tables are inspectable',
-      'overlay and reaction settings preserve authoritative match state'], reactions, wasmResponses, errors};
+      'overlay and reaction settings preserve authoritative match state'], reactions, startupWasm, wasmResponses, workerFiles, errors};
   } finally { await context.close(); }
 }
