@@ -143,9 +143,9 @@ Proposed game responsibility: attribute verified adverse changes between consecu
 
 ## 7. Penalty and unresolved results
 
-**Confirmed:** keep the move and deduct **1 point** once per turn with at least one verified new or worsened issue, regardless of affected object count. Persistent unchanged issues do not repeat the deduction; unresolved solver results do not trigger a penalty. This avoids counting the same physical event many times through affected nodes/modes. **Pending:** exact eligible categories beyond instability/overload, worsening thresholds and deferred verification. Instability and member/connection overload are the initial proposed eligible categories; do not invent additional penalties for ordinary cable slack or uplift.
+**Confirmed scored preset.** Keep the move and deduct **1 point** once per turn with at least one verified new or worsened eligible issue, regardless of affected object count. The owner approved witnessed instability and verified member/connection overload, including system pieces. The versioned playtest enters overload above 1.001 utilization, clears below 0.999 and charges worsening at a further 0.10 above the last charged level. An unchanged issue, unresolved response, ordinary cable slack or uplift does not produce a deduction. Historical deductions remain after successful repair.
 
-Do not infer a physical penalty from timeout, numerical error or `unresolved`. Proposed unresolved policy retains the legal move with unknown scope, schedules bounded reanalysis, withholds new authoritative reaction scoring for that scope, and applies no physical-issue penalty without verification. Whether later verification produces a deferred penalty attached to the originating turn remains open. Prior results must retain their historical version, never masquerade as current valid reactions.
+Timeout, numerical error and unresolved analysis leave the physical scope unknown. The scored preset retains the move and its original assessment. Later verification cannot charge a past turn. Final scoring awards zero attraction to unknown reaction contributions while retaining the corresponding physical values as unavailable.
 
 Return signed six-component foundation reactions with validity. Final-only load-share percentage minus historical penalties is confirmed; uplift/self-weight parameters remain game policies. Neutral repair-support reactions earn no player attraction, and total gravity stays the denominator. Do not normalize unavailable components into a full 100% share. Retained geometry remains available for repair; permanent releases/removal require an explicitly enabled bounded failure policy.
 
@@ -178,7 +178,7 @@ The following tests are required when implementing this design; they are not cur
 
 ## 9. Questions still to resolve
 
-1. Penalty eligibility beyond instability/overload, worsening thresholds and deferred verification. The 1-point amount, per-turn aggregation and no repeat/unknown penalties are confirmed.
+1. The approved playtest issues and thresholds are recorded in §7 and the [criteria ledger](criteria-ledger.md). Further penalty categories require a separate rule change.
 2. Retained structure and recorded game-owned automatic correction for instability and overload are now confirmed, with Timburr explanation; player additions may also repair issues. Removal or modification of placed player cards is not authorized. Historical penalties are now confirmed to remain after repair. Exact issue thresholds and the requested game-owned automatic correction of instability/overload and the permanent neutral support/local-intervention policy are tracked in [failure and repair](failure-repair-criteria.md).
 3. Player foundations are confirmed setup-only; neutral repair anchors are an explicit system-only exception, permanent and unscored for players. Starting layout/column properties and repair-anchor geometry still need definition.
 4. Card economy: opening hand, retention/cap/discard/exchange, deck sizes, load-to-element ratio, connection frequencies and exhaustion.

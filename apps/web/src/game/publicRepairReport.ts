@@ -29,3 +29,20 @@ export function publicRepairReport(report: TurnReport) {
 }
 
 export type PublicRepairReport = NonNullable<ReturnType<typeof publicRepairReport>>;
+
+export function repairContactLabel(id: string) {
+  const port = /^port:(\d+):([123])$/.exec(id);
+  if (port) return `member ${port[1]} at ${Number(port[2]) * 25}%`;
+  const sleeve = /:contact-([ab])$/.exec(id);
+  return sleeve ? "end " + sleeve[1].toUpperCase() : "joint " + id;
+}
+
+const signedForce = new Intl.NumberFormat("en", { maximumFractionDigits: 3, signDisplay: "exceptZero" });
+
+/** Preserve the sign of a verified small reaction even below display precision. */
+export function repairReaction(upwardKN: number) {
+  if (upwardKN !== 0 && Math.abs(upwardKN) < 0.0005) {
+    return (upwardKN < 0 ? "−" : "+") + Math.abs(upwardKN).toExponential(2) + " kN";
+  }
+  return signedForce.format(upwardKN) + " kN";
+}

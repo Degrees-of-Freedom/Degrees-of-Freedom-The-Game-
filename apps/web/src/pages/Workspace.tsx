@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { Scene } from "../viewer/Scene";
 import { controlOwnsKey } from "../viewer/keyboardTarget";
@@ -13,6 +13,7 @@ import { environmentExample } from "../game/environmentExamples";
 import { useEditorSound } from "../game/useEditorSound";
 import { createGameSave } from "../game/structuralState";
 import { publicTurnModel } from "../game/publicTurnModel";
+import { publicRepairReport } from "../game/publicRepairReport";
 import type { VoxelAnalysis } from "../solver/voxel";
 import { AnalysisPanel } from "../components/AnalysisPanel";
 import { ConnectivityPanel } from "../components/ConnectivityPanel";
@@ -60,6 +61,16 @@ export function Workspace() {
   // A committed board is immutable through staging and cancel. Each advance,
   // new match or restore produces a new board, even for the same seed/seat.
   const [readyBoard, setReadyBoard] = useState<NonNullable<typeof game.turn>["board"] | null>(null);
+  // Only a turn actually ended in this workspace can prompt Timburr after
+  // handoff. Resume and replay retain the report for deliberate inspection.
+  const [pendingRepairNotice, setPendingRepairNotice] = useState<string | null>(null);
+  const reports = game.mode === "multiplayer" ? game.turn?.reports : undefined;
+  const repairs = useMemo(() => reports?.map(publicRepairReport).filter(item => item !== null), [reports]);
+  const latestRepair = repairs?.at(-1);
+  const repairNoticeId = game.turn && latestRepair &&
+    `repair-speech-1/${game.turn.catalogue}/${game.turn.seed}/${latestRepair.turn}`;
+  const companion = { repairs, announceRepair: !!repairNoticeId && repairNoticeId === pendingRepairNotice,
+    onPresented: () => setPendingRepairNotice(null) };
   const privateTurn = game.mode === "multiplayer" && !game.turn?.finished ? game.turn : null;
   const privateMatchActive = privateTurn !== null;
   const needsHandoff = !!privateTurn && readyBoard !== privateTurn.board;
@@ -89,6 +100,7 @@ export function Workspace() {
         current.turn.board !== readyBoard || paused || document.hidden) return;
     const error = current.endTurn();
     if (error) { setMessage(error); return; }
+    setPendingRepairNotice(`repair-speech-1/${current.turn.catalogue}/${current.turn.seed}/${current.turn.turn}`);
     setReadyBoard(null);
     setDrawer(null);
     setMessage("");
@@ -499,7 +511,7 @@ export function Workspace() {
                       ? "Shared table"
                       : "Build options"}
               </h2>
-              {!paused && <Companion area="drawer" />}
+              {!paused && <Companion area="drawer" {...companion} />}
               <button
                 className="btn icon"
                 aria-label="Close drawer"
@@ -628,7 +640,7 @@ export function Workspace() {
           </aside>
         )}
       </div>
-      {!paused && !drawer && !help && <Companion area="board" />}
+      {!paused && !drawer && !help && <Companion area="board" {...companion} />}
     </main>
   );
 }

@@ -179,6 +179,8 @@ The later [completion criteria](game-completion-criteria.md) define fixed rounds
 
 ## 12. Automatic repair explanation
 
+In the scored Grow Dusk playtest, ending a turn with recorded corrective work prompts Timburr after the next private reveal, or on the final results screen. The explanation reads the public repair receipt in order: the affected member and issue, originating deduction, installed prop and its contact, verified outcome or pending work, and the new neutral anchor's signed reaction when available. Closing it or changing the companion model only changes presentation. After reload or later turns, activating Timburr lets the player read the historical explanation again. Turn details keeps the complete evidence independently of the companion. [Browser walkthrough](../evidence/companion-repair/check.mjs).
+
 The owner confirmed game-owned automatic correction for both instability and overload while retaining the player move and historical penalty. Timburr explains the original issue, the specific recorded repair and its score/ownership effect; [repair criteria](failure-repair-criteria.md#6-automatic-correction-transaction) own the transaction and numerical verification. The avatar presents game events rather than modifying physics from an animation callback. Show “verified repaired”, “pending” or “could not verify” accurately, and expose the same explanation without sound/avatar motion. No repaired issue refunds its historical penalty.
 
 

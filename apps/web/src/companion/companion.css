@@ -35,10 +35,23 @@
   background: #293841; box-shadow: 0 4px 16px #10182155; color: #fff6e6;
 }
 .companion-board .companion-note { left: 0; right: auto; }
+.companion .companion-repair { max-height: min(39dvh, 350px); overflow: auto; overscroll-behavior: contain; }
+.companion-repair strong { display: block; margin-bottom: 6px; }
+.companion-repair label { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.companion-repair select { font: inherit; }
 .companion-note p { font-size: 14px; margin: 0 0 8px; line-height: 1.35; }
 .companion-note button { background: #f3ead8; color: #24333d; border-radius: 6px; border: 0; padding: 5px 8px; margin: 2px; min-height: 28px; cursor: pointer; }
 @media (max-width: 600px), (max-height: 520px) {
   .companion { --figure-size: 40px; }
   .companion-board { top: 37%; --figure-size: 36px; }
   .companion-home { top: 10px; right: 10px; }
+}
+@media (max-width: 600px) {
+  /* Keep the compact explanation beside Timburr, above the mobile hand tray. */
+  .companion-board .companion-repair {
+    top: 0;
+    left: calc(100% + 6px);
+    width: min(300px, calc(100vw - 84px));
+    max-height: max(78px, calc(63dvh - 324px));
+  }
 }

@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { FigureName } from "./figure";
+import type { PublicRepairReport } from "../game/publicRepairReport";
+import { RepairExplanation } from "./RepairExplanation";
 import "./companion.css";
 
 type Area = "home" | "menu" | "board" | "drawer";
@@ -65,11 +67,26 @@ function Figure({ name, retry, onFailure }: {
   </span>;
 }
 
-export function Companion({ area }: { area: Area }) {
+export function Companion({ area, repairs, announceRepair = false, onPresented }: {
+  area: Area;
+  repairs?: PublicRepairReport[];
+  announceRepair?: boolean;
+  onPresented?: () => void;
+}) {
   const id = useId();
   const button = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false), [foreman, setForeman] = useState(false);
   const [failed, setFailed] = useState(false), [retry, setRetry] = useState(0);
+  const [selectedTurn, setSelectedTurn] = useState<number | null>(null);
+  const repair = repairs?.find(entry => entry.turn === selectedTurn) ?? repairs?.at(-1);
+  useEffect(() => {
+    if (announceRepair) {
+      setSelectedTurn(null);
+      setForeman(false);
+      setOpen(true);
+      onPresented?.();
+    }
+  }, [announceRepair, onPresented]);
   const name = foreman ? "Conkeldurr" : "Timburr";
   function close() {
     setOpen(false);
@@ -86,10 +103,17 @@ export function Companion({ area }: { area: Area }) {
       <Figure key={name} name={foreman ? "conkeldurr" : "timburr"} retry={retry} onFailure={setFailed} />
       <span>{name}</span>
     </button>
-    {open && <div id={id} className="companion-note">
-      <p>{foreman ? "Conkeldurr · Foreman preview" : area === "board" || area === "drawer"
+    {open && <div id={id} className={"companion-note" + (repair && !foreman ? " companion-repair" : "")}>
+      {repair && !foreman ? <>
+        {repairs && repairs.length > 1 && <label>Recorded repair
+          <select value={repair.turn} onChange={e => setSelectedTurn(Number(e.target.value))}>
+            {repairs.map(entry => <option key={entry.turn} value={entry.turn}>Turn {entry.turn}</option>)}
+          </select>
+        </label>}
+        <RepairExplanation report={repair} />
+      </> : <p>{foreman ? "Conkeldurr · Foreman preview" : area === "board" || area === "drawer"
         ? "Got a tricky joint? Inspect it to see which ends are connected."
-        : "Ready to build? Pick a game mode and I’ll meet you on the board."}</p>
+        : "Ready to build? Pick a game mode and I’ll meet you on the board."}</p>}
       <button type="button" onClick={() => { setFailed(false); setForeman(!foreman); }}>
         {foreman ? "Back to Timburr" : "Preview Conkeldurr"}
       </button>

@@ -1,23 +1,13 @@
-import { publicRepairReport, type PublicRepairReport } from "../game/publicRepairReport";
+import { publicRepairReport, repairContactLabel as contactLabel, repairReaction, type PublicRepairReport } from "../game/publicRepairReport";
 import type { TurnReport } from "../game/turns";
 
-const amount = new Intl.NumberFormat("en", { maximumFractionDigits: 3, signDisplay: "exceptZero" });
 const seat = (id: string) => id === "neutral" ? "Neutral" : id.replace(/^player-(\d+)$/, "Player $1");
 const issueNames = { instability: "instability", "connection-overload": "connector overload", "member-overload": "member overload" };
-
-function contactLabel(id: string) {
-  const port = /^port:(\d+):([123])$/.exec(id);
-  if (port) return `member ${port[1]} at ${Number(port[2]) * 25}%`;
-  const sleeve = /:contact-([ab])$/.exec(id);
-  return sleeve ? "end " + sleeve[1].toUpperCase() : "joint " + id;
-}
 
 function reading(result: PublicRepairReport["supports"][number]["before"]) {
   if (!result) return "Absent";
   if (result.upwardKN === null) return "Unavailable · " + result.reason;
-  const value = result.upwardKN;
-  if (value !== 0 && Math.abs(value) < 0.0005) return (value < 0 ? "−" : "+") + Math.abs(value).toExponential(2) + " kN";
-  return amount.format(value) + " kN";
+  return repairReaction(result.upwardKN);
 }
 
 function RepairEntry({ entry }: { entry: PublicRepairReport }) {
