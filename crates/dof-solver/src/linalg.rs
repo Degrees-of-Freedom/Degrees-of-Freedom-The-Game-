@@ -21,7 +21,7 @@
 //! structures solver 0.2 could not analyse in useful time.
 
 use crate::skyline::{self, Skyline};
-use crate::sparse::{self, adjacency, envelope_work, SparseMatrix, Symbolic};
+use crate::sparse::{self, SparseMatrix, Symbolic};
 use std::rc::Rc;
 
 pub use crate::sparse::Inertia;
@@ -52,12 +52,11 @@ impl Pattern {
     /// Choose for the pattern in which every pair of DOFs that appear
     /// together in one of `groups` (one group per element) may be nonzero.
     pub fn new(n: usize, groups: &[Vec<usize>]) -> Self {
-        let adjacency = adjacency(n, groups);
-        let sparse = FORCED.with(|f| f.get()).unwrap_or_else(|| envelope_work(&adjacency) > SMALL_WORK);
-        if !sparse {
-            Pattern::Profile(Skyline::with_profile(n, groups))
+        let sparse = FORCED.with(|f| f.get()).unwrap_or_else(|| skyline_work(n, groups) > SMALL_WORK);
+        if sparse {
+            Pattern::Sparse(Rc::new(Symbolic::new(n, groups)))
         } else {
-            Pattern::Sparse(Rc::new(Symbolic::from_adjacency(&adjacency)))
+            Pattern::Profile(Skyline::with_profile(n, groups))
         }
     }
 
@@ -81,6 +80,21 @@ impl Pattern {
             Pattern::Profile(_) => None,
         }
     }
+}
+
+/// Multiply-adds of a skyline factorisation of the pattern: half the sum of
+/// the squared column heights, each from the lowest DOF sharing an element
+/// with that column. One pass over the groups, as the profile is built.
+fn skyline_work(n: usize, groups: &[Vec<usize>]) -> f64 {
+    let mut first: Vec<usize> = (0..n).collect();
+    for group in groups {
+        if let Some(&lowest) = group.iter().min() {
+            for &dof in group {
+                first[dof] = first[dof].min(lowest);
+            }
+        }
+    }
+    first.iter().enumerate().map(|(j, &f)| ((j - f) as f64).powi(2)).sum::<f64>() * 0.5
 }
 
 /// A symmetric stiffness matrix in the equation numbering of its system.
@@ -201,6 +215,13 @@ mod tests {
         }
         let pattern = Pattern::new(side * side * side * 6, &groups);
         assert!(pattern.is_sparse() && pattern.symbolic().unwrap().reordered);
+    }
+
+    #[test]
+    fn skyline_work_matches_the_neighbour_estimate() {
+        let groups: Vec<Vec<usize>> = vec![vec![0, 4, 7], vec![2, 3], vec![1, 7, 9], vec![5, 6, 8, 9]];
+        let estimate = crate::sparse::envelope_work(&crate::sparse::adjacency(10, &groups));
+        assert_eq!(skyline_work(10, &groups), estimate);
     }
 
     #[test]

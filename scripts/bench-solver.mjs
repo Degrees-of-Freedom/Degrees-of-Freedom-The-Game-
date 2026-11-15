@@ -83,4 +83,9 @@ time('stress, linear preview, 1 element/beam', stress, { fidelity: 'linear', gra
 time('stress, linear preview, 2 elements/beam', stress, { fidelity: 'linear', gravity }, runs);
 time('stress, nonlinear turn, 1 element/beam', stress, { gravity, subdivisions: 1 }, runs);
 time('stress, nonlinear turn, 2 elements/beam', stress, { gravity }, runs);
+// Large frames use the sparse factorisation (solver 0.3); a few samples each.
+const large = Math.min(runs, 3);
+time('large 8x8x8, nonlinear, 2 elements/beam', frame(8, 8, 8), { gravity }, large);
+time('large 10x10x10, linear, 2 elements/beam', frame(10, 10, 10), { fidelity: 'linear', gravity }, large);
+time('large 10x10x10, nonlinear, 2 elements/beam', frame(10, 10, 10), { gravity }, large);
 if (!measuredCases) throw new Error('No benchmark label matched ' + caseFilter);
