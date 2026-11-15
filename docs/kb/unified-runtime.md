@@ -47,6 +47,14 @@ Grow Dusk Creative exposes **Foundation** on the building toolbar (keyboard 0). 
 - `Scene.tsx` and its viewer modules share one renderer, with camera, guides, geometry, picking, and palette selected by the environment. `components/environment` and the scoped `environment-*.css` files provide the chrome, trays, and controls. Build options exposes precise coordinate entry.
 - Structural analysis (the Rust solver through the structure evaluator; the legacy voxel kernel only for replaying older saved playtest matches) remains separate from the viewer. Solver input in the workspace drawer presents a versioned editor model or the Shared table state. It differs from the branch prototype’s draft split-element JSON and from the preliminary shared solver contract.
 
+## Challenge and runtime audit (2026-11-15)
+
+The challenge selector includes Tower I and II, Bridge I and II, Pick-up I and II, and a random pick-up layout. Only Tower I, Bridge I and Pick-up I currently have reference models in `game/examples.ts`. `game/examples.test.ts` checks that those three satisfy the objectives through `analyzeGame`. The remaining challenges do not yet have verified solutions. A random-layout example must retain the current saved targets instead of generating a different layout.
+
+Editor and challenge simulation uses the Rust-backed structure evaluator through `analyzeGame` and a validated editor snapshot; browser editor saves use the versioned `dof-voxel-save` envelope. The release match uses a separate versioned event/session model and Rust turn solver; older turn engines deliberately retain the legacy voxel path for replay. These models share infrastructure but are not one interchangeable state format. The editor's optional stability check uses the configured solver, separately from its Rust simulation. Do not silently migrate historical matches or claim solver parity without verifying their rules and results.
+
+The release board has the newer view-mode panel, including displacement shadow, diagrams and instability; the secondary workspace has its own analysis controls and does not yet expose that full panel. Unifying those controls requires adapting them to the editor response and its selected load combination, and validating each overlay's availability and freshness.
+
 ## Environment mapping
 
 | Environment | Current adaptation | Source behavior or detail that differs |
