@@ -15,7 +15,7 @@ function RepairEntry({ entry }: { entry: PublicRepairReport }) {
   const rejected = entry.attempts.length - accepted.length;
   return <article>
     <h3>Turn {entry.turn} · {seat(entry.playerId)}</h3>
-    <p><strong>{entry.pending.length ? "Repair pending" : "Verified repair"}</strong>
+    <p><strong>{!entry.policy ? "No repair recorded" : entry.pending.length ? "Repair pending" : "Verified repair"}</strong>
       {" · "}{accepted.length} installed · {rejected} rejected</p>
     {entry.issues.map(issue => <p key={issue.id}>
       Member {issue.memberId}{issue.end && " end " + issue.end.toUpperCase()} · {issueNames[issue.category]}.
@@ -50,7 +50,7 @@ function RepairEntry({ entry }: { entry: PublicRepairReport }) {
           <th scope="row">{seat(s.owner)} · {s.jointId}</th><td>{reading(s.before)}</td><td>{reading(s.after)}</td>
         </tr>)}</tbody>
       </table>
-      <p>Repair policy {entry.policy}</p>
+      {entry.policy && <p>Repair policy {entry.policy}</p>}
     </details>
   </article>;
 }

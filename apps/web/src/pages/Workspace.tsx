@@ -528,7 +528,7 @@ export function Workspace() {
                       ? "Shared table"
                       : "Build options"}
               </h2>
-              {!paused && <Companion area="drawer" {...companion} />}
+              {!paused && <Companion area="drawer" {...companion} onForemanAccent={sound.foremanAccent} />}
               <button
                 className="btn icon"
                 aria-label="Close drawer"
@@ -659,7 +659,7 @@ export function Workspace() {
           </aside>
         )}
       </div>
-      {!paused && !drawer && !help && <Companion area="board" {...companion} />}
+      {!paused && !drawer && !help && <Companion area="board" {...companion} onForemanAccent={sound.foremanAccent} />}
     </main>
   );
 }

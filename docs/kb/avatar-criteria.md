@@ -84,11 +84,11 @@ Example voice: “Touching isn’t connecting. Let’s give that end a proper jo
 
 The signature concept is a brief transformation into Conkeldurr: a warm energy outline, silhouette/scale change, a firm foreman pose with his concrete pillars, one short sound accent and a useful repair suggestion. Settle back to Timburr automatically. Do not smash the structure, invent damage, change cards or delay resolution.
 
-**Proposed automatic eligibility:** a new authoritative event identifies a verified new or worsened serious structural issue on a committed turn. A versioned game/result policy must define the eligible issue categories, severity threshold and reliable before/after comparison. A future penalty event may be a useful source only when it carries that verified evidence; a score deduction alone is not proof of a serious physical issue.
+The owner approved automatic Conkeldurr for every committed new or worsened verified issue that incurred a penalty, including successful repairs. Foreman presentation policy v1 joins the penalty decision to the issue assessment by turn, player, pre/post model IDs and charged issue ID. The matching change must be eligible, active and verified. Several charged issues on the same turn share one appearance.
 
 Never infer “very wrong” from an exception, rejected placement, timeout, disconnected service, unknown previous result, failed preview, an approximate solver warning or a repeated existing mechanism. Do not infer player fault from a single unstable result. The current experimental turn status alone is insufficient for automatic foreman mode under these criteria.
 
-Until compatible verified events exist, provide only a clearly labelled optional **transformation preview**, if implementing the gag at all. That lets the owner review personality and visual treatment without implying completed failure detection. The archived prototype's experimental stable-to-unstable trigger is specifically **not approved** and must be replaced or disabled.
+The optional **transformation preview** is available from the companion panel. Previewing it has no effect on the public turn record. The archived prototype’s stable-to-unstable trigger is superseded.
 
 Proposed pacing: an emphasis of 600–1,000 ms, with the transformed pose optionally lingering quietly for up to 4 seconds; a cooldown of at least 45 seconds; at most one transformation per qualifying turn/event. Skip/dismiss settles immediately without changing game state. Aggregate multiple simultaneous issues. Victory supersedes a redundant foreman reaction. Returning to a saved match must not reenact an old event as new.
 
@@ -165,9 +165,10 @@ The launcher, setup, information pages, workspace and open drawers display Timbu
 
 The [browser runner](../evidence/companion/check.mjs) also regenerates both fallback portraits and verifies the preserved GLBs' hashes. The models by nguyenlouis32 are licensed under CC BY 4.0. Their attribution and pinned sources are preserved in [the distributed credits](../../apps/web/public/companion/CREDITS.md).
 
-The owner authorized the two preserved, attributed GLBs for playtesting and a labelled Conkeldurr transformation preview. Automatic serious-event eligibility and final pose approval remain distinct from that asset decision. Use the recorded issue/repair event for explanations.
+The owner authorized the two attributed GLBs for playtesting and the manual Conkeldurr preview. The automatic appearance uses the same public repair explanation. Opening a restored match or browsing historical repairs keeps Timburr in view. A new qualifying turn can show a still Conkeldurr under reduced motion. Skipping or the four-second timeout restores Timburr and leaves the report available to read.
 
-- Final serious-issue categories/severity threshold and the compatible verified event source. This blocks automatic evolution, not the design specification.
+The [Chrome runner](../evidence/companion-repair/check.mjs) in `foreman` mode tests three committed turns through the private handoff. Seed 7 shows a successfully braced instability and one enabled accent. Seed 1 shows an exhausted local repair with motion and sound disabled. Seed 97 shows a successful overload repair and its signed neutral reaction. Skip, timeout and reload preserved the game history. The runner pauses the presentation clock to capture the temporary model. [Before](../evidence/companion-repair/after.png) · [Verified instability](../evidence/foreman/after.png) · [Pending phone repair](../evidence/foreman/pending-after.png) · [Verified overload](../evidence/foreman/overload-after.png).
+
 - Approval of the candidate models, needed rig/pose work and the final transformation look.
 - Exact timing, cooldown, companion placement and chatter frequency after playtesting.
 - Master audio/settings integration, optional voice assets, language/localization and volume defaults.

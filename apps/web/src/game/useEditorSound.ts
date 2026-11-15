@@ -1,6 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import type { GameModel } from "./model";
 
+function playTone(context: AudioContext, from: number, to: number, duration: number) {
+  const oscillator = context.createOscillator(), gain = context.createGain();
+  const start = context.currentTime;
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(from, start);
+  oscillator.frequency.exponentialRampToValueAtTime(to, start + duration);
+  gain.gain.setValueAtTime(0.025, start);
+  gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+  oscillator.start();
+  oscillator.stop(start + duration + 0.01);
+  return () => { gain.disconnect(); };
+}
+
 /** Tiny synthesized placement sound; no remote assets or autoplay dependency. */
 export function useEditorSound(model: GameModel) {
   const [enabled, setEnabled] = useState(false);
@@ -12,24 +28,8 @@ export function useEditorSound(model: GameModel) {
       enabled &&
       audio.current?.state === "running"
     ) {
-      const context = audio.current,
-        oscillator = context.createOscillator(),
-        gain = context.createGain();
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(
-        440 + (model.members.length % 8) * 45,
-        context.currentTime,
-      );
-      gain.gain.setValueAtTime(0.025, context.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.12);
-      oscillator.connect(gain);
-      gain.connect(context.destination);
-      oscillator.start();
-      oscillator.stop(context.currentTime + 0.13);
-      oscillator.onended = () => {
-        oscillator.disconnect();
-        gain.disconnect();
-      };
+      const frequency = 440 + (model.members.length % 8) * 45;
+      playTone(audio.current, frequency, frequency, 0.12);
     }
     previous.current = model;
   }, [model, enabled]);
@@ -51,5 +51,14 @@ export function useEditorSound(model: GameModel) {
     }
     setEnabled((value) => !value);
   }
-  return { enabled, toggle };
+  // The companion requests this accent on the deliberate reveal only when its
+  // saved audio setting is enabled. A suspended context never queues the cue.
+  function foremanAccent() {
+    if (document.hidden || !navigator.userActivation?.isActive) return;
+    try {
+      audio.current ??= new AudioContext();
+      if (audio.current.state === "running") return playTone(audio.current, 185, 110, 0.16);
+    } catch { /* The visual report is independent of output-device availability. */ }
+  }
+  return { enabled, toggle, foremanAccent };
 }

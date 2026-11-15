@@ -2,13 +2,14 @@ import { repairContactLabel, repairReaction, type PublicRepairReport } from "../
 
 /** Describe the recorded turn in its original order. A later pass, a replay,
  * or a change in today's model cannot alter the outcome of this explanation. */
-export function RepairExplanation({ report }: { report: PublicRepairReport }) {
+export function RepairExplanation({ report, foreman = false }: { report: PublicRepairReport; foreman?: boolean }) {
   const accepted = report.attempts.filter(a => a.status === "verified");
   const rejected = report.attempts.length - accepted.length;
   const readings = report.supports.filter(s => s.owner === "neutral" && !s.before && s.after);
   const seat = report.playerId.replace(/^player-(\d+)$/, "Player $1");
-  return <section aria-label={`Timburr’s repair explanation for turn ${report.turn}`}>
-    <strong>Turn {report.turn} · {report.pending.length ? "Repair pending" : accepted.length ? "Verified repair" : "Repair assessment"}</strong>
+  return <section aria-label={`Repair explanation for turn ${report.turn}`}>
+    <strong>{foreman && "Foreman report · "}Turn {report.turn} · {!report.policy ? "No repair recorded" :
+      report.pending.length ? "Repair pending" : accepted.length ? "Verified repair" : "Repair assessment"}</strong>
     {report.issues.map(issue => <p key={issue.id}>Member {issue.memberId}
       {issue.end && " end " + issue.end.toUpperCase()}
       {issue.category === "instability" ? " was unstable." : issue.category === "connection-overload"
