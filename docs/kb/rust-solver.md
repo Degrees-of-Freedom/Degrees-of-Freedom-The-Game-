@@ -27,7 +27,7 @@ status: partial
 
 The crate [README](../../crates/dof-solver/README.md) is the reference for building, calling, conventions, the algorithm and tolerances. This page records how the solver stands against the criteria, the evidence, and the choices that still need an owner decision.
 
-Status in one paragraph: the solver implements the model, connection, stability, nonlinear and result requirements of criteria sections 2, 3 and 5 and has a passing test for every row of the section 7 acceptance table. It has not been accepted by the project owner, it has not been checked against an independent nonlinear program, and the game's use of it is limited: the workspace sends the detailed model with gravity loads only, no wind and no load combinations, the result panel has not been checked by hand in a browser, and the 3D viewer does not use the result. Turn handling and the surrogate (sections 4 and 6) are outside it. No criteria milestone is accepted as complete.
+Status in one paragraph: the solver implements the model, connection, stability, nonlinear and result requirements of criteria sections 2, 3 and 5 and has a passing test for every row of the section 7 acceptance table. It has not been accepted by the project owner, it has not been checked against an independent nonlinear program, and the game's use of it is limited: the workspace sends the detailed model with gravity loads only, no wind and no load combinations, the result panel has been checked by hand in a browser on one example only, and the 3D viewer does not use the result. Turn handling and the surrogate (sections 4 and 6) are outside it. No criteria milestone is accepted as complete.
 
 ## What exists
 
