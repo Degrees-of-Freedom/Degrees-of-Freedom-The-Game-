@@ -53,6 +53,14 @@ The three tests in `services/opensees/tests/test_release_wasm_reference.py` pass
 
 `npm test -- apps/web/src/solver/wasm/turnCatalogue.test.ts` passed all 24 expanded-catalogue WASM fixtures. They check all three original attachment stations for the relevant cable, frame and assembly printings using the browser solver's published responses. The production walkthrough table above is separate evidence for the frozen deal.
 
+## Cross-check of integrated acceptance evidence
+
+I independently read the four Windows matrix reports, checked their package digests, verified every per-seed action and assessment count, and checked the error lists. Chrome 157.0.8103.51 ran seeds 0–7, Chrome 156.0.8078.80 ran 8–12, Edge 157.0.4341.60 ran 13–15, and Edge 156.0.4314.84 ran 16–19. An initial Edge 156 attempt stopped on the title screen before seed 19. Its repeated four-seed run completed. All 20 distinct seeds used the same clean `ab93648` package and loaded its WASM. Each played at least one element, connector and load, committed 16 assessments and recorded zero uncaught page errors. Totals were 320 turns, 41 elements, 40 connectors and 244 loads. Each browser also completed a separate zero-gravity game. The landscape touch-emulation fixture completed a purposeful seed 2 game and its zero-gravity counterpart at 1024 × 768.
+
+Nine presentation scenarios recorded passes, including the 200% native browser zoom (683 CSS px from 1366 device px), keyboard-only controls, portrait recovery, long-hand layout, and GPU/audio/model/decoder fallbacks. The reset evidence recorded ten completed match/title cycles. At the tenth title only one rendering context and its figure worker remained, with zero detached canvases, zero active audio voices and one document. Across the run 50 of 51 workers closed; the retained worker belongs to the visible figure.
+
+The immutable package's local integrated-Arc timing report recorded 119.82 mean fps, 8.5 ms p95 frame interval and 56.6 ms p95 input acknowledgement after 60 warmup and 360 measured frames at 1366 × 900, DPR 1. Hardware and assistive-technology exclusions below keep the full release gate open.
+
 ## Platform reproduction
 
 The Mac Safari/VoiceOver and physical landscape iPad/touch gates were not run on this Windows host. The exact 16 GB main timing machine and 8 GB i5-1135G7 machine were unavailable. The local machine has 63.45 GiB of RAM, a Core Ultra 9 185H, integrated Intel Arc and a discrete NVIDIA GPU. Its measurements can identify slow paths but do not certify either named hardware configuration. The [NVDA test record](nvda.md) documents the failed attempt to obtain speech from the game on the inactive Windows desktop and the interactive retest required.
