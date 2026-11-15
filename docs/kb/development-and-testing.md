@@ -28,6 +28,7 @@ validated_against:
   - scripts/build-solver-wasm.mjs
   - scripts/bench-solver.mjs
   - apps/web/src/solver/wasm
+  - apps/web/src/rl
 owner: unknown
 status: partial
 ---
@@ -43,6 +44,10 @@ Vitest covers voxel editing rules, undo, examples, persistence, turn replay and 
 Vitest also covers the OpenSees adapter and its health check against a stubbed `fetch`, solver selection, the stored solver setting, and the translation from the game model to the shared contract. Further tests run only when `VITE_OPENSEES_URL` points at a running service: two send a cantilever and the reference examples through it, and three compare its answers with the Rust solver's.
 
 `analysisModel.test.ts` covers the translation of the game to the detailed contract (SI sections and capacities, pinned and rigid ends, cables, foundations, level loads) and runs the three reference examples and small frames through the real WebAssembly module, including the reduction of the result for the panel. Vitest runs the Rust solver as the real WebAssembly module, loaded from `apps/web/src/solver/wasm/dof_solver.wasm`. That file is a committed build artefact, so `npm install`, `npm test` and `npm run build` need no Rust toolchain. They test whatever module is committed: after changing `crates/dof-solver`, run `npm run build:solver` or the web tests will exercise the old build.
+
+## Agent training
+
+`apps/web/src/rl` is a headless harness for agents playing the goal mode; see [agents and reinforcement learning](rl-agents.md). `npm run train:goal -- --scenario single` trains and evaluates an agent and writes `rl-runs/` (gitignored); `npm run serve:goal` serves the game to an external agent over JSON lines. `npm run typecheck` also checks the CLI files with Node types (`apps/web/tsconfig.cli.json`), which the browser project excludes. The tests in `apps/web/src/rl` include one that trains for 240 episodes (about 15 s) and requires the greedy policy to solve the one-weight level, so a regression in the reward, features or learner fails `npm test`.
 
 ## Rust solver
 

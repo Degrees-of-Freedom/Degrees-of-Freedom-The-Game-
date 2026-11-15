@@ -20,6 +20,7 @@ validated_against:
   - docs/kb/avatar-criteria.md
   - prototypes/timburr-companion/README.md
   - docs/kb/solver-criteria-gap-analysis.md
+  - docs/kb/rl-agents.md
   - docs/kb/development-and-testing.md
   - docs/kb/visualization-criteria.md
 owner: unknown
@@ -67,6 +68,7 @@ This is the canonical entry point for durable project knowledge. The web prototy
 | [Load-path implementation prompt](../implementation-prompts/load-path-primary-direction.md) | Implementing primary-direction load-transfer vectors, with independent tension/compression styling. |
 | [visualization-criteria.md](visualization-criteria.md) | Defining calculated deflected shape, load-path overlays, contours, force inspection and result validity. |
 | [3d-viewer.md](3d-viewer.md) | Working on the 3D grid, interaction, or visual feedback. |
+| [rl-agents.md](rl-agents.md) | Running software agents in the goal (Load in space) mode: the headless environment, reward, the REINFORCE learner, the JSON bridge for external agents, and measured results. |
 | [development-and-testing.md](development-and-testing.md) | Finding current setup, commands, and test coverage. |
 
 ## Completion rules and decisions
