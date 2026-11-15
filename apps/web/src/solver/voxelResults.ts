@@ -30,7 +30,7 @@ export type Context = {
   idx: Map<string, number>;
   aid: Int32Array;
 };
-export type FrameSystem = Pick<Context, 'nf' | 'NA' | 'eq' | 'els'>;
+export type FrameSystem = Pick<Context, 'nf' | 'NA' | 'eq' | 'els' | 'bw'>;
 export interface ComponentResponse {
   /** Analytical identities. Coincident loose ends can belong to different components. */
   nodes: string[];

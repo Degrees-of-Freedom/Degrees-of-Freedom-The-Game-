@@ -1,8 +1,31 @@
 import type { FrameSystem, Solved } from './voxelResults';
 import { toGlobal, cholesky } from './frameMath';
 
-/** Estimate the first global buckling factor from geometric stiffness. */
-export function alphaCr(ctx: FrameSystem, sol: Solved) {
+const logRefinements = 6;
+
+/** Lowest factor the design search can report at or above a screening threshold.
+ * Use the same sequence of square roots as that search, including its rounding.
+ */
+function reportableFactor(threshold: number) {
+  let lo = 1;
+  while (lo * 2 <= threshold) lo *= 2;
+  if (lo === threshold) return lo;
+  let hi = lo * 2;
+  for (let i = 0; i < logRefinements; i++) {
+    const mid = Math.sqrt(lo * hi);
+    if (mid === threshold) return mid;
+    if (mid < threshold) lo = mid;
+    else hi = mid;
+  }
+  return hi;
+}
+
+/** Estimate the first global buckling factor from geometric stiffness. An applied
+ * preview may request only proof of a minimum factor in [1,128]. In that case
+ * return the demonstrated lower bound, or null if the screen cannot certify it.
+ * Design combinations always use the full critical-factor search.
+ */
+export function alphaCr(ctx: FrameSystem, sol: Solved, minimumFactor?: number) {
   const { nf, els } = ctx;
   if (nf === 0) return Infinity;
   if (nf > 2400) return null;
@@ -70,14 +93,29 @@ export function alphaCr(ctx: FrameSystem, sol: Solved) {
   }
   if (!comp) return Infinity;
   const active = sol.activeDofs, n = active.length;
+  // Both elastic and geometric stiffness couple only ends of a physical
+  // element. Deleting inactive DOFs preserves that bandwidth upper bound.
+  const bw = Math.min(ctx.bw, Math.max(0, n - 1));
   const W = new Float64Array(n * n);
   const pd = (lam: number) => {
-    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
-      const source = active[i] * nf + active[j];
-      W[i * n + j] = sol.K0[source] + lam * Kg[source];
+    for (let i = 0; i < n; i++) {
+      const sourceRow = active[i] * nf;
+      const row = i * n;
+      for (let j = Math.max(i - bw, 0); j <= i; j++) {
+        const source = sourceRow + active[j];
+        W[row + j] = sol.K0[source] + lam * Kg[source];
+      }
     }
-    return cholesky(W, n, n - 1);
+    return cholesky(W, n, bw);
   };
+  if (minimumFactor !== undefined && minimumFactor >= 1 && minimumFactor <= 128) {
+    // K starts positive definite. K + lambda Kg is affine, so the interval of
+    // positive definiteness ends at its first critical load even under mixed
+    // tension/compression. One factorization therefore certifies exactly the
+    // same threshold decision as bracketing and refining the full factor.
+    const lowerBound = reportableFactor(minimumFactor);
+    return pd(lowerBound) ? lowerBound : null;
+  }
   if (!pd(1)) {
     let lo = 0,
       hi = 1;
@@ -95,7 +133,7 @@ export function alphaCr(ctx: FrameSystem, sol: Solved) {
     hi *= 2;
     if (hi > 128) return 128;
   }
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < logRefinements; i++) {
     const m = Math.sqrt(lo * hi);
     if (pd(m)) lo = m;
     else hi = m;

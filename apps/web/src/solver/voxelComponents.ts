@@ -3,7 +3,7 @@ import { solveCombo } from './frameSolve';
 import { alphaCr } from './frameStability';
 import type { Combo, ComponentResponse, Context, Element, ElementForce, FrameSystem, LoadCombo } from './voxelResults';
 import type { VoxelMember } from './voxelInput';
-import { verifyLinearResponse } from './voxelVerification';
+import { minimumBucklingFactor, verifyLinearResponse } from './voxelVerification';
 
 interface Component {
   nodes: string[];
@@ -73,7 +73,10 @@ export function componentSystems(ctx: Context, components: Component[], labels: 
       const dofs = [...eq.subarray(6 * a, 6 * a + 6), ...eq.subarray(6 * b, 6 * b + 6)];
       return { ...element, a, b, dofs };
     });
-    return [{ component, active, elements: originals, frame: { NA: active.length, nf, eq, els } }];
+    // Component numbering removes equations in order, so the assembled
+    // model's half-bandwidth is still an upper bound on all local couplings.
+    const bw = Math.min(ctx.bw, Math.max(0, nf - 1));
+    return [{ component, active, elements: originals, frame: { NA: active.length, nf, eq, els, bw } }];
   });
 }
 
@@ -127,7 +130,8 @@ export function solveComponents(
     // combinations retain their existing checks and numerical work budget.
     const checkApplied = combo.type === 'SLS' && combo.dir.every(value => value === 0);
     if (combo.type === 'ULS' || checkApplied) {
-      const critical = checkApplied && elements.some(element => element.cable) ? null : alphaCr(frame, solved);
+      const critical = checkApplied && elements.some(element => element.cable)
+        ? null : alphaCr(frame, solved, checkApplied ? minimumBucklingFactor : undefined);
       if (checkApplied) verificationInputs.push({ scope, system, factor: critical });
       if (combo.type === 'ULS' && critical !== null) {
         alpha = Math.min(alpha, critical);

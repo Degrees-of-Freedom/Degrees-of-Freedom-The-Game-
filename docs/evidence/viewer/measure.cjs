@@ -43,14 +43,17 @@ async function measure() {
           previous = now;
         }
         const times = [];
+        let preview;
         for (let i = 0; i < 25; ++i) {
           const start = performance.now();
           const result = analyzeGame(state().model, { type: "sandbox", q0: 0, loadCase: "applied", budget: Infinity, inv: null });
           if (result.error || !result.combos.length) throw Error(result.error ?? "No analysis");
           if (i >= 5) times.push(performance.now() - start);
+          preview = result;
         }
         const p95 = values => values.sort((a, b) => a - b)[Math.ceil(0.95 * values.length) - 1];
-        return { fixture: id, members: record.memberCount, frameP95ms: p95(intervals), solverP95ms: p95(times) };
+        return { fixture: id, members: record.memberCount, frameP95ms: p95(intervals), solverP95ms: p95(times),
+          freeDofs: preview.ctx.nf, verification: preview.combos[0].components.map(scope => scope.verification) };
       }, fixture);
       measurements.push(row);
     }

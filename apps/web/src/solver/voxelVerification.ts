@@ -26,7 +26,7 @@ const compatibilityLimit = 1e-9;
 // nonlinear verification. The modal screen uses the same amplification boundary
 // as the browser design solver. It is not a critical-load acceptance test.
 const smallMotion = 0.01;
-const minimumBucklingFactor = 10;
+export const minimumBucklingFactor = 10;
 
 function unknown(reason: string): LinearVerification {
   return { formulation, status: 'unverified', reason };

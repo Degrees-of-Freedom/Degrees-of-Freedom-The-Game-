@@ -27,11 +27,11 @@ export function solveCombo(
   const cables = els.filter((e) => e.cable);
   const active = new Map(cables.map((e) => [e, true]));
   let u = new Float64Array(NA * 6),
-    K0 = new Float64Array(nf * nf), solvedDofs: number[] = [];
+    K0 = new Float64Array(0), solvedDofs: number[] = [];
   let converged = false;
   for (let iter = 0; iter < 10; iter++) {
     const K = assemble(ctx, active);
-    K0 = K.slice();
+    K0 = K;
     const Ff = new Float64Array(nf);
     for (let d = 0; d < NA * 6; d++) if (eq[d] >= 0) Ff[eq[d]] += F[d];
     // cable pretension as initial strain: active cables pull their end nodes together
@@ -59,14 +59,22 @@ export function solveCombo(
         if (originalDof[i] % 6 < 3 || Math.abs(Ff[i]) > 1e-10) return { fail: true };
       } else activeDofs.push(i);
     }
-    const n = activeDofs.length, reduced = new Float64Array(n * n), rhs = new Float64Array(n);
+    const n = activeDofs.length;
+    // Removing unused rotations cannot widen a band. Cholesky uses only
+    // the lower triangle and creates no fill outside the original band.
+    const bw = Math.min(ctx.bw, Math.max(0, n - 1));
+    const reduced = n === nf ? K.slice() : new Float64Array(n * n);
+    const rhs = new Float64Array(n);
     solvedDofs = activeDofs;
     for (let i = 0; i < n; i++) {
       rhs[i] = Ff[activeDofs[i]];
-      for (let j = 0; j < n; j++) reduced[i * n + j] = K[activeDofs[i] * nf + activeDofs[j]];
+      if (n !== nf) {
+        const row = activeDofs[i] * nf;
+        for (let j = Math.max(i - bw, 0); j <= i; j++) reduced[i * n + j] = K[row + activeDofs[j]];
+      }
     }
-    if (n && !cholesky(reduced, n, n - 1)) return { fail: true };
-    const solved = n ? cholSolve(reduced, n, rhs, n - 1) : new Float64Array();
+    if (n && !cholesky(reduced, n, bw)) return { fail: true };
+    const solved = n ? cholSolve(reduced, n, rhs, bw) : new Float64Array();
     const x = new Float64Array(nf);
     activeDofs.forEach((dof, i) => { x[dof] = solved[i]; });
     u = new Float64Array(NA * 6);

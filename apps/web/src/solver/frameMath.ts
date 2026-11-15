@@ -69,8 +69,11 @@ export function frameK(
   return k;
 }
 export function trussK(E: number, A: number, L: number) {
+  return axialK(E * A / L);
+}
+/** Two-terminal translational element, in kN/m along its reference axis. */
+export function axialK(a: number) {
   const k = new Float64Array(144);
-  const a = (E * A) / L;
   k[0] = a;
   k[6 * 12 + 6] = a;
   k[6] = -a;
@@ -100,6 +103,20 @@ export function condense(k0: Float64Array, rel: number[]) {
 }
 export function toGlobal(k: Float64Array, R: number[][]) {
   const out = new Float64Array(144);
+  // On a cardinal member the frame transform is a signed permutation. Rotate
+  // every actual entry directly, including bending/torsion couplings.
+  const axes = R.map(row => row.findIndex(value => Math.abs(value) === 1));
+  if (new Set(axes).size === 3 && axes.every((axis, i) =>
+    axis >= 0 && R[i].every((v, j) => j === axis || v === 0))) {
+    for (let p = 0; p < 12; p++) {
+      const a = p % 3, gi = p - a + axes[a];
+      for (let q = 0; q < 12; q++) {
+        const b = q % 3, gj = q - b + axes[b];
+        out[gi * 12 + gj] = R[a][axes[a]] * k[p * 12 + q] * R[b][axes[b]];
+      }
+    }
+    return out;
+  }
   for (let p = 0; p < 4; p++)
     for (let q = 0; q < 4; q++)
       for (let i = 0; i < 3; i++)
@@ -155,22 +172,30 @@ export function gaussSolve(M: number[][], b: number[]) {
   }
   return x;
 }
-// banded Cholesky (dense storage, loops limited to half-bandwidth bw)
+// Right-looking banded Cholesky. A pivot updates only pairs of rows
+// that couple to it, including fill created by earlier pivots. Exact
+// zeros can be skipped without introducing a numerical drop tolerance.
 export function cholesky(A: Float64Array, n: number, bw = n) {
+  const rows = new Int32Array(Math.min(n, bw));
+  const column = new Float64Array(rows.length);
   for (let j = 0; j < n; j++) {
-    const rj = j * n,
-      k0 = Math.max(0, j - bw);
-    let s = A[rj + j];
-    for (let k = k0; k < j; k++) s -= A[rj + k] * A[rj + k];
+    const diagonal = j * n + j;
+    const s = A[diagonal];
     if (!(s > 1e-10)) return false;
     const d = Math.sqrt(s);
-    A[rj + j] = d;
-    const iMax = Math.min(n - 1, j + bw);
-    for (let i = j + 1; i <= iMax; i++) {
-      const ri = i * n;
-      let t = A[ri + j];
-      for (let k = Math.max(k0, i - bw); k < j; k++) t -= A[ri + k] * A[rj + k];
-      A[ri + j] = t / d;
+    A[diagonal] = d;
+    let count = 0;
+    for (let i = j + 1; i < n && i <= j + bw; i++) {
+      const ij = i * n + j;
+      if (A[ij] === 0) continue;
+      A[ij] /= d;
+      column[count] = A[ij];
+      rows[count] = i;
+      count++;
+    }
+    for (let i = 0; i < count; i++) {
+      const row = rows[i] * n, li = column[i];
+      for (let k = 0; k <= i; k++) A[row + rows[k]] -= li * column[k];
     }
   }
   return true;

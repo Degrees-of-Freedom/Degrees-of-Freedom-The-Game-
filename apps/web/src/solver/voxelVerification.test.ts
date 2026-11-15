@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { analyzeVoxel } from './voxel';
 import { solveComponents, findComponents, componentSystems } from './voxelComponents';
 import { verifyLinearResponse } from './voxelVerification';
+import { solveCombo } from './frameSolve';
+import { alphaCr } from './frameStability';
 import type { VoxelLevel, VoxelModel } from './voxelInput';
 import { analyzeTurn } from '../game/turnAnalysis';
 import { createTurnGame } from '../game/turns';
@@ -29,6 +31,28 @@ function beam(station: number): VoxelModel {
 }
 
 describe('applied linear frame verification', () => {
+  it('preserves the conservative design-factor cutoff on both sides of the preview threshold', () => {
+    const model: VoxelModel = {
+      members: [{ id: 1, a: '0,0,0', b: '0,0,1', endA: 'fixed', endB: 'fixed', type: 'shs' }],
+      attrs: {
+        '0,0,0': { found: true },
+        '0,0,1': { found: true, restraint: [false, true, true, true, true, true] },
+      }, nextId: 2,
+    };
+    const ctx = analyzeVoxel(model, appliedOnly).ctx!;
+    const solved = solveCombo(ctx, new Float64Array(ctx.NA * 6));
+    if ('fail' in solved) throw Error('Expected a stable elastic stiffness');
+    const e = ctx.els[0];
+    // One free transverse translation yields K + lambda (6 N / 5L).
+    for (const critical of [0.75, 9.99, 10.001, 10.25, 128, 200]) {
+      solved.ef.get(e)!.f[6] = -solved.K0[0] * 5 * e.L / (6 * critical);
+      const design = alphaCr(ctx, solved)!;
+      const screened = alphaCr(ctx, solved, 10);
+      expect(screened !== null).toBe(design >= 10);
+      expect(design >= 10).toBe(critical >= 10.25);
+    }
+  });
+
   it.each([1, 2, 3])('recovers the analytic support split at station %i of four', station => {
     const result = analyzeVoxel(beam(station), appliedOnly);
     const ctx = result.ctx!, combo = result.combos[0];
