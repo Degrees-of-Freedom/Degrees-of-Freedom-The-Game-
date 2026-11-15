@@ -31,7 +31,7 @@ const scoredTypes = ['shs', 'glulam', 'ipe', 'heb'] as const;
 /** Plain member names for gameplay. Technical section printings remain in
  * the property inspector; a vertical beam is the same physical member. */
 export function memberName(type: MemberType) {
-  const names: Record<MemberType, string> = {heb: 'Wide beam', ipe: 'Steel beam', shs: 'Square tube',
+  const names: Record<MemberType, string> = {heb: 'Beam / column', ipe: 'Steel beam', shs: 'Square tube',
     chs: 'Round tube', glulam: 'Timber beam', cable: 'Cable', spring: 'Spring'};
   return names[type];
 }
