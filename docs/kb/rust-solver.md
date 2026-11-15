@@ -91,6 +91,22 @@ WebAssembly cannot be interrupted from inside, so the adapter (`runner.ts`) runs
 
 Checked once by hand in the desktop app's built-in Chromium browser through the Vite dev server: a 1,344-member nonlinear frame took 4.7 s while the page's 10 ms timer kept firing (466 ticks); a 100 ms limit stopped the same frame after about 170 ms and the next call succeeded on a fresh worker; an abort after 150 ms rejected after 154 ms. The unit tests use a stand-in worker that runs the real module in-process.
 
+## Numeric range and work budget
+
+Added to match the guards in Tal's OpenSees work (`services/opensees/tests/test_numeric_range.py` on main), so both solvers treat extreme input the same way. Tests are in `crates/dof-solver/tests/numeric_range.rs`.
+
+- **Rejected before analysis, as `invalid` with reason `numericRange`:**
+  - point loads on a node whose total overflows a double;
+  - a member whose span, squared, overflows;
+  - a beam whose element stations would coincide at the precision of its coordinates, for example 2 m in 8 pieces at x = 1e16;
+  - a section whose stiffness coefficients overflow or underflow (EA, EA/L, GJ, EI, 12EI/L³), or a cable whose force at its built length does;
+  - self-weight that overflows.
+- **Exact load sums.** Point loads on a node are added exactly (the algorithm of Python's `math.fsum`), so 1e308 + 3 − 1e308 leaves exactly 3.
+- **Moment balance about the structure.** The equilibrium check takes moments about the centroid of the nodes, not the origin, so a structure far from the origin (tested up to 1e9 m) still verifies.
+- **Request-wide work budget.** `maxRequestIterations` (default 2,000 Newton iterations) is shared by every component and failure event of a request, in a fixed order, on top of the per-component limit (`maxTotalIterations`, default 400). Parts left without budget report `unknown` with `iterationLimit`; the analysis lists `requestIterationLimit`. Parts already analysed keep their verified results, and the same request gives the same answer on any machine.
+
+Tal's always-on 10,000-state run and 2-to-4-support load-sharing tests already had Rust equivalents (`robustness.rs`, `stability.rs`); load sharing is now also checked in the nonlinear analysis.
+
 ## Coverage of the criteria
 
 "Met" means implemented with a passing test that exercises it. It is a claim about this code and its tests, not owner acceptance.
@@ -113,7 +129,7 @@ Checked once by hand in the desktop app's built-in Chromium browser through the 
 | A05 bounded recovery | Met | Shifted tangent, energy line search, adaptive load increments, iteration limits. No verified conclusion gives `unknown`. |
 | A06 component isolation | Met | Each component is a separate system. |
 | A07 verification | Met | Residual, global force balance and global moment balance are gated at run time. Cable states follow from the deformed length. Nothing is stabilised artificially, so no artificial reaction exists. |
-| A08 robustness | Met in the browser | Invalid input, singular systems, extreme stiffness ratios and non-finite numbers give explicit results. The solver bounds itself by iteration counts; the browser adapter adds a wall-clock limit (`timeLimitExceeded`) and cancellation by terminating its worker. In Node the module runs inline and has only the iteration limits. |
+| A08 robustness | Met in the browser | Invalid input, singular systems, extreme stiffness ratios and non-finite numbers give explicit results. Finite inputs whose products leave the range of a double are rejected as `numericRange` before analysis (see [Numeric range and work budget](#numeric-range-and-work-budget)). The solver bounds itself by iteration counts, per component and for the whole request; the browser adapter adds a wall-clock limit (`timeLimitExceeded`) and cancellation by terminating its worker. In Node the module runs inline and has only the iteration limits. |
 | Section 4 turn resolution | Integrated in Grow Dusk release | The transaction computes immutable before/after responses from undeformed geometry with the full current load set. The game records responsibilities and signed reactions, then regenerates and compares its scored receipt on replay. |
 | Section 5 result contract | Implemented | Explicit component availability, signed foundation reactions, node motion, member forces and connection results. Beam members also report deflection stations and the largest sag from the chord. The release requests section-force and displacement fields and computes player attraction from verified positive vertical reactions. |
 | Section 6 speed and surrogate | Partly | Timings below. No surrogate exists. The benchmark is one synthetic frame at two sizes on one machine, not a representative suite of game states. |
@@ -121,7 +137,7 @@ Checked once by hand in the desktop app's built-in Chromium browser through the 
 
 ## Acceptance evidence
 
-Run with `npm run test:solver`. The 15 November 2026 run passed 72 native tests with one timing harness ignored. The 10,000 generated states form one of those tests.
+Run with `npm run test:solver`. The 15 November 2026 suites covered 72 tests on the release branch and 77 tests on the upstream branch before combining the independent regressions. The 10,000 generated states form one test. One timing harness is opt-in.
 
 | Acceptance row | Tests (`crates/dof-solver/tests`) | Measured |
 | --- | --- | --- |

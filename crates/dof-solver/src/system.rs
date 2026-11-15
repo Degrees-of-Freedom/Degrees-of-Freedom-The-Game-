@@ -304,13 +304,26 @@ impl System {
         rotation_used.resize(anodes.len(), true);
 
         let mut moment_on_unused = Vec::new();
+        // Point loads are summed exactly per node, with anything already
+        // there (self-weight, member loads), so that equal and opposite
+        // extreme loads keep their remainder.
+        let mut point: BTreeMap<usize, Vec<[f64; 6]>> = BTreeMap::new();
+        for load in &model.loads {
+            let n = index.node[load.node_id.as_str()];
+            if let Some(&a) = local.get(&n) {
+                point.entry(a).or_default().push([load.force[0], load.force[1], load.force[2], load.moment[0], load.moment[1], load.moment[2]]);
+            }
+        }
+        for (&a, loads) in &point {
+            for i in 0..6 {
+                let mut values = vec![fext[a][i]];
+                values.extend(loads.iter().map(|l| l[i]));
+                fext[a][i] = crate::model::exact_sum(&values);
+            }
+        }
         for load in &model.loads {
             let n = index.node[load.node_id.as_str()];
             let Some(&a) = local.get(&n) else { continue };
-            for i in 0..3 {
-                fext[a][i] += load.force[i];
-                fext[a][3 + i] += load.moment[i];
-            }
             if !rotation_used[a] && load.moment.iter().any(|v| *v != 0.0) && !moment_on_unused.contains(&n) {
                 moment_on_unused.push(n);
             }

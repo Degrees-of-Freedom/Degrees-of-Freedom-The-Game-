@@ -513,11 +513,16 @@ fn tangent_stable(sys: &System, converged: &Converged, load: &[f64]) -> bool {
 /// structure in equilibrium.
 fn imbalance(sys: &System, eval: &Eval, state: Option<&State>, lam: f64) -> (f64, f64) {
     let (mut force, mut moment) = ([0.0; 3], [0.0; 3]);
+    // Moments are taken about the centroid of the nodes, not the origin, so
+    // that a structure far from the origin keeps the precision of its check.
+    let count = sys.anodes.len().max(1) as f64;
+    let centroid = sys.anodes.iter().fold([0.0; 3], |c, n| add(&c, &n.pos)).map(|v| v / count);
     for (a, node) in sys.anodes.iter().enumerate() {
         let total: [f64; 6] = std::array::from_fn(|i| if node.eq[i] == RESTRAINED { eval.g[a][i] } else { lam * sys.fext[a][i] });
+        let offset = sub(&node.pos, &centroid);
         let position = match state {
-            Some(s) => add(&node.pos, &s.u[a]),
-            None => node.pos,
+            Some(s) => add(&offset, &s.u[a]),
+            None => offset,
         };
         let arm = cross(&position, &[total[0], total[1], total[2]]);
         for i in 0..3 {
@@ -684,7 +689,9 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
                 let dof = converged.factor.inertia.negative[0];
                 out.modes.push(Mode { kind: "buckling", shape: converged.factor.pivot_vector(dof) });
                 if options.critical_load_search {
-                    out.critical_load_factor = critical_load(sys, &f, &linear.nulls.gauge, options, lam);
+                    let (factor, used) = critical_load(sys, &f, &linear.nulls.gauge, options, lam);
+                    out.critical_load_factor = factor;
+                    out.iterations += used;
                 }
             } else if !tangent.translational.is_empty() {
                 out.status = Status::Unstable;
@@ -756,8 +763,14 @@ fn finish(sys: &System, options: &Options, out: &mut Outcome, solution: Solution
 
 /// Load factor at which the fundamental equilibrium path first loses
 /// stability, found by bisection between zero and the applied factor.
-fn critical_load(sys: &System, f: &[f64], gauge: &[usize], options: &Options, lam: f64) -> Option<f64> {
+/// Returns the factor, if found, and the Newton iterations the search used.
+fn critical_load(sys: &System, f: &[f64], gauge: &[usize], options: &Options, lam: f64) -> (Option<f64>, u32) {
     let mut newton = Newton { sys, f, gauge, options, stiffness: sys.stiffness(), carry: None, iterations: 0, budget: options.max_total_iterations };
+    let factor = critical_load_with(&mut newton, sys, f, lam);
+    (factor, newton.iterations)
+}
+
+fn critical_load_with(newton: &mut Newton, sys: &System, f: &[f64], lam: f64) -> Option<f64> {
     let stable_at = |newton: &mut Newton, fraction: f64| -> Option<bool> {
         let mut state = sys.reference();
         let load: Vec<f64> = f.iter().map(|v| v * fraction * lam).collect();
@@ -766,13 +779,13 @@ fn critical_load(sys: &System, f: &[f64], gauge: &[usize], options: &Options, la
             Err(_) => None,
         }
     };
-    if stable_at(&mut newton, 0.0)? == false {
+    if stable_at(newton, 0.0)? == false {
         return None;
     }
     let (mut low, mut high) = (0.0, 1.0);
     for _ in 0..12 {
         let middle = 0.5 * (low + high);
-        match stable_at(&mut newton, middle) {
+        match stable_at(newton, middle) {
             Some(true) => low = middle,
             Some(false) => high = middle,
             None => return None,

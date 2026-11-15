@@ -100,10 +100,10 @@ The beam's strain energy is written once. Automatic differentiation gives the in
 | Equilibrium tolerance, validity gate | `1e-9`, `1e-5` normalised (options) | `model.rs` |
 | Excessive displacement | 10 % of the bounding-box diagonal (option) | `model.rs` |
 | Stability margin | 1.25 (option) | `model.rs` |
-| Iterations per load step, per component | 40, 400 (options) | `model.rs` |
+| Iterations per load step, per component, per request | 40, 400, 2,000 (options) | `model.rs` |
 | Model size | 5,000 nodes, 10,000 members | `model.rs` |
 
-Residuals are normalised by the larger of the applied load and the largest element force, with moments divided by the mean member length. The iteration limits are the solver's own work limit: they are counts, not wall-clock time, so a state always gives the same answer. The wall-clock limit is the browser adapter's, which stops the worker; a timed-out run has no answer, not a different one.
+Residuals are normalised by the larger of the applied load and the largest element force, with moments divided by the mean member length and taken about the centroid of the nodes. Inputs whose derived numbers would leave the range of a double are rejected as `numericRange` before analysis. The iteration limits are the solver's own work limit: they are counts, not wall-clock time, so a state always gives the same answer. The wall-clock limit is the browser adapter's, which stops the worker; a timed-out run has no answer, not a different one.
 
 ## Not modelled
 
