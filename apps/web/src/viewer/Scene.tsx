@@ -19,6 +19,9 @@ import { drawBoardDiagram } from "./boardDiagrams";
 import { buildStructure } from "./structureMeshes";
 import { bindSceneInteraction } from "./sceneInteraction";
 import { selectedTurnCard } from "./turnPicking";
+import { placementCandidates } from "../game/cantileverPlacement";
+import { attachmentQuarter } from "../game/attachmentSites";
+import { targetCoordinate } from "../game/turnPorts";
 import { poseSection, wideFlangeGeometry } from "./sectionGeometry";
 import { assemblyGeometry } from "./assemblyGeometry";
 import { springGeometry } from "./springGeometry";
@@ -632,7 +635,22 @@ export function Scene({
       const lengthLabel = labels?.querySelector<HTMLElement>("#growth-length");
       if (lengthLabel) {
         const role = target?.role ?? null;
-        if (target && role && chainPoint && stickGhost.visible) {
+        const chosenTip = state.mode === "multiplayer" && state.placementTip ? placementCandidates(state).find(candidate => candidate.key === state.placementTip) : undefined;
+        let turnHover = hover;
+        if (chosenTip && !turnHover) {
+          const a = parseNodeKey(targetCoordinate(state.model.members, chosenTip.a)), b = parseNodeKey(targetCoordinate(state.model.members, chosenTip.b));
+          const total = CELL_SIZE * Math.hypot(...a.map((value, axis) => b[axis] - value)), q = attachmentQuarter(state.attachmentSite)/4;
+          turnHover = {p: chosenTip.point, issue: null, role: null, stack: `${trimLength(total)} m total · ${trimLength(total*q)} m / ${trimLength(total*(1-q))} m from attachment · free tips`};
+        }
+        if (state.mode === "multiplayer" && turnHover && state.chainStart && selectedTurnCard(state)?.kind === "element") {
+          const at = toScreen(new THREE.Vector3(...turnHover.p).multiplyScalar(CELL_SIZE));
+          const text = lengthLabel.querySelector("span"), detail = lengthLabel.querySelector("small"), dot = lengthLabel.querySelector<HTMLElement>("i");
+          if (text) text.textContent = turnHover.issue ? "Choose another span" : "New element";
+          if (detail) detail.textContent = turnHover.issue ?? turnHover.stack;
+          if (dot) dot.style.background = turnHover.issue ? "#e75151" : "#f6ad49";
+          lengthLabel.style.display = at.ok ? "" : "none";
+          lengthLabel.style.transform = `translate(${Math.max(8, Math.min(width - 250, Math.round(at.x + 20)))}px, ${Math.max(8, Math.round(at.y - 34))}px)`;
+        } else if (target && role && chainPoint && stickGhost.visible) {
           const at = toScreen(
             new THREE.Vector3(...target.p).multiplyScalar(CELL_SIZE),
           );

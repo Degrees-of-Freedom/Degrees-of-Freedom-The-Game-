@@ -8,6 +8,8 @@ export interface SceneHover {
   role: "column" | "beam" | "brace" | null;
   /** For example "2 of 3 overlapping" when several targets share a pixel. */
   stack: string;
+  /** Full proposed parent geometry for Shared table's pinned-point preview. */
+  span?: {a: GridPoint; b: GridPoint};
 }
 import type { JointLayer } from "./jointGlyphs";
 import type { DeformationField } from "./deformationField";

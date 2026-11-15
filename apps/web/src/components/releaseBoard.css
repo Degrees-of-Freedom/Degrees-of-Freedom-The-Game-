@@ -31,6 +31,9 @@
 .release-stage { position: relative; overflow: hidden; min-height: 0; isolation: isolate; }
 .release-stage > .scene, .release-stage > .scene-host, .release-stage > [class^="scene-wrap"] { position: absolute; inset: 0; width: 100%; height: 100%; }
 .release-stage canvas { display: block; }
+.release-board #growth-length { position: absolute; left: 0; top: 0; max-width: min(28rem, calc(100% - 1rem));
+  padding: .45rem .7rem; border: 1px solid #918369; border-radius: .55rem; color: var(--ink); background: #14212cf2; font-size: .85rem; }
+.release-board #growth-length small { display: block; margin-top: .15rem; color: var(--muted); }
 .release-stage .scene-fallback { max-width: min(95%, 32rem); margin: 1rem auto; padding: 1rem; border: 1px solid var(--edge); background: var(--surface); border-radius: .75rem; }
 .release-stage [aria-label="Camera controls"] button { background: #19252eef; color: var(--ink); min-width: 44px; }
 .release-stage .scene-axes { position: absolute; left: .75rem; bottom: 4rem; width: 58px; height: 58px; pointer-events: none; }

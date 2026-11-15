@@ -41,6 +41,7 @@ let cache: {
 export function growthTargets(state: GameState): ReadyTarget[] {
   const type = state.tool as MemberType;
   if (
+    state.mode === "multiplayer" ||
     !isGrowthStyle(state.style) ||
     !state.chainStart ||
     !MEMBER_TYPES.includes(type)

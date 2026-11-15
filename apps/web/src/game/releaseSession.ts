@@ -152,7 +152,8 @@ class ReleaseSession {
     return null;
   }
   private view(turn: TurnState) {
-    return { turn, model: projectTurnModel(turn), selectedCardId: null, selectedConnectionProfile: undefined, selected: null, chainStart: null };
+    return { turn, model: projectTurnModel(turn), selectedCardId: null, selectedConnectionProfile: undefined, selected: null, chainStart: null,
+      attachmentSite: "a" as const, placementTip: null, placementPlane: "horizontal" as const };
   }
   private setCandidate(turn: TurnState, phase: MatchPhase, matchId?: string) {
     const record = matchRecord(turn, this.record, phase, matchId);
