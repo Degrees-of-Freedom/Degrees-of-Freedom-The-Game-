@@ -105,7 +105,13 @@ All numbers are from this branch on one machine and are not a benchmark.
 - Training takes about 35 s for 400 episodes on `single`.
 - A policy trained on `single` does not transfer zero-shot to `pickup1`: it keeps building and spends 6,120 against a 3,000 budget without solving.
 
-Three-weight (`pickup1`), 640 episodes, seed 1, one run each (20 held-out episodes): trained from scratch and warm-started from the `single` policy both solved **0%** (random also 0%). Greedy checks every 40 episodes never solved it either. Mean reward improved from −0.52 (random) to about −0.1, so the agents learn something (they connect weights and fix mechanisms with joints), but not the goal. Inspecting the warm-start policy showed it places all four foundations early, builds diagonal members that leave mechanisms and exhausts supply. Likely causes, untested: the foundation features cannot tell a weight that already has a foundation from one that does not, and 640 episodes is small for 37-step episodes. Each run took about 5 minutes of training after a slow start; larger budgets and more seeds are the obvious next experiment.
+Three-weight (`pickup1`) is **not solved**. Three rounds, each with one from-scratch and one to three warm-started runs (20 held-out episodes each), all solved 0% (random also 0%):
+
+1. 640 episodes: the policy placed all four foundations early, built diagonals that stayed mechanisms and exhausted supply.
+2. After adding `foundationRedundant` (1,200 episodes, 3 warm-start seeds + 1 from scratch): the agents connect all three weights in 5 steps for about 1,340, but never add the joints, so the structure stays a mechanism.
+3. After grading the stability reward by the share of unstable nodes (same setup): still 0%. The final policy has every joint feature negative (for example `jointOnSupportedWhileMechanism` −0.3, `jointAtWeight` −1.1) and `memberWhileMechanism` +0.9, so it keeps adding members. Warm-starting from the `single` policy, which had joint weights positive, did not preserve them.
+
+The level itself is solvable with the same actions: a foundation, a glulam column and a base joint under each weight, 9 steps, cost 1,980 (checked in the environment). Current diagnosis, not yet tested: success is never seen while sampling, so the only joint signal is shaping, and with about ten candidate nodes only one or two joints are right at any time, so the average joint looks harmful and its weights drift negative. Next experiments, in the order I would try them: a two-weight curriculum scenario; a feature that marks a joint at a foundation node that already has a member; seeding training with the scripted solution (imitation or replay) to show the learner a success; more seeds.
 
 ## Limitations and open questions
 
