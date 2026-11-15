@@ -90,6 +90,8 @@ export interface TurnState {
   playerIndex: number;
   players: TurnPlayer[];
   decks: [TurnCard[], TurnCard[]];
+  /** Private, replay-checked receipts. The opening draw is turn one's ordinary draw. */
+  draws?: { turn: number; playerId: string; pieces: string[]; connectors: string[]; remaining: [number, number] }[];
   nextId: number;
   draft: Placements;
   board: Board;
@@ -143,13 +145,16 @@ function createDecks(seed: number, catalogue: CatalogueId): TurnState["decks"] {
 }
 
 function draw(state: TurnState): TurnState {
-  const received = [
-    ...state.decks[0].slice(0, 2),
-    ...state.decks[1].slice(0, 2),
-  ];
+  const pieces = state.decks[0].slice(0, 2), connectors = state.decks[1].slice(0, 2);
+  const received = [...pieces, ...connectors];
+  const decks: TurnState["decks"] = [state.decks[0].slice(2), state.decks[1].slice(2)];
+  const release = state.catalogue === RELEASE_CATALOGUE;
+  if (release && received.length !== 4) throw new Error("Private deck cannot supply the required turn draw.");
   return {
     ...state,
-    decks: [state.decks[0].slice(2), state.decks[1].slice(2)],
+    decks,
+    ...(release && {draws: [...(state.draws ?? []), {turn:state.turn, playerId:state.players[state.playerIndex].id,
+      pieces:pieces.map(c => c.id), connectors:connectors.map(c => c.id), remaining:[decks[0].length,decks[1].length] as [number,number]}]}),
     players: state.players.map((player, i) =>
       i === state.playerIndex
         ? { ...player, hand: [...player.hand, ...received] }
@@ -453,6 +458,25 @@ export function endTurn(
   return commitTurn(state, expectedTurn, status, undefined, analysis);
 }
 
+/** Recheck the frozen player operations against the committed board, hand and
+ * per-turn limits before any analysis can produce a receipt or spend a card. */
+function validateReleaseDraft(state: TurnState): string | null {
+  const count = state.draft.members.length + state.draft.connections.length + state.draft.loads.length;
+  if (count > 4) return "The draft exceeds the turn's card allowances.";
+  const boundary = state.events.length - count;
+  if (boundary < 0 || (boundary > 0 && state.events[boundary-1].kind !== "end"))
+    return "The draft does not match this turn’s staged actions.";
+  let rebuilt = {...state, nextId: state.nextId - state.draft.members.length, draft: emptyDraft(), events: state.events.slice(0,boundary)};
+  for (const event of state.events.slice(boundary)) {
+    if (event.kind === "end") return "The draft includes an already completed turn.";
+    const checked = replayEvent(rebuilt,event);
+    if (!checked?.ok) return checked?.reason ?? "Invalid staged action.";
+    rebuilt = checked.state;
+  }
+  return matchesIssueEvidence(rebuilt.draft,state.draft) && rebuilt.nextId === state.nextId ? null :
+    "The draft changed. Restore the last confirmed revision.";
+}
+
 function commitTurn(
   state: TurnState,
   expectedTurn: number,
@@ -462,6 +486,10 @@ function commitTurn(
 ): Transition {
   if (state.finished || expectedTurn !== state.turn)
     return fail("This turn has already ended.");
+  if (state.catalogue === RELEASE_CATALOGUE) {
+    const invalid = validateReleaseDraft(state);
+    if (invalid) return fail(invalid);
+  }
   if (isScoredCatalogue(state.catalogue)) {
     const occupied = [...state.board.members];
     for (const member of state.draft.members) {

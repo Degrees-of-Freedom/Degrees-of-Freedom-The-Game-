@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { connectionChoices, createReleaseDecks, RELEASE_CATALOGUE, resolveCardDefinition } from './cardCatalogue';
-import { activeTurnHand, boardLimits, cancelTurnDraft, createTurnGame, parseTurnState, stageConnection, stageElement, stageLoad, type TurnCard, type TurnState } from './turns';
+import { activeTurnHand, boardLimits, cancelTurnDraft, createTurnGame, endTurn, parseTurnState, stageConnection, stageElement, stageLoad, type TurnCard, type TurnState } from './turns';
 import { analysisLoadJoint, loadTargets, turnJoints } from './turnPorts';
 
 function accept(result: ReturnType<typeof stageElement>) {
@@ -103,6 +103,9 @@ describe('grow-dusk-release-1 rules', () => {
     const staged = accept(stageElement(state, card.id, '5,7,1', '6,7,1'));
     expect(parseTurnState(JSON.parse(JSON.stringify(staged)))).toEqual(staged);
     expect(parseTurnState({...staged, decks: [[],[]]})).toBeNull();
+    const changed = structuredClone(staged);
+    changed.draft.members[0].owner = 'player-2';
+    expect(endTurn(changed).ok).toBe(false);
     expect(parseTurnState({...state, events:[{kind:'end',turn:1,status:'stable'}]})).toBeNull();
   });
 });
