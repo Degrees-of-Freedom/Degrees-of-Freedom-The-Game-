@@ -507,9 +507,10 @@ export function Workspace() {
         <SceneBoundary release><Scene publicOnly cameraMemory={cameraMemory.current} still result={null} combo={0}
           deformed={false} scale={1} utilization={false} loads={false} loadPath={false} /></SceneBoundary>
       </div>
-      {saveCovered ? <SessionRecovery soft /> : <SharedTableHandoff player={privateTurn.playerIndex + 1} onReady={() => {
+      <SharedTableHandoff player={saveCovered && game.sessionSave === "committing" ? (privateTurn.playerIndex + 1) % privateTurn.players.length + 1 : privateTurn.playerIndex + 1}
+        preparing={saveCovered} finishing={saveCovered && release && privateTurn.turn === 16} onReady={() => {
         if (!paused && !document.hidden) setReadyBoard(privateTurn.board);
-      }} />}
+      }} />
       {pauseMenu}
     </>
   );
