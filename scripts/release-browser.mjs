@@ -10,6 +10,9 @@ import { preview } from "vite";
 import { testOperationalCases } from "./release-faults.mjs";
 
 const root = fileURLToPath(new URL("../apps/web/", import.meta.url));
+const input = process.env.DOF_INPUT || "pointer";
+assert.ok(["pointer", "keyboard", "touch"].includes(input), "Expected pointer, keyboard or touch");
+const viewport = input === "touch" ? {width:1024,height:768} : {width:1366,height:900};
 const output = resolve(process.env.DOF_EVIDENCE_DIR ?? ".venv/release-evidence");
 const first = Number(process.env.DOF_FIRST_SEED ?? 0), last = Number(process.env.DOF_LAST_SEED ?? 19);
 assert.ok(Number.isInteger(first) && Number.isInteger(last) && first >= 0 && last >= first);
@@ -27,7 +30,7 @@ try {
   const binary = await (await fetch(new URL("assets/"+build.solverFile,base))).arrayBuffer();
   assert.equal(createHash("sha256").update(Buffer.from(binary)).digest("hex"),build.solverSha256);
   const evidence = { ...build,
-    browser: browser.version(), viewport:[1366,900], matches:[] };
+    browser: browser.version(), viewport:[viewport.width,viewport.height], matches:[] };
   if (process.argv.includes("--faults")) {
     const checks = await testOperationalCases(browser,base,saved);
     console.log(checks.join("\n"));
@@ -60,8 +63,8 @@ async function saved(page) {
 }
 
 async function match(seed, passOnly) {
-  const keyboard = process.env.DOF_INPUT === "keyboard";
-  const context = await browser.newContext({viewport:{width:1366,height:900},deviceScaleFactor:1,
+  const keyboard = input === "keyboard";
+  const context = await browser.newContext({viewport,deviceScaleFactor:1,hasTouch:input === "touch",
     reducedMotion:keyboard ? "reduce" : "no-preference"});
   const page = await context.newPage();
   page.setDefaultTimeout(12_000);
@@ -84,6 +87,7 @@ async function match(seed, passOnly) {
     throw Error("Control outside the keyboard focus order: "+await control.textContent());
   }
   async function activate(control) {
+    if (input === "touch") return control.tap();
     if (!keyboard) return control.click();
     await reach(control); await page.keyboard.press("Enter");
   }
@@ -191,7 +195,7 @@ async function match(seed, passOnly) {
     assert.deepEqual((await saved(page)).turn.finalScore,final.turn.finalScore);
     assert.equal(await tray.count(),0);
     assert.deepEqual(errors,[]);
-    const record={seed,passOnly,input:keyboard ? "keyboard" : "pointer",actions, version:final.rules, solver:final.solver,
+    const record={seed,passOnly,input:input === "touch" ? "touch-emulated" : input,actions, version:final.rules, solver:final.solver,
       assessments:final.turn.reports.map(({status,penalty})=>({status,penalty})),
       repairObjects: final.turn.board.members.filter(m=>m.system).length, gravityKN:final.turn.finalScore.totalGravityKN,
       partial:final.turn.finalScore.partial, awards:final.turn.finalScore.awards, winners:final.turn.finalScore.winners,
