@@ -7,7 +7,7 @@ import {
   activeTurnHand, createTurnGame, endTurn, parseTurnState, stageConnection,
   stageElement, stageLoad, type TurnState,
 } from "./turns";
-import { RELEASE_SOLVER } from "../solver/voxelVerification";
+import { RELEASE_SOLVER } from "../evaluator/evidence";
 
 beforeAll(() => prepareReleaseSolver(() => readFile(new URL("../solver/wasm/dof_solver.wasm", import.meta.url))));
 

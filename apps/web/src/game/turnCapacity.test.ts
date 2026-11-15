@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { analyzeTurn } from './turnAnalysis';
 import { createTurnGame, type TurnState } from './turns';
 import type { MemberType } from './model';
-import type { CapacityCheck } from '../solver/voxelCapacity';
+import type { CapacityCheck } from '../evaluator/capacity';
 
 function verified(check: CapacityCheck) {
   expect(check.status).toBe('verified');
@@ -31,8 +31,12 @@ describe('Shared table card-strength-1 evidence', () => {
     const check = verified(result.capacity!.members[1]);
     // 2 m cantilever. The printed bending strength is 15.4 MPa and Wy = 5333 cm³.
     expect(check.station).toBe(0);
-    expect(Math.abs(check.actions.My)).toBeCloseTo(2 * load, 8);
-    expect(check.utilization).toBeCloseTo(2 * load / (5.333e-3 * 15400), 8);
+    // Nonlinear: the lever arm shortens as the tip deflects, by (δ/L)² order
+    // (about 3e-7 at 5 kN, 3e-5 at 50 kN).
+    expect(Math.abs(check.actions.My) / (2 * load) - 1).toBeLessThan(0);
+    expect(Math.abs(check.actions.My) / (2 * load)).toBeGreaterThan(1 - 1e-4);
+    // The interaction also includes the small axial force of the bent shape.
+    expect(Math.abs(check.utilization / (2 * load / (5.333e-3 * 15400)) - 1)).toBeLessThan(1e-3);
     expect(check.utilization > 1.001).toBe(load === 50);
     const connection = verified(result.capacity!.connections['1:b']);
     expect(connection.utilization).toBeCloseTo(load / 350, 9);
@@ -61,12 +65,12 @@ describe('Shared table card-strength-1 evidence', () => {
     state.board.loads[0].jointId = '1,1,0';
     const report = analyzeTurn(state, 'card-gravity').capacity!;
     const root = verified(report.members[1]);
-    expect(Math.abs(root.actions.T)).toBeCloseTo(0.2, 8);
-    expect(Math.abs(root.actions.My)).toBeCloseTo(0.2, 8);
+    expect(Math.abs(root.actions.T)).toBeCloseTo(0.2, 5);
+    expect(Math.abs(root.actions.My)).toBeCloseTo(0.2, 5);
     const normal = 0.2/(1.678e-3 * 355000);
     const shear = 0.1/(0.00474 * 205000) + 0.2/18;
-    expect(root.utilization).toBeCloseTo(Math.hypot(normal, shear), 8);
-    expect(verified(report.connections['1:a']).utilization).toBeCloseTo(Math.hypot(0.1/700, Math.hypot(0.2, 0.2)/220), 8);
+    expect(Math.abs(root.utilization / Math.hypot(normal, shear) - 1)).toBeLessThan(1e-5);
+    expect(Math.abs(verified(report.connections["1:a"]).utilization / Math.hypot(0.1/700, Math.hypot(0.2, 0.2)/220) - 1)).toBeLessThan(1e-5);
   });
 
   it('maps the critical cut to the dealt parent and never treats internal continuity as a card', () => {
@@ -81,10 +85,10 @@ describe('Shared table card-strength-1 evidence', () => {
     expect(Object.keys(report.connections).sort()).toEqual(['1:a', '1:b', '2:a']);
     const root = verified(report.members[1]);
     expect(root.station).toBe(0);
-    expect(Math.abs(root.actions.My)).toBeCloseTo(5, 9);
+    expect(Math.abs(root.actions.My)).toBeCloseTo(5, 5);
   });
 
-  it('preserves valid neighbours and withholds unsupported, singular, cable or slender capacities', () => {
+  it('preserves valid neighbours and withholds unsupported, singular or slack-cable capacities', () => {
     const state = cantilever('glulam', '1,0,0', 5);
     const cases: [MemberType, string, string, 'fixed' | 'ball', boolean][] = [
       ['shs', '2,0,0', '2,0,1', 'fixed', false],
@@ -103,11 +107,15 @@ describe('Shared table card-strength-1 evidence', () => {
     }
     const report = analyzeTurn(state, 'card-gravity').capacity!;
     expect(report.members[1].status).toBe('verified');
-    for (const id of [2, 3, 4, 5]) {
+    for (const id of [2, 3, 4]) {
       for (const check of [report.members[id], report.connections[`${id}:a`]]) {
-        expect(check.status).toBe('unavailable');
+        expect(check.status, `member ${id}: ${JSON.stringify(check)}`).toBe('unavailable');
         expect(check).not.toHaveProperty('utilization');
       }
     }
+    // The unloaded 16 m column: the legacy linear kernel withheld it because a
+    // linear response needs a buckling factor of 10. The nonlinear Rust
+    // response needs no such screen; it is verified at zero actions.
+    expect(report.members[5]).toMatchObject({ status: 'verified', utilization: 0 });
   });
 });

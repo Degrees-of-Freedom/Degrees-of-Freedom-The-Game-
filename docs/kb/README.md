@@ -24,6 +24,7 @@ validated_against:
   - docs/kb/development-and-testing.md
   - docs/kb/visualization-criteria.md
   - docs/kb/cantilever-placement.md
+  - docs/kb/structure-gan.md
 owner: unknown
 status: partial
 ---
@@ -34,9 +35,11 @@ status: partial
 
 **Play** opens the versioned, two-player Grow Dusk match. New matches use `grow-dusk-release-2`, adding fixed source collars at a continuous frame's original quarter or midpoint; existing v1 matches keep their rules and card printings. More modes → Shared table exposes the same fresh cantilever preset alongside historical catalogues. Its turn worker uses in-browser Rust/WASM and commits `/match` through IndexedDB. The operating instructions and acceptance status are in the [release runtime](grow-dusk-runtime.md), [cantilever placement](cantilever-placement.md) and [criteria ledger](criteria-ledger.md). The playtest descriptions below document the preceding presets and secondary modes.
 
-The secondary workspaces retain their playable presets, editor and earlier environment implementations. The editor can request linear or bounded nonlinear analysis through the OpenSees adapter. The [criteria ledger](criteria-ledger.md) records the current Shared table findings separately from the earlier preset walkthroughs.
+The secondary workspaces retain their playable presets, editor and earlier environment implementations. New analysis uses the Rust-backed structure evaluator; the legacy voxel kernel remains only for older saved playtest replay. The editor can also request linear or bounded nonlinear structural checks through the OpenSees adapter. The [criteria ledger](criteria-ledger.md) records the current Shared table findings separately from the earlier preset walkthroughs.
 
 ## Pages
+
+The app's `/wiki` companion offers six introductory lessons, a searchable glossary and exercises linking to the existing workspace. Its frame graphic is illustrative, not solver output. The wiki is an introductory foundation rather than an exhaustive engineering reference; see [Rust solver](rust-solver.md), [structural solver](structural-solver.md), and [unified runtime](unified-runtime.md) for implementation and limitations.
 
 | Page | Use this when |
 | --- | --- |
@@ -47,11 +50,12 @@ The secondary workspaces retain their playable presets, editor and earlier envir
 | [code-standards.md](code-standards.md) | Applying TypeScript, folder structure, modularity, React, Zustand, and routing standards. |
 | [structural-solver.md](structural-solver.md) | Working on the model, required element catalogue, the OpenSees service, stability assessment, adapter boundaries, or solver tests. |
 | [rust-solver.md](rust-solver.md) | Working on the Rust WebAssembly solver: its coverage of the criteria, test evidence, timings, and open decisions. |
-| [voxel-retirement.md](voxel-retirement.md) | Planning the proposed retirement of the voxel analysis: what depends on it, what the Rust solver and OpenSees can replace, and a migration order. |
+| [voxel-retirement.md](voxel-retirement.md) | Understanding the structure evaluator (`apps/web/src/evaluator/`) on the Rust solver, how it replaced the voxel analysis, the measured differences, and what still uses the legacy kernel. |
 | [element-representation-criteria.md](element-representation-criteria.md) | Generating lightweight column, spring, planar/trichord truss, wide-flange, HSS and cable geometry, with readable and true-scale views. |
 | [analysis-results.md](analysis-results.md) | Persisting versioned solver runs, validity and result provenance. |
 | [structural-state.md](structural-state.md) | Browser saves, experimental solver snapshots, and proposed general state and fixture design. |
-| [structure-library.md](structure-library.md) | Loading and cycling 20 voxel specimens, PNG previews, SQLite records and observed solver baselines. |
+| [structure-library.md](structure-library.md) | Loading and cycling 20 grid specimens, PNG previews, SQLite records and the observed evaluator baseline. |
+| [structure-gan.md](structure-gan.md) | Training the adversarial generator of curved, organic, asymmetric, stable structures, its physics oracle, evidence, limits and the `evolved.sqlite` database. |
 | [solver-criteria.md](solver-criteria.md) | Reading the owner-supplied proposed solver requirements, acceptance gates, implementation order, and open gameplay decisions. |
 | [solver-criteria-gap-analysis.md](solver-criteria-gap-analysis.md) | Comparing current code and tests with the criteria and planning implementation milestones. |
 | [turn-criteria.md](turn-criteria.md) | Defining the two decks, turn phases, six-DOF connection cards, issue assessment and penalty decisions. |
@@ -65,6 +69,7 @@ The secondary workspaces retain their playable presets, editor and earlier envir
 | [multiplayer-criteria.md](multiplayer-criteria.md) | Specifying first-release local hot-seat, private handoff, information visibility and future authority boundaries. |
 | [saved-match-criteria.md](saved-match-criteria.md) | Saving/recovering complete matches, atomic commits, replay, migration and private exports. |
 | [release-acceptance-criteria.md](release-acceptance-criteria.md) | Validating a complete playable match with evidence, numerical/performance gates and supported scope. |
+| [ai-turn-lab.md](ai-turn-lab.md) | Running and understanding the experimental trainable turn agents. |
 | [game-dynamics.md](game-dynamics.md) | Working on game state, turns, rules, or modes. |
 | [avatar-criteria.md](avatar-criteria.md) | Defining Timburr’s personality, compact presence, reactions, Conkeldurr transformation, model sources and deferred implementation handoff. |
 | [animation-criteria.md](animation-criteria.md) | Defining all-action animation and sound requirements, optional structural glow/pulse, accessibility, timing and acceptance scenarios. |
@@ -90,7 +95,7 @@ The [completion decision register](game-completion-criteria.md#2-owner-confirmed
 
 ## Avatar and preserved prototype
 
-[Timburr avatar criteria](avatar-criteria.md) describe the compact companion and reactions. The active Grow Dusk playtest uses the two original attributed models preserved in the [prototype handoff](../../prototypes/timburr-companion/README.md), including a deliberately activated Conkeldurr preview and static portrait fallback. The models have no embedded animation clips. See [presentation acceptance](criteria-ledger.md#viewer-controls-and-presentation) for verified controls and remaining reactions.
+[Timburr avatar criteria](avatar-criteria.md) describe the compact companion and reactions. The active Grow Dusk playtest uses the two original attributed models preserved in the [prototype handoff](../../prototypes/timburr-companion/README.md), including a deliberately activated Conkeldurr preview and static portrait fallback. The models have no embedded animation clips; Timburr instead plays short procedural whole-figure clips chosen by public scenario, documented under [scenario motion](avatar-criteria.md#scenario-motion-implemented-2026-11-15). See [presentation acceptance](criteria-ledger.md#viewer-controls-and-presentation) for verified controls and remaining reactions.
 
 ## Joint freedoms and graphical representation
 

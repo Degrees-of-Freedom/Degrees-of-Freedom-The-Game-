@@ -14,12 +14,12 @@ validated_against:
   - apps/web/src/game/turnEvidence.ts
   - apps/web/src/game/releaseSave.ts
   - apps/web/src/game/releaseSession.ts
-  - apps/web/src/solver/voxelCapacity.ts
+  - apps/web/src/evaluator/capacity.ts
   - packages/solver-contract/src/structural-state.ts
   - apps/web/src/game/cantileverRules.test.ts
   - apps/web/src/game/cantileverPlacement.test.ts
   - apps/web/src/game/interiorCollarAnalysis.test.ts
-  - apps/web/src/solver/collarCapacity.test.ts
+  - apps/web/src/evaluator/collarCapacity.test.ts
   - apps/web/src/game/cantileverRelease.test.ts
   - apps/web/src/menu/startPlan.test.ts
   - docs/evidence/cantilever-evaluation/observations.json
@@ -95,11 +95,11 @@ The focused regression suites cover:
 
 - `cantileverRules.test.ts`: all three source quarters, declaration and exact coincidence, clashes, fixed-profile compatibility, immutable fittings, card consumption, cancellation, load exclusions, replay tampering and unchanged v1 mechanics.
 - `cantileverPlacement.test.ts`: default end placement, pinned whole geometry, both board sides, full-span limits, stable planes, exact diagonal/off-grid host identities and unavailable source families.
-- `interiorCollarAnalysis.test.ts` and `solver/collarCapacity.test.ts`: asymmetric loaded arms at all quarters, independent shear-flexible cantilever displacement references, signed reactions and collar force/moment, direct source versus receiving-joint loads, incoming branches, nested collars, explicit snapshot identity and unavailable-response behavior.
+- `interiorCollarAnalysis.test.ts` and `evaluator/collarCapacity.test.ts`: asymmetric loaded arms at all quarters, independent shear-flexible cantilever displacement references, signed reactions and collar force/moment, direct source versus receiving-joint loads, incoming branches, nested collars, explicit snapshot identity and unavailable-response behavior.
 - `cantileverRelease.test.ts`: a genuine dealt v2 quarter-supported 5 kN match through all 16 turns, one card per physical play, unchanged starting fittings, Rust final-score provenance, complete private draft/final replay and v1 private-save preservation.
 - `menu/startPlan.test.ts`: the v2 preset reaches the release board dimensions while Continue retains a historical match.
 
-The [2026-11-15 browser walkthrough](../evidence/cantilevers/README.md) passed **6/6 scenarios** in Chromium 156.0.8078.79 with genuine seed 6: pointer controls, actual scene picking, precise endpoint entry, keyboard input, touch emulation and unavailable-WebGL fallback. Each scenario staged one whole beam and one explicitly chosen `q1` fixed connector, reloaded the exact draft, placed a 5 kN tip load, completed assessment/private handoff, verified the committed geometry and checked horizontal overflow. The final full test suite passed **608 tests, with 9 skipped**. Shared-contract and web production builds passed. The top-level Rust rebuild was unavailable because Cargo was absent; no Rust code changed and validation used the checked-in WASM. See [recorded source revisions, results and reproduction](../evidence/cantilevers/README.md).
+The [2026-11-15 feature browser walkthrough](../evidence/cantilevers/README.md) passed **6/6 scenarios** in Chromium 156.0.8078.79 with genuine seed 6: pointer controls, actual scene picking, precise endpoint entry, keyboard input, touch emulation and unavailable-WebGL fallback. Each scenario staged one whole beam and one explicitly chosen `q1` fixed connector, reloaded the exact draft, placed a 5 kN tip load, completed assessment/private handoff, verified the committed geometry and checked horizontal overflow. The feature's final test suite passed **608 tests, with 9 skipped**. Shared-contract and web production builds passed. The feature host could not rebuild Rust because Cargo was absent; that feature changed no Rust source and used its checked-in WASM. These results predate integration with main `cca5702`, whose evaluator/solver changes retain their own evidence. See [recorded source revisions, results and reproduction](../evidence/cantilevers/README.md) and [integration validation](development-and-testing.md#cantilever-feature-and-main-integration--2026-11-15).
 
 These browser results use Linux Chromium and touch emulation. Hardware touch, assistive technology and the broader release matrix remain governed by the [controls criteria](controls-camera-criteria.md) and [release ledger](criteria-ledger.md).
 

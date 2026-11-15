@@ -1,34 +1,38 @@
 import { recordTurnAnalysis } from './turnEvidence';
 import { CELL_SIZE, parseNodeKey } from './model';
 import { assemblyParts, type AssemblyNode } from './assembly';
-import type { TurnState } from './turns';
+import { RUST_TURN_ENGINE, type TurnState } from './turns';
 import { analysisLoadJoint, originalPorts, turnJoints } from './turnPorts';
 import { connectionDefinition } from './jointFreedom';
-import { analyzeVoxel } from '../solver/voxel';
-import { assessCardCapacity } from '../solver/voxelCapacity';
-import type { VoxelLevel, VoxelModel } from '../solver/voxelInput';
-import { createTurnSolver } from '../solver/wasm/turnSolver';
+import { analyzeVoxel } from '../solver/voxel/analyze';
+import { assessCardCapacity } from '../evaluator/capacity';
+import type { EvaluatorLevel, EvaluatorModel } from '../evaluator/model';
+import { createTurnSolver } from '../evaluator/engine/releaseTurn';
 import type { WasmSource } from '../solver/wasm/wasmSolver';
 import { isReleaseCatalogue } from './cardCatalogue';
 import { attachmentId, isInteriorSite } from './attachmentSites';
 
-let releaseSolver = createTurnSolver();
-/** Initialize once in the transaction worker before replaying or assessing
- * the release. Tests can provide the same checked-in binary as bytes. */
-export async function prepareReleaseSolver(source?: WasmSource): Promise<void> {
-  if (source) releaseSolver = createTurnSolver(source);
-  await releaseSolver.prepare();
+let turnSolver = createTurnSolver();
+/** Instantiate the Rust turn solver once per thread before replaying or
+ * assessing a match that uses it: in the release's transaction worker, and on
+ * the main thread before the store decodes a saved playtest match. Tests can
+ * provide the same checked-in binary as bytes. */
+export async function prepareTurnSolver(source?: WasmSource): Promise<void> {
+  if (source) turnSolver = createTurnSolver(source);
+  await turnSolver.prepare();
 }
+/** The release's name for `prepareTurnSolver`. */
+export const prepareReleaseSolver = prepareTurnSolver;
 
-const turnLevel: VoxelLevel = { type: 'sandbox', q0: 0, budget: Infinity, inv: null, loadCase: 'applied' };
+const turnLevel: EvaluatorLevel = { type: 'sandbox', q0: 0, budget: Infinity, inv: null, loadCase: 'applied' };
 
 /** Expand independent member ends before analysis. Coincident geometry alone
  * confers no constraint, and an unattached end retains free translations. */
-export function toTurnVoxelInput(turn: TurnState): VoxelModel {
+export function toTurnEvaluatorInput(turn: TurnState): EvaluatorModel {
   const connections = new Map([...turn.board.connections, ...turn.draft.connections]
     .map((connection) => [`${connection.memberId}:${connection.end}`, connection]));
-  const attrs: VoxelModel['attrs'] = {};
-  const positions: NonNullable<VoxelModel['positions']> = {};
+  const attrs: EvaluatorModel['attrs'] = {};
+  const positions: NonNullable<EvaluatorModel['positions']> = {};
   const inactiveRotations = new Set<string>();
   // Fixed collars identify the same six-DOF analytical node while preserving
   // every physical source/target id in the turn model. Coincidence is irrelevant.
@@ -44,7 +48,7 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
     const joint = attrs[analysisLoadJoint(turn, load.jointId)];
     joint.load = (joint.load ?? 0) + load.magnitude;
   }
-  const members = [...turn.board.members, ...turn.draft.members].flatMap<VoxelModel['members'][number]>(member => {
+  const members = [...turn.board.members, ...turn.draft.members].flatMap<EvaluatorModel['members'][number]>(member => {
     const { id, a, b, type } = member;
     const spring = member.springStiffnessNPerM === undefined ? {} : { springStiffnessNPerM: member.springStiffnessNPerM };
     function end(side: 'a' | 'b', point: string) {
@@ -108,12 +112,20 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
   return { members, attrs, positions, inactiveRotations, nextId: turn.nextId };
 }
 
-/** Scoring uses card gravity alone. Ordinary experimental previews retain their original load case. */
+/** Whether a match is assessed by the Rust turn solver (see `TurnState.engine`). */
+export function usesRustTurnSolver(turn: Pick<TurnState, 'catalogue' | 'engine'>) {
+  return isReleaseCatalogue(turn.catalogue) || turn.engine === RUST_TURN_ENGINE;
+}
+
+/** Scoring uses card gravity alone. Ordinary previews also include member
+ * self-weight. The release always uses card gravity. Matches saved before
+ * the Rust migration replay on the legacy voxel kernel. */
 export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card-gravity' = 'with-self-weight') {
-  const input = toTurnVoxelInput(turn);
+  const input = toTurnEvaluatorInput(turn);
   const release = isReleaseCatalogue(turn.catalogue);
-  const response = release ? releaseSolver.analyze(input, turn.catalogue)
-    : analyzeVoxel(input, { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });
+  const response = release ? turnSolver.analyze(input, turn.catalogue)
+    : usesRustTurnSolver(turn) ? turnSolver.analyze(input, `${turn.catalogue}/${turn.engine}`, { selfWeight: loading === 'with-self-weight' })
+      : analyzeVoxel(input, { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });
   const fittings = [...turn.board.connections, ...turn.draft.connections];
   const bySource = new Map(fittings.map(c => [attachmentId(c.memberId, c.end), c]));
   const collarLoads = [...turn.board.loads, ...turn.draft.loads].flatMap(load => {

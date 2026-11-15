@@ -45,7 +45,7 @@ function ElementCoordinates({ turn, stage, support }: { turn: TurnState; stage(a
 }
 
 /** The select controls use the same geometry and authority as scene picks. */
-export function ElementPlacementControls({ game, card, notify }: { game: Game; card: ElementCard; notify: Notify }) {
+export function ElementPlacementControls({ game, card, notify, onRejected }: { game: Game; card: ElementCard; notify: Notify; onRejected?(): void }) {
   const [coordinates, setCoordinates] = useState("");
   const turn = game.turn!;
   const anchors = placementAnchorTargets(turn);
@@ -62,17 +62,21 @@ export function ElementPlacementControls({ game, card, notify }: { game: Game; c
   const quarter = attachmentQuarter(game.attachmentSite);
   const contact: InteriorContact | undefined = canChooseStation && anchor && (quarter === 1 || quarter === 2 || quarter === 3)
     ? { quarter, target: anchor.id } : undefined;
-  const stage = (a: string, b: string) => notify(game.playElement(card.id, a, b, contact) ?? "Element staged. Choose a connector to attach it.");
+  const report = (error: string | null) => {
+    notify(error ?? "Element staged. Choose a connector to attach it.");
+    if (error) onRejected?.();
+  };
+  const stage = (a: string, b: string) => report(game.playElement(card.id, a, b, contact));
   const useCoordinates = () => {
     const value = coordinates.trim();
     const point = parseNodeKey(value);
     if (point.length !== 3 || !point.every(Number.isFinite) || nodeKey(...point) !== value) {
-      notify("Enter a free tip as x,y,z, for example 8,7,1.");
+      report("Enter a free tip as x,y,z, for example 8,7,1.");
       return;
     }
     const placement = placementFromTip(game, point);
-    if ("issue" in placement) { notify(placement.issue); return; }
-    notify(game.playElement(card.id, placement.a, placement.b, placement.contact) ?? "Element staged. Choose a connector to attach it.");
+    if ("issue" in placement) { report(placement.issue); return; }
+    report(game.playElement(card.id, placement.a, placement.b, placement.contact));
   };
   return <div className="release-placement-controls">
     <div className="release-targets">
@@ -110,7 +114,7 @@ export function ElementPlacementControls({ game, card, notify }: { game: Game; c
           </select>
         </label>
         <button type="button" disabled={!candidate} onClick={() => {
-          if (candidate) notify(game.playElement(card.id, candidate.a, candidate.b, candidate.contact) ?? "Element staged. Choose a connector to attach it.");
+          if (candidate) report(game.playElement(card.id, candidate.a, candidate.b, candidate.contact));
         }}>Place element</button>
       </>}
     </div>
@@ -134,7 +138,7 @@ export function ElementPlacementControls({ game, card, notify }: { game: Game; c
 }
 
 /** A deliberate click spends the named hand card; geometry alone stays loose. */
-export function StagedAttachmentActions({ game, notify }: { game: Game; notify: Notify }) {
+export function StagedAttachmentActions({ game, notify, onRejected }: { game: Game; notify: Notify; onRejected?(): void }) {
   const turn = game.turn;
   if (!turn || !turn.draft.members.length) return null;
   const anchors = placementAnchorTargets(turn);
@@ -156,9 +160,11 @@ export function StagedAttachmentActions({ game, notify }: { game: Game; notify: 
       })[0];
       return <div className="release-staged-attachment" key={`${member.id}:${site.value}`}>
         <span>Member {member.id} · {attachmentLabel(site.value)} · <strong>{attached ? "Attached" : "Unconnected"}</strong></span>
-        {option && <button type="button" data-attachment-card-id={option.card.id} onClick={() =>
-          notify(game.playConnection(option.card.id, member.id, site.value, option.target.key, "fixed") ?? "Connection staged.")
-        }>Attach with {option.card.label}</button>}
+        {option && <button type="button" data-attachment-card-id={option.card.id} onClick={() => {
+          const error = game.playConnection(option.card.id, member.id, site.value, option.target.key, "fixed");
+          notify(error ?? "Connection staged.");
+          if (error) onRejected?.();
+        }}>Attach with {option.card.label}</button>}
         {!attached && !option && <small>{turn.draft.connections.length >= 2 ? "No connections remaining this turn."
           : "No compatible fixed connector is available. You can leave this element unconnected."}</small>}
       </div>;
@@ -168,10 +174,15 @@ export function StagedAttachmentActions({ game, notify }: { game: Game; notify: 
 }
 
 /** Selects the same physical identities as scene picking, including coincident loose ends. */
-export function ReleaseTargets({ game, card, notify }: { game: Game; card: TurnCard; notify: Notify }) {
+export function ReleaseTargets({ game, card, notify, onRejected }: {
+  game: Game; card: TurnCard; notify(message: string): void;
+  /** Called when the store rejects a placement (it returned an explanation). */
+  onRejected?(): void;
+}) {
   const [choice, setChoice] = useState("");
+  const report = (error: string | null, staged: string) => { notify(error ?? staged); if (error) onRejected?.(); };
   const turn = game.turn!;
-  if (card.kind === "element") return <ElementPlacementControls game={game} card={card} notify={notify} />;
+  if (card.kind === "element") return <ElementPlacementControls game={game} card={card} notify={notify} onRejected={onRejected} />;
   if (card.kind === "load") {
     const targets = loadTargets(turn);
     if (!targets.length) return <span>Place a member above ground to give this load a target.</span>;
@@ -180,7 +191,7 @@ export function ReleaseTargets({ game, card, notify }: { game: Game; card: TurnC
       <label>Load target<select value={id} onChange={event => setChoice(event.target.value)}>
         {targets.map(target => <option key={target.id} value={target.id}>{target.label}</option>)}
       </select></label>
-      <button onClick={() => notify(game.playLoad(card.id, id) ?? "Load staged.")}>Place load</button>
+      <button onClick={() => report(game.playLoad(card.id, id), "Load staged.")}>Place load</button>
     </div>;
   }
   const profiles = connectionChoices(card);
@@ -197,7 +208,7 @@ export function ReleaseTargets({ game, card, notify }: { game: Game; card: TurnC
       <label>Connection target<select value={key(target)} onChange={event => setChoice(event.target.value)}>
         {targets.map(item => <option key={key(item)} value={key(item)}>Member {item.memberId} · {attachmentLabel(item.end)} · {item.key}</option>)}
       </select></label>
-      <button onClick={() => notify(game.playConnection(card.id, target.memberId, target.end, target.key, profile) ?? "Connection staged.")}>{target.end === "a" || target.end === "b" ? "Attach end" : "Attach collar"}</button>
+      <button onClick={() => report(game.playConnection(card.id, target.memberId, target.end, target.key, profile), "Connection staged.")}>{target.end === "a" || target.end === "b" ? "Attach end" : "Attach collar"}</button>
     </> : profile && <span>No compatible attachment point. Place a member or choose another card.</span>}
   </div>;
 }

@@ -5,7 +5,7 @@ import { createGameSave, readGameSave } from "./structuralState";
 import { useGameStore } from "./store";
 
 describe("creative restraints and loads", () => {
-  it("round-trips editable restraints and directional loads into the solver", () => {
+  it("round-trips editable restraints and directional loads into the solver", async () => {
     const game = useGameStore.getState();
     game.setMode("creative");
     game.reset();
@@ -24,15 +24,13 @@ describe("creative restraints and loads", () => {
     expect(
       readGameSave(JSON.parse(JSON.stringify(save)), "environment").save.model,
     ).toEqual(model);
-    expect(analyzeGame(model, LEVELS.environment)).toHaveProperty('combos');
+    expect(await analyzeGame(model, LEVELS.environment)).toHaveProperty('combos');
     expect(
       game.setNodeRestraint("1,1,0", [true, true, true, true, true, true]),
     ).toBeNull();
-    expect(analyzeGame(useGameStore.getState().model, LEVELS.environment)).toHaveProperty('combos');
+    expect(await analyzeGame(useGameStore.getState().model, LEVELS.environment)).toHaveProperty('combos');
     expect(game.setNodeLoadDirection("1,1,2", "-Z")).toBeNull();
-    expect(() =>
-      analyzeGame(useGameStore.getState().model, LEVELS.environment),
-    ).not.toThrow();
+    await expect(analyzeGame(useGameStore.getState().model, LEVELS.environment)).resolves.toHaveProperty('combos');
     game.setMode("challenge");
   });
   it("rejects malformed saved restraint and direction values", () => {

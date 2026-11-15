@@ -1,6 +1,9 @@
 import * as THREE from "three";
-import type { VoxelAnalysis } from "../solver/voxelResults";
-import { verifiedResponse } from "../solver/voxelVerification";
+import type { StructureEvaluation } from "../evaluator/results";
+import { verifiedResponse } from "../evaluator/evidence";
+import { DIAGRAM_COLORS } from "./viewPalette";
+import { addSceneLabel } from "./sceneLabels";
+import { formatSigned } from "./viewFormat";
 import { spanPoint, type DeformationField } from "./deformationField";
 
 export type SectionAction = 1 | 2 | 4 | 5;
@@ -8,7 +11,7 @@ export const boardActions = { 1: "Shear Vy", 2: "Shear Vz", 4: "Moment My", 5: "
 
 /** One common magnitude scale per action. Separate polylines retain the two
  * distinct cuts on either side of a joint load or an assembly connection. */
-export function boardDiagram(result: VoxelAnalysis, action: SectionAction) {
+export function boardDiagram(result: StructureEvaluation, action: SectionAction) {
   const combo = result.combos[0];
   const verified = new Set(combo?.components?.filter(scope =>
     scope.status === "computed" && verifiedResponse(scope.verification)).flatMap(scope => scope.memberIds));
@@ -25,11 +28,17 @@ export function boardDiagram(result: VoxelAnalysis, action: SectionAction) {
 
 export type BoardDiagram = ReturnType<typeof boardDiagram>;
 
+/** Signed peak reading, e.g. "Mz −12.4 kN·m". */
+export function diagramLabel(action: SectionAction, value: number) {
+  return `${boardActions[action].split(" ")[1]} ${formatSigned(value)} ${action < 3 ? "kN" : "kN·m"}`;
+}
+
 export function drawBoardDiagram(group: THREE.Group, diagram: BoardDiagram, point: (key: string) => THREE.Vector3,
-  field: DeformationField | undefined, displacementScale: number) {
+  field: DeformationField | undefined, displacementScale: number, labels = false) {
   const {action, series, peak} = diagram;
   if (!peak) return;
   const lines: THREE.Vector3[] = [];
+  let peakTip: { at: THREE.Vector3; value: number } | undefined;
   for (const {element, stations} of series) {
     const start = point(element.m.a), end = point(element.m.b);
     const axis = new THREE.Vector3().fromArray(element.R[action === 1 || action === 5 ? 1 : 2]);
@@ -40,12 +49,14 @@ export function drawBoardDiagram(group: THREE.Group, diagram: BoardDiagram, poin
       const base = span ? spanPoint(span, station.fraction, displacementScale) : start.clone().lerp(end, station.fraction);
       const tip = base.clone().addScaledVector(axis, station.forces[action] / peak * 1.5);
       lines.push(base, tip);
+      if (!peakTip || Math.abs(station.forces[action]) > Math.abs(peakTip.value)) peakTip = { at: tip, value: station.forces[action] };
       if (previous) lines.push(previous, tip);
       previous = tip;
     }
   }
   const plotted = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(lines),
-    new THREE.LineBasicMaterial({ color: action < 3 ? 0x80e6b6 : 0xff94d5, depthTest: false, depthWrite: false }));
+    new THREE.LineBasicMaterial({ color: action < 3 ? DIAGRAM_COLORS.shear : DIAGRAM_COLORS.moment, depthTest: false, depthWrite: false }));
   plotted.renderOrder = 3;
   group.add(plotted);
+  if (labels && peakTip) addSceneLabel(group, peakTip.at, diagramLabel(action, peakTip.value), action < 3 ? "shear" : "moment");
 }

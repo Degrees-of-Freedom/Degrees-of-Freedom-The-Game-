@@ -1,6 +1,6 @@
 import { CONNECTION_PROFILES, connectionLabel, type ConnectionProfile } from './jointFreedom';
 import type { MemberType } from './model';
-import { ITEMS, S, SECTION_GEOMETRY, SPRING } from '../solver/voxelSections';
+import { ITEMS, S, SECTION_GEOMETRY, SPRING } from '../evaluator/sections';
 import { PLANAR, TRICHORD, type AssemblyId } from './assembly';
 
 /** Changing printed rules or mechanics requires a new version and replay path.

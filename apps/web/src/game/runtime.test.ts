@@ -5,7 +5,7 @@ import { modeProgress, modeSetup } from "./modes";
 import { useGameStore } from "./store";
 import { readSession, writeSession } from "./session";
 import { createTurnGame } from "./turns";
-import { analyzeVoxel } from "../solver/voxel";
+import { analyzeVoxel } from "../solver/voxel/analyze";
 
 describe("shared editor runtime", () => {
   it('opens Levels on the prototype example plane and respects the board bounds', () => {

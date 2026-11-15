@@ -13,6 +13,7 @@ import { isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
 import { poseSection, roundHollowGeometry, wideFlangeGeometry, type WideFlange } from "./sectionGeometry";
 import { assemblyGeometry, assemblySectionGeometry } from "./assemblyGeometry";
 import { springDisplayAxis, springGeometry } from "./springGeometry";
+import { LOAD_PATH_COLORS } from "./viewPalette";
 import { deflectedFrameGeometry, undeformedReference } from "./deflectedGeometry";
 import { viewBasePoint } from "./sceneResults";
 import { cableGeometry } from "./cableGeometry";
@@ -21,7 +22,7 @@ import {
   computeLoadPath,
   traceToGround,
   type LoadPathMember,
-} from "../solver/loadPath";
+} from "../evaluator/loadPath";
 import type { SceneView } from "./sceneView";
 export function buildStructure(
   structure: THREE.Group,
@@ -102,15 +103,9 @@ export function buildStructure(
         : defaultColor;
     if (path)
       color =
-        relative < 0.01
-          ? "#5a6370"
-          : flow?.mode === "tension"
-            ? "#4da3ff"
-            : flow?.mode === "compression"
-              ? "#ff6b4a"
-              : flow?.mode === "bending"
-                ? "#c58cff"
-                : "#5a6370";
+        relative < 0.01 || !flow || flow.mode === "none"
+          ? LOAD_PATH_COLORS.idle
+          : LOAD_PATH_COLORS[flow.mode];
     const pending = activeMembers.has(member.id);
     const spans = field?.spans.get(member.id);
     if (member.type === "cable" && member.restLengthM !== undefined) {

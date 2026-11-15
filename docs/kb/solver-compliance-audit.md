@@ -40,7 +40,7 @@ validated_against:
   - services/opensees/benchmarks/README.md
   - services/opensees/benchmarks/run_benchmarks.py
   - apps/web/src/solver/opensees.ts
-  - apps/web/src/solver/voxelSections.ts
+  - apps/web/src/evaluator/sections.ts
   - apps/web/src/game/structuralModel.ts
   - apps/web/src/game/solvers.ts
   - apps/web/src/pages/Workspace.tsx

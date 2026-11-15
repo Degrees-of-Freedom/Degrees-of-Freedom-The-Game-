@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { analyzeTurn } from "./turnAnalysis";
 import { createTurnGame } from "./turns";
-import { displacementAt } from "../solver/voxelResults";
-import { ITEMS } from "../solver/voxelSections";
+import { displacementAt } from "../evaluator/results";
+import { ITEMS } from "../evaluator/sections";
 
 describe.each(["shs", "chs", "ipe", "heb", "glulam"] as const)("continuous %s frame quarter-port force transfer", type => {
   it.each([1, 2, 3])("matches cantilever bending and reactions at original quarter %i", q => {
@@ -26,11 +26,21 @@ describe.each(["shs", "chs", "ipe", "heb", "glulam"] as const)("continuous %s fr
     const ctx = result.ctx!, combo = result.combos[0];
     const active = (key: string) => ctx.aid[ctx.idx.get(key)!];
     const span = 8, x = 2 * q, EI = ITEMS[type].E * ITEMS[type].Iy;
+    // Timoshenko beam: bending plus shear over the loaded length (the Rust
+    // solver uses the card's shear area). Beyond the load the section only
+    // rotates, so the shear part is a constant offset at the tip. The
+    // analysis is geometrically nonlinear: it departs from the linear closed
+    // form by a fraction of order (δ/x)², which reaches about 2 % for the
+    // slender hollow sections loaded 6 m out (δ ≈ 0.5 m).
+    const shear = 5 * x / (ITEMS[type].G * ITEMS[type].Avz);
+    const linearPort = 5 * x ** 3 / (3 * EI) + shear;
+    const tolerance = 1e-4 + 3 * (linearPort / x) ** 2;
     const atPort = displacementAt(combo, active(port))!;
     const atTip = displacementAt(combo, active("endpoint:1:b"))!;
-    expect(atPort[2]).toBeCloseTo(-5 * x ** 3 / (3 * EI), 8);
-    expect(atTip[2]).toBeCloseTo(-5 * x ** 2 * (3 * span - x) / (6 * EI), 8);
+    const near = (actual: number, expected: number) => expect(Math.abs(actual / expected - 1)).toBeLessThan(tolerance);
+    near(atPort[2], -linearPort);
+    near(atTip[2], -(5 * x ** 2 * (3 * span - x) / (6 * EI) + shear));
     expect(combo.reac![active("0,0,0")][2]).toBeCloseTo(5, 8);
-    expect(Math.abs(combo.reac![active("0,0,0")][4])).toBeCloseTo(5 * x, 8);
+    near(Math.abs(combo.reac![active("0,0,0")][4]), 5 * x);
   });
 });

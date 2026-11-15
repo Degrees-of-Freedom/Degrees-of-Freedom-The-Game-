@@ -2,14 +2,14 @@ import { readFile } from 'node:fs/promises';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { parseStructuralAnalysisRequest, parseStructuralAnalysisResult } from '@dof/solver-contract';
 import { CANTILEVER_CATALOGUE } from './cardCatalogue';
-import { analyzeTurn, prepareReleaseSolver, toTurnVoxelInput } from './turnAnalysis';
+import { analyzeTurn, prepareReleaseSolver, toTurnEvaluatorInput } from './turnAnalysis';
 import { buildTurnRequest, recordTurnAnalysis } from './turnEvidence';
 import { analyzeConnectivity } from './connectivity';
 import { inspectIssues } from './turnIssues';
 import { turnJoints } from './turnPorts';
 import { createTurnGame, projectTurnModel, type TurnState } from './turns';
-import { displacementAt } from '../solver/voxelResults';
-import { ITEMS } from '../solver/voxelSections';
+import { displacementAt } from '../evaluator/results';
+import { ITEMS } from '../evaluator/sections';
 import { sharedJointPermissions } from '../viewer/jointPermissions';
 import { toTurnStructuralModel } from './turnStructuralModel';
 
@@ -35,7 +35,7 @@ function fixture(quarter: 1 | 2 | 3): TurnState {
 
 describe('Shared table fixed interior collar analysis', () => {
   it.each([1, 2, 3] as const)('keeps both arms continuous at original quarter %i and matches independent mechanics', q => {
-    const turn = fixture(q), input = toTurnVoxelInput(turn);
+    const turn = fixture(q), input = toTurnEvaluatorInput(turn);
     expect(input.members).toHaveLength(2);
     expect(input.members.map(m => [m.a, m.b])).toEqual([
       ['endpoint:3:a', 'anchor'], ['anchor', 'endpoint:3:b'],
@@ -63,7 +63,7 @@ describe('Shared table fixed interior collar analysis', () => {
   it('does not connect or split an intended interior contact until its card is fitted', () => {
     const turn = fixture(1);
     turn.board.connections = [];
-    const input = toTurnVoxelInput(turn);
+    const input = toTurnEvaluatorInput(turn);
     expect(input.members).toHaveLength(1);
     expect(input.members[0]).toMatchObject({ a: 'endpoint:3:a', b: 'endpoint:3:b' });
     expect(analyzeConnectivity(projectTurnModel(turn), turn).groundedMembers.has(3)).toBe(false);
@@ -75,7 +75,7 @@ describe('Shared table fixed interior collar analysis', () => {
     turn.board.members.push({ id: 4, type: 'heb', a: '1,0,1', b: '1,4,1', owner: 'player-2',
       cardId: 'cross-frame', interiorTargets: { q2: 'port:3:1' } });
     turn.board.connections.push({ memberId: 4, end: 'q2', jointId: 'port:3:1', profile: 'fixed', owner: 'player-2' });
-    const input = toTurnVoxelInput(turn);
+    const input = toTurnEvaluatorInput(turn);
     expect(input.members).toHaveLength(4);
     expect(Object.keys(input.attrs).filter(id => id.startsWith('port:'))).toEqual([]);
     expect(input.members.filter(m => m.a === 'anchor' || m.b === 'anchor')).toHaveLength(4);
@@ -143,7 +143,7 @@ describe('Shared table fixed interior collar analysis', () => {
     expect(() => parseStructuralAnalysisRequest(repeated)).toThrow(/multiple collars|deployed more than once/);
     const archive = recordTurnAnalysis(turn, analyzeTurn(turn, 'card-gravity'), 'stable', '2026-11-15T00:00:00Z', 'collar-match');
     const unavailable = { validity: 'unavailable' as const, reason: 'not-archived' };
-    archive.connections.push({ connectionId: 'connection:port:3:1', componentId: 'voxel-whole-model',
+    archive.connections.push({ connectionId: 'connection:port:3:1', componentId: archive.components[0].id,
       force: unavailable, relativeMotion: unavailable, utilization: unavailable });
     expect(() => parseStructuralAnalysisResult(archive)).not.toThrow();
     archive.components[0].jointIds = archive.components[0].jointIds.filter(id => id !== 'port:3:1');

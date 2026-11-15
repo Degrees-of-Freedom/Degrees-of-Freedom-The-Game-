@@ -4,14 +4,14 @@ import {
   type StructuralAnalysisRequest,
   type StructuralAnalysisResult,
 } from '@dof/solver-contract';
-import { localAxes } from '../solver/frameMath';
-import { ITEMS, S } from '../solver/voxelSections';
-import type { VoxelAnalysis } from '../solver/voxelResults';
+import { localAxes } from '../evaluator/vector';
+import { ITEMS, S } from '../evaluator/sections';
+import type { StructureEvaluation } from '../evaluator/results';
 import { parseNodeKey } from './model';
-import { CONNECTION_PROFILES, turnJoints, type TurnReport, type TurnState } from './turns';
+import { CONNECTION_PROFILES, RUST_TURN_ENGINE, turnJoints, type TurnReport, type TurnState } from './turns';
 import { attachmentQuarter, isInteriorSite } from './attachmentSites';
-import { CARD_STRENGTH } from '../solver/voxelCapacity';
-import { CANTILEVER_CATALOGUE } from './cardCatalogue';
+import { CARD_STRENGTH } from '../evaluator/capacity';
+import { CANTILEVER_CATALOGUE, isReleaseCatalogue } from './cardCatalogue';
 
 const gravity = 9.81;
 const toSI = 1000;
@@ -134,7 +134,7 @@ export function buildTurnRequest(turn: TurnState, matchId: string): StructuralAn
       selfWeight: selfWeight ? { enabled: true, gravity: [0, 0, -gravity] } : { enabled: false },
     },
     analysis: {
-      kind: selfWeight ? 'linear-static' : 'geometric-nonlinear-static',
+      kind: isReleaseCatalogue(turn.catalogue) || turn.engine === RUST_TURN_ENGINE ? 'geometric-nonlinear-static' : 'linear-static',
       loadPath: [{ selfWeightFactor: selfWeight ? 1 : 0, factors: [{ caseId: 'applied', factor: 1 }] }],
     },
   });
@@ -142,13 +142,22 @@ export function buildTurnRequest(turn: TurnState, matchId: string): StructuralAn
 
 /** Archive the available playtest reactions and scope without promoting them to scoring evidence. */
 export function recordTurnAnalysis(
-  turn: TurnState, result: VoxelAnalysis | undefined, status: TurnReport['status'],
+  turn: TurnState, result: StructureEvaluation | undefined, status: TurnReport['status'],
   startedAt: string, matchId: string,
 ): StructuralAnalysisResult {
-  const release = turn.catalogue === CANTILEVER_CATALOGUE;
   const request = buildTurnRequest(turn, matchId);
   const snapshot = request.snapshot;
-  const componentId = 'voxel-whole-model';
+  // The archive names the engine that ran. Either way these reactions are
+  // playtest feedback, not scoring evidence (see `finalScore.ts`).
+  const rust = isReleaseCatalogue(turn.catalogue) || turn.engine === RUST_TURN_ENGINE;
+  const engine = rust
+    ? { tag: 'rust-playtest', solver: { id: 'dof-rust', version: result?.reference?.solverVersion ?? 'unavailable', adapterId: 'shared-table', adapterVersion: '2', fidelity: 'nonlinear-applied-load' },
+      warning: turn.catalogue === CANTILEVER_CATALOGUE
+        ? 'Archived Shared table card-gravity response. Use the turn summary for verified scoring and connector checks.'
+        : 'Geometrically nonlinear solve on the Rust solver, with member self-weight. Use the turn summary for playtest feedback.' }
+    : { tag: 'voxel-playtest', solver: { id: 'voxel-playtest', version: '2', adapterId: 'shared-table', adapterVersion: '1', fidelity: 'experimental-applied-load' },
+      warning: 'Experimental whole-model solve with lumped member self-weight. Use the turn summary for playtest feedback.' };
+  const componentId = rust ? 'rust-whole-model' : 'voxel-whole-model';
   const reactions = status === 'stable' || status === 'partial' ? result?.combos[0]?.reac : undefined;
   const context = result?.ctx;
   const foundations = snapshot.foundations.map(({ id, jointId }) => {
@@ -158,18 +167,16 @@ export function recordTurnAnalysis(
     return {
       foundationId: id, componentId,
       reaction: value?.length === 6 && value.every(Number.isFinite)
-        ? { validity: 'unverified', value, reason: release ? 'turn-response-archive' : 'voxel-playtest' }
+        ? { validity: 'unverified', value, reason: engine.tag }
         : { validity: 'unavailable', reason: 'no-equilibrium-reaction' },
     };
   });
   return parseStructuralAnalysisResult({
-    format: 'dof-analysis-result', schemaVersion: 1, runId: (release ? 'dof-rust:' : 'voxel-playtest:') + snapshot.revisionId, purpose: 'turn',
+    format: 'dof-analysis-result', schemaVersion: 1, runId: engine.tag + ':' + snapshot.revisionId, purpose: 'turn',
     turn: { matchId, turnId: String(turn.turn), playerId: turn.players[turn.playerIndex].id, rulesVersion: String(turn.version) },
     startedAt, finishedAt: new Date(Math.max(Date.parse(startedAt), Date.now())).toISOString(), runtimeMs: result?.time ?? 0,
     request, resultStage: 0,
-    solver: release
-      ? { id: 'dof-rust', version: '0.2.0', adapterId: 'shared-table', adapterVersion: '2', fidelity: 'geometric-nonlinear-static' }
-      : { id: 'voxel-playtest', version: '2', adapterId: 'shared-table', adapterVersion: '1', fidelity: 'experimental-applied-load' },
+    solver: engine.solver,
     conventions: {
       memberEndForce: 'unavailable', connectionForce: 'unavailable',
       connectionRelativeMotion: 'unavailable', residualNormalization: 'unavailable',
@@ -177,9 +184,7 @@ export function recordTurnAnalysis(
     status: status === 'stable' ? 'success' : status === 'unstable' ? 'unstable' : 'unresolved',
     reasonCodes: status === 'partial' ? ['floating-components'] : status === 'unresolved' ? ['solve-unavailable'] : [],
     warnings: [
-      turn.catalogue === CANTILEVER_CATALOGUE
-        ? 'Archived Shared table card-gravity response. Use the turn summary for verified scoring and connector checks.'
-        : 'Experimental whole-model solve with lumped member self-weight. Use the turn summary for playtest feedback.',
+      engine.warning,
       ...(result?.error ? [result.error] : []),
     ],
     components: [{
@@ -189,7 +194,7 @@ export function recordTurnAnalysis(
       memberIds: snapshot.members.map(({ id }) => id),
       classification: status === 'stable' || status === 'unstable' ? status : 'unknown',
       validity: 'unverified',
-      reasonCodes: [release ? 'turn-response-archive' : 'voxel-playtest'],
+      reasonCodes: [engine.tag],
     }],
     foundations, joints: [], endpoints: [], members: [], connections: [], modes: [],
   });

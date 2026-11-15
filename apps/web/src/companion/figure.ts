@@ -1,14 +1,21 @@
 import * as THREE from "three";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { REST, type Pose } from "./motion";
 
 export type FigureName = "timburr" | "conkeldurr";
-export type FigurePose = "nod" | "foreman" | "victory";
+
+/** Normalized figure height inside the [-1, 1] orthographic view. It leaves
+ * headroom above the head for hops and room at the sides for tilts. */
+const FIGURE_HEIGHT = 1.62;
+const FEET = -0.96;
 
 /** The attributed models have no skeleton or clips. Author a small, continuous
  * upper-body flex in model coordinates, including eyes and the carried prop,
- * so their original alignment survives the slight nod. Feet stay planted. */
-function poseTargets(model: THREE.Group, bounds: THREE.Box3) {
+ * so their original alignment survives the slight nod. Feet stay planted.
+ * `motion.ts` drives its influence as the `bend` channel. The islet figure
+ * (`viewer/companionFigure.ts`) builds the same flex for its model. */
+export function poseTargets(model: THREE.Group, bounds: THREE.Box3) {
   model.updateWorldMatrix(true, true);
   const height = bounds.max.y - bounds.min.y;
   const pivot = bounds.getCenter(new THREE.Vector3());
@@ -34,7 +41,8 @@ function poseTargets(model: THREE.Group, bounds: THREE.Box3) {
   return meshes;
 }
 
-function release(root: THREE.Object3D) {
+/** Free the geometry, materials and textures of a loaded model. */
+export function release(root: THREE.Object3D) {
   const materials = new Set<THREE.Material>();
   const textures = new Set<THREE.Texture>();
   root.traverse(node => {
@@ -77,30 +85,22 @@ export function createFigure(pixels = 128) {
   let loading = 0;
   let disposed = false;
   let posable: THREE.Mesh[] = [];
-  let frame = 0;
+  let rig: THREE.Group | undefined;
+  let height = 1;
+  let pose: Pose = REST;
   const draw = () => { if (!disposed) renderer.render(scene, camera); };
-  function settle() {
-    cancelAnimationFrame(frame);
-    if (displayed) displayed.rotation.set(0, 0, 0);
-    posable.forEach(mesh => { mesh.morphTargetInfluences![0] = 0; });
+  /** Apply a sampled pose about the feet and redraw. Rendering happens only
+   * when the animator supplies a new pose, so a resting figure costs nothing. */
+  function apply(next: Pose) {
+    pose = next;
+    if (!rig) return;
+    const stretch = 1 - next.squash;
+    const widen = 1 + next.squash * .5;
+    rig.position.y = FEET + next.lift * height;
+    rig.scale.set(widen, stretch, widen);
+    rig.rotation.set(next.lean, next.turn, next.tilt, "YXZ");
+    posable.forEach(mesh => { mesh.morphTargetInfluences![0] = next.bend; });
     draw();
-  }
-  function pose(kind: FigurePose, still: boolean) {
-    settle();
-    if (!displayed || still || document.hidden) return;
-    const start = performance.now();
-    const duration = kind === "foreman" ? 800 : kind === "victory" ? 1500 : 250;
-    function tick(time: number) {
-      if (disposed || document.hidden || !displayed) return;
-      const t = Math.min(1, (time - start) / duration);
-      const bend = Math.sin(Math.PI * t);
-      posable.forEach(mesh => { mesh.morphTargetInfluences![0] = bend; });
-      displayed.rotation.y = (kind === "foreman" ? -.28 : .15) * bend;
-      displayed.rotation.z = (kind === "victory" ? .12 : .018) * bend;
-      draw();
-      if (t < 1) frame = requestAnimationFrame(tick);
-    }
-    frame = requestAnimationFrame(tick);
   }
   async function show(name: FigureName) {
     const load = ++revision;
@@ -119,19 +119,24 @@ export function createFigure(pixels = 128) {
     const bounds = new THREE.Box3().setFromObject(model, true);
     posable = poseTargets(model, bounds);
     const size = bounds.getSize(new THREE.Vector3());
-    const scale = 1.85 / Math.max(size.x, size.y, size.z);
+    const scale = FIGURE_HEIGHT / Math.max(size.x, size.y, size.z);
     const center = bounds.getCenter(new THREE.Vector3());
-    const group = new THREE.Group();
-    group.scale.setScalar(scale);
-    group.position.copy(center).multiplyScalar(-scale);
-    group.add(model);
+    // `inner` normalizes the model so its feet sit at the rig origin; `next`
+    // (the rig) is what poses translate, scale and rotate about the feet.
+    const inner = new THREE.Group();
+    inner.scale.setScalar(scale);
+    inner.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);
+    inner.add(model);
+    const next = new THREE.Group();
+    next.add(inner);
     if (displayed) { scene.remove(displayed); release(displayed); }
-    displayed = group;
-    scene.add(group);
-    draw();
+    displayed = next;
+    rig = next;
+    height = size.y * scale;
+    scene.add(next);
+    apply(pose);
   }
-  return { canvas: renderer.domElement, draw, show, pose, settle, dispose() {
-    cancelAnimationFrame(frame);
+  return { canvas: renderer.domElement, draw, show, apply, dispose() {
     disposed = true;
     if (displayed) release(displayed);
     if (!loading) decoder.dispose();

@@ -2,6 +2,8 @@
 
 Validated on 2026-11-15 on `codex/shared-table-cantilevers`. The final browser rerun began at UI source `f4a4f9b2044cdba97213de2db60467df11c18d58`. During that run, `323e8bed644d3573a6aa08e0513db8ad1cfa8de6` added the final rule guard excluding load-only endpoint identities from authoring targets. The final full test suite and shared-contract/web builds ran after that guard. The browser fixture uses the unchanged ordinary starting-column shared joint; this record does not claim that every browser case ran against a single unchanged source revision.
 
+This record predates integration of feature `fca92ab` with main `cca5702`. The combined source preserves main's Rust-backed evaluator and updated module; current capacity code/tests live in `evaluator/capacity.ts` and `evaluator/collarCapacity.test.ts`, and the turn-model helper is `toTurnEvaluatorInput`. The raw results and screenshot below remain evidence of their original source. See [integrated validation](../../kb/development-and-testing.md#cantilever-feature-and-main-integration--2026-11-15) for the separate combined-source checks.
+
 The [browser runner](../../../scripts/cantilever-browser.mjs) passed all **6 scenarios** in Linux Chromium **156.0.8078.79**, using genuine opening **seed 6** and `grow-dusk-release-2`. The [raw results](results.json) were copied unchanged from the completed run.
 
 | Scenario | Input exercised |

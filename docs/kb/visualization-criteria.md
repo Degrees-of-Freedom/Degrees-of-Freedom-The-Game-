@@ -1,6 +1,6 @@
 ---
 title: "Visualization Criteria"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
   - "Project owner load-path discussion, 2026-11-14"
   - "Project owner primary-direction load-transfer revision"
@@ -10,6 +10,7 @@ validated_against:
   - docs/kb/failure-repair-criteria.md
   - docs/kb/3d-viewer.md
   - docs/kb/solver-criteria-gap-analysis.md
+  - docs/kb/grow-dusk-runtime.md
 owner: project owner
 status: needs-review
 ---
@@ -21,6 +22,8 @@ status: needs-review
 This is a design specification, not a description of completed capabilities. The owner wants to help players understand how the structure responds to loads. The primary view is the **calculated deflected shape under simultaneous loading**, colored by calculated deflection magnitude. All displayed analysis quantities must come from calculated results. A directional graph with arrows, tension-versus-compression coloring, and path thickness representing magnitude were also discussed; how they complement the deflected view remains to be decided. Player-based coloring was considered and dropped. The detailed policies below remain proposals for discussion.
 
 The owner does not want load cases in the player-facing visualization workflow. Analyze and display the current structure with its simultaneous persistent loads; players do not create, select or combine load cases to use these overlays. This does not remove the loads themselves or prescribe the solver's internal representation.
+
+**Current Grow Dusk implementation (2026-11-15).** The release board's [view modes and legends](grow-dusk-runtime.md#view-modes-and-legends) let players combine overlays, with one legend per overlay. The overlays are load path, deflected shape, displacement shadow, joint freedoms, loads and reactions, shear and bending diagrams and instability. The deflected views use the SAP-style contour described below, with a numerical range in millimetres. The following are implementation choices awaiting owner review, not confirmed decisions: deflected shape and shadow are exclusive, the default view, a single label switch, and labelling at most 16 load-path values. The acceptance scenarios in §5 have not been run as a set against this implementation.
 
 The existing viewer has an experimental force-weighted route display based on approximate voxel analysis. It is illustrative, not an independently verified physical load tracing or scoring system. See [3D viewer](3d-viewer.md) and the [solver gap analysis](solver-criteria-gap-analysis.md). The numerical requirements in [solver criteria](solver-criteria.md) and confirmed game rules in [turn criteria](turn-criteria.md) still apply.
 

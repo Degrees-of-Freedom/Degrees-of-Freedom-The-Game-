@@ -1,3 +1,4 @@
+import { displacementAt } from '../evaluator/results';
 import { expect, it } from "vitest";
 import { SCORED_CATALOGUE } from "./cardCatalogue";
 import { awardFinalScore, finalReceipt } from "./finalScore";
@@ -25,12 +26,14 @@ it.each(["player-1", "neutral"])("returns six signed ground reactions traced to 
   const ctx = analysis.ctx!;
   const node = (id: string) => ctx.aid[ctx.idx.get(id)!];
   const combo = analysis.combos[0];
-  expect(combo.components![0].verification?.status).toBe("verified-linear");
-  expect(Array.from(ctx.eq.slice(6 * node(base), 6 * node(base) + 6))).toEqual(Array(6).fill(-1));
+  expect(combo.components![0].verification?.status).toBe("verified-nonlinear");
+  // The fully fixed foundation does not move at all.
+  expect(Array.from(displacementAt(combo, node(base))!)).toEqual(Array(6).fill(0));
   expect(combo.reac![node(tip)]).toBeUndefined();
   // One kN downward, two metres from the support in both horizontal axes.
+  // Nonlinear: the deflected tip (about 0.1 mm) shifts the moment arms.
   const expected = [0, 0, 1, 2, -2, 0];
-  Array.from(combo.reac![node(base)]).forEach((value, i) => expect(value).toBeCloseTo(expected[i], 9));
+  Array.from(combo.reac![node(base)]).forEach((value, i) => expect(Math.abs(value - expected[i])).toBeLessThan(1e-3));
   expect(combo.reac![node(base)].length).toBe(6);
   const score = awardFinalScore(turn, finalReceipt(turn, analysis));
   expect(score.neutralShare).toBeCloseTo(owner === "neutral" ? 100 : 0, 8);
@@ -41,14 +44,15 @@ it("distinguishes inactive end spins from a genuine unloaded sway mechanism", ()
   const { turn, tip } = cantilever("player-1");
   turn.board.loads = [];
   const response = (state: TurnState) => analyzeTurn(state, "card-gravity");
+  // The ball tip's rotations are held by nothing, but turning them moves
+  // nothing either: an inactive spin, not a mechanism.
   const stable = response(turn);
-  const ctx = stable.ctx!;
-  const start = 6 * ctx.aid[ctx.idx.get(tip)!];
-  expect(Array.from(ctx.eq.slice(start, start + 3)).every(i => i >= 0)).toBe(true);
-  expect(Array.from(ctx.eq.slice(start + 3, start + 6))).toEqual([-1, -1, -1]);
-  expect(stable.combos[0].components![0].verification?.status).toBe("verified-linear");
+  expect(stable.combos[0].components![0].status).toBe("computed");
+  expect(stable.combos[0].components![0].verification?.status).toBe("verified-nonlinear");
+  expect(stable.mechanism).toBe(false);
+  void tip;
   turn.board.connections[0].profile = "ball";
   const mechanism = response(turn).combos[0];
   expect(mechanism.components![0].status).toBe("mechanism");
-  expect(mechanism.reac).toBeUndefined();
+  expect(Object.keys(mechanism.reac ?? {})).toHaveLength(0);
 });

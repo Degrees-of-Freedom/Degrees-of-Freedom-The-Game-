@@ -55,7 +55,7 @@ const context = (overrides: Partial<RunContext> = {}): RunContext => ({
   model: portal,
   level: LEVELS.sandbox,
   contractCompatible: true,
-  analyzeVoxel: () => analyzeGame(portal, LEVELS.sandbox),
+  evaluate: () => analyzeGame(portal, LEVELS.sandbox),
   ...overrides,
 });
 
@@ -105,7 +105,7 @@ describe('solver registry', () => {
     const floating: GameModel = { nextId: 2, attrs: {}, members: [{ id: 1, a: '0,0,0', b: '1,0,0', type: 'shs' }] };
     const run = await runSolver(
       find(createSolvers(adapter), 'voxel'),
-      context({ model: floating, analyzeVoxel: () => analyzeGame(floating, LEVELS.sandbox) }),
+      context({ model: floating, evaluate: () => analyzeGame(floating, LEVELS.sandbox) }),
     );
     expect(run.verdict).toBe('unstable');
   });

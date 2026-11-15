@@ -1,8 +1,8 @@
-import type { VoxelAnalysis } from "../solver/voxel";
-import { computeLoadPath } from "../solver/loadPath";
+import { evaluationSource, type StructureEvaluation } from "../evaluator/results";
+import { computeLoadPath } from "../evaluator/loadPath";
 import type { DeformationField } from "../viewer/deformationField";
 interface AnalysisPanelProps {
-  result: VoxelAnalysis | null;
+  result: StructureEvaluation | null;
   message: string;
   combo: number;
   setCombo: (value: number) => void;
@@ -48,7 +48,7 @@ export function AnalysisPanel({
   const partial = scopes.some(s => s.status === "computed") && scopes.some(s => s.status !== "computed");
   return (
     <div className="analysis preview-analysis">
-      <header className="result-header"><span className="result-eyebrow">02 · Scene preview</span><h3>Explore the response</h3><p className="result-source"><span>Source</span><strong>Approximate voxel solver</strong></p></header><p className="result-caption">These values drive the 3D overlays. They are a separate calculation from the selected structural solver.</p>
+      <header className="result-header"><span className="result-eyebrow">02 · Scene preview</span><h3>Explore the response</h3><p className="result-source"><span>Source</span><strong>{evaluationSource(result)}</strong></p></header><p className="result-caption">These values drive the 3D overlays. They are a separate calculation from the structural check, whose solver you choose in Settings.</p>
       {message && <p role="status">{message}</p>}
       {!result ? (
         <p>

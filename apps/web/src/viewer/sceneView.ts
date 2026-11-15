@@ -1,5 +1,5 @@
 import type { GridPoint } from "../game/model";
-import type { VoxelAnalysis } from "../solver/voxel";
+import type { StructureEvaluation } from "../evaluator/results";
 /** What the pointer is over, published by the picker for scene labels and guides. */
 export interface SceneHover {
   p: GridPoint;
@@ -23,7 +23,7 @@ export interface SceneView {
   jointLayer?: JointLayer;
   field?: DeformationField;
   reference?: boolean;
-  result: VoxelAnalysis | null;
+  result: StructureEvaluation | null;
   combo: number;
   baySize?: GridPoint;
   deformed: boolean;
@@ -31,6 +31,10 @@ export interface SceneView {
   utilization: boolean;
   loads: boolean;
   loadPath: boolean;
+  /** Draw a translucent deflected ghost from `field` while members stay at their reference position. */
+  shadow?: boolean;
+  /** In-scene text labels (load, reaction, force, peak and axis values). Undefined means shown. */
+  labels?: boolean;
   onToggleLoadPath?: () => void;
   onMessage?: (message: string) => void;
 }

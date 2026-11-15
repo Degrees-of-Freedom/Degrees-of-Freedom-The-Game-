@@ -1,5 +1,5 @@
-import type { VoxelAnalysis } from "../solver/voxelResults";
-import { verifiedResponse } from "../solver/voxelVerification";
+import type { StructureEvaluation } from "../evaluator/results";
+import { verifiedResponse } from "../evaluator/evidence";
 
 export const cutActions = ["Axial N", "Shear Vy", "Shear Vz", "Torsion T", "Moment My", "Moment Mz"] as const;
 export interface CutSeries {
@@ -12,7 +12,7 @@ export interface CutSeries {
 
 /** Preserve both physical cuts at the same station. A branch load can make
  * shear jump there, and averaging would erase its magnitude and sign. */
-export function sectionCuts(result: VoxelAnalysis, parent: number): CutSeries[] {
+export function sectionCuts(result: StructureEvaluation, parent: number): CutSeries[] {
   const combo = result.combos[0];
   return (result.ctx?.els ?? []).filter(e => (e.m.parentSpan?.memberId ?? e.m.id) === parent).map(e => {
     const span = e.m.parentSpan, part = span?.assemblyPart;

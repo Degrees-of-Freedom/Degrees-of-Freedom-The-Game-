@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readSession, writeSession } from './session';
-import { analyzeCompletedTurn, toTurnVoxelInput } from './turnAnalysis';
+import { analyzeCompletedTurn, toTurnEvaluatorInput } from './turnAnalysis';
 import { activeTurnHand, createTurnGame, endTurn, stageElement, stageLoad } from './turns';
 
 function memoryStorage() {
@@ -72,6 +72,6 @@ describe('Shared table analysis persistence', () => {
     const end = snapshot.members.at(-1)!.start;
     expect(end.position).toEqual(snapshot.joints.find(({ id }) => id === point)?.position);
     expect(snapshot.connections.some(({ endpointId }) => endpointId === end.id)).toBe(false);
-    expect(toTurnVoxelInput(placed.state).members.at(-1)?.a).toBe(end.id);
+    expect(toTurnEvaluatorInput(placed.state).members.at(-1)?.a).toBe(end.id);
   });
 });

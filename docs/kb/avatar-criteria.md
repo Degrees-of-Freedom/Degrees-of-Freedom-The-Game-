@@ -1,6 +1,6 @@
 ---
 title: "Timburr Avatar Criteria"
-last_validated: 2026-11-14
+last_validated: 2026-11-15
 validated_against:
   - docs/kb/game-completion-criteria.md
   - "Project owner avatar request, prominence choice and criteria-first correction, 2026-11-14"
@@ -8,6 +8,10 @@ validated_against:
   - docs/kb/turn-criteria.md
   - docs/kb/solver-criteria.md
   - prototypes/timburr-companion/README.md
+  - apps/web/src/companion/motion.ts
+  - apps/web/src/companion/animator.ts
+  - apps/web/src/companion/turnCues.ts
+  - docs/evidence/companion-motion/check.mjs
 owner: project owner
 status: needs-review
 ---
@@ -162,6 +166,39 @@ Recommended order for a later implementation run:
 ### Compact character evidence
 
 The launcher, setup, information pages, workspace and open drawers display Timburr. Activating his control opens a tip and lets the player inspect the Conkeldurr foreman preview. The private handoff and session recovery screens suppress the companion. The local loader draws the displayed GLB once and uses a matching PNG portrait during decoding or GPU failure; retry is available in the companion panel. Both source assets are unrigged static meshes with zero embedded clips. Their resting arms and detached props reflect the preserved authored poses. Articulated reaction poses and final art approval remain open.
+
+### Scenario motion (implemented 2026-11-15)
+
+Timburr now plays short procedural clips chosen by public scenario. The models remain unrigged, so every clip animates the whole figure about its feet (hop, squash/stretch, lean, sideways tilt, yaw) plus the existing upper-body flex morph, which also moves the carried timber. The same sampled pose drives the portrait fallback through a CSS transform, so motion survives WebGL failure.
+
+| Scenario (source) | Clip | Priority |
+| --- | --- | --- |
+| First welcome on launcher/menus, once per page load (`Companion`) | wave | routine |
+| Direct activation (`Companion`) | wave | routine |
+| First sight of a turn, or a new seat after handoff (`turnCues.ts`) | perk | routine |
+| Select element / connection / gravity card (`ReleaseBoard`) | measure / point / brace | routine |
+| Stage a member / attach an end / stage a load | measure / nod / brace | routine |
+| Cancel targeting, deselect or cancel draft | stepBack | routine |
+| Rejected target from the precise form or board picking | puzzled | routine |
+| Newly committed report with a deduction (this page session only) | concern | reaction |
+| Newly committed verified-stable report without deduction | cheer | reaction |
+| Partial, unresolved or persistent issue without a new deduction | perk only | routine |
+| Repair announcement: verified with nothing pending / otherwise | dance / concern | reaction |
+| Conkeldurr foreman entrance (existing eligibility unchanged) | foreman | dramatic |
+| Final results | victory | dramatic |
+| Idle: release board | breathe, shift | idle |
+| Idle: launcher, menus and other workspaces | breathe, shift, glance, adjust, stretch, tapFoot, peek | idle |
+
+Behavior guarantees, each covered by unit tests in `apps/web/src/companion/`:
+
+- **Bounded and interruptible.** One clip plays at a time (0.5–2.4 s). A cue may replace a clip of equal or lower priority, so routine chatter never overwrites a result reaction or Conkeldurr. Every clip starts and ends exactly at rest; hop, tilt and squash stay inside the badge's headroom.
+- **Sparse idle.** Nothing renders while resting. One fidget plays after a random 6–12 s pause and never repeats the previous one. This replaces the earlier "zero idle draw calls" behavior when motion is enabled; under reduced motion it still holds.
+- **Still mode.** Reduced motion, *Skip effects* and hidden tabs settle the figure at rest and refuse clips; a figure swap only fades briefly.
+- **Truthful and public.** Cues carry only the public card family, never card identity. Unknown results are never cheered. After a reload, a remount or a different match only the routine perk plays; an old committed result is not reenacted. Foreman eligibility, cooldown and timing are unchanged.
+
+Modules: `motion.ts` contains the clip library, sampling, interruption, idle choice, scenario mapping and portrait transform. It is pure. `animator.ts` contains the frame/timer scheduler with an injectable host. `turnCues.ts` contains the committed-report policy. `figure.ts` applies poses to the 3D rig; `Companion.tsx` routes cues to whichever view is showing. On the board the control also publishes every sampled pose through `boardPose.ts`, and `viewer/companionFigure.ts` applies it to the model standing on the islet in the 3D scene (see [unified runtime](unified-runtime.md)), so the islet figure plays the same clips as the badge; it adds only a small lean toward the viewer under the pointer or while its cloud is open. Both portraits were regenerated with the new feet-anchored framing, which leaves headroom for hops. The [motion browser check](../evidence/companion-motion/check.mjs) renders every clip in 3D and in portrait form as a [contact sheet](../evidence/companion-motion/motion-sheet.png). It also plays a match through visible controls and asserts the scenario-to-clip sequence.
+
+Clip amplitudes and timing are first-pass proposals pending owner playtesting. These are whole-figure motions, not articulated limb poses. Articulated poses still require rigging (see section 7).
 
 The [browser runner](../evidence/companion/check.mjs) also regenerates both fallback portraits and verifies the preserved GLBs' hashes. The models by nguyenlouis32 are licensed under CC BY 4.0. Their attribution and pinned sources are preserved in [the distributed credits](../../apps/web/public/companion/CREDITS.md).
 

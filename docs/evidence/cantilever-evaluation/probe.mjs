@@ -34,7 +34,7 @@ try {
   const overhang = rules.stageElement(turn, frame.id, "4,7,1", "8,7,1");
   // Deliberately exercise the JS runtime guard for a source the TS API excludes.
   const interior = rules.stageConnection(placed.state, fixed.id, 3, "midpoint");
-  const input = analysis.toTurnVoxelInput(attached.state);
+  const input = analysis.toTurnEvaluatorInput(attached.state);
   console.log(JSON.stringify({
     oneEndCantilever: {
       accepted: attached.ok,

@@ -21,6 +21,10 @@ function accept(result: ReturnType<typeof stageElement>): TurnState {
 }
 
 describe("explicit fixed interior collars", () => {
+  it("keeps both release catalogues on their implicit Rust engine", () => {
+    expect(createTurnGame(41, RELEASE_CATALOGUE)).not.toHaveProperty("engine");
+    expect(createTurnGame(41, CANTILEVER_CATALOGUE)).not.toHaveProperty("engine");
+  });
   it.each([1, 2, 3] as const)("supports the whole new member at its original quarter %i", quarter => {
     const state = fixture(frame, fixed[0]);
     const original = structuredClone(state.board);
