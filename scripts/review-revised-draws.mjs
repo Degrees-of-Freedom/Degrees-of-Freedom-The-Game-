@@ -45,7 +45,9 @@ try {
   };
   const draw = async (source, count) => {
     await page.locator(`[data-deck="${source}"]`).click();
-    await expect.poll(async () => drawCount(await head())).toBe(count);
+    await expect.poll(async () => drawCount(await head()), {timeout: 20000}).toBe(count);
+    if (count < 4) await expect(page.getByText(`${count} of 4 drawn · any mix of decks`, {exact: true})).toBeVisible();
+    else await expect(page.locator('[data-deck]')).toHaveCount(0);
   };
   const stageMember = async (a, b) => {
     await page.locator('[data-kind="element"]').first().click();
@@ -167,6 +169,8 @@ try {
 async function structuralReview(browser, base, output) {
   const context = await browser.newContext({viewport: {width: 1366, height: 900}, reducedMotion: 'reduce'});
   const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
   page.setDefaultTimeout(20000);
   const button = name => page.getByRole('button', {name, exact: true});
   const ready = button('Ready · Reveal my hand');
@@ -185,7 +189,9 @@ async function structuralReview(browser, base, output) {
         const record = await head();
         const receipt = record.turn.draws.find(draw => draw.turn === record.turn.turn);
         return receipt.pieces.length + receipt.connectors.length + (receipt.loads?.length ?? 0);
-      }).toBe(i + 1);
+      }, {timeout: 20000}).toBe(i + 1);
+      if (i < 3) await expect(page.getByText(`${i + 1} of 4 drawn · any mix of decks`, {exact: true})).toBeVisible();
+      else await expect(page.locator('[data-deck]')).toHaveCount(0);
     }
   };
   try {
@@ -226,15 +232,18 @@ async function structuralReview(browser, base, output) {
     await expect(page.getByText('Committed member · read only')).toBeVisible();
     await expect(page.getByLabel('Draft end x,y,z')).toHaveCount(0);
     await page.getByText('Foundation forces and moments', {exact: true}).click();
-    const reactions = await page.getByRole('table').filter({has: page.getByText('Signed global support reaction', {exact: true})}).allTextContents();
+    const reactionTables = page.getByRole('table').filter({has: page.getByText('Signed global support reaction', {exact: true})});
+    const reactions = await reactionTables.allTextContents();
     assert.equal(reactions.length, 2);
+    await reactionTables.last().scrollIntoViewIfNeeded();
     await page.screenshot({path: resolve(output, 'signed-support-reactions.png')});
     assert.deepEqual((await head()).turn, record.turn);
+    assert.deepEqual(errors, []);
     return {checks: ['real member/connector/gravity plays become a checkpoint after three player turns',
       'normal board exposes calculated deflection and load paths automatically',
       'shear and bending overlays combine with calculated response',
       'reaction labels support Off and Large',
       'committed member is read-only and foundation six-component tables are inspectable',
-      'overlay and reaction settings preserve authoritative match state'], reactions};
+      'overlay and reaction settings preserve authoritative match state'], reactions, errors};
   } finally { await context.close(); }
 }
