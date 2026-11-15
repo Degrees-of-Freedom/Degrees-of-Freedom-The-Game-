@@ -2,7 +2,6 @@
 title: "Controls and Camera Criteria"
 last_validated: 2026-11-14
 validated_against:
-  - docs/kb/multiplayer-refresh-criteria.md
   - "Project owner completion-criteria request and follow-up decisions, 2026-11-14"
   - docs/kb/placement-criteria.md
   - docs/kb/joint-dof-criteria.md
@@ -13,9 +12,6 @@ status: needs-review
 ---
 
 # Controls and Camera Criteria
-
-> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
-
 
 ## 1. Status and scope
 
@@ -66,14 +62,8 @@ A blurred/background tab, lost pointer capture or touch cancellation must stop t
 
 ### Shared table input evidence
 
-In the Grow Dusk Turn details drawer, the private hand labels and card families use dark text on cream. Selection has an amber fill and inset border, and keyboard focus has an external outline. The [Chrome check](../evidence/input-parity/hand-contrast.cjs) measures both text sizes and the End turn action after deliberate reveal, on desktop and touch-emulated layouts. [Desktop comparison](../evidence/input-parity/hand-contrast-after.png) · [Touch layout](../evidence/input-parity/hand-contrast-after-touch.png).
-
 In the scored frame preset, Turn details provides grid and original-quarter element placement, explicit member-end connection choices, and persistent gravity placement on any playable shared joint. Input uses the same stage and commit operations as the board. Browser controls own their keyboard events. Enter opens a disclosure or activates its focused button. At narrow widths the Grow Dusk hand tray leaves the turn controls reachable.
 
 The [seed 1 match runner](../evidence/match/check.mjs) exercises a load on the opposing starting foundation followed by cancellation, a midpoint branch and load, a staged-draft reload, a new unstable member and all 16 turns. Keyboard tests use Tab or Shift+Tab to reach controls and the native selection keys. Chrome touch emulation uses taps for buttons, native select changes and text entry at 412 × 915 CSS pixels. The release matrix tracks hardware touch and screen-reader coverage separately. [Touch layout](../evidence/input-parity/touch-hand-controls.png) · [Keyboard quarter form](../evidence/input-parity/keyboard-quarter-form.png).
 
 Open: final keymap, touch gesture mapping, camera limits/defaults per environment and assistive-technology/device matrix. Validate against [whole-game release gates](release-acceptance-criteria.md); do not claim controls are complete from desktop mouse testing alone.
-
-## 7. Inspector, cursor salience and quit at any time
-
-Inspecting an element opens a persistent property panel with actual/max length, owner/card/family, endpoints/quarter ports, rotation masks, spring multiplier/k₀/k, setup locks, last checkpoint/results and system overrides. Edit only draft printed choices; committed physical properties are read-only and setup is always locked. Nearby legal snap points are bold/opaque; distant points fade smoothly, preserving hit identity, depth cycling and keyboard/touch selection. Do not trigger a solver by inspecting or moving the cursor. Quit/Menu stays reachable during draw/placement/privacy/animation/checkpoint/correction; suspend and save exact state without an implicit commit/pass/final solve or forfeiture.

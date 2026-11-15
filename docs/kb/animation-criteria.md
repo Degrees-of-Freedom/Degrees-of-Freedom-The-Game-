@@ -2,7 +2,6 @@
 title: "Animation and Sound Criteria"
 last_validated: 2026-11-14
 validated_against:
-  - docs/kb/multiplayer-refresh-criteria.md
   - docs/kb/game-completion-criteria.md
   - docs/kb/avatar-criteria.md
   - prototypes/timburr-companion/README.md
@@ -17,9 +16,6 @@ status: needs-review
 ---
 
 # Animation and Sound Criteria
-
-> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
-
 
 ## 1. Status and confirmed direction
 
@@ -118,10 +114,6 @@ Provide a way to skip nonessential turn/result sequences and finish card arrival
 
 ## 6. Sound design
 
-The Grow Dusk playtest shares one saved Sound switch across Settings, the pause menu, the board toolbar and the M shortcut. Its two gain controls run from 0 to 100%. Both the model-edit cue and the committed Conkeldurr accent feed the effects gain and then the master gain. Sound defaults to off. Existing saves without volume fields retain the original cue level when sound is enabled.
-
-The workspace unlocks audio on deliberate interaction. A mute, pause, cover or hidden page cancels live voices. Unmount releases the context; suspended output drops cues. The [browser check](../evidence/sound/check.mjs) exercises the saved settings, keyboard toggle and native Web Audio gain and oscillator nodes. Further routine and dramatic cues remain separate acceptance work.
-
 Use a coherent original sound palette: soft card swishes, precise metallic/wooden connection clicks, low-energy load pulses, clear result chimes and rare resonant impact accents. Match sound to the action's visible contact/reveal, provisionally within 50 ms. Material variants are optional polish; they must not imply unimplemented material physics.
 
 Provide master mute/volume and a separate effects volume. Persist preferences locally and apply them before the first cue. Music is optional future scope, with its own control if introduced. Do not require audio for targeting, warnings, turn identity or understanding results. Pair important cues with visible text/icons and accessible announcements.
@@ -203,7 +195,3 @@ Later [core game criteria](game-completion-criteria.md) confirm attraction score
 ## 14. Recorded system repair sequence
 
 The game now requires recorded game-owned correction of instability and overload. Present pre-correction issue/once-per-turn historical penalty, explicit repair placement and verified post-correction outcome in causal order; Timburr explains the change. Skipping animation never skips repair validation, duplicates objects or refunds penalties. Keep system and player objects distinguishable. Unverified correction remains pending/unknown, never a success effect based only on a completed animation; see [repair workflow](failure-repair-criteria.md#6-automatic-correction-transaction).
-
-## 15. Revised turn/event choreography
-
-The latest revision requires events for turn start, each of four source choices/card arrivals, any number of staged card plays/edits/cancels, noncheckpoint commit, private handoff, checkpoint/replay progress, original-turn attributed issue/penalty, minimum local constraint and verified outcome, Settings changes, quit/resume and final result. Noncheckpoint handoff says “next analysis in N turns”, not “stable”. Apply the existing fast/subtle routine and rare dramatic sound/motion hierarchy, skip/mute/reduced motion, private-information protection and idempotent events. Active roaming Timburr points to the actual node/axes, never summons a column down. Use force-sign-correct axial flow: tension outward toward end nodes, compression inward toward centre. No animation callback changes cards, penalties, constraints or solver schedule.

@@ -2,7 +2,6 @@
 title: "Visualization Criteria"
 last_validated: 2026-11-14
 validated_against:
-  - docs/kb/multiplayer-refresh-criteria.md
   - "Project owner load-path discussion, 2026-11-14"
   - docs/kb/solver-criteria.md
   - docs/kb/turn-criteria.md
@@ -16,9 +15,6 @@ status: needs-review
 
 # Visualization Criteria
 
-> **Current target revision:** [Multiplayer simplification](multiplayer-refresh-criteria.md) supersedes conflicting older scope/rules on this page. Multiplayer is the only target; four source-selectable draws and unlimited held-card plays replace 2/2 draws and 1/1/2 caps. Structural work runs at configurable three-turn checkpoints plus match end. Only the standard axial/bending member, cable and two k₀ springs are playable; connectors control 1/2/3 rotational restraints. Minimum local safety constraints replace scaffold columns/extra foundations. Existing-code descriptions below remain implementation history, not proof this revision is shipped.
-
-
 ## 1. Purpose and status
 
 This is a design specification, not a description of completed capabilities. The owner wants to help players understand how the structure responds to loads. The primary view is the **calculated deflected shape under simultaneous loading**, colored by calculated deflection magnitude. All displayed analysis quantities must come from calculated results. A directional graph with arrows, tension-versus-compression coloring, and path thickness representing magnitude were also discussed; how they complement the deflected view remains to be decided. Player-based coloring was considered and dropped. The detailed policies below remain proposals for discussion.
@@ -28,16 +24,6 @@ The owner does not want load cases in the player-facing visualization workflow. 
 The existing viewer has an experimental force-weighted route display based on approximate voxel analysis. It is illustrative, not an independently verified physical load tracing or scoring system. See [3D viewer](3d-viewer.md) and the [solver gap analysis](solver-criteria-gap-analysis.md). The numerical requirements in [solver criteria](solver-criteria.md) and confirmed game rules in [turn criteria](turn-criteria.md) still apply.
 
 ## 2. Physics and interpretation
-
-### Grow Dusk deflected-shape playtest
-
-Running a scored Shared table simulation uses all committed and staged gravity cards in one card-gravity state. The panel identifies a draft preview. Creative's applied state also includes member self-weight. In Results, **Deformed shape** offers true displacement (1×), fixed amplification and an automatic multiplier. The board shows the multiplier while the overlay is active. **Undeformed reference** adds a dashed line along each verified analytical element. An unavailable member stays at reference geometry and its ID appears in the panel.
-
-Frame centrelines use the recovered local translations and rotations of the member ends, including released ends and connector slip. Axial displacement interpolates linearly. The two bending components use cubic Euler–Bernoulli shape functions; the drawing samples each analytical piece over 16 intervals. Original-quarter segments and assembly parts retain the physical parent identity. The multiplier scales the displayed motion alone. The spring and versioned cable use their supported station motions.
-
-For a 4 m HEB cantilever under a 1 kN downward tip load, the calculated midpoint and tip were −0.126126 and −0.403605 mm. A pure positive local-Y end moment of 1 kN·m produced −0.151352 mm at the tip. A simply supported beam of the same section and span under a 1 kN central load gave −0.025225 mm at midspan. [Analytical tests](../../apps/web/src/viewer/deformationField.test.ts)
-
-Chrome 157 on Windows at 1366 × 900 exercised a two-member column under simultaneous 1 and 4 kN horizontal loads beside an unsupported beam. The [browser fixture](../evidence/deflection/check.mjs) checks actual mesh vertices at 1× and 100×, reference visibility and retained model state. A separate Shared table seed-23 run checked a 5 kN staged gravity card and its +5 kN reaction. [Before](../evidence/deflection/before.png) · [After](../evidence/deflection/after.png) · [Inspector](../evidence/deflection/inspector.png)
 
 | ID | Proposed requirement |
 | --- | --- |
@@ -117,12 +103,3 @@ Use the numerical tolerances and validation approach in [solver criteria](solver
 6. Which overlays should appear by default? How should deformation and diagram scaling, component selection and the undeformed reference be controlled?
 
 Record confirmed answers here and update related criteria when decisions affect turns, scoring, solver outputs or the viewer.
-
-
-## 7. Current axial load-path vector direction
-
-Owner-confirmed: on a verified tensile member, vectors move from its centre toward both end nodes; on compression, vectors move from both ends toward its centre. Use paired tracks on the two halves aligned to the member's reference/deformed curve as appropriate. The sign comes from calculated axial force and explicit sign conversion, never ownership, displacement colour or the direction toward a foundation. This rule supersedes older foundation-directed animation wherever that conflicts with the axial-sign overlay.
-
-For quarter-loaded/subdivided members whose axial sign varies, use valid per-segment results and segment centres. Do not invent a whole-member sign when the available result cannot support it. Zero/tolerance-small force, slack cables and unknown scope have no moving arrows; an allegedly compressive cable state is diagnostic. Bending-only action is not an invented axial flow. Static arrows/labels provide the same meaning under reduced motion. Vectors do not represent actual moving material, displacement or a unique individual-load path. Historical force flow must stay on labelled historical geometry or be suppressed between checkpoints, never advertised as the current unsolved state.
-
-Acceptance: positive/negative sign conversion yields exact outward/inward animation under arbitrary member orientation and camera; zero/slack/unknown is distinct; changing sign by segment is truthful; reduced-motion arrows agree; no node-crossing teleport or graphical change to physical thickness, topology, score or cadence. Keep this overlay distinguishable from deflection contours and instability-mode playback.

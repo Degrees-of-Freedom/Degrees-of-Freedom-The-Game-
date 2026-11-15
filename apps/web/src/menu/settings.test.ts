@@ -111,4 +111,3 @@ describe("menu settings", () => {
     expect(writeSettings(DEFAULT_SETTINGS, null)).toBe(false);
   });
 });
-

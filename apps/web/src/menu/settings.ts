@@ -181,4 +181,3 @@ function subscribe(listener: () => void) {
 export function useSettings(): Settings {
   return useSyncExternalStore(subscribe, getSettings, getSettings);
 }
-
