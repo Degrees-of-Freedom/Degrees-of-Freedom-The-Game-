@@ -161,6 +161,10 @@ export interface AnalysisOptions {
   maxIterations?: number;
   /** Deterministic work limit; exceeding it gives an `unknown` component. */
   maxTotalIterations?: number;
+  /** Work limit shared by every component and failure event of one request
+   * (per load case with `analyzeCases`); components left without budget
+   * report `unknown` with `iterationLimit`. Default 2000. */
+  maxRequestIterations?: number;
   excessiveDisplacementRatio?: number;
   criticalLoadSearch?: boolean;
   /** Load multiplier a stable state must survive not to be `marginal`. */
@@ -171,6 +175,13 @@ export interface AnalysisOptions {
    * verified stable or marginal component then reports `reserve`.
    */
   reserveSearch?: number;
+  /**
+   * `path` (default) continues the nonlinear equilibrium under increasing
+   * load and also finds limit points. `linearized` bisects on the positive
+   * definiteness of `K0 + t (Kt - K0)` about the verified state (linearised
+   * buckling): one factorisation per probe, bifurcations only.
+   */
+  reserveMethod?: 'path' | 'linearized';
   /** `remove` fails the most overloaded object and reanalyses. */
   failure?: 'report' | 'remove';
   maxFailureEvents?: number;

@@ -264,11 +264,25 @@ pub struct Options {
     /// Largest load multiplier the stability reserve search tries. A value
     /// of zero (the default) disables the search; otherwise it must exceed 1.
     pub reserve_search: f64,
+    pub reserve_method: ReserveMethod,
     pub failure: FailureMode,
     /// Failure events allowed before the analysis stops redistributing.
     pub max_failure_events: u32,
     /// Mode shapes returned per component; counts are never truncated.
     pub max_modes: u32,
+}
+
+/// How the stability reserve is searched.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ReserveMethod {
+    /// Continue the nonlinear equilibrium path under increasing load. Finds
+    /// bifurcations and limit points; costs Newton iterations per probe.
+    Path,
+    /// Linearised buckling about the verified state: the tangent at load
+    /// multiplier `t` is taken as `K0 + t (Kt - K0)`, where `K0` is the
+    /// stiffness at the undeformed state and `Kt` the tangent at the verified
+    /// equilibrium. One factorisation per probe; no limit points.
+    Linearized,
 }
 
 /// Upper limit of `reserve_search`: beyond it a reserve is of no practical use.
@@ -291,6 +305,7 @@ impl Default for Options {
             critical_load_search: true,
             stability_margin: 1.25,
             reserve_search: 0.0,
+            reserve_method: ReserveMethod::Path,
             failure: FailureMode::Report,
             max_failure_events: 8,
             max_modes: 12,

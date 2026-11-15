@@ -592,6 +592,37 @@ impl Newton<'_> {
         }
     }
 
+    /// Linearised stability reserve about the verified state: bracket and
+    /// bisect the multiplier `t` at which `K0 + t (Kt - K0)` stops being
+    /// positive definite or gains a null pivot. `K0` and `Kt` carry the same
+    /// spin constraints. Cable active states are those of each matrix's own
+    /// state, so a cable that is slack at the verified state is scaled as such.
+    fn linearized_reserve(&mut self, state: &State, limit: f64) -> Option<Reserve> {
+        self.assemble(&self.sys.reference(), true);
+        let initial = self.stiffness.clone();
+        self.assemble(state, false);
+        let tangent = self.stiffness.clone();
+        let nulls = tangent.factor(0.0).inertia.null.len();
+        let stable = |t: f64| {
+            let inertia = initial.blend(&tangent, t).factor(0.0).inertia;
+            inertia.negative.is_empty() && inertia.null.len() <= nulls
+        };
+        let mut low = 1.0_f64;
+        let mut high = None;
+        while low < limit {
+            let target = (2.0 * low).min(limit);
+            if stable(target) { low = target } else { high = Some(target); break; }
+        }
+        if let Some(mut top) = high {
+            for _ in 0..RESERVE_REFINEMENTS {
+                let middle = (low * top).sqrt();
+                if stable(middle) { low = middle } else { top = middle }
+            }
+            high = Some(top);
+        }
+        Some(Reserve { lower: low, upper: high, cause: high.map(|_| ReserveCause::Instability) })
+    }
+
     /// Stability reserve of the stable equilibrium `start` at `lam` times
     /// the loads: double the load multiplier until the path is no longer
     /// stable or `limit` is reached, then bisect geometrically. `None` means
@@ -878,7 +909,10 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
                     let probe_options = Options { max_iterations: options.max_iterations.min(RESERVE_MAX_ITERATIONS), ..options.clone() };
                     let mut search = Newton { budget: newton.budget.saturating_sub(out.iterations.saturating_sub(newton.iterations)),
                         iterations: 0, steps: 0, stiffness: sys.stiffness(), carry: None, options: &probe_options, ..newton };
-                    let found = search.reserve(start, lam, options.reserve_search);
+                    let found = match options.reserve_method {
+                        ReserveMethod::Path => search.reserve(start, lam, options.reserve_search),
+                        ReserveMethod::Linearized => search.linearized_reserve(&start, options.reserve_search),
+                    };
                     out.iterations += search.iterations;
                     match found {
                         Some(reserve) => out.reserve = Some(reserve),

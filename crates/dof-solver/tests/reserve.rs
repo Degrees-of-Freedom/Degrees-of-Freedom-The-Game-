@@ -164,3 +164,57 @@ fn invalid_search_limits_are_rejected() {
         assert_eq!(run.at(&["analysis", "status"]).as_str(), Some("invalid"), "limit {limit}");
     }
 }
+
+/// The linearised method finds the same Euler reserve with one
+/// factorisation per probe, and agrees with the path method.
+#[test]
+fn linearized_reserve_matches_the_euler_load_and_the_path() {
+    let length = 12.0;
+    let euler = PI * PI * E * I / (length * length);
+    let mut b = column(length, 0.25 * euler);
+    b.options.reserve_method = ReserveMethod::Linearized;
+    let linear = b.run();
+    assert_eq!(linear.status(0), "stable");
+    let lower = bound(&linear, "lower").unwrap();
+    close(lower, 4.0, BUCKLING_GATE);
+    assert_eq!(reserve(&linear).get("cause").unwrap().as_str(), Some("instability"));
+    let path = bound(&column(length, 0.25 * euler).run(), "lower").unwrap();
+    close(lower, path, 0.012);
+}
+
+/// A sway frame: a fixed-base portal under vertical load on both columns
+/// and a small lateral load. The two methods agree on the sway reserve.
+#[test]
+fn linearized_and_path_reserves_agree_on_a_sway_portal() {
+    let (h, w) = (4.0, 6.0);
+    let euler_cantilever = PI * PI * E * I / (4.0 * h * h);
+    let portal = |method: ReserveMethod| {
+        let mut b = Build::new();
+        b.options.reserve_search = 64.0;
+        b.options.reserve_method = method;
+        b.options.max_total_iterations = 4000;
+        b.node("a", [0.0; 3]).node("b", [0.0, 0.0, h]).node("c", [w, 0.0, h]).node("d", [w, 0.0, 0.0]);
+        b.beam("l", "a", "b");
+        b.beam("t", "b", "c");
+        b.beam("r", "d", "c");
+        b.support("a", FIXED).support("d", FIXED);
+        // Out of the frame's plane the joints are held, so it sways in plane.
+        b.support("b", [false, true, false, false, false, false]);
+        b.support("c", [false, true, false, false, false, false]);
+        b.load("b", [1e-3 * euler_cantilever, 0.0, -0.2 * euler_cantilever]);
+        b.load("c", [0.0, 0.0, -0.2 * euler_cantilever]);
+        b.run()
+    };
+    let (linear, path) = (portal(ReserveMethod::Linearized), portal(ReserveMethod::Path));
+    let (l, p) = (bound(&linear, "lower").unwrap(), bound(&path, "lower").unwrap());
+    println!("portal reserves: linearized {l}, path {p}");
+    assert!(l > 1.0 && p > 1.0);
+    close(l, p, 0.05);
+}
+
+#[test]
+fn an_unknown_reserve_method_is_rejected() {
+    let text = r#"{"model":{"nodes":[],"sections":[],"members":[],"foundations":[],"loads":[]},"options":{"reserveSearch":8,"reserveMethod":"eigen"}}"#;
+    let out = dof_solver::analyze_json(text);
+    assert!(out.contains("\"invalid\"") && out.contains("reserveMethod"), "{out}");
+}
