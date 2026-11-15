@@ -9,7 +9,7 @@ import { conflictingJointAxes, CONNECTION_PROFILES } from "./jointFreedom";
 import { findMaterialClash } from "./materialClashes";
 import { findPort, systemTarget, targetCoordinate, turnJoints } from "./turnPorts";
 import { analyzeTurn } from "./turnAnalysis";
-import { correctInstability, REPAIR_POLICY, type CorrectionReceipt, type SystemProvenance } from "./turnRepair";
+import { correctTurnIssues, LEGACY_REPAIR_POLICY, REPAIR_POLICY, type CorrectionReceipt, type RepairPolicy, type SystemProvenance } from "./turnRepair";
 import { assessTurnIssues, matchesIssueEvidence, type IssueAssessment } from "./turnIssues";
 import { decidePenalty, type PenaltyDecision } from "./turnPenalty";
 import { awardFinalScore, finalReceipt, recoverFinalScore, type FinalScore } from "./finalScore";
@@ -65,7 +65,7 @@ type Event =
       end: "a" | "b";
       jointId?: string;
     }
-  | { kind: "end"; turn: number; status?: TurnReport["status"]; final?: FinalScore; issues?: IssueAssessment; penaltyDecision?: PenaltyDecision; repairPolicy?: typeof REPAIR_POLICY; correction?: CorrectionReceipt };
+  | { kind: "end"; turn: number; status?: TurnReport["status"]; final?: FinalScore; issues?: IssueAssessment; penaltyDecision?: PenaltyDecision; repairPolicy?: RepairPolicy; correction?: CorrectionReceipt };
 
 export type TurnReport = {
   turn: number;
@@ -448,17 +448,16 @@ function commitTurn(
     members: [...state.board.members, ...state.draft.members], connections,
     loads: [...state.board.loads, ...state.draft.loads], joints: turnJoints(state),
   }, draft: emptyDraft() };
-  if (replay?.repairPolicy !== undefined && (replay.repairPolicy !== REPAIR_POLICY || !penaltyDecision))
+  const repairPolicy = replay ? replay.repairPolicy : penaltyDecision && REPAIR_POLICY;
+  if (repairPolicy !== undefined && ((repairPolicy !== REPAIR_POLICY && repairPolicy !== LEGACY_REPAIR_POLICY) || !penaltyDecision))
     return fail("Unsupported or incomplete saved correction policy.");
-  const correctionEnabled = !!penaltyDecision && (!replay || replay.repairPolicy === REPAIR_POLICY);
-  const repair = issues && correctionEnabled
-    ? correctInstability(frozen, issues, state.turn) : undefined;
+  const repair = issues && repairPolicy ? correctTurnIssues(frozen, issues, state.turn, repairPolicy) : undefined;
   if (replay && !matchesIssueEvidence(repair?.receipt, replay.correction))
     return fail("The saved corrective work does not match the originating turn and verified structure.");
   const endEvent: Extract<Event, { kind: "end" }> = {
     kind: "end", turn: state.turn, status,
     ...(issues && { issues }), ...(penaltyDecision && { penaltyDecision }),
-    ...(correctionEnabled && { repairPolicy: REPAIR_POLICY }),
+    ...(repairPolicy && { repairPolicy }),
     ...(repair && { correction: repair.receipt }),
   };
   const report: TurnReport = {

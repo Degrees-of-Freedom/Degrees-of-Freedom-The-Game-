@@ -7,17 +7,19 @@ import { compareIssues, inspectIssues, type IssueAssessment, type IssueFinding, 
 import { originalPorts } from './turnPorts';
 import type { TurnState } from './turns';
 
-/** Permanent playtest scaffolding uses the catalogue SHS section and the
+/** Permanent playtest scaffolding uses printed steel sections and the
  * card-strength fixed/ball end laws, under the same card-gravity analysis.
  * Each candidate adds one real ground foundation and one finite-length member. */
-export const REPAIR_POLICY = 'local-steel-prop-1' as const;
+export const LEGACY_REPAIR_POLICY = 'local-steel-prop-1' as const;
+export const REPAIR_POLICY = 'local-steel-prop-2' as const;
+export type RepairPolicy = typeof REPAIR_POLICY | typeof LEGACY_REPAIR_POLICY;
 const maxAttempts = 3;
 type Board = TurnState['board'];
 type Member = Board['members'][number];
 type Joint = Board['joints'][number];
 type Connection = Board['connections'][number];
 export interface SystemProvenance {
-  policy: typeof REPAIR_POLICY;
+  policy: RepairPolicy;
   definitionVersion: typeof CARD_DEFINITION_VERSION;
   turn: number;
   issueId: string;
@@ -45,7 +47,7 @@ export interface RepairAttempt {
   reason: string;
 }
 export interface CorrectionReceipt {
-  policy: typeof REPAIR_POLICY;
+  policy: RepairPolicy;
   beforeModelId: string;
   afterModelId: string;
   attempts: RepairAttempt[];
@@ -95,22 +97,35 @@ function groundsAt(contact: Contact, member: Member) {
   return z > 0 ? [nodeKey(x, y, 0), diagonal] : [diagonal];
 }
 
-function localCandidates(board: Board, member: Member, baseId: string) {
+function localCandidates(board: Board, member: Member, baseId: string, issue: IssueFinding) {
   const seen = new Set<string>();
-  return contacts(board, member, baseId).flatMap(contact => {
+  const interfaces = contacts(board, member, baseId);
+  if (issue.category !== 'instability') {
+    // A prop at the actual loaded fitting can divert card gravity before it
+    // enters the overstressed span. Propping an already fixed support cannot.
+    const loaded = new Set(board.loads.map(load => load.jointId));
+    const restrained = new Set(board.joints.filter(j => j.foundationOwner).map(j => j.id));
+    const flagged = board.connections.find(c => c.memberId === member.id && c.end === issue.end);
+    const priority = (contact: Contact) => restrained.has(contact.id) ? 3 : loaded.has(contact.id) ? 0 :
+      contact.id === flagged?.jointId ? 1 : 2;
+    interfaces.sort((a,b) => priority(a) - priority(b));
+  }
+  return interfaces.flatMap(contact => {
     if (seen.has(contact.id)) return [];
     seen.add(contact.id);
     return groundsAt(contact, member).map(ground => ({ contact, ground }));
   });
 }
 
-function candidate(turn: TurnState, member: Member, contact: Contact, ground: string, turnNumber: number, issueId: string):
+function candidate(turn: TurnState, member: Member, contact: Contact, ground: string, turnNumber: number, finding: IssueFinding, policy: RepairPolicy):
   { state: TurnState } | { problem: string } {
   const { board, nextId } = turn;
   const baseId = 'neutral:' + turnNumber + ':' + nextId;
-  const system = (suffix: string): SystemProvenance => ({ policy: REPAIR_POLICY, definitionVersion: CARD_DEFINITION_VERSION,
-    turn: turnNumber, issueId, objectId: baseId + ':' + suffix });
-  const prop: Member = { id: nextId, type: 'shs', owner: NEUTRAL_OWNER, a: contact.point, b: ground,
+  const system = (suffix: string): SystemProvenance => ({ policy, definitionVersion: CARD_DEFINITION_VERSION,
+    turn: turnNumber, issueId: finding.id, objectId: baseId + ':' + suffix });
+  // Strength corrections use the already-printed HEB section. Its physical
+  // flanges, web, bending, torsion and slenderness all enter the trial solve.
+  const prop: Member = { id: nextId, type: finding.category === 'instability' ? 'shs' : 'heb', owner: NEUTRAL_OWNER, a: contact.point, b: ground,
     endTargets: { a: contact.id }, system: system('prop') };
   const clash = findMaterialClash(prop, board.members, member.id);
   if (clash) return { problem: clash };
@@ -141,10 +156,20 @@ function candidate(turn: TurnState, member: Member, contact: Contact, ground: st
 /** Every connected region influenced by the candidate (including merged
  * components and new fittings) needs verified stability and capacity. For a
  * disconnected, unaffected region preserve its prior valid results. */
-function rejection(before: IssueSnapshot, after: IssueSnapshot, propId: number, issueId: string) {
+function rejection(before: IssueSnapshot, after: IssueSnapshot, propId: number, issueId: string, policy: RepairPolicy, memory: IssueAssessment['memory']) {
   const prior = new Map(before.findings.map(f => [f.id, f]));
+  // Apply the same exit threshold as the charge ledger. Raw entry-threshold
+  // booleans alone would falsely clear a previously active overload at 1.000.
+  if (policy === REPAIR_POLICY) {
+    const comparison = compareIssues(before, after, memory);
+    const active = comparison.changes.find(change => change.after.active &&
+      (change.id === issueId || change.after.memberIds.includes(propId) || change.eligible));
+    if (active) return active.id + ' remains active: ' + active.after.reason +
+      (active.after.utilization !== undefined ? ' (' + active.after.utilization.toFixed(3) + ')' : '');
+  }
   if (after.findings.find(f => f.id === issueId)?.active !== false)
-    return issueId + ' still lacks a verified stable response.';
+    return issueId + (policy === LEGACY_REPAIR_POLICY || issueId.startsWith('instability:')
+      ? ' still lacks a verified stable response.' : ' still lacks a verified capacity clearance.');
   for (const f of after.findings) {
     const old = prior.get(f.id);
     const affected = f.memberIds.includes(propId) || !old;
@@ -159,22 +184,26 @@ function rejection(before: IssueSnapshot, after: IssueSnapshot, propId: number, 
 /** A bounded transaction on an already frozen player board. A rejected
  * candidate never consumes an ID or changes the following candidate's model.
  * Replay reconstructs the same transaction from its immutable pre-move board. */
-export function correctInstability(frozen: TurnState, assessment: IssueAssessment, turnNumber: number) {
-  const targets = assessment.changes.filter(c => c.category === 'instability' && c.after.active === true)
-    .sort((a,b) => a.memberId - b.memberId);
+export function correctTurnIssues(frozen: TurnState, assessment: IssueAssessment, turnNumber: number, policy: RepairPolicy) {
+  const supported = (finding: IssueFinding) => policy === REPAIR_POLICY || finding.category === 'instability';
+  const targets = assessment.changes.filter(c => supported(c.after) && c.after.active === true)
+    .sort((a,b) => Number(b.category === 'instability') - Number(a.category === 'instability') || a.memberId - b.memberId);
   if (!targets.length || assessment.beforeModelId === assessment.afterModelId) return undefined;
   const initial = evidence(frozen);
   let current = frozen, verified = initial;
   const attempts: RepairAttempt[] = [];
   for (const issue of targets) {
     if (attempts.length >= maxAttempts) break;
-    if (verified.issues.findings.find(f => f.id === issue.id)?.active !== true) continue;
+    if (verified.issues !== initial.issues) {
+      const remaining = compareIssues(initial.issues, verified.issues, assessment.memory);
+      if (!remaining.changes.some(change => change.id === issue.id && change.after.active)) continue;
+    }
     const member = current.board.members.find(m => m.id === issue.memberId)!;
     const baseId = 'neutral:' + turnNumber + ':' + current.nextId;
-    for (const { contact, ground } of localCandidates(current.board, member, baseId)) {
+    for (const { contact, ground } of localCandidates(current.board, member, baseId, issue.after)) {
       if (attempts.length >= maxAttempts) break;
       const attempt = { issueId: issue.id, memberId: member.id, contact: contact.id, ground, propId: current.nextId };
-      const trial = candidate(current, member, contact, ground, turnNumber, issue.id);
+      const trial = candidate(current, member, contact, ground, turnNumber, issue.after, policy);
       if ('problem' in trial) {
         attempts.push({ ...attempt, status: 'rejected', reason: trial.problem });
         continue;
@@ -182,7 +211,7 @@ export function correctInstability(frozen: TurnState, assessment: IssueAssessmen
       const post = evidence(trial.state);
       const lostSupport = verified.foundations.find(prior => prior.upwardKN !== null &&
         !post.foundations.some(f => f.jointId === prior.jointId && f.upwardKN !== null));
-      const reason = rejection(verified.issues, post.issues, current.nextId, issue.id) ??
+      const reason = rejection(verified.issues, post.issues, current.nextId, issue.id, policy, assessment.memory) ??
         (lostSupport ? 'Equilibrium became unverified at support ' + lostSupport.jointId + '.' : null) ??
         (post.foundations.some(f => f.jointId === baseId + ':ground' && f.upwardKN !== null)
           ? null : 'Neutral support equilibrium was not verified.');
@@ -200,8 +229,9 @@ export function correctInstability(frozen: TurnState, assessment: IssueAssessmen
   const props = new Set(attempts.filter(a => a.status === 'verified').map(a => a.propId));
   const fittings = new Set(current.board.connections.filter(c => c.system?.turn === turnNumber)
     .map(c => 'connection-overload:' + c.memberId + ':' + c.end));
-  const receipt: CorrectionReceipt = { policy: REPAIR_POLICY, beforeModelId: initial.issues.modelId, afterModelId: verified.issues.modelId,
-    attempts, pending: verified.issues.findings.filter(f => f.category === 'instability' && f.active === true).map(f => f.id),
+  const receipt: CorrectionReceipt = { policy, beforeModelId: initial.issues.modelId, afterModelId: verified.issues.modelId,
+    attempts, pending: policy === LEGACY_REPAIR_POLICY ? verified.issues.findings.filter(f => supported(f) && f.active === true).map(f => f.id) :
+      post.changes.filter(c => c.after.active === true).map(c => c.id),
     memory: post.memory, changes: post.changes,
     repairChecks: verified.issues.findings.filter(f => props.has(f.memberId) || fittings.has(f.id)),
     beforeFoundations: initial.foundations, afterFoundations: verified.foundations };

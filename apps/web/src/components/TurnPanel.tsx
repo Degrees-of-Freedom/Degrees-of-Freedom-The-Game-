@@ -2,6 +2,7 @@ import { useGameStore } from "../game/store";
 import { activeTurnHand, KIT_PLAYTEST } from "../game/turns";
 import { TurnQuarterTargets } from "./TurnQuarterTargets";
 import { FinalScorePanel } from "./FinalScorePanel";
+import { RepairHistory } from "./RepairHistory";
 import { publicTurnReport } from "../game/publicTurnModel";
 import { CardDefinitionDetails } from "./CardDefinitionDetails";
 import { connectionLocations, findPort, portLabel, systemTarget } from "../game/turnPorts";
@@ -54,6 +55,7 @@ export function TurnPanel({
           ))}
         </details>
       )}
+      <RepairHistory reports={turn.reports} />
       {!turn.finished && <p>
         {KIT_PLAYTEST.description} Draw two cards from each deck. Play up to one
         member, one gravity load and two end connections, or pass. This is an
@@ -159,10 +161,10 @@ export function TurnPanel({
           </div>
         </>
       )}
-      <p className="runtime-status">
+      {!report?.correction && <p className="runtime-status">
         {report?.reason ??
           "Run simulation to inspect loads, reactions and stability with individual end connections."}
-      </p>
+      </p>}
       <details>
         <summary>Placed connections</summary>
         <ul>
