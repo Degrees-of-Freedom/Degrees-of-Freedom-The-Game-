@@ -140,6 +140,7 @@ try {
   await button('Menu').click(); await button('Restart').click(); await button('Cancel').click();
   assert.deepEqual((await head()).turn, cancelled.turn);
   assert.deepEqual(errors, []);
+  const structural = await structuralReview(browser, base, output);
   const result = {...build, browser: browser.version(), seed: 0, checks: [
     'normal Play starts four deliberate three-deck choices',
     'partial draw reload preserves match, cards and remaining choices',
@@ -154,11 +155,86 @@ try {
     'genuine legacy private import preserves its original two-deck state',
     'revised private export/import restores chosen draws and held cards',
     'restart cancellation preserves the confirmed match',
-  ], errors};
+  ], structural, errors};
   await writeFile(resolve(output, 'draw-and-draft-review.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result));
   await context.close();
 } finally {
   await browser?.close();
   await new Promise(resolveClose => server.httpServer.close(resolveClose));
+}
+
+async function structuralReview(browser, base, output) {
+  const context = await browser.newContext({viewport: {width: 1366, height: 900}, reducedMotion: 'reduce'});
+  const page = await context.newPage();
+  page.setDefaultTimeout(20000);
+  const button = name => page.getByRole('button', {name, exact: true});
+  const ready = button('Ready · Reveal my hand');
+  const head = () => page.evaluate(async () => {
+    const request = indexedDB.open('dof-grow-dusk');
+    const db = await new Promise(resolve => {request.onsuccess = () => resolve(request.result);});
+    try {
+      const read = db.transaction('match').objectStore('match').get('head');
+      return JSON.parse(await new Promise(resolve => {read.onsuccess = () => resolve(read.result);}));
+    } finally { db.close(); }
+  });
+  const draw = async sources => {
+    for (let i = 0; i < sources.length; i++) {
+      await page.locator(`[data-deck="${sources[i]}"]`).click();
+      await expect.poll(async () => {
+        const record = await head();
+        const receipt = record.turn.draws.find(draw => draw.turn === record.turn.turn);
+        return receipt.pieces.length + receipt.connectors.length + (receipt.loads?.length ?? 0);
+      }).toBe(i + 1);
+    }
+  };
+  try {
+    await page.goto(base + '?seed=0');
+    await page.getByRole('link', {name: 'Play', exact: true}).click(); await ready.click();
+    await draw(['members', 'connections', 'connections', 'loads']);
+    const hand = page.getByRole('region', {name: 'Active hand'});
+    await hand.locator('[data-kind="element"]').first().click();
+    await page.getByText('Precise placement', {exact: true}).click();
+    await page.getByLabel('End A grid x,y,z').fill('5,7,1');
+    await page.getByLabel('End B grid x,y,z').fill('6,7,1'); await button('Stage element').click();
+    await hand.locator('[data-kind="connection"]').filter({hasText: 'Fixed connector'}).first().click();
+    await page.getByLabel('Connection target').selectOption(JSON.stringify([3, 'a', '5,7,1']));
+    await button('Attach end').click();
+    await hand.locator('[data-kind="load"]').first().click();
+    await page.getByLabel('Load target').selectOption('port:3:2'); await button('Place load').click();
+    await button('End turn').click(); await ready.click();
+    await expect.poll(async () => (await head()).turn.turn).toBe(2);
+    assert.equal((await head()).turn.reports[0].status, 'pending');
+    await draw(['connections', 'connections', 'connections', 'connections']);
+    await button('Pass').click(); await ready.click();
+    await draw(['loads', 'loads', 'loads', 'loads']);
+    await button('Pass').click(); await ready.click();
+    await expect.poll(async () => (await head()).turn.turn).toBe(4);
+    await expect(page.getByRole('complementary', {name: 'Analysis legend'})).toBeVisible();
+    await expect(button('Load paths')).toHaveAttribute('aria-pressed', 'true');
+    await expect(button('Deformation')).toHaveAttribute('aria-pressed', 'true');
+    const record = await head();
+    assert.equal(record.turn.checkpoints.receipts.length, 1);
+    assert.equal(record.turn.checkpoints.lastAnalysis.turn, 3);
+    assert.ok(record.turn.reports.every(report => report.status !== 'pending'));
+    await button('Shear').click(); await button('Bending').click();
+    await page.screenshot({path: resolve(output, 'verified-load-path-and-diagrams.png')});
+    const labels = page.getByLabel('Reaction labels');
+    await labels.selectOption('off'); await labels.selectOption('large');
+    await button('Inspect').click();
+    await page.getByLabel('Inspect member').selectOption('3');
+    await expect(page.getByText('Committed member · read only')).toBeVisible();
+    await expect(page.getByLabel('Draft end x,y,z')).toHaveCount(0);
+    await page.getByText('Foundation forces and moments', {exact: true}).click();
+    const reactions = await page.getByRole('table').filter({has: page.getByText('Signed global support reaction', {exact: true})}).allTextContents();
+    assert.equal(reactions.length, 2);
+    await page.screenshot({path: resolve(output, 'signed-support-reactions.png')});
+    assert.deepEqual((await head()).turn, record.turn);
+    return {checks: ['real member/connector/gravity plays become a checkpoint after three player turns',
+      'normal board exposes calculated deflection and load paths automatically',
+      'shear and bending overlays combine with calculated response',
+      'reaction labels support Off and Large',
+      'committed member is read-only and foundation six-component tables are inspectable',
+      'overlay and reaction settings preserve authoritative match state'], reactions};
+  } finally { await context.close(); }
 }

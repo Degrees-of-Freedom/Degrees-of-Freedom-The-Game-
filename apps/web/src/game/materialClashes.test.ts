@@ -93,7 +93,7 @@ describe("undeformed section material in the scored frame preset", () => {
 
 describe('intentional original-port contacts in revised Shared table', () => {
   const parent = piece(1, '0,2,1', '8,2,1', 'heb');
-  const check = (candidate: Parameters<typeof findMaterialClash>[0], existing = parent) =>
+  const check = (candidate: Parameters<typeof findMaterialClash>[0], existing: Parameters<typeof findMaterialClash>[0] = parent) =>
     findMaterialClash(candidate, [existing], undefined, true);
 
   it('admits perpendicular, diagonal and shallow-angle HEB joints with their real section widths', () => {
