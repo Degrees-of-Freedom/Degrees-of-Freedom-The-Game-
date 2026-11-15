@@ -500,16 +500,16 @@ export function Workspace() {
       escapeBusy={!covered && drawer !== null} onMessage={setMessage} />
   );
   if (game.sessionConflict) return <SharedTableHandoff player={1} conflict onReady={() => window.location.reload()} />;
-  if (saveCovered) return <SessionRecovery />;
+  if (saveCovered && (game.sessionSave === "invalid" || game.sessionSave === "failed" || !privateTurn)) return <SessionRecovery />;
   if (covered && privateTurn) return (
     <>
       <div className="handoff-scene" aria-hidden="true" inert>
         <SceneBoundary release><Scene publicOnly cameraMemory={cameraMemory.current} still result={null} combo={0}
           deformed={false} scale={1} utilization={false} loads={false} loadPath={false} /></SceneBoundary>
       </div>
-      <SharedTableHandoff player={privateTurn.playerIndex + 1} onReady={() => {
+      {saveCovered ? <SessionRecovery soft /> : <SharedTableHandoff player={privateTurn.playerIndex + 1} onReady={() => {
         if (!paused && !document.hidden) setReadyBoard(privateTurn.board);
-      }} />
+      }} />}
       {pauseMenu}
     </>
   );

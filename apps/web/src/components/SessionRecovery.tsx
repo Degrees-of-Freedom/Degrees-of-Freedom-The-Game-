@@ -3,7 +3,7 @@ import { useGameStore } from "../game/store";
 import { downloadMatch } from "./MatchFiles";
 
 /** This screen mounts without the board, final receipt, or private tray. */
-export function SessionRecovery() {
+export function SessionRecovery({ soft = false }: { soft?: boolean }) {
   const game = useGameStore();
   const invalid = game.sessionSave === "invalid";
   const failed = game.sessionSave === "failed";
@@ -33,8 +33,8 @@ export function SessionRecovery() {
     setDownloaded(true);
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  return <main className="dof-menu dm-pause dm-handoff" aria-labelledby="save-heading">
-    <section className="dm-pause-panel panel" aria-busy={busy}>
+  return <main className={`dof-menu dm-pause dm-handoff${soft ? " dm-pass" : ""}`} aria-labelledby="save-heading">
+    <section className={`dm-pause-panel${soft ? " dm-pass-message" : " panel"}`} aria-busy={busy}>
       <h1 id="save-heading" tabIndex={-1} ref={heading}>{invalid ? "Recover saved session" : failed ? "Save interrupted" : release ? "Checking and saving the turn" : "Saving turn"}</h1>
       <p role="status">{invalid || failed ? game.persistenceError : release ? "Resolving the match before handoff…" : "Waiting for local storage to confirm this revision."}</p>
       {!invalid && <p>{game.savedRevision === null ? "No confirmed save yet." : `Last confirmed revision ${game.savedRevision}`}</p>}
