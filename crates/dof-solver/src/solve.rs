@@ -637,16 +637,15 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
     match path {
         Err((fraction, failure)) => {
             out.load_fraction_reached = fraction;
-            if first_order_unstable {
-                out.status = Status::Unstable;
-                out.reasons.push("recoveryFailed");
-            } else {
-                out.reasons.push(match failure {
-                    Failure::Budget => "iterationLimit",
-                    Failure::NoConvergence => "noConvergence",
-                    Failure::NonFinite => "nonFinite",
-                });
-            }
+            // The initial mechanism may engage a cable or gain geometric
+            // stiffness later. A failed iteration cannot witness instability
+            // of a final equilibrium that the solver has never reached.
+            if first_order_unstable { out.reasons.push("recoveryFailed"); }
+            out.reasons.push(match failure {
+                Failure::Budget => "iterationLimit",
+                Failure::NoConvergence => "noConvergence",
+                Failure::NonFinite => "nonFinite",
+            });
         }
         Ok((state, converged)) => {
             out.converged = true;
@@ -690,14 +689,14 @@ pub fn analyze(sys: &System, options: &Options) -> Outcome {
                         let mut probe = Newton { budget: options.max_total_iterations, iterations: 0, stiffness: sys.stiffness(), carry: Some(converged.factor), ..newton };
                         let mut state = stable_state;
                         let amplified: Vec<f64> = load.iter().map(|v| v * options.stability_margin).collect();
-                        let survives = match probe.solve(&mut state, lam * options.stability_margin, false) {
-                            Ok(result) => tangent_stable(sys, &result, &amplified),
-                            Err(_) => false,
-                        };
+                        let survives = probe.solve(&mut state, lam * options.stability_margin, false)
+                            .ok().map(|result| tangent_stable(sys, &result, &amplified));
                         out.iterations += probe.iterations;
-                        if !survives {
+                        if survives == Some(false) {
                             out.status = Status::Marginal;
                             out.reasons.push("lowStabilityMargin");
+                        } else if survives.is_none() {
+                            out.reasons.push("reserveUnresolved");
                         }
                     }
                 }
@@ -742,8 +741,7 @@ fn critical_load(sys: &System, f: &[f64], gauge: &[usize], options: &Options, la
         let load: Vec<f64> = f.iter().map(|v| v * fraction * lam).collect();
         match newton.solve(&mut state, fraction * lam, true) {
             Ok(result) => Some(tangent_stable(sys, &result, &load)),
-            Err(Failure::Budget) => None,
-            Err(_) => Some(false),
+            Err(_) => None,
         }
     };
     if stable_at(&mut newton, 0.0)? == false {
@@ -755,7 +753,7 @@ fn critical_load(sys: &System, f: &[f64], gauge: &[usize], options: &Options, la
         match stable_at(&mut newton, middle) {
             Some(true) => low = middle,
             Some(false) => high = middle,
-            None => break,
+            None => return None,
         }
     }
     Some(0.5 * (low + high) * lam)

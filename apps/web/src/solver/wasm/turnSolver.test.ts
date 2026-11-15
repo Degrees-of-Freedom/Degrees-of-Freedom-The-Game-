@@ -2,6 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { VoxelModel } from '../voxelInput';
 import { createTurnSolver } from './turnSolver';
+import { computeLoadPath } from '../loadPath';
+import { connectionDefinition } from '../../game/jointFreedom';
 
 const solver = createTurnSolver(async () => {
   const bytes = await readFile(new URL('./dof_solver.wasm', import.meta.url));
@@ -49,5 +51,20 @@ describe('scored turn Rust/WASM projection', () => {
     const result = solver.analyze(model, 'independent');
     expect(result.combos[0].components).toEqual(expect.arrayContaining([
       expect.objectContaining({memberIds:[1],status:'computed'}),expect.objectContaining({memberIds:[2],status:'unsupported'})]));
+  });
+  it('uses vertical shear for gravity transfer and includes actual fitting slip at a beam end', () => {
+    const input: VoxelModel = {nextId:3, attrs:{base:{found:true},tip:{load:5}},
+      positions:{base:[0,0,0],tip:[2,0,0]}, members:[{id:1,a:'base',b:'tip',type:'heb',endA:'fixed',
+        endB:'fixed',connectionA:connectionDefinition('seat-20')}]};
+    const result = solver.analyze(input, 'seat'), e = result.ctx!.els[0];
+    const response = result.combos[0].ef!.get(e)!;
+    expect(response.motionSamples).toHaveLength(3);
+    expect(response.motionSamples![0].motion[2]).toBeCloseTo(-5000/20e6, 9);
+    expect(response.verticalTransferKN).toBeCloseTo(-5,6);
+    const path = computeLoadPath(result,0);
+    expect(path?.members.get(1)).toMatchObject({direction:-1,mode:'bending'});
+    expect(path?.shares[0].fraction).toBeCloseTo(1,8);
+    const reversed = solver.analyze({...input,members:[{...e.m,a:'tip',b:'base',connectionB:e.m.connectionA,connectionA:undefined}]},'reversed');
+    expect(computeLoadPath(reversed,0)?.members.get(1)?.direction).toBe(1);
   });
 });

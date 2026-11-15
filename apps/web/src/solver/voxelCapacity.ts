@@ -1,6 +1,6 @@
 import type { VoxelModel } from './voxelInput';
 import type { ComponentResponse, VoxelAnalysis } from './voxelResults';
-import type { BeamSection, BeamType } from './voxelSections';
+import { ITEMS, type BeamSection, type BeamType } from './voxelSections';
 import { verifiedResponse } from './voxelVerification';
 
 /** Printed playtest limit states. Values are kN and kN·m. Section axial,
@@ -9,7 +9,7 @@ import { verifiedResponse } from './voxelVerification';
  * Connector force and moment intercepts reuse the existing design catalogue. */
 export const CARD_STRENGTH = {
   version: 'card-strength-1',
-  torsion: { shs: 20, glulam: 7, ipe: 3.5, heb: 18 } satisfies Record<BeamType, number>,
+  torsion: { shs: 20, chs: ITEMS.chs.fv*ITEMS.chs.J/0.05, glulam: 7, ipe: 3.5, heb: 18 } satisfies Record<BeamType, number>,
   connections: { fixed: { force: 700, moment: 220 }, ball: { force: 350 },
     'hinge-diagonal': {force:400, moment:80}, 'guided-x': {force:400, moment:80},
     'seat-20': {force:400, moment:80}, 'seat-80': {force:400, moment:80}, 'semi-rigid': {force:400, moment:80},
@@ -44,7 +44,7 @@ function memberCheck(type: BeamType, s: BeamSection, actions: LocalActions, stat
   // Magnitudes give the outer-corner extreme for biaxial bending of these
   // doubly symmetric sections. Timber has separate printed bending strength.
   const axial = N / s.A;
-  const bending = Math.abs(My)/s.Wy + Math.abs(Mz)/s.Wz;
+  const bending = type === 'chs' ? Math.hypot(My/s.Wy, Mz/s.Wz) : Math.abs(My)/s.Wy + Math.abs(Mz)/s.Wz;
   let normal: number;
   if (type === 'glulam') {
     // The card specifies separate bending and axial strengths.

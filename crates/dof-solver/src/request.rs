@@ -269,6 +269,7 @@ fn parse_options(value: Option<&Json>) -> Parsed<Options> {
         },
         max_failure_events: f.count("maxFailureEvents")?.unwrap_or(d.max_failure_events),
         max_modes: f.count("maxModes")?.unwrap_or(d.max_modes),
+        member_fields: f.flag_or("memberFields", d.member_fields)?,
     };
     f.done()?;
     Ok(options)

@@ -104,7 +104,7 @@ export function toTurnVoxelInput(turn: TurnState): VoxelModel {
 export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card-gravity' = 'with-self-weight') {
   const input = toTurnVoxelInput(turn);
   const release = turn.catalogue === 'grow-dusk-release-1';
-  const response = release ? releaseSolver.analyze(input, [turn.catalogue, turn.seed, turn.turn].join('/'))
+  const response = release ? releaseSolver.analyze(input, turn.catalogue)
     : analyzeVoxel(input, { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });
   const capacity = release || loading === 'card-gravity'
     ? assessCardCapacity(input, response, [...turn.board.connections, ...turn.draft.connections])

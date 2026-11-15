@@ -76,9 +76,9 @@ function scopeResponse(scope: AnalysisComponent, result: DetailedAnalysisResult,
     : scope.reasonCodes.join(', ') || (valid ? 'Verified nonlinear equilibrium.' : 'Nonlinear equilibrium unavailable.');
   const status = valid ? 'computed' : scope.flags.unsupported ? 'unsupported' : exceeded || scope.flags.excessiveDeformation
     ? 'excessive-displacement' : scope.status === 'unstable' && (scope.flags.mechanism || scope.flags.loadInducedInstability) ? 'mechanism' : 'unresolved';
-  const nodes = scope.unstableNodeIds;
+  const nodes = [...scope.unstableNodeIds];
   const witnessed = parts.filter(e => nodes.includes(e.m.a) || nodes.includes(e.m.b)).map(e => e.m.id);
-  return { status, nodes: scope.nodeIds, memberIds, reason,
+  return { status, nodes: [...scope.nodeIds], memberIds, reason,
     ...(status === 'mechanism' && witnessed.length > 0 && {instabilityWitness: {nodes, memberIds: witnessed, reason}}),
     verification: valid ? {formulation: RELEASE_SOLVER, status: 'verified-nonlinear', nonlinear: {residual: residual!, force: force!, moment: moment!}}
       : {formulation: RELEASE_SOLVER, status: 'unverified', reason} };
@@ -92,6 +92,9 @@ function project(input: VoxelModel, ctx: Context, result: DetailedAnalysisResult
   const combo: Combo = { combo: {name: 'Card gravity', short: 'Gravity', type: 'SLS', dir: [0, 0, -1]},
     components, F: new Float64Array(6*ctx.NA), vis: [], partialDisplacements: new Map(), ef: new Map(), reac: {} };
   const analysis: VoxelAnalysis = { ctx, combos: [combo], members: {}, nodes: {}, found: {}, objectives: [],
+    ...(result.analysis.modelVersion && {reference:{modelVersion:result.analysis.modelVersion,
+      solverVersion:result.analysis.solverVersion, fidelity:'nonlinear' as const}}),
+    appliedGravityKN:Object.values(input.attrs).reduce((sum, a) => sum + (a.load ?? 0), 0),
     mechanism: components.some(c => c.status === 'mechanism'), unresolved: components.some(c => c.status === 'unresolved' || c.status === 'excessive-displacement'),
     floating: components.filter(c => c.status === 'unsupported').flatMap(c => c.nodes),
     unstable: new Set(components.flatMap(c => c.instabilityWitness?.nodes ?? [])), designChecksAvailable: false };
@@ -116,7 +119,16 @@ function project(input: VoxelModel, ctx: Context, result: DetailedAnalysisResult
     const f = Float64Array.from([...forces.start.map(v => -v/1000), ...forces.end.map(v => v/1000)]);
     const ug = Float64Array.from([...result.nodes[e.m.a].displacement!, ...result.nodes[e.m.b].displacement!]);
     const ul = vecToLocal(ug, e.R);
-    combo.ef!.set(e, {f, ul, stations: member.stations?.map(s => ({fraction: s.fraction, forces: s.forces.map(v => v/1000)})),
+    const samples = member.stations?.flatMap((s,i,all) =>
+      s.motion && (i === 0 || s.fraction !== all[i-1].fraction) ? [{fraction:s.fraction, motion:[...s.motion]}] : []);
+    if (samples?.length) {
+      const actual = Float64Array.from([...samples[0].motion, ...samples[samples.length-1].motion]);
+      ul.set(vecToLocal(actual, e.R));
+    }
+    const chord = e.ex.map((v,i) => v*e.L + ug[6+i] - ug[i]);
+    const verticalTransferKN = member.stations?.[0] ? member.stations[0].globalForce[2]/1000 :
+      e.it.kind !== 'beam' ? forces.end[0]/1000 * chord[2]/Math.hypot(...chord) : undefined;
+    combo.ef!.set(e, {f, ul, motionSamples:samples, verticalTransferKN, stations: member.stations?.map(s => ({fraction: s.fraction, forces: s.forces.map(v => v/1000)})),
       ...(e.cable && { slack: member.state === 'slack', cableTension: forces.end[0]/1000 })});
   }
   return analysis;
@@ -124,13 +136,23 @@ function project(input: VoxelModel, ctx: Context, result: DetailedAnalysisResult
 
 export function createTurnSolver(source?: WasmSource) {
   const solver = createWasmSolver(source);
+  // A pass, retry or before/after comparison may have identical physical
+  // inputs. Reuse only a byte-for-byte match of the complete SI model. The
+  // cache is scoped to this WASM instance and holds just the last response.
+  let previous: { key: string; result: DetailedAnalysisResult } | undefined;
   return {
     prepare: solver.prepare,
     analyze(input: VoxelModel, version: string) {
       const {ctx} = prepareTurnGeometry(input);
       const model = turnReferenceModel(input, ctx, version);
-      const result = solver.analyzePrepared(model, {fidelity: 'nonlinear', subdivisions: 2, failure: 'report', residualGate: 1e-5});
+      const key = JSON.stringify(model);
+      if (previous?.key === key) return project(input, ctx, previous.result);
+      let hash = 2166136261;
+      for (let i = 0; i < key.length; i++) hash = Math.imul(hash ^ key.charCodeAt(i), 16777619);
+      model.version = version + '/' + (hash >>> 0).toString(16);
+      const result = solver.analyzePrepared(model, {fidelity: 'nonlinear', subdivisions: 2, failure: 'report', residualGate: 1e-5, memberFields:true});
       if (result.analysis.status === 'ok' && result.analysis.solverVersion !== '0.2.0') throw new Error('Unsupported browser solver version.');
+      if (result.analysis.status === 'ok') previous = {key, result};
       return project(input, ctx, result);
     },
   };

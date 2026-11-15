@@ -192,6 +192,9 @@ pub enum FailureMode {
 
 #[derive(Clone, Debug)]
 pub struct Options {
+    /// Return mesh station cuts and physical end motions for rendering and
+    /// independent capacity laws. This changes serialization only.
+    pub member_fields: bool,
     pub fidelity: Fidelity,
     /// Gravity acceleration vector, m/s². Present switches self-weight on.
     pub gravity: Option<Vec3>,
@@ -227,6 +230,7 @@ impl Default for Options {
     fn default() -> Self {
         Self {
             fidelity: Fidelity::Nonlinear,
+            member_fields: false,
             gravity: None,
             load_factor: 1.0,
             subdivisions: 2,

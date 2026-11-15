@@ -66,6 +66,10 @@ export type ElementForce = {
   cableTension?: number;
   /** Positive-face section cuts from the nonlinear beam mesh, kN and kN m. */
   stations?: { fraction: number; forces: number[] }[];
+  /** Global translations and rotation vectors at the physical mesh ends. */
+  motionSamples?: { fraction: number; motion: readonly number[] }[];
+  /** Signed vertical transfer toward the segment end, under joint gravity. */
+  verticalTransferKN?: number;
 };
 export type Solved = {
   u: Float64Array;
@@ -102,6 +106,9 @@ export function displacementAt(combo: Combo | undefined, active: number): Float6
 }
 /** Prototype analysis in kN and metres. Results are approximate and not engineering design. */
 export interface VoxelAnalysis {
+  reference?: {modelVersion: string; solverVersion: string; fidelity: 'nonlinear'};
+  /** Total physical card gravity, including unavailable components, kN. */
+  appliedGravityKN?: number;
   /** Turn projection of analytical submembers onto their playable card, including unsolved regions. */
   physicalParents?: ReadonlyMap<number, number>;
   error?: string;

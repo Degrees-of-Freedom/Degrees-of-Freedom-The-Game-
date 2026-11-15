@@ -276,6 +276,16 @@ fn large_deflection_cable() {
     close(r.forces("c1", "start")[0], tension, 1e-6);
 }
 
+#[test]
+fn uncompleted_non_linear_recovery_cannot_witness_final_instability() {
+    let mut b = cable_span(None, A, 5.0e4);
+    b.options.max_total_iterations = 1;
+    let result = b.run();
+    assert_eq!(result.status(0), "unknown");
+    assert!(result.reasons(0).contains(&"iterationLimit"));
+    assert_eq!(result.component(0).get("resultsValid").unwrap().as_bool(), Some(false));
+}
+
 /// Pure bending rolls a cantilever into a circular arc of radius EI/M. An
 /// end moment of πEI/2L turns the tip through 90°.
 #[test]

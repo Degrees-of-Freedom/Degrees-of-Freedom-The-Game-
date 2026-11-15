@@ -273,6 +273,7 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
                 }
                 (Some(s), Span::Segs(range)) => {
                     let mut stations: Vec<[f64; 6]> = Vec::new();
+                    let mut field = Vec::new();
                     for seg_index in range.clone() {
                         let seg = &sys.segs[seg_index];
                         let frame = sys.seg_frame(seg_index, s.state.as_ref());
@@ -282,6 +283,17 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
                             let force = tmat_vec(&frame, &[net[0], net[1], net[2]]);
                             let moment = tmat_vec(&frame, &[net[3], net[4], net[5]]);
                             stations.push([force[0], force[1], force[2], moment[0], moment[1], moment[2]].map(|v| sign * v));
+                            if options.member_fields {
+                                let fraction = (seg_index - range.start + end) as f64 / range.len() as f64;
+                                let global = [net[0]*sign, net[1]*sign, net[2]*sign];
+                                let mut sample = vec![("fraction".into(), fraction.into()), ("forces".into(), (*stations.last().unwrap()).into()),
+                                                      ("globalForce".into(), global.into())];
+                                if let Some(state) = &s.state {
+                                    let (seg_state, q) = sys.seg_state(seg_index, state);
+                                    sample.push(("motion".into(), crate::element::end_motion(&seg.geom, &seg_state, &q, end).into()));
+                                }
+                                field.push(Json::Obj(sample));
+                            }
                         }
                     }
                     let (start, end) = (stations[0], stations[stations.len() - 1]);
@@ -312,14 +324,11 @@ fn analyse_once(index: &Index, options: &Options, failed: &BTreeSet<String>) -> 
                     fields.extend([
                         ("state", "active".into()),
                         ("forces", object([("start", start.into()), ("end", end.into())])),
-                        ("stations", Json::Arr(stations.iter().enumerate().map(|(i, forces)| {
-                            let fraction = (i / 2 + i % 2) as f64 / range.len() as f64;
-                            object([("fraction", fraction.into()), ("forces", (*forces).into())])
-                        }).collect())),
                         u,
                         g,
                         ("connections", object([("start", connections.remove(0)), ("end", connections.remove(0))])),
                     ]);
+                    if options.member_fields { fields.push(("stations", Json::Arr(field))); }
                 }
             }
             pass.members.insert(member.id.clone(), Json::Obj(fields.into_iter().map(|(k, v)| (k.to_string(), v)).collect()));

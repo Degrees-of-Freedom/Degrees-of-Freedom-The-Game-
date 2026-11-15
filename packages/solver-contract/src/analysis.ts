@@ -132,6 +132,8 @@ export interface AnalysisModel {
 }
 
 export interface AnalysisOptions {
+  /** Include internal beam cuts and nonlinear physical end motions. */
+  memberFields?: boolean;
   /** `linear` is the fast preview; `nonlinear` (default) is authoritative. */
   fidelity?: 'linear' | 'nonlinear';
   /** Gravity vector, m/s². Present switches member self-weight on. */
@@ -228,7 +230,7 @@ export interface MemberResult {
    */
   forces: { start: Vector6; end: Vector6 } | null;
   /** End cuts of internal beam elements, including both sides of a mesh node. */
-  stations?: readonly { fraction: number; forces: Vector6 }[];
+  stations?: readonly { fraction: number; forces: Vector6; globalForce: Vector3; motion?: Vector6 }[];
   utilization: number | null;
   governingLimitState?: string | null;
   connections?: { start: ConnectionResult; end: ConnectionResult } | null;
