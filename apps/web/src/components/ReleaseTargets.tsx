@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { connectionChoices } from "../game/cardCatalogue";
-import { connectionLabel, type ConnectionProfile } from "../game/jointFreedom";
+import { connectionLabel, memberConnectionFrame, type ConnectionProfile } from "../game/jointFreedom";
 import { useGameStore } from "../game/store";
 import { findPort, loadTargets, originalPorts, portLabel, systemTarget } from "../game/turnPorts";
-import type { TurnCard, TurnState } from "../game/turns";
+import { stageConnection, type TurnCard, type TurnState } from "../game/turns";
 import { turnConnectionTargets } from "../viewer/turnPicking";
 
 type Game = ReturnType<typeof useGameStore.getState>;
@@ -52,11 +52,16 @@ export function ReleaseTargets({ game, card, notify }: { game: Game; card: TurnC
   }
   const profiles = connectionChoices(card);
   const profile = profiles.length === 1 ? profiles[0] : game.selectedConnectionProfile;
-  const targets = turnConnectionTargets(game);
+  // Keep the intended end selected while the player changes its local axes.
+  // An incompatible choice reports the conflict instead of moving the target.
+  const targets = turnConnectionTargets(turn.rulesRevision ? { ...game, selectedConnectionProfile: undefined } : game);
   const key = (target: typeof targets[number]) => JSON.stringify([target.memberId, target.end, target.key]);
   const target = targets.find(t => key(t) === choice) ?? targets[0];
+  const member = target && [...turn.board.members, ...turn.draft.members].find(member => member.id === target.memberId);
+  const axes = member && turn.rulesRevision ? memberConnectionFrame(member) : undefined;
+  const attachment = target && profile ? stageConnection(turn, card.id, target.memberId, target.end, target.key, profile) : undefined;
   return <div className="release-targets">
-    {profiles.length > 1 && <label>Rotational locks
+    {profiles.length > 1 && <label>{turn.rulesRevision ? "Local rotational locks" : "Rotational locks"}
       <select value={profile ?? ""} onChange={event => game.setConnectionProfile(event.target.value as ConnectionProfile || undefined)}>
         <option value="">Choose axes</option>{profiles.map(p => <option key={p} value={p}>{connectionLabel(p)}</option>)}
       </select></label>}
@@ -64,7 +69,13 @@ export function ReleaseTargets({ game, card, notify }: { game: Game; card: TurnC
       <label>Connection target<select value={key(target)} onChange={event => setChoice(event.target.value)}>
         {targets.map(item => <option key={key(item)} value={key(item)}>Member {item.memberId} · end {item.end.toUpperCase()} · {item.key}</option>)}
       </select></label>
-      <button onClick={() => notify(game.playConnection(card.id, target.memberId, target.end, target.key, profile) ?? "Connection staged.")}>Attach end</button>
+      {axes && <div className="release-connection-axes" aria-label="Member local axes">
+        <strong>Member {member!.id} local axes · X along A → B</strong>
+        <span>Directions in global X, Y, Z</span>
+        {axes.map((axis, i) => <span key={i}><b>{"XYZ"[i]}</b> ({axis.map(value => Number(value.toFixed(3))).join(", ")})</span>)}
+      </div>}
+      <button disabled={!attachment?.ok} onClick={() => notify(game.playConnection(card.id, target.memberId, target.end, target.key, profile) ?? "Connection staged.")}>Attach end</button>
+      {attachment && !attachment.ok && <span role="status">{attachment.reason}</span>}
     </> : profile && <span>No compatible loose end. Place a member or choose another card.</span>}
   </div>;
 }

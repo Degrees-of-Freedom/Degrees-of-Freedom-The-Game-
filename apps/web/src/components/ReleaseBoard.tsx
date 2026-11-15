@@ -129,6 +129,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   const report = turn.reports.at(-1);
   const modes = useMemo(() => result ? instabilityModes(result) : [], [result]);
   const selectedMode = Math.min(instabilityMode, Math.max(0, modes.length - 1));
+  const nodalMode = modes[selectedMode]?.hasNodalMotion ?? false;
   const pathVisible = layer === "path" || layer === "combined";
   const flow = useMemo(() => result && pathVisible ? computeLoadPath(result, 0) : null, [result, pathVisible]);
   const flowPeak = flow ? Math.max(0, ...Array.from(flow.members.values(), member => member.force)) : 0;
@@ -191,7 +192,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
     </section>
     <section className="release-stage" aria-label="Structure board">
       <SceneBoundary release><Scene cameraMemory={cameraMemory} trueScale={trueScale} showInstability={showInstability}
-        instabilityMode={selectedMode} playInstability={playInstability && !skip && !settings.reducedMotion} reactionLabels={settings.reactionLabels}
+        instabilityMode={selectedMode} playInstability={playInstability && nodalMode && !skip && !settings.reducedMotion} reactionLabels={settings.reactionLabels}
         still={skip || settings.reducedMotion} jointLayer={jointLayer} combo={0} deformed={deformed}
         diagrams={diagrams} reference field={field} scale={scale} loads utilization={false} loadPath={layer === "path" || layer === "combined"} result={result} onMessage={notify} /></SceneBoundary>
       {!turn.finished && drawsLeft > 0 && <section className="release-decks" aria-label="Draw four cards">
@@ -212,9 +213,10 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
       </aside>}
       {showInstability && !inspecting && <aside className="release-mode-panel" aria-label="Instability diagnostic">
         {modes.length ? <><label>Solver mode<select value={selectedMode} onChange={e => setInstabilityMode(Number(e.target.value))}>
-          {modes.map((mode, i) => <option key={i} value={i}>{i + 1} · {mode.kind}</option>)}
+          {modes.map((mode, i) => <option key={i} value={i}>{i + 1} · {mode.kind}{mode.hasNodalMotion ? "" : " · nodal vector unavailable"}</option>)}
         </select></label><p>{modes.length} returned modes · illustrative normalized solver mode, exaggerated. Joint-linear ghost, not loaded deflection or collapse.</p>
-          <button aria-pressed={playInstability} disabled={settings.reducedMotion || skip} onClick={() => setPlayInstability(!playInstability)}>{playInstability ? "Pause mode" : "Play mode"}</button>
+          {!nodalMode && <p>No nodal motion vector was returned for this mode.</p>}
+          <button aria-pressed={playInstability && nodalMode} disabled={settings.reducedMotion || skip || !nodalMode} onClick={() => setPlayInstability(!playInstability)}>{playInstability && nodalMode ? "Pause mode" : "Play mode"}</button>
         </> : <p>{draftSize ? "End turn to calculate the staged structure." : "No solver mode vector is available for this board."}</p>}
       </aside>}
       {turn.finished && turn.finalScore && !inspecting && <div className="release-final"><FinalScorePanel score={turn.finalScore} /></div>}

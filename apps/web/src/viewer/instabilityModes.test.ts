@@ -41,6 +41,20 @@ it("uses the specified continuous six-colour contour, clamping only display frac
   expect(deflectionColor(2).getHexString()).toBe(stops.at(-1));
 });
 
+it("does not substitute the reference shape when a returned mode has no nodal vector", () => {
+  const result = solver.analyze({nextId:2, positions:{base:[0,0,0],tip:[0,0,2]}, attrs:{base:{found:true}},
+    members:[{id:1,type:"heb",a:"base",b:"tip",endA:"ball",endB:"fixed"}]}, "internal-mode-fixture");
+  const combo = result.combos[0];
+  combo.components = combo.components?.map(scope => ({...scope,
+    diagnosticModes: scope.diagnosticModes?.map(mode => ({...mode,displacements:{}}))}));
+  expect(instabilityModes(result).length).toBeGreaterThan(0);
+  expect(instabilityModes(result).every(mode => !mode.hasNodalMotion)).toBe(true);
+  const group = new THREE.Group();
+  drawInstabilityMode(group,result,0,true);
+  expect(group.children).toHaveLength(0);
+  expect(group.userData.animateInstability).toBeUndefined();
+});
+
 it("draws an actual floating component mode even when equilibrium assembly omits its elements", () => {
   const model: VoxelModel = {nextId:3,positions:{base:[0,0,0],tip:[0,0,1],looseA:[2,6,4],looseB:[2,7,4]},
     attrs:{base:{found:true}},members:[

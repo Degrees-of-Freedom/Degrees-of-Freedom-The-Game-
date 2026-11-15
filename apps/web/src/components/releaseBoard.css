@@ -61,6 +61,9 @@
 .release-decks button span { font-size: .75rem; color: #d0ddd2; }
 .release-draft-edit { display: grid; gap: .5rem; }
 .release-draft-edit input { width: 100%; }
+.release-connection-axes { display: grid; gap: .1rem; font-size: .75rem; padding: .4rem .6rem; border-left: 2px solid #c8d8ad; }
+.release-connection-axes > span:nth-of-type(1) { color: var(--muted); }
+.release-connection-axes b { display: inline-block; width: 1rem; color: #ffdbaa; }
 @keyframes release-working { to { transform: rotate(360deg); } }
 @media (max-width: 600px) and (orientation: portrait) {
   .release-phone-note { display: block; order: 5; width: 100%; margin: .25rem 0; font-size: .85rem; color: var(--muted); }

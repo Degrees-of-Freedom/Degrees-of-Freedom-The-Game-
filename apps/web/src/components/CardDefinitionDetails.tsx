@@ -3,14 +3,16 @@ import { ITEMS } from '../solver/voxelSections';
 import { CARD_STRENGTH } from '../solver/voxelCapacity';
 
 /** Inspect the same immutable printing used to generate this card's rules. */
-export function CardDefinitionDetails({ card }: { card: CardDefinition }) {
+export function CardDefinitionDetails({ card, localConnectionAxes = false }: { card: CardDefinition; localConnectionAxes?: boolean }) {
   const section = card.kind === 'element' ? ITEMS[card.type] : null;
   const geometry = card.kind === 'element' ? physicalCatalogue.geometry[card.type] : null;
   const rating = card.kind === 'connection' ? CARD_STRENGTH.connections[card.profile] : null;
   return (
     <details>
       <summary>Printed card properties</summary>
-      <p>{describePrinting(card)}</p>
+      <p>{localConnectionAxes && card.kind === 'connection' && card.rotationsToLock
+        ? `Locks the connected translations and ${card.rotationsToLock} member-local rotational axes. Local X follows the member from end A to end B. Choose the locked axes before attaching.`
+        : describePrinting(card)}</p>
       {geometry && (
         <p>{Object.entries(geometry).filter(([key]) => key !== 'kind').map(([key, value]) =>
           `${key} ${Number((Number(value) * 1000).toFixed(3))} mm`).join(' · ')}</p>

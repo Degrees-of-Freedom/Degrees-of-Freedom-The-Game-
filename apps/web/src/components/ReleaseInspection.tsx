@@ -3,7 +3,7 @@ import type { useGameStore } from "../game/store";
 import { activeTurnHand, type TurnState } from "../game/turns";
 import { parseNodeKey } from "../game/model";
 import { originalPorts, portLabel } from "../game/turnPorts";
-import { connectionLabel } from "../game/jointFreedom";
+import { connectionFrameFor, connectionLabel } from "../game/jointFreedom";
 import { publicTurnReport } from "../game/publicTurnModel";
 import { repairReaction } from "../game/publicRepairReport";
 import { useSettings, updateSettings } from "../menu/settings";
@@ -59,7 +59,7 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, draf
   const pathPeak = path ? Math.max(0, ...Array.from(path.members.values(), member => member.force)) : 0;
   const submembers = response?.result.ctx?.els.filter(e => member && (e.m.parentSpan?.memberId ?? e.m.id) === member.id) ?? [];
   return <>
-    {card && <CardDefinitionDetails card={card} />}
+    {card && <CardDefinitionDetails card={card} localConnectionAxes={!!turn.rulesRevision} />}
     <label>Inspect member<select value={member?.id ?? ""} onChange={event =>
       game.setSelected(event.target.value ? { type: "member", id: Number(event.target.value) } : null)}>
       <option value="">Choose a member</option>{members.map(m => <option key={m.id} value={m.id}>
@@ -76,6 +76,10 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, draf
         const effective = conn && effectiveJointConnections(turn.board).find(c => c.memberId === conn.memberId && c.end === end);
         return <div key={end}><dt>End {end.toUpperCase()}</dt><dd>{conn ? <>
           Original · {connectionLabel(conn.profile)} · {conn.jointId}
+          <details><summary>End {end.toUpperCase()} connection axes</summary>
+            <p>{conn.axes ? "Member-local axes, expressed in global X, Y, Z" : "Original global connection frame"}</p>
+            {connectionFrameFor(conn).map((axis, i) => <p key={i}>{"XYZ"[i]} ({axis.map(value => Number(value.toFixed(3))).join(", ")})</p>)}
+          </details>
           {jointCorrectionMask(turn.board, conn.jointId) > 0 && <p>System fitting · effective {connectionLabel(effective?.profile ?? conn.profile)}. Original card retained.</p>}
         </> : "Unattached"}</dd></div>;
       })}</dl>
@@ -102,6 +106,10 @@ export function ReleaseInspection({ game, turn, joints, joint, selectJoint, draf
         : !response ? <p role="status">{reading?.error ?? "Checking the committed structure…"}</p>
         : <>
           <p>Browser solver · committed board after {calculatedTurn ? `turn ${calculatedTurn}` : last ? `turn ${last.turn}` : "setup"} · card gravity {units(gravity)} kN</p>
+          <details><summary>Analysis source</summary><p>Solver {response.receipt.solver}</p>
+            <p>Simultaneous persistent card gravity · self-weight excluded from this scored state.</p>
+            <p>Response model {response.receipt.modelId}</p>
+          </details>
           <label>Board overlay<select value={layer} onChange={event => setLayer(event.target.value as Layer)}>
             <option value="reference">Reference geometry</option><option value="shape">Deflected shape</option><option value="path">Load transfer</option>
             <option value="combined">Deflected shape and load transfer</option>
