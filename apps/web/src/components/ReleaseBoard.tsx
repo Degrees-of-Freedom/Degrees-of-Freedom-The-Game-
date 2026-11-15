@@ -46,14 +46,14 @@ function Hand({ game, turn, choose, notify, onEnd }: {
       <div className="release-cards" aria-label="Cards">
         {hand.map(card => <button key={card.id} data-card-id={card.id} data-kind={card.kind}
           className="release-card" data-arrival={recent.includes(card.id) ? recent.indexOf(card.id) : undefined}
-          aria-pressed={card.id === selected?.id} disabled={game.turnAnalysing || drawsLeft > 0 || (!turn.rulesRevision && !slots[card.kind])} onClick={() => choose(card)}>
+          aria-pressed={card.id === selected?.id} disabled={game.turnAnalysing || game.sessionSave !== "idle" || drawsLeft > 0 || (!turn.rulesRevision && !slots[card.kind])} onClick={() => choose(card)}>
           <span><i aria-hidden="true">{symbols[card.kind]}</i>{kinds[card.kind]}</span><strong>{card.label}</strong>
         </button>)}
       </div>
       <div className="release-turn-actions">
-        {staged && <button title="Undo last placement (Ctrl+Z)" onClick={() => notify(game.undoPlacement() ?? "Last placement undone.")}>Undo</button>}
-        {staged && <button onClick={() => notify(game.cancelDraft() ?? "Draft cancelled.")}>Cancel draft</button>}
-        <button className="release-end" disabled={game.turnAnalysing || drawsLeft > 0} onClick={onEnd} onKeyDown={e => { if (e.repeat) e.preventDefault(); }}>{game.turnAnalysing ? "Calculating…" : staged ? "End turn" : "Pass"}</button>
+        {staged && <button disabled={game.sessionSave !== "idle"} title="Undo last placement (Ctrl+Z)" onClick={() => notify(game.undoPlacement() ?? "Last placement undone.")}>Undo</button>}
+        {staged && <button disabled={game.sessionSave !== "idle"} onClick={() => notify(game.cancelDraft() ?? "Draft cancelled.")}>Cancel draft</button>}
+        <button className="release-end" disabled={game.turnAnalysing || game.sessionSave !== "idle" || drawsLeft > 0} onClick={onEnd} onKeyDown={e => { if (e.repeat) e.preventDefault(); }}>{game.turnAnalysing ? "Calculating…" : staged ? "End turn" : "Pass"}</button>
       </div>
     </div>
   </section>;
@@ -77,6 +77,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   const [skip, setSkip] = useState(false);
   const [action, setAction] = useState(0);
   const settings = useSettings();
+  useEffect(() => { setPlayInstability(false); }, [turn.board, settings.reducedMotion, skip]);
   const heading = useRef<HTMLHeadingElement>(null);
   const inspectButton = useRef<HTMLButtonElement>(null);
   const picked = game.selected;
@@ -127,6 +128,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
   const scale = amplification || (field?.peakM ? Math.max(1, Math.min(500, Math.round(1.2 / field.peakM))) : 1);
   const report = turn.reports.at(-1);
   const modes = useMemo(() => result ? instabilityModes(result) : [], [result]);
+  const selectedMode = Math.min(instabilityMode, Math.max(0, modes.length - 1));
   const pathVisible = layer === "path" || layer === "combined";
   const flow = useMemo(() => result && pathVisible ? computeLoadPath(result, 0) : null, [result, pathVisible]);
   const toggleLayer = (quantity: "shape" | "path") => {
@@ -188,13 +190,13 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
     </section>
     <section className="release-stage" aria-label="Structure board">
       <SceneBoundary release><Scene cameraMemory={cameraMemory} trueScale={trueScale} showInstability={showInstability}
-        instabilityMode={instabilityMode} playInstability={playInstability && !skip && !settings.reducedMotion} reactionLabels={settings.reactionLabels}
+        instabilityMode={selectedMode} playInstability={playInstability && !skip && !settings.reducedMotion} reactionLabels={settings.reactionLabels}
         still={skip || settings.reducedMotion} jointLayer={jointLayer} combo={0} deformed={deformed}
         diagrams={diagrams} reference field={field} scale={scale} loads utilization={false} loadPath={layer === "path" || layer === "combined"} result={result} onMessage={notify} /></SceneBoundary>
       {!turn.finished && drawsLeft > 0 && <section className="release-decks" aria-label="Draw four cards">
         <header><strong>Choose your four cards</strong><span role="status">{4 - drawsLeft} of 4 drawn · any mix of decks</span></header>
         <div>{(["members", "connections", "loads"] as const).map((deck, i) => <button key={deck} data-deck={deck}
-          disabled={game.turnAnalysing || turn.decks[i].length === 0} onClick={() => notify(game.drawCard(deck) ?? "Card drawn.")}
+          disabled={game.turnAnalysing || game.sessionSave !== "idle" || turn.decks[i].length === 0} onClick={() => notify(game.drawCard(deck) ?? "Card drawn.")}
           onKeyDown={e => { if (e.repeat) e.preventDefault(); }}>
           <i aria-hidden="true">{["Ι", "⊕", "↓"][i]}</i><strong>{["Members", "Connections", "Loads"][i]}</strong><span>{turn.decks[i].length} cards</span>
         </button>)}</div>
@@ -208,7 +210,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
         <button onClick={() => setInspecting(true)}>Inspect forces and signs</button>
       </aside>}
       {showInstability && !inspecting && <aside className="release-mode-panel" aria-label="Instability diagnostic">
-        {modes.length ? <><label>Solver mode<select value={Math.min(instabilityMode, modes.length - 1)} onChange={e => setInstabilityMode(Number(e.target.value))}>
+        {modes.length ? <><label>Solver mode<select value={selectedMode} onChange={e => setInstabilityMode(Number(e.target.value))}>
           {modes.map((mode, i) => <option key={i} value={i}>{i + 1} · {mode.kind}</option>)}
         </select></label><p>{modes.length} returned modes · illustrative normalized solver mode, exaggerated. Joint-linear ghost, not loaded deflection or collapse.</p>
           <button aria-pressed={playInstability} disabled={settings.reducedMotion || skip} onClick={() => setPlayInstability(!playInstability)}>{playInstability ? "Pause mode" : "Play mode"}</button>
@@ -238,7 +240,7 @@ export function ReleaseBoard({ game, turn, message, notify, onEnd, onMenu, menu,
             : "No verified frame sections"}</p>)}
           {!!diagrams.length && <p>Each peak spans 1.5 m on the board. Positive readings extend toward local +Y for Vy/Mz and +Z for Vz/My. Inspect a member for signed readings.</p>}
         </details>}
-        {result && <label className="release-check"><input type="checkbox" checked={showInstability} onChange={e => setShowInstability(e.target.checked)} />
+        {result && <label className="release-check"><input type="checkbox" checked={showInstability} onChange={e => { setShowInstability(e.target.checked); setPlayInstability(false); }} />
           Mark witnessed instability</label>}
         {showInstability && result && <p>{result.combos[0]?.components?.some(c => c.instabilityWitness)
           ? "Dashed rose segments mark the witnessed region." : "No instability witness is available on this board."}</p>}

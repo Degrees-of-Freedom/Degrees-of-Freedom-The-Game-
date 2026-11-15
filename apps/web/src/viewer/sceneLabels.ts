@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 
-type LabelPaint = 'load' | 'reaction' | 'selection';
+type LabelPaint = 'load' | 'reaction' | 'selection' | 'player1' | 'player2';
 
 const PAINT: Record<LabelPaint, [string, string, string]> = {
   load: ['#f2b134', '#22313f', '#704e19'],
   reaction: ['#d2ecc9', '#264a39', '#597965'],
   selection: ['#233442', '#fff6e4', '#ae9c81'],
+  player1: ['#efb0a1', '#3e2424', '#a86155'],
+  player2: ['#b1cfee', '#23354d', '#617da6'],
 };
 
 export function addSceneLabel(group: THREE.Group, position: THREE.Vector3, text: string, style: LabelPaint, size = 1) {

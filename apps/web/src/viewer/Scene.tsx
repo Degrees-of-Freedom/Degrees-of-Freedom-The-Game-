@@ -13,6 +13,7 @@ import {
 import { getSettings } from "../menu/settings";
 import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
 import { addResultArrows, displayPoint } from "./sceneResults";
+import { addSceneLabel } from "./sceneLabels";
 import { createFlowParticles } from "./flowParticles";
 import { buildReleaseFlow, markInstability } from "./releaseFlow";
 import { drawInstabilityMode } from "./instabilityModes";
@@ -365,6 +366,14 @@ export function Scene({
       particles.reset();
       const releaseFlow = !!view.current.cameraMemory && view.current.loadPath;
       buildStructure(structure, state, releaseFlow ? { ...view.current, loadPath: false } : view.current, point, particles.add);
+      if (view.current.cameraMemory && state.turn) {
+        for (const joint of state.turn.board.joints) {
+          const owner = state.turn.players.findIndex(player => player.id === joint.foundationOwner);
+          if (owner < 0) continue;
+          addSceneLabel(structure, point(joint.id).add(new THREE.Vector3(0, 0, -0.25)),
+            `Player ${owner + 1} · ${owner === 0 ? "Coral" : "Blue"}`, owner === 0 ? "player1" : "player2", .8);
+        }
+      }
       if (releaseFlow && view.current.result) buildReleaseFlow(structure, view.current.result, point, particles.add);
       for (const diagram of view.current.diagrams ?? []) {
         drawBoardDiagram(structure, diagram, point, view.current.field, view.current.scale);
