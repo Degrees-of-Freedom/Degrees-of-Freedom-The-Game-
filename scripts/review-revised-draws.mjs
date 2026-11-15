@@ -1,10 +1,18 @@
 // Independent normal-Play acceptance for the revised draw and draft lifecycle.
 // All writes use visible UI controls. IndexedDB is read only for assertions.
 import assert from 'node:assert/strict';
-import {mkdir, writeFile} from 'node:fs/promises';
+import {mkdir, readFile, writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {chromium, expect} from '@playwright/test';
-import {preview} from 'vite';
+import {createServer, preview} from 'vite';
+
+const modules = await createServer({configFile: false, server: {middlewareMode: true, hmr: false, watch: null}, logLevel: 'error'});
+let legacy;
+try {
+  const {createTurnGame} = await modules.ssrLoadModule('/apps/web/src/game/turns.ts');
+  const {matchRecord} = await modules.ssrLoadModule('/apps/web/src/game/releaseSave.ts');
+  legacy = matchRecord(createTurnGame(0, 'grow-dusk-release-1'), null, 'planning');
+} finally { await modules.close(); }
 
 const server = await preview({root: resolve('apps/web'), build: {outDir: resolve(process.env.DOF_TEST_DIST ?? 'apps/web/dist')},
   preview: {host: '127.0.0.1', port: 0}});
@@ -99,10 +107,30 @@ try {
   assert.equal(cancelled.turn.players[1].hand.length, 4);
   await page.reload(); await ready.click();
   assert.deepEqual((await head()).turn, cancelled.turn);
-  assert.deepEqual(errors, []);
   const output = resolve(process.env.DOF_EVIDENCE_DIR ?? '.venv/revised-independent');
   await mkdir(output, {recursive: true});
   await page.screenshot({path: resolve(output, 'four-load-draw-reloaded.png')});
+  const openFiles = async () => {await button('Menu').click(); await button('Save files').click();};
+  const importPrivate = async bytes => {
+    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), button('Import private match').click()]);
+    await chooser.setFiles({name: 'synthetic-private.json', mimeType: 'application/json', buffer: bytes});
+    await button('Validate and replace').click(); await ready.click();
+  };
+  await openFiles();
+  const [download] = await Promise.all([page.waitForEvent('download'), button('Export private match').click()]);
+  const revisedBytes = await readFile(await download.path());
+  await importPrivate(Buffer.from(JSON.stringify(legacy)));
+  const importedLegacy = await head();
+  assert.equal(importedLegacy.matchId, legacy.matchId);
+  assert.deepEqual(importedLegacy.turn, legacy.turn);
+  assert.equal(await page.locator('[data-deck]').count(), 0);
+  await openFiles(); await importPrivate(revisedBytes);
+  const importedRevised = await head();
+  assert.equal(importedRevised.matchId, cancelled.matchId);
+  assert.deepEqual(importedRevised.turn, cancelled.turn);
+  await button('Menu').click(); await button('Restart').click(); await button('Cancel').click();
+  assert.deepEqual((await head()).turn, cancelled.turn);
+  assert.deepEqual(errors, []);
   const result = {...build, browser: browser.version(), seed: 0, checks: [
     'normal Play starts four deliberate three-deck choices',
     'partial draw reload preserves match, cards and remaining choices',
@@ -112,6 +140,9 @@ try {
     'undo preserves original draws and undealt decks',
     'four load choices and three staged loads are legal',
     'draft cancel/reload restores all held loads without extra draws',
+    'genuine legacy private import preserves its original two-deck state',
+    'revised private export/import restores chosen draws and held cards',
+    'restart cancellation preserves the confirmed match',
   ], errors};
   await writeFile(resolve(output, 'draw-and-draft-review.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result));
