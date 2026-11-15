@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { DEFAULT_SOLVER_CHOICE, isSolverChoice, type SolverChoice } from "../solver/choice";
 
 /**
  * Menu preferences, kept in `localStorage["dof.settings"]`.
@@ -9,15 +10,15 @@ import { useSyncExternalStore } from "react";
  * - `sound` is stored only: the editor sound (`game/useEditorSound`) keeps its
  *   own in-component state and exposes no external mute hook, so nothing reads
  *   this value yet.
- * - `primarySolver` is the id of the solver whose result Run simulation shows
- *   (see `game/solvers`). The workspace falls back to voxel when the id is
- *   unknown or the solver cannot run on the current game.
+ * - `solver` is the structural solver the game uses, for Run simulation and
+ *   to decide each completed turn: the Rust solver in the page, or the
+ *   OpenSees service (see `solver/choice`). One is used at a time.
  */
 export interface Settings {
   sound: boolean;
   reducedMotion: boolean;
   showHelpOnStart: boolean;
-  primarySolver: string;
+  solver: SolverChoice;
 }
 
 /** The settings that are on/off switches. */
@@ -29,7 +30,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   sound: false,
   reducedMotion: false,
   showHelpOnStart: false,
-  primarySolver: "voxel",
+  solver: DEFAULT_SOLVER_CHOICE,
 };
 
 export interface SettingsStorage {
@@ -55,10 +56,7 @@ export function parseSettings(raw: string | null): Settings {
     sound: pick("sound"),
     reducedMotion: pick("reducedMotion"),
     showHelpOnStart: pick("showHelpOnStart"),
-    primarySolver:
-      typeof record.primarySolver === "string" && record.primarySolver
-        ? record.primarySolver
-        : DEFAULT_SETTINGS.primarySolver,
+    solver: isSolverChoice(record.solver) ? record.solver : DEFAULT_SETTINGS.solver,
   };
 }
 

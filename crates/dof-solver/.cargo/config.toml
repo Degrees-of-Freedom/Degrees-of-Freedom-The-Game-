@@ -1,0 +1,8 @@
+# WebAssembly build settings.
+#
+# - The beam element evaluates its energy with dual numbers, which are large
+#   stack values, so the module gets a deeper stack than the 1 MiB default.
+# - simd128 lets the compiler vectorise the factorisation loops. Every current
+#   browser and Node version supports it.
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-arg=-zstack-size=8388608", "-C", "target-feature=+simd128"]

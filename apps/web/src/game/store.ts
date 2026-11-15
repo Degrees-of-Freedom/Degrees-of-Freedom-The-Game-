@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import { assessTurn } from "./turnAnalysis";
+import type { SolverAdapter } from "@dof/solver-contract";
+import { analyzeCompletedTurn } from "./turnAnalysis";
+import { assessTurnWithSolver } from "./turnSolve";
+import { getSettings } from "../menu/settings";
+import { solverFor } from "../solver/choice";
 import { exampleModel } from "./examples";
 import {
   nodeKey,
@@ -69,7 +73,18 @@ interface GameState {
     jointId?: string,
   ) => string | null;
   cancelDraft: () => string | null;
-  endTurn: () => string | null;
+  /**
+   * Analyse the staged turn with the authoritative solver, then commit it.
+   * Resolves to an issue message, or null once the turn is committed.
+   */
+  endTurn: () => Promise<string | null>;
+  /** True while an ended turn is being analysed; staging is frozen meanwhile. */
+  turnAnalysing: boolean;
+  /**
+   * Solver that decides each completed turn. Null means the solver chosen in
+   * the settings; tests set an explicit one.
+   */
+  turnSolver: SolverAdapter | null;
   setMode: (mode: GameMode) => void;
   newMatch: () => string | null;
   setStyle: (style: PresentationStyle) => void;
@@ -166,6 +181,8 @@ export const useGameStore = create<GameState>((set, get) => {
   const turnTransition = (
     result: ReturnType<typeof stageElement>,
   ): string | null => {
+    // The turn criteria freeze edits while a completed turn is analysed.
+    if (get().turnAnalysing) return "The turn is being analysed. Wait for the result.";
     if (!result.ok) return result.reason;
     const s = get(),
       turn = result.state;
@@ -277,11 +294,38 @@ export const useGameStore = create<GameState>((set, get) => {
         ? turnTransition(cancelTurnDraft(s.turn))
         : "No multiplayer game is active";
     },
-    endTurn: () => {
+    turnAnalysing: false,
+    turnSolver: null,
+    endTurn: async () => {
       const s = get();
-      return s.mode === "multiplayer" && s.turn
-        ? turnTransition(endTurn(s.turn, s.turn.turn, assessTurn(s.turn)))
-        : "No multiplayer game is active";
+      if (s.mode !== "multiplayer" || !s.turn) return "No multiplayer game is active";
+      if (s.turn.finished) return "This turn has already ended.";
+      if (s.turnAnalysing) return "The turn is already being analysed.";
+      // Analyse exactly the turn that was ended. Staging is frozen while the
+      // solver runs, and the commit is refused if the table changed anyway
+      // (a new match, a mode switch), so a slow answer is never applied to a
+      // different turn.
+      const ended = s.turn;
+      let prepared;
+      try {
+        prepared = analyzeCompletedTurn(ended);
+      } catch {
+        return "Could not prepare the turn analysis. The draft is still open.";
+      }
+      set({ turnAnalysing: true });
+      let assessment;
+      try {
+        const solver = s.turnSolver ?? solverFor(getSettings().solver);
+        assessment = await assessTurnWithSolver(ended, solver, prepared.status);
+      } finally {
+        set({ turnAnalysing: false });
+      }
+      if (get().turn !== ended) return "The table changed during analysis, so the turn was not committed.";
+      // The saved evidence records the in-browser solve and its verdict. Keep
+      // it only when that verdict is the one the turn is committed with, so a
+      // saved match never carries evidence that contradicts its own report.
+      const evidence = assessment.status === prepared.status ? prepared.analysis : undefined;
+      return turnTransition(endTurn(ended, ended.turn, assessment.status, evidence, assessment.reason));
     },
     newMatch: () => {
       const s = get();

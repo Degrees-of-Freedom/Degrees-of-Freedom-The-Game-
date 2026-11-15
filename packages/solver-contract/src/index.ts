@@ -30,7 +30,7 @@ export interface StructuralNode { id: string; position: Vector3 }
 export type MemberEndFixity = 'fixed' | 'pinned' | 'free';
 
 /** Behaviour of one local axis of a connection. */
-export type ConnectionLaw = 'locked' | 'free' | 'elastic';
+export type MemberEndLaw = 'locked' | 'free' | 'elastic';
 
 /**
  * Six-axis connection of one member end to its node, in member local axes
@@ -41,7 +41,7 @@ export type ConnectionLaw = 'locked' | 'free' | 'elastic';
  * stiffness must be given: N/m for translations, N·m/rad for rotations.
  */
 export interface MemberEndConnection {
-  laws: readonly [ConnectionLaw, ConnectionLaw, ConnectionLaw, ConnectionLaw, ConnectionLaw, ConnectionLaw];
+  laws: readonly [MemberEndLaw, MemberEndLaw, MemberEndLaw, MemberEndLaw, MemberEndLaw, MemberEndLaw];
   /** Per-axis spring stiffness. Required for every `elastic` axis; ignored on the others. */
   stiffness?: Vector6;
 }
@@ -107,7 +107,7 @@ export interface StructuralLoad { nodeId: string; force: Vector3; moment: Vector
 
 export type AnalysisFidelity = 'linear' | 'nonlinear';
 
-export interface AnalysisOptions {
+export interface StructuralAnalysisOptions {
   /**
    * `linear` is a small-displacement solve for fast preview. `nonlinear` is
    * the authoritative geometrically nonlinear solve: large displacements and
@@ -131,7 +131,7 @@ export interface StructuralModel {
   members: StructuralMember[];
   supports: StructuralSupport[];
   loads: StructuralLoad[];
-  analysis?: AnalysisOptions;
+  analysis?: StructuralAnalysisOptions;
 }
 
 /**
@@ -284,5 +284,10 @@ export type AnalysisResult =
 /** Adapters translate models to their solver and explicitly report unsupported input. */
 export interface SolverAdapter { readonly id: string; readonly name: string; analyze(model: StructuralModel, signal?: AbortSignal): Promise<AnalysisResult> }
 
+export * from './analysis.js';
 export * from './structural-state.js';
 export * from './structural-state-service.js';
+
+export * from './analysis-result.js';
+export * from './analysis-results-store.js';
+export * from './stored-analysis.js';

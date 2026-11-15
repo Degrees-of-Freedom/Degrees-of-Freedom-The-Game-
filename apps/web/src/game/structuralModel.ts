@@ -89,6 +89,29 @@ function voxelLocalY(a: Vector3, b: Vector3): Vector3 {
   return [-d[1], d[0], 0];
 }
 
+/**
+ * Contract fields that describe one catalog member between two points: its
+ * kind, resolved SI properties, local axes and, for cables, the catalog
+ * pretension as initial strain. Connections are the caller's business.
+ */
+export function catalogMember(
+  type: Member['type'],
+  start: Vector3,
+  end: Vector3,
+): Pick<StructuralMember, 'kind' | 'properties' | 'orientation' | 'initialStrain'> {
+  if (type === 'cable') {
+    const { E, A, P0 } = ITEMS.cable;
+    return { kind: 'cable', properties: cableProperties(), initialStrain: P0 / (E * A) };
+  }
+  return { kind: 'beam', properties: beamProperties(ITEMS[type]), orientation: voxelLocalY(start, end) };
+}
+
+/** Grid key to contract position in metres. */
+export function gridPosition(key: string): Vector3 {
+  const [i, j, k] = parseNodeKey(key);
+  return [i * CELL_SIZE, j * CELL_SIZE, k * CELL_SIZE];
+}
+
 export interface TranslationOptions {
   /** Contract analysis fidelity, always written to the model. Defaults to `nonlinear`. */
   fidelity?: AnalysisFidelity;
@@ -123,8 +146,7 @@ export function toStructuralModel(
 ): StructuralModelTranslation {
   const positions = new Map<string, Vector3>();
   const nodes = allNodeKeys(game).map((key) => {
-    const [i, j, k] = parseNodeKey(key);
-    const position: Vector3 = [i * CELL_SIZE, j * CELL_SIZE, k * CELL_SIZE];
+    const position = gridPosition(key);
     positions.set(key, position);
     return { id: key, position };
   });
@@ -134,25 +156,9 @@ export function toStructuralModel(
 
   const translateMember = (member: Member): StructuralMember => {
     const base = { id: String(member.id), startNodeId: member.a, endNodeId: member.b };
-    if (member.type === 'cable') {
-      const { E, A, P0 } = ITEMS.cable;
-      return {
-        ...base,
-        kind: 'cable',
-        properties: cableProperties(),
-        initialStrain: P0 / (E * A),
-      };
-    }
-    const start = positions.get(member.a);
-    const end = positions.get(member.b);
-    return {
-      ...base,
-      kind: 'beam',
-      properties: beamProperties(ITEMS[member.type]),
-      ...(start && end ? { orientation: voxelLocalY(start, end) } : {}),
-      startConnection: endAt(member.a),
-      endConnection: endAt(member.b),
-    };
+    const section = catalogMember(member.type, positions.get(member.a) ?? gridPosition(member.a), positions.get(member.b) ?? gridPosition(member.b));
+    if (member.type === 'cable') return { ...base, ...section };
+    return { ...base, ...section, startConnection: endAt(member.a), endConnection: endAt(member.b) };
   };
 
   const model: StructuralModel = {

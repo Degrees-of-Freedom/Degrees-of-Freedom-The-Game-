@@ -38,7 +38,7 @@ describe("menu settings", () => {
 
   it("round-trips through storage under dof.settings", () => {
     const storage = fakeStorage();
-    const settings = { sound: true, reducedMotion: true, showHelpOnStart: true, primarySolver: "opensees-linear" };
+    const settings = { sound: true, reducedMotion: true, showHelpOnStart: true, solver: "opensees" as const };
     expect(writeSettings(settings, storage)).toBe(true);
     expect(JSON.parse(storage.raw!)).toEqual(settings);
     expect(readSettings(storage)).toEqual(settings);
@@ -60,11 +60,11 @@ describe("menu settings", () => {
   });
 });
 
-describe("primary solver setting", () => {
-  it("defaults to voxel and keeps a stored solver id", () => {
-    expect(parseSettings(null).primarySolver).toBe("voxel");
-    expect(parseSettings(JSON.stringify({ primarySolver: "opensees-linear" })).primarySolver).toBe("opensees-linear");
-    expect(parseSettings(JSON.stringify({ primarySolver: 3 })).primarySolver).toBe("voxel");
-    expect(parseSettings(JSON.stringify({ primarySolver: "" })).primarySolver).toBe("voxel");
+describe("solver setting", () => {
+  it("defaults to the Rust solver and keeps a valid stored choice", () => {
+    expect(parseSettings(null).solver).toBe("rust");
+    expect(parseSettings(JSON.stringify({ solver: "opensees" })).solver).toBe("opensees");
+    expect(parseSettings(JSON.stringify({ solver: "voxel" })).solver).toBe("rust");
+    expect(parseSettings(JSON.stringify({ solver: 3 })).solver).toBe("rust");
   });
 });

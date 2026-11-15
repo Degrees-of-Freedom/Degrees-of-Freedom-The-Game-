@@ -4,6 +4,10 @@ import { analyzeConnectivity } from "../../game/connectivity";
 import { CELL_SIZE } from "../../game/model";
 import { LEVELS } from "../../game/levels";
 import { STYLE_CATALOG, MODE_CATALOG } from "../runtimeCatalog";
+import { KIT_PLAYTEST } from "../../game/turns";
+
+/** Player colours of the Grow Dusk prototype's turn chip. */
+const PLAYER_COLORS = ["#e9806e", "#6a9bd8", "#d9a53a", "#8cc7b5"];
 
 function EnvironmentMark({ style }: { style: ReturnType<typeof useGameStore.getState>["style"] }) {
   if (style === "levels") return (
@@ -29,15 +33,38 @@ function EnvironmentMark({ style }: { style: ReturnType<typeof useGameStore.getS
     <svg viewBox="0 0 30 30" aria-hidden="true">
       <path d="M7 23 15 7 23 23" fill="none" stroke={style === "grow-dusk" ? "#8cc7b5" : "#4f9da6"} strokeWidth="3.4" strokeLinecap="round" />
       <path d="M7 23h16" stroke={style === "grow-dusk" ? "#6a9bd8" : "#e3b04b"} strokeWidth="3.4" strokeLinecap="round" />
-      <circle cx="15" cy="7" r="3.6" fill="#fbf7ef" stroke="#3f4654" strokeWidth="2" />
-      <circle cx="7" cy="23" r="3" fill="#6d7a8c" />
-      <circle cx="23" cy="23" r="3" fill="#6d7a8c" />
+      <circle cx="15" cy="7" r="3.6" fill={style === "grow-dusk" ? "#f3ead8" : "#fbf7ef"} stroke={style === "grow-dusk" ? "#22313f" : "#3f4654"} strokeWidth="2" />
+      <circle cx="7" cy="23" r="3" fill={style === "grow-dusk" ? "#f2b134" : "#6d7a8c"} />
+      <circle cx="23" cy="23" r="3" fill={style === "grow-dusk" ? "#f2b134" : "#6d7a8c"} />
     </svg>
   );
 }
 
 export function EnvironmentBrand() {
   const game = useGameStore();
+  const modeTitle = MODE_CATALOG.find((item) => item.id === game.mode)?.title;
+  // Growth styles use the prototype's brand chip: product, environment, then
+  // the mode on its own amber row (and the level for challenges).
+  if (game.style === "grow" || game.style === "grow-dusk")
+    return (
+      <div id="brand" className="chip">
+        <Link to="/" title="Main menu" aria-label="Main menu">
+          <EnvironmentMark style={game.style} />
+        </Link>
+        <div>
+          <b className="brand-name">Degrees of Freedom</b>
+          <span className="brand-sub">
+            {game.style === "grow-dusk" ? "Grow · Dusk" : "Grow"}
+          </span>
+          <span id="mode-row">
+            <b id="mode-name">{modeTitle}</b>
+          </span>
+          {game.mode === "challenge" && (
+            <span id="mode-level">Level: {LEVELS[game.levelId].name}</span>
+          )}
+        </div>
+      </div>
+    );
   return (
     <div id="brand" className="chip card">
       <Link
@@ -83,9 +110,15 @@ export function EnvironmentStats() {
           <i style={{ background: "var(--brace, #c98a5a)" }} />
           brace
         </span>
-        {report.unsupportedMembers.length > 0 && (
-          <span>{report.unsupportedMembers.length} floating</span>
-        )}
+        {report.unsupportedMembers.length > 0 &&
+          (game.style === "grow" || game.style === "grow-dusk" ? (
+            <span className="fl show">
+              <i />
+              {report.unsupportedMembers.length} not connected to a support
+            </span>
+          ) : (
+            <span>{report.unsupportedMembers.length} floating</span>
+          ))}
       </div>
     </div>
   );
@@ -162,6 +195,52 @@ export function TurnBanner({
   const game = useGameStore(),
     turn = game.turn;
   if (game.mode !== "multiplayer" || !turn) return null;
+  // Growth styles use the prototype's turn chip: player dot and name, a tag,
+  // End turn. The round count and the independent 1 / 1 / 2 allowances come
+  // from the confirmed turn rules (docs/kb/turn-criteria.md); the prototype
+  // only counted turns.
+  if (game.style === "grow" || game.style === "grow-dusk") {
+    const round = Math.ceil(turn.turn / turn.players.length);
+    return (
+      <div
+        id="turn"
+        className="chip"
+        title="Local playtest. Each turn: up to one member, one load and two connections, or pass."
+      >
+        <span className="who">
+          <span
+            className="dot"
+            style={{ background: PLAYER_COLORS[turn.playerIndex % 4] }}
+          />
+          <span id="turn-text">
+            {turn.finished
+              ? "Match complete"
+              : `Player ${turn.playerIndex + 1} · round ${Math.min(round, KIT_PLAYTEST.rounds)} of ${KIT_PLAYTEST.rounds}`}
+          </span>
+        </span>
+        <span className="turn-pips" aria-label="Turn allowances">
+          <span className={turn.draft.members.length ? "spent" : ""}>
+            1 member
+          </span>
+          <span className={turn.draft.loads.length ? "spent" : ""}>1 load</span>
+          <span className={turn.draft.connections.length >= 2 ? "spent" : ""}>
+            {2 - turn.draft.connections.length} connections
+          </span>
+        </span>
+        <span className="tag">playtest</span>
+        <button
+          className="btn"
+          disabled={turn.finished}
+          title="End turn (Enter)"
+          onClick={() =>
+            void game.endTurn().then((issue) => onMessage(issue ?? "Turn committed · pass the table"))
+          }
+        >
+          End turn
+        </button>
+      </div>
+    );
+  }
   return (
     <div id={game.style === "kit" ? "banner" : "turn"} className="chip panel">
       <div id="who">
@@ -181,7 +260,7 @@ export function TurnBanner({
         className="btn"
         disabled={turn.finished}
         onClick={() =>
-          onMessage(game.endTurn() ?? "Turn committed · pass the table")
+          void game.endTurn().then((issue) => onMessage(issue ?? "Turn committed · pass the table"))
         }
       >
         End turn

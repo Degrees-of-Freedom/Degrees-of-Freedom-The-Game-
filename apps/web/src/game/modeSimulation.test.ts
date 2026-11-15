@@ -7,6 +7,7 @@ import { modeSetup, type GameMode } from "./modes";
 import { useGameStore } from "./store";
 import { analyzeTurn } from "./turnAnalysis";
 import { createTurnGame } from "./turns";
+import { unavailableSolver } from "../solver/unavailable";
 
 describe("simulation across game modes", () => {
   it.each(["creative", "challenge", "forensics", "load-space", "multiplayer"] as const)(
@@ -52,15 +53,25 @@ describe("simulation across game modes", () => {
     expect([...combo.u].every(Number.isFinite)).toBe(true);
   });
 
-  it("records the end-turn simulation result before advancing the active player", () => {
+  it("records the end-turn simulation result before advancing the active player", async () => {
     const initial = useGameStore.getState();
     try {
-      useGameStore.setState({ mode: "multiplayer", turn: createTurnGame() });
-      expect(useGameStore.getState().endTurn()).toBeNull();
+      useGameStore.setState({ mode: "multiplayer", turn: createTurnGame(), turnSolver: unavailableSolver });
+      expect(await useGameStore.getState().endTurn()).toBeNull();
       expect(useGameStore.getState().turn).toMatchObject({
         turn: 2,
         playerIndex: 1,
-        reports: [{ turn: 1, status: "stable", penalty: 0 }],
+        reports: [{
+          turn: 1, status: "stable", penalty: 0,
+          analysis: {
+            purpose: "turn",
+            request: { snapshot: { revisionId: "turn-1" } },
+            foundations: [
+              { reaction: { validity: "unverified" } },
+              { reaction: { validity: "unverified" } },
+            ],
+          },
+        }],
       });
     } finally {
       useGameStore.setState(initial);

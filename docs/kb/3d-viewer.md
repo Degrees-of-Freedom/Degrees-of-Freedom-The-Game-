@@ -9,6 +9,8 @@ validated_against:
   - prototypes/timburr-companion/README.md
   - docs/kb/animation-criteria.md
   - apps/web/src/viewer
+  - apps/web/src/viewer/growthBloom.ts
+  - apps/web/src/viewer/dofGizmo.ts
   - apps/web/src/pages/Workspace.tsx
 owner: unknown
 status: partial
@@ -23,6 +25,8 @@ The React workspace uses Three.js for a Z-up voxel scene with terrain, orbit and
 The scene manages the renderer and lifecycle. Separate modules handle picking, input, mesh construction, result overlays, and particle animation.
 
 The full-screen workspace follows the layouts and palettes of Grow, Grow Dusk, Levels, Blocks and Kit from the environment prototype branch. The [unified runtime](unified-runtime.md#environment-mapping) records the mapping and remaining interaction differences. The shared scene renders computed deformation, utilization, load arrows and reaction labels when the current simulation provides those results. Grow Dusk labels applied loads in kN and positions weights above or below joints according to neighboring members. Shared table shows explicit end connections and reads solver positions for loose endpoints. Graph reachability remains available independently of numerical results.
+
+In the growth styles the scene also draws the reachable-point bloom and height guide (`growthBloom.ts`), the selected joint's six ground-restraint components (`dofGizmo.ts`, rendered as a second pass over the structure), and screen-space rings and labels that the render loop positions each frame. The picker publishes what the pointer is over (`SceneHover` in `sceneView.ts`) so these follow the same target the click will use. The gizmo shows the selected joint only and what the model stores; it is not the full permissions overlay of the joint DOF criteria below and does not report stability. See [Grow Dusk and its prototype](unified-runtime.md#grow-dusk-and-its-prototype); that work was not compiled or viewed in a browser when written.
 
 ## Animation and sound requirements
 

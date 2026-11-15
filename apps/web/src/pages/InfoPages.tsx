@@ -130,12 +130,17 @@ export function HowToPlay() {
           <li>
             While growing a member, targets can overlap on screen. The nearest
             to the camera is chosen; the mouse wheel or <kbd>[</kbd>{" "}
-            <kbd>]</kbd> steps through the stack, and the hover text shows
-            “2 of 3 overlapping”.
+            <kbd>]</kbd> steps through the stack, and the label beside the
+            member shows “2 of 3 overlapping”.
           </li>
           <li>
-            <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> choose member, joint or load.{" "}
-            <kbd>X</kbd> erases and <kbd>I</kbd> inspects.
+            <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> choose the Member, Connection
+            or Load tool. <kbd>X</kbd> erases and <kbd>I</kbd> inspects.
+          </li>
+          <li>
+            Right-click, <kbd>Alt</kbd>+click, or point and press{" "}
+            <kbd>Delete</kbd> to remove a piece. The eraser button does the same
+            with a plain click.
           </li>
           <li>
             <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes, <kbd>Ctrl</kbd>+<kbd>Y</kbd>{" "}

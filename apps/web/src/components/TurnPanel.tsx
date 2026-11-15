@@ -130,14 +130,15 @@ export function TurnPanel({
             </button>
             <button
               className="primary-action"
+              disabled={game.turnAnalysing}
               onClick={() => {
-                const issue = game.endTurn();
-                onMessage(
-                  issue ?? "Turn committed. Pass the table to the next player.",
+                onMessage("Analysing the turn…");
+                void game.endTurn().then((issue) =>
+                  onMessage(issue ?? "Turn committed. Pass the table to the next player."),
                 );
               }}
             >
-              End turn / pass
+              {game.turnAnalysing ? "Analysing…" : "End turn / pass"}
             </button>
           </div>
         </>
@@ -146,6 +147,21 @@ export function TurnPanel({
         {report?.reason ??
           "Run simulation to inspect loads, reactions and stability with individual end connections. End turn records an experimental analysis status; scoring penalties are not yet applied."}
       </p>
+      {report?.analysis && (
+        <details>
+          <summary>Last turn reactions (experimental)</summary>
+          <ul>
+            {report.analysis.foundations.map(({ foundationId, reaction }) => (
+              <li key={foundationId}>
+                {foundationId.replace("foundation:", "")} ·{" "}
+                {reaction.validity === "unavailable"
+                  ? "Unavailable"
+                  : (reaction.value[2] / 1000).toFixed(2) + " kN vertical"}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       <details>
         <summary>Placed connections</summary>
         <ul>

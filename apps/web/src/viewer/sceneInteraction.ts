@@ -8,7 +8,7 @@ import {
   type Tool,
 } from "../game/model";
 import { MEMBER_TYPES } from "../game/inventory";
-import type { SceneView } from "./sceneView";
+import type { SceneHover, SceneView } from "./sceneView";
 import type { BuildPlane } from "./sceneGeometry";
 import { createPicker } from "./scenePicking";
 import { selectedTurnCard } from "./turnPicking";
@@ -23,6 +23,7 @@ export function bindSceneInteraction(
   getView: () => SceneView,
   rebuild: () => void,
   getCameraActions: () => { fit(): void; orbit(step: number): void },
+  onHover?: (hover: SceneHover | null) => void,
 ) {
   let shiftDown = false;
   // The build plane follows the current camera when a member is being chained.
@@ -48,11 +49,29 @@ export function bindSceneInteraction(
     point,
     buildPlane,
     getView,
+    onHover,
   );
-  let down: { x: number; y: number; button: number; pointerId: number; anchor?: string; started: boolean } | null = null;
+  let down: { x: number; y: number; button: number; pointerId: number; alt: boolean; anchor?: string; started: boolean } | null = null;
+  // Last pointer position over the canvas, so Delete can act on the hovered piece.
+  let lastPointer: PointerEvent | null = null;
+  let pointerInside = false;
+  /** Right-click, Alt+click or Delete: take away the piece under the pointer. */
+  const removeAt = (e: PointerEvent) => {
+    const s = useGameStore.getState();
+    const target = pick(e, "delete");
+    if (target?.kind === "member") s.removeMember(target.id);
+    else if (
+      target?.kind === "node" &&
+      (!s.model.attrs[target.key]?.locked || s.model.attrs[target.key]?.joint)
+    ) {
+      s.removeNodeAttrs(target.key);
+    }
+  };
   const moved = (e: PointerEvent, gesture: NonNullable<typeof down>) =>
     Math.hypot(e.clientX - gesture.x, e.clientY - gesture.y) > 5;
   const move = (e: PointerEvent) => {
+    lastPointer = e;
+    pointerInside = true;
     if (down?.pointerId === e.pointerId && down.anchor && !down.started && moved(e, down)) {
       down.started = true;
       useGameStore.getState().setChainStart(down.anchor);
@@ -68,19 +87,9 @@ export function bindSceneInteraction(
     const s = useGameStore.getState();
     if (dragged && gesture.anchor && !gesture.started) s.setChainStart(gesture.anchor);
     const button = gesture.button;
-    if (button === 2) {
+    if (button === 2 || (button === 0 && gesture.alt)) {
       if (s.chainStart || s.mode === "multiplayer") s.setChainStart(null);
-      else {
-        const target = pick(e, "delete");
-        if (target?.kind === "member") s.removeMember(target.id);
-        else if (
-          target?.kind === "node" &&
-          (!s.model.attrs[target.key]?.locked ||
-            s.model.attrs[target.key]?.joint)
-        ) {
-          s.removeNodeAttrs(target.key);
-        }
-      }
+      else removeAt(e);
       return;
     }
     if (button !== 0) return;
@@ -203,7 +212,7 @@ export function bindSceneInteraction(
   };
   const pointerDown = (e: PointerEvent) => {
     if (down) return;
-    down = { x: e.clientX, y: e.clientY, button: e.button, pointerId: e.pointerId, started: false };
+    down = { x: e.clientX, y: e.clientY, button: e.button, pointerId: e.pointerId, alt: e.altKey, started: false };
     const s = useGameStore.getState();
     if (e.button !== 0 || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || s.mode === "multiplayer" ||
       !isGrowthStyle(s.style) || !MEMBER_TYPES.includes(s.tool as MemberType)) return;
@@ -225,9 +234,14 @@ export function bindSceneInteraction(
     if (down.started) useGameStore.getState().setChainStart(null);
     down = null;
   };
-  const leave = () => {
+  const clearPreview = () => {
     ghost.visible = false;
     preview.visible = false;
+    onHover?.(null);
+  };
+  const leave = () => {
+    pointerInside = false;
+    clearPreview();
   };
   const context = (e: Event) => e.preventDefault();
   const keydown = (e: KeyboardEvent) => {
@@ -259,7 +273,11 @@ export function bindSceneInteraction(
         ? { "1": "shs", "2": "brace", "3": "joint", "4": "load", x: "delete", i: "inspect" }
         : { "1": "shs", "2": "joint", "3": "load", x: "delete", i: "inspect" };
       const tool = key === "b" && s.mode !== "multiplayer" ? "found" : tools[key];
-      if (tool) s.setTool(tool);
+      if (tool) {
+        // As in the prototype, changing tool lets go of the selected joint or load.
+        if (isGrowthStyle(s.style) && s.mode !== "multiplayer") s.setSelected(null);
+        s.setTool(tool);
+      }
     } else if (e.key.toLowerCase() === "l" && !e.ctrlKey && !e.metaKey)
       getView().onToggleLoadPath?.();
     else if (e.key === "Escape") s.setChainStart(null);
@@ -290,6 +308,17 @@ export function bindSceneInteraction(
     ) {
       e.preventDefault();
       s.removeMember(s.selected.id);
+    } else if (
+      (e.key === "Delete" || e.key === "Backspace") &&
+      isGrowthStyle(s.style) &&
+      s.mode !== "multiplayer" &&
+      !s.chainStart &&
+      pointerInside &&
+      lastPointer
+    ) {
+      // As in the prototype: point at a piece and press Delete.
+      e.preventDefault();
+      removeAt(lastPointer);
     }
   };
   const keyup = (e: KeyboardEvent) => {
@@ -308,7 +337,7 @@ export function bindSceneInteraction(
   window.addEventListener("keydown", keydown);
   return {
     buildPlane,
-    clearPreview: leave,
+    clearPreview,
     dispose() {
       canvas.removeEventListener("pointerdown", pointerDown, true);
       canvas.removeEventListener("pointermove", move);
