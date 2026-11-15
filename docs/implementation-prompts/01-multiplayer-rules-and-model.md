@@ -1,22 +1,21 @@
-# Session 1 — Multiplayer rules, catalogue and state
+# Session 1 — Rules and domain
 
-Copy the prompt below into a separate Codex/Claude session. Run in the stated order.
+Runnable concurrently from the shared baseline, in a separate worktree.
 
 ```text
-Read `AGENTS.md`, `docs/kb/README.md` and `docs/kb/multiplayer-refresh-criteria.md` first. This newest revision supersedes conflicting earlier rules. Inspect current main/code and preserve unrelated changes; do not assume a previous chat's implementation state. Work on a feature branch. This prompt authorizes implementation of its stated session scope, not deploying, merging or publishing. Update the relevant KB with actual behavior, evidence and limitations; do not claim unsupported physics or ask again about settled MR01–MR19 choices.
+Work concurrently with three other sessions, in your own Git worktree and unique feature branch from the SAME baseline containing criteria commit 17415db. Never share a working directory, edit another session’s owned files, cherry-pick peers mid-development, or push/merge main. Read AGENTS.md, docs/kb/README.md, docs/kb/multiplayer-refresh-criteria.md and docs/implementation-prompts/parallel-contract.md. MR01–MR19 override older rules. This is an implementation task, not deployment.
 
-Prerequisite: start from current main. Own the common rules/model/state foundation for sessions 2–4; do not build a second game engine or new game types.
+Build independently against fixtures and injected adapters; do not wait for another session to finish or import symbols that exist only on an unmerged peer branch. Preserve existing compatibility exports until final integration. Never fabricate physics/results. Write tests, small commits and your own docs/implementation-handoffs/session-N.md, including commit SHA, owned files, exported interfaces, integration steps, checks and known gaps. Only session 4 updates shared KB pages during final integration.
+
+You are SESSION 1. Own the multiplayer domain: card/catalogue definitions, legal actions, turn/deck rules and match serialization. Use apps/web/src/multiplayer/domain/ for new cohesive modules. You may update existing game/model.ts, turns.ts, session.ts, persistence.ts and inventory/catalogue definitions as needed; preserve compatibility for the baseline UI. Do NOT edit App/Workspace, game/store.ts, menu/settings, viewer, solver/checkpoint code, package files or shared KB pages.
 
 Implement:
-- Multiplayer Shared table as the only game type. Remove retired game-type menus/routes/setup/help actions and active branches. Preserve old saves safely as legacy/read-only or explicit migration, never wipe them. Preserve the existing default multiplayer visual environment and working Rust/OpenSees interfaces.
-- 15×15 horizontal field (document coordinate/cell convention and height), one immutable fully fixed default foundation and starting column per player, and no drawable additional foundations.
-- Exactly four draws per turn, source deck chosen independently for each draw; any number of held members/connections/loads may be played. Remove 2/2 split and all 1/1/2 limits. Preserve unique instance accounting, cancel/pass/hot-seat handoff and deterministic replay.
-- Exactly four member variants: standard axial/bending beam-column, tension-only cable, axial spring 0.25k₀ and 0.5k₀. Publish k₀ in N/m and resolved standard properties; use reviewed existing data where valid, and raise genuinely missing numerical choices rather than inventing engineering values. Remove retired cards from active decks without deleting useful backend fixtures.
-- Max-length card tiers only 5/7/10 game units; shorter spans allowed; Euclidean diagonal length, explicit unit conversion and original-quarter ports. No per-axis cube masquerading as a length limit.
-- Only three player connection types, restraining 1/2/3 chosen rotational axes. Connected translations remain compatible; no player translation/elastic laws or 0-lock card. Preserve shared-joint axis compatibility and locked setup. Committed physical properties read-only, draft edits bounded by cards.
-- Versioned match fields/event contracts for solve interval default 3, committed-turn counter, last attempted/verified checkpoint, pending original-turn window, player-mask versus system-correction layers and quit/resume phase. Build the contract/hooks; session 2 owns structural scheduling/attribution.
+- Four cards per turn, independently choosing either deck for each draw; any number of held elements, connections and loads playable; pass/cancel/retry do not redraw or duplicate consumption.
+- Only the standard axial/bending member, tension-only cable and springs 0.25k₀/0.5k₀. k₀ is a documented N/m reference; do not invent missing engineering constants. Member max tiers 5/7/10 game units allow shorter Euclidean spans, including permitted diagonals/quarter ports.
+- Three rotation-mask card types restraining 1/2/3 axes; no player translation/elastic law cards. One immutable fully fixed starting foundation/column per player; no new foundations. Field 15×15 horizontal cells; document height/unit conversion. Committed physical properties read-only, drafts editable within cards.
+- Validated versioned state/actions/events, private active-player views, draw choices, original turn/model IDs, pending checkpoint window, interval setting default 3, original/effective correction layers and resumable phase. Numerical work is session 2’s responsibility.
 
-Relevant sources: turn/card/placement/multiplayer/saved-match criteria. Validate many plays, four arbitrary deck choices and reload, 5/7/10 shorter/diagonal boundaries, four variants/three masks, locked setup/no extra foundation, legacy safety and no retired mode entry. Run focused tests, typecheck and build. Do not add avatar/UI polish, solve on every edit or fake unsupported spring/quarter laws.
+Export createMultiplayerDomain() with snapshot, validated command dispatch and event subscription; own canonical domain types as specified by the parallel contract. Supply factories/fixtures and migration rules without wiring global UI/store. Do not delete legacy saves or working solver capabilities.
 
-Handoff: commit changes; write `docs/implementation-handoffs/session-1.md` with base/result commits, files/interfaces, finalized and still-open physical parameters, commands/results, migration behavior and exact integration points for session 2. Do not mark numerical capability complete solely because a schema accepts it.
+Test draw choices/many plays/cancel/reload, length boundaries, catalogue/masks, setup locks and state validation. Run relevant checks/build and document limitations. Use docs/implementation-handoffs/session-1.md and an optional session-specific KB page; shared navigation/KB reconciliation belongs to session 4. Finish your branch independently and report its commits for integration.
 ```
