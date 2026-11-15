@@ -93,8 +93,10 @@ impl Symbolic {
     /// in one of `groups` (one group per element) may be nonzero.
     pub fn new(n: usize, groups: &[Vec<usize>]) -> Self {
         let adjacency = adjacency(n, groups);
-        let natural: Vec<usize> = (0..n).collect();
-        let ordered = minimum_degree(&adjacency);
+        // Both candidate orders are postordered, which keeps their fill and
+        // makes every subtree of the elimination tree contiguous.
+        let natural = postorder(&adjacency, (0..n).collect());
+        let ordered = postorder(&adjacency, minimum_degree(&adjacency));
         let candidate = Self::with_order(&adjacency, ordered);
         // The skyline's work is an upper bound on the sparse work in the
         // equation order, and cheap to compute. Only when it does not already
@@ -107,6 +109,13 @@ impl Symbolic {
             }
         }
         candidate
+    }
+
+    /// Supernode count, largest block and largest front (diagnostics).
+    pub fn shape(&self) -> (usize, usize, usize) {
+        let largest = self.supernodes.iter().map(|s| s.size).max().unwrap_or(0);
+        let front = self.supernodes.iter().map(|s| s.size + s.pattern.len()).max().unwrap_or(0);
+        (self.supernodes.len(), largest, front)
     }
 
     /// Number of equations.
@@ -163,26 +172,12 @@ impl Symbolic {
             }
         }
 
-        // Elimination tree (Liu's algorithm with path compression).
-        const NONE: usize = usize::MAX;
-        let mut parent = vec![NONE; n];
-        let mut ancestor = vec![NONE; n];
-        for k in 0..n {
-            upper[k].sort_unstable();
-            for &i in &upper[k] {
-                let mut r = i;
-                while ancestor[r] != NONE && ancestor[r] != k {
-                    let next = ancestor[r];
-                    ancestor[r] = k;
-                    r = next;
-                }
-                if ancestor[r] == NONE {
-                    ancestor[r] = k;
-                    parent[r] = k;
-                }
-            }
+        for list in upper.iter_mut() {
+            list.sort_unstable();
         }
+        let parent = elimination_tree(&upper);
         // Column counts of L below the diagonal, from the row subtrees.
+        const NONE: usize = usize::MAX;
         let mut count = vec![0usize; n];
         let mut mark = vec![NONE; n];
         for k in 0..n {
@@ -220,8 +215,6 @@ impl Symbolic {
         // Row structure of each supernode: its own columns' entries and its
         // children's structure, below the block.
         let mut mark = vec![NONE; n];
-        let mut factor_entries = 0usize;
-        let mut factor_work = 0.0;
         for s in 0..supernodes.len() {
             let (first, size) = (supernodes[s].first, supernodes[s].size);
             let last = first + size - 1;
@@ -245,17 +238,23 @@ impl Symbolic {
             }
             pattern.sort_unstable();
             debug_assert_eq!(pattern.len(), count[last]);
-            factor_entries += size * (size - 1) / 2 + size * pattern.len();
-            // Half the sum of the squared column counts below the diagonal.
-            for j in 0..size {
-                let below = (size - 1 - j + pattern.len()) as f64;
-                factor_work += 0.5 * below * below;
-            }
             if let Some(&up) = pattern.first() {
                 let p = owner[up];
                 supernodes[p].children.push(s);
             }
             supernodes[s].pattern = pattern;
+        }
+        let supernodes = amalgamate(supernodes, &mut owner);
+        let mut factor_entries = 0usize;
+        let mut factor_work = 0.0;
+        for node in &supernodes {
+            let (size, below) = (node.size, node.pattern.len());
+            factor_entries += size * (size - 1) / 2 + size * below;
+            // Half the sum of the squared column counts below the diagonal.
+            for j in 0..size {
+                let column = (size - 1 - j + below) as f64;
+                factor_work += 0.5 * column * column;
+            }
         }
         Self {
             n,
@@ -272,6 +271,132 @@ impl Symbolic {
             reordered: true,
         }
     }
+}
+
+/// Elimination tree from the entries left of the diagonal of each row
+/// (Liu's algorithm with path compression). Roots have parent `usize::MAX`.
+fn elimination_tree(upper: &[Vec<usize>]) -> Vec<usize> {
+    const NONE: usize = usize::MAX;
+    let n = upper.len();
+    let mut parent = vec![NONE; n];
+    let mut ancestor = vec![NONE; n];
+    for k in 0..n {
+        for &i in &upper[k] {
+            let mut r = i;
+            while ancestor[r] != NONE && ancestor[r] != k {
+                let next = ancestor[r];
+                ancestor[r] = k;
+                r = next;
+            }
+            if ancestor[r] == NONE {
+                ancestor[r] = k;
+                parent[r] = k;
+            }
+        }
+    }
+    parent
+}
+
+/// The order `perm` rearranged into a postorder of its elimination tree:
+/// the same fill, with every subtree in consecutive positions and each
+/// column directly after its last child. Children are visited in their
+/// original order, so the result is deterministic.
+fn postorder(adjacency: &[Vec<usize>], perm: Vec<usize>) -> Vec<usize> {
+    const NONE: usize = usize::MAX;
+    let n = perm.len();
+    let mut inv = vec![0; n];
+    for (k, &eq) in perm.iter().enumerate() {
+        inv[eq] = k;
+    }
+    let upper: Vec<Vec<usize>> = (0..n)
+        .map(|k| {
+            let mut list: Vec<usize> = adjacency[perm[k]].iter().map(|&u| inv[u]).filter(|&i| i < k).collect();
+            list.sort_unstable();
+            list
+        })
+        .collect();
+    let parent = elimination_tree(&upper);
+    let mut children: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for k in 0..n {
+        if parent[k] != NONE {
+            children[parent[k]].push(k);
+        }
+    }
+    let mut order = Vec::with_capacity(n);
+    let mut stack: Vec<(usize, usize)> = Vec::new();
+    for root in (0..n).filter(|&k| parent[k] == NONE) {
+        stack.push((root, 0));
+        while let Some(&mut (k, ref mut next)) = stack.last_mut() {
+            if *next < children[k].len() {
+                let child = children[k][*next];
+                *next += 1;
+                stack.push((child, 0));
+            } else {
+                order.push(perm[k]);
+                stack.pop();
+            }
+        }
+    }
+    order
+}
+
+/// Relaxed supernode amalgamation (as in CHOLMOD): a supernode is merged
+/// into its parent when it ends directly before the parent's first column
+/// and the merged block would hold few explicit zeros. Larger dense blocks
+/// make the factorisation kernels faster; the zeros change no value, since
+/// they are computed from zeros. Supernodes must be in postorder.
+fn amalgamate(nodes: Vec<Supernode>, owner: &mut [usize]) -> Vec<Supernode> {
+    let count = nodes.len();
+    let mut nodes: Vec<Option<Supernode>> = nodes.into_iter().map(Some).collect();
+    let mut zeros = vec![0usize; count];
+    for s in 0..count {
+        let Some(node) = nodes[s].as_ref() else { continue };
+        let Some(&up) = node.pattern.first() else { continue };
+        let p = owner[up];
+        let parent = nodes[p].as_ref().expect("a parent is merged only after its children");
+        if node.first + node.size != parent.first {
+            continue;
+        }
+        let (cs, ps, below) = (node.size, parent.size, parent.pattern.len());
+        let size = cs + ps;
+        let added = cs * (ps + below - node.pattern.len());
+        let total = zeros[s] + zeros[p] + added;
+        let entries = size * (size - 1) / 2 + size * below;
+        let fraction = total as f64 / entries.max(1) as f64;
+        let merge = size <= 4 || (size <= 16 && fraction < 0.8) || (size <= 48 && fraction < 0.1) || fraction < 0.05;
+        if !merge {
+            continue;
+        }
+        let child = nodes[s].take().expect("present");
+        let parent = nodes[p].as_mut().expect("present");
+        parent.first = child.first;
+        parent.size = size;
+        parent.children.retain(|&c| c != s);
+        parent.children.extend(child.children);
+        parent.children.sort_unstable();
+        zeros[p] = total;
+    }
+    // Renumber the remaining supernodes and their children.
+    let mut number = vec![usize::MAX; count];
+    let mut kept = Vec::new();
+    for (s, node) in nodes.into_iter().enumerate() {
+        if let Some(node) = node {
+            number[s] = kept.len();
+            kept.push(node);
+        }
+    }
+    for node in kept.iter_mut() {
+        for c in node.children.iter_mut() {
+            *c = number[*c];
+        }
+        node.children.sort_unstable();
+    }
+    for (index, node) in kept.iter().enumerate() {
+        for k in node.first..node.first + node.size {
+            owner[k] = index;
+        }
+    }
+    kept
 }
 
 /// Neighbours of every DOF, ascending, without the DOF itself.
@@ -550,6 +675,7 @@ impl SparseMatrix {
         let mut panels: Vec<Vec<f64>> = Vec::with_capacity(sym.supernodes.len());
         let mut updates: Vec<Vec<f64>> = vec![Vec::new(); sym.supernodes.len()];
         let mut position = vec![0usize; n];
+        let mut weights: Vec<(usize, f64)> = Vec::new();
         for (s, node) in sym.supernodes.iter().enumerate() {
             let (first, ns, r) = (node.first, node.size, node.pattern.len());
             let m = ns + r;
@@ -559,37 +685,60 @@ impl SparseMatrix {
             for (b, &row) in node.pattern.iter().enumerate() {
                 position[row] = ns + b;
             }
-            // Dense front, column-major lower triangle: entry (row a, column
-            // b) is at b * m + a.
-            let mut front = vec![0.0; m * m];
+            // The front of this supernode, as two column-major lower
+            // triangles: the panel holds front columns 0..ns over all m rows
+            // (entry (a, b) at b * m + a), the update holds the trailing
+            // r × r block (entry (a, b) at (b - ns) * r + a - ns).
+            let mut panel = vec![0.0; m * ns];
+            let mut update = vec![0.0; r * r];
             for c in first..first + ns {
                 let column = position[c] * m;
                 for p in sym.col_ptr[c]..sym.col_ptr[c + 1] {
                     let row = sym.rows[p];
-                    front[column + position[row]] += self.values[p] * permuted_scale[row] * permuted_scale[c];
+                    panel[column + position[row]] += self.values[p] * permuted_scale[row] * permuted_scale[c];
                 }
-                front[column + position[c]] += shift;
+                panel[column + position[c]] += shift;
             }
             for &child in &node.children {
-                let update = std::mem::take(&mut updates[child]);
+                let from = std::mem::take(&mut updates[child]);
                 let rows = &sym.supernodes[child].pattern;
                 let rc = rows.len();
                 for b in 0..rc {
-                    let column = position[rows[b]] * m;
-                    for a in b..rc {
-                        front[column + position[rows[a]]] += update[b * rc + a];
+                    let column = position[rows[b]];
+                    let source = &from[b * rc..(b + 1) * rc];
+                    if column < ns {
+                        let target = &mut panel[column * m..(column + 1) * m];
+                        for a in b..rc {
+                            target[position[rows[a]]] += source[a];
+                        }
+                    } else {
+                        let target = &mut update[(column - ns) * r..(column - ns + 1) * r];
+                        for a in b..rc {
+                            target[position[rows[a]] - ns] += source[a];
+                        }
                     }
                 }
             }
-            // Factorise the block columns.
+            // Factorise the block columns, left-looking: each column takes
+            // the updates of the block columns before it, then its pivot.
             for j in 0..ns {
                 let k = first + j;
-                let d = front[j * m + j];
+                weights.clear();
+                for i in 0..j {
+                    let l = panel[i * m + j];
+                    if !fixed[first + i] && l != 0.0 {
+                        weights.push((i, l * pivots[first + i]));
+                    }
+                }
+                let (done, rest) = panel.split_at_mut(j * m);
+                let column = &mut rest[..m];
+                subtract_columns(&mut column[j..], done, m, j, &weights);
+                let d = column[j];
                 if !d.is_finite() || d.abs() <= NULL_PIVOT {
                     fixed[k] = true;
                     pivots[k] = 1.0;
                     inertia.null.push(sym.perm[k]);
-                    front[j * m + j + 1..(j + 1) * m].iter_mut().for_each(|v| *v = 0.0);
+                    column[j + 1..].iter_mut().for_each(|v| *v = 0.0);
                     continue;
                 }
                 pivots[k] = d;
@@ -598,46 +747,52 @@ impl SparseMatrix {
                 } else if d < inertia.min_pivot {
                     inertia.min_pivot = d;
                 }
-                let (done, rest) = front.split_at_mut((j + 1) * m);
-                let column = &mut done[j * m..];
                 for v in column[j + 1..].iter_mut() {
                     *v /= d;
                 }
-                for kk in j + 1..ns {
-                    let t = column[kk] * d;
-                    if t != 0.0 {
-                        let target = &mut rest[(kk - j - 1) * m + kk..(kk - j) * m];
-                        for (x, l) in target.iter_mut().zip(&column[kk..]) {
-                            *x -= l * t;
-                        }
-                    }
-                }
             }
-            // Update matrix for the parent: the Schur complement of the block.
-            if r > 0 {
-                let mut update = vec![0.0; r * r];
-                for b in 0..r {
-                    let target = &mut update[b * r + b..(b + 1) * r];
-                    target.copy_from_slice(&front[(ns + b) * m + ns + b..(ns + b + 1) * m]);
-                    for j in 0..ns {
-                        if fixed[first + j] {
-                            continue;
-                        }
-                        let column = &front[j * m..(j + 1) * m];
-                        let w = column[ns + b] * pivots[first + j];
-                        if w != 0.0 {
-                            for (x, l) in target.iter_mut().zip(&column[ns + b..]) {
-                                *x -= l * w;
-                            }
-                        }
+            // The update matrix for the parent: the Schur complement of the
+            // block, F22 - L21 D L21ᵀ.
+            for b in 0..r {
+                weights.clear();
+                for i in 0..ns {
+                    let l = panel[i * m + ns + b];
+                    if !fixed[first + i] && l != 0.0 {
+                        weights.push((i, l * pivots[first + i]));
                     }
                 }
+                subtract_columns(&mut update[b * r + b..(b + 1) * r], &panel, m, ns + b, &weights);
+            }
+            if r > 0 {
                 updates[s] = update;
             }
-            front.truncate(ns * m);
-            panels.push(front);
+            panels.push(panel);
         }
         Factor { sym: self.sym.clone(), scale, fixed, pivots, panels, inertia }
+    }
+}
+
+/// `target[i] -= Σ w · L[from + i]` over the panel columns `(column, w)` in
+/// `weights`, where `L` is column-major with `m` rows. Four columns are
+/// combined per pass so that each target entry is loaded and stored once
+/// per four multiply-adds; the order of the sums is fixed.
+#[inline]
+fn subtract_columns(target: &mut [f64], panel: &[f64], m: usize, from: usize, weights: &[(usize, f64)]) {
+    let len = m - from;
+    let target = &mut target[..len];
+    let column = |j: usize| &panel[j * m + from..j * m + m];
+    let mut groups = weights.chunks_exact(4);
+    for g in &mut groups {
+        let (l0, l1, l2, l3) = (column(g[0].0), column(g[1].0), column(g[2].0), column(g[3].0));
+        let (w0, w1, w2, w3) = (g[0].1, g[1].1, g[2].1, g[3].1);
+        for ((((t, a), b), c), d) in target.iter_mut().zip(l0).zip(l1).zip(l2).zip(l3) {
+            *t -= (a * w0 + b * w1) + (c * w2 + d * w3);
+        }
+    }
+    for &(j, w) in groups.remainder() {
+        for (t, l) in target.iter_mut().zip(column(j)) {
+            *t -= l * w;
+        }
     }
 }
 
