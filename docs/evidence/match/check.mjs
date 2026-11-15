@@ -78,10 +78,18 @@ try {
   const turnPanel = page.getByLabel("Shared-table turn");
   const selectedHand = turnPanel.locator(".turn-cards[aria-label]");
   const end = turnPanel.getByRole("button", { name: "End turn / pass" });
+  const accessibility = await page.context().newCDPSession(page);
+  await accessibility.send("Accessibility.enable");
   let capturedBoard = false;
+  let checkedInvalid = false;
   async function showHand(player) {
     await page.getByRole("heading", { name: "Pass to Player " + player }).waitFor();
     assert.equal(await page.locator("canvas,.turn-panel,.env-tray").count(), 0);
+    const {nodes} = await accessibility.send("Accessibility.getFullAXTree");
+    const exposed = nodes.filter(node => !node.ignored);
+    assert.deepEqual(exposed.filter(node => node.role?.value === "button").map(node => node.name.value),
+      ["Ready · Reveal my hand"]);
+    assert.ok(exposed.some(node => node.role?.value === "heading" && node.name.value === "Pass to Player " + player));
     await activate(ready);
     if (touch && !capturedBoard) {
       await page.screenshot({ path: resolve(output, "touch-hand-controls.png") });
@@ -101,6 +109,24 @@ try {
     for (const [side, target] of [["A", first], ["B", last]]) {
       if (target.startsWith("port:")) await choose(picker.getByLabel("End " + side + " port"), target);
       else await enterText(picker.getByLabel("End " + side + " grid x,y,z"), target);
+    }
+    if (!checkedInvalid) {
+      const before = await read();
+      const b = picker.getByLabel("End B grid x,y,z");
+      await enterText(b, "100,100,100");
+      await activate(picker.getByRole("button", { name: "Stage element" }));
+      await page.getByRole("status").filter({ hasText: /two distinct points on the board/i }).waitFor();
+      const tree = await accessibility.send("Accessibility.getFullAXTree");
+      assert.ok(tree.nodes.some(node => !node.ignored && node.name?.value?.includes("two distinct points on the board")));
+      assert.deepEqual((await read()).events, before.events);
+      if (touch) {
+        await page.setViewportSize({ width: viewport.height, height: viewport.width });
+        assert.deepEqual((await read()).draft, before.draft);
+        assert.equal(await b.inputValue(), "100,100,100");
+        await page.setViewportSize(viewport);
+      }
+      await enterText(b, last);
+      checkedInvalid = true;
     }
     await activate(picker.getByRole("button", { name: "Stage element" }));
     assert.equal((await read()).draft.members.length, 1);
