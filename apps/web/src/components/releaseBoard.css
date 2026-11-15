@@ -57,6 +57,24 @@
 .release-board summary { display: list-item; padding: .65rem .2rem; min-height: 44px; color: var(--gold); }
 .release-precision fieldset { display: flex; align-items: center; gap: .3rem; border: 0; margin: 0; padding: 0; }
 .release-precision :is(input, select) { width: clamp(5rem, 11vw, 10rem); }
+.release-placement-controls { min-width: 0; flex: 1 1 40rem; }
+.release-placement-controls > .release-targets { align-items: end; }
+.release-placement-controls > .release-targets > label:first-child { flex: 1 1 15rem; }
+.release-placement-controls select { max-width: 100%; }
+.release-placement-controls > .release-targets > label:first-child select { width: 100%; }
+.release-station-controls { border: 0; margin: 0; padding: 0; }
+.release-station-controls legend { font-size: .875rem; color: var(--muted); padding: 0; }
+.release-station-controls [role="group"] { display: flex; gap: .2rem; }
+.release-station-controls button { min-width: 44px; padding-inline: .55rem; }
+.release-station-controls button[aria-pressed="true"] { color: #271c10; background: var(--gold); border-color: var(--gold); }
+.release-placement-controls > .release-precision { display: inline-block; margin-inline-end: 1rem; vertical-align: top; }
+.release-placement-controls .release-precision[open] { display: block; }
+.release-placement-controls .release-precision[open] form { padding-block: .2rem .5rem; }
+.release-placement-note { flex-basis: 100%; margin: .3rem 0; font-size: .85rem; color: var(--muted); }
+.release-attachment-actions { display: flex; flex-wrap: wrap; gap: .4rem 1rem; padding: .2rem .25rem .55rem; }
+.release-staged-attachment { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .7rem; font-size: .875rem; }
+.release-staged-attachment strong { color: var(--gold); }
+.release-staged-attachment small { color: var(--muted); }
 .release-stage > .release-skip { position: absolute; right: .75rem; bottom: .75rem; background: #15212ae6; font-size: .82rem; min-width: 44px; }
 .release-drawer { position: absolute; z-index: 4; right: .75rem; top: .75rem; bottom: .75rem; overflow: auto;
   width: min(25rem, calc(100% - 1.5rem)); background: #1e2a36fc; border: 1px solid var(--edge); border-radius: .85rem; padding: 1rem 1.15rem; }
