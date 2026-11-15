@@ -128,7 +128,7 @@ Run on Windows 11 with Rust 1.100.0 and Node 24.16.0, on the branch that adds `c
 | `npm run typecheck` | Pass. |
 | `npm run build` | Pass. The bundle includes `dof_solver.wasm` (704 kB, 231 kB gzipped). The existing chunk-size warning remains. |
 | Module served by the Vite dev server | Pass: served as `application/wasm` and gives the closed-form cantilever deflection when loaded from the dev server and from the production bundle. |
-| Structural check panel in a browser | Not checked. The browser pane was not visible during this work, so the page could not be driven. The panel is covered by type checking, and what it shows by the `summarizeAnalysis` tests. |
+| Structural check panel in a browser | Checked once by hand on the tree merged with main at `3c6aa90`: Engineering challenges, Tower I, Load example, Run simulation. The Results drawer showed "Structural check: Stable", one part, no mechanisms, four foundation reactions totalling 77.0 kN, and "Computed by Rust solver (WebAssembly) in 67 ms", with no console errors. The reactions equal the 40 kN payload plus the 3.78 t mass the voxel panel reports. Other levels, unstable structures and the verdict colours were not looked at. |
 | `npm run bench:solver` | Timings recorded on the [Rust solver page](rust-solver.md#timings). |
 
 Measured errors, the outcome counts of the random states and the limits of this evidence are on the [Rust solver page](rust-solver.md). The evidence shows that the solver's tests pass. It does not show owner acceptance of any criteria milestone, and it includes no comparison with an independent nonlinear program.

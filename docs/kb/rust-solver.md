@@ -63,7 +63,7 @@ The check can report things the voxel analysis does not model. A test frame of t
 
 Because the analysis is 3D and connections are pinned unless a moment connection is placed, a structure that the linear original-contract check called stable can now be reported as a mechanism or as overstressed. That is the solver reporting the model as translated, not a validated engineering verdict.
 
-Not done: the 3D viewer does not use the detailed result (no highlighting of unstable nodes, mode shapes, slack cables or utilisation colours from this solver); there is no turn system; scoring and load shares are not computed; the panel was not checked by hand in a browser, and is covered by type checking and the `summarizeAnalysis` tests; and the results have no independent nonlinear cross-check.
+Not done: the 3D viewer does not use the detailed result (no highlighting of unstable nodes, mode shapes, slack cables or utilisation colours from this solver); there is no turn system; scoring and load shares are not computed; the panel was checked by hand in a browser once, on the Tower I example only (see [development and testing](development-and-testing.md)); and the results have no independent nonlinear cross-check.
 
 ## Coverage of the criteria
 
