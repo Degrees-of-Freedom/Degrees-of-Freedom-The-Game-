@@ -104,7 +104,7 @@ try {
           const preferred = page.locator('[data-deck="' + deck + '"]');
           await activate(await preferred.isEnabled() ? preferred : page.locator("[data-deck]:enabled").first());
         }
-        assert.equal(await page.locator("[data-deck]").count(), 0);
+        await page.locator("[data-deck]").first().waitFor({state:"detached"});
       }
       await activate(page.getByRole("link", { name: "Play", exact: true }));
       const ready = button("Ready · Reveal my hand");
