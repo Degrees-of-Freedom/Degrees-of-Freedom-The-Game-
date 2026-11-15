@@ -25,7 +25,7 @@ export function bindSceneInteraction(
   point: (key: string) => THREE.Vector3,
   getView: () => SceneView,
   rebuild: () => void,
-  getCameraActions: () => { fit(): void; orbit(step: number): void },
+  getCameraActions: () => { fit(): void; orbit(step: number): void; pitch?(step: number): void },
   onHover?: (hover: SceneHover | null) => void,
 ) {
   let shiftDown = false;
@@ -274,10 +274,12 @@ export function bindSceneInteraction(
       !e.ctrlKey &&
       !e.metaKey &&
       !e.altKey &&
-      (["f", "q", "e", "pageup", "pagedown"].includes(key) || s.style === "levels" && ["w", "s"].includes(key) || s.style === "kit" && ["a", "d"].includes(key))
+      (["f", "q", "e", "arrowleft", "arrowright", "arrowup", "arrowdown", "pageup", "pagedown"].includes(key) || s.style === "levels" && ["w", "s"].includes(key) || s.style === "kit" && ["a", "d"].includes(key))
     ) {
       e.preventDefault();
       if (key === "f") getCameraActions().fit();
+      else if (key === "arrowleft" || key === "arrowright") getCameraActions().orbit(key === "arrowleft" ? -0.125 : 0.125);
+      else if (key === "arrowup" || key === "arrowdown") getCameraActions().pitch?.(key === "arrowup" ? 1 : -1);
       else if (key === "q" || key === "e" || key === "a" || key === "d")
         getCameraActions().orbit(key === "q" || key === "a" ? -1 : 1);
       else s.setWorkK(s.workK + (key === "pageup" || key === "w" ? 1 : -1));

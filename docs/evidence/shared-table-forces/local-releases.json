@@ -1,0 +1,387 @@
+{
+  "build": {
+    "commit": "ac2b7953c6008027b3aa7b92f55c39f13f1c215e",
+    "dirtySource": false,
+    "solverFile": "dof_solver-DW3m5Jgn.wasm",
+    "solverSha256": "3c391970e1863f5752538224a5280927246344b4caa4eb104d5d43281acbce17",
+    "assetsSha256": "fd4bb6b7cf13af50e355f3f2fec3cca6bed45f4f6e726e4be28452c34676d812"
+  },
+  "browser": "157.0.8103.51",
+  "seed": 323,
+  "rejected": [
+    {
+      "id": 4,
+      "end": "a",
+      "joint": "7,9,1",
+      "rejectedProfile": "lock-x",
+      "message": "Incompatible joint profiles at 7,9,1. Member 3 end B uses lock-x. Member 4 end A with lock-x conflicts on RX, RY. Choose a matching connector or another joint."
+    },
+    {
+      "id": 6,
+      "end": "a",
+      "joint": "port:3:2",
+      "rejectedProfile": "lock-xz",
+      "message": "Incompatible joint profiles at port:3:2. Member 5 end A uses lock-xz. Member 6 end A with lock-xz conflicts on RX, RY, RZ. Choose a matching connector or another joint."
+    }
+  ],
+  "previews": [
+    {
+      "id": 3,
+      "profile": "lock-x",
+      "directions": "Member 3 local axes · X along A → B\nDirections in global X, Y, Z\nX (0.707, 0.707, 0)\nY (-0.707, 0.707, 0)\nZ (0, 0, 1)"
+    },
+    {
+      "id": 4,
+      "profile": "lock-y",
+      "directions": "Member 4 local axes · X along A → B\nDirections in global X, Y, Z\nX (-0.707, 0.707, 0)\nY (-0.707, -0.707, 0)\nZ (0, 0, 1)"
+    },
+    {
+      "id": 5,
+      "profile": "lock-xz",
+      "directions": "Member 5 local axes · X along A → B\nDirections in global X, Y, Z\nX (0.667, -0.333, 0.667)\nY (0.447, 0.894, 0)\nZ (-0.596, 0.298, 0.745)"
+    },
+    {
+      "id": 6,
+      "profile": "lock-yz",
+      "directions": "Member 6 local axes · X along A → B\nDirections in global X, Y, Z\nX (-0.447, -0.894, 0)\nY (0.894, -0.447, 0)\nZ (0, 0, 1)"
+    }
+  ],
+  "originals": [
+    {
+      "cardId": "connector-0",
+      "memberId": 3,
+      "end": "a",
+      "jointId": "5,7,1",
+      "profile": "fixed",
+      "owner": "player-1",
+      "axes": [
+        [
+          0.7071067811865475,
+          0.7071067811865475,
+          0
+        ],
+        [
+          -0.7071067811865475,
+          0.7071067811865475,
+          0
+        ],
+        [
+          0,
+          0,
+          0.9999999999999998
+        ]
+      ],
+      "frameVersion": "member-local-1"
+    },
+    {
+      "cardId": "connector-46",
+      "memberId": 3,
+      "end": "b",
+      "jointId": "7,9,1",
+      "profile": "lock-x",
+      "owner": "player-1",
+      "axes": [
+        [
+          0.7071067811865475,
+          0.7071067811865475,
+          0
+        ],
+        [
+          -0.7071067811865475,
+          0.7071067811865475,
+          0
+        ],
+        [
+          0,
+          0,
+          0.9999999999999998
+        ]
+      ],
+      "frameVersion": "member-local-1"
+    },
+    {
+      "cardId": "connector-44",
+      "memberId": 4,
+      "end": "a",
+      "jointId": "7,9,1",
+      "profile": "lock-y",
+      "owner": "player-2",
+      "axes": [
+        [
+          -0.7071067811865475,
+          0.7071067811865475,
+          0
+        ],
+        [
+          -0.7071067811865475,
+          -0.7071067811865475,
+          0
+        ],
+        [
+          0,
+          0,
+          0.9999999999999998
+        ]
+      ],
+      "frameVersion": "member-local-1"
+    },
+    {
+      "cardId": "connector-32",
+      "memberId": 5,
+      "end": "a",
+      "jointId": "port:3:2",
+      "profile": "lock-xz",
+      "owner": "player-2",
+      "axes": [
+        [
+          0.6666666666666666,
+          -0.3333333333333333,
+          0.6666666666666666
+        ],
+        [
+          0.4472135954999579,
+          0.8944271909999159,
+          0
+        ],
+        [
+          -0.5962847939999438,
+          0.2981423969999719,
+          0.7453559924999298
+        ]
+      ],
+      "frameVersion": "member-local-1"
+    },
+    {
+      "cardId": "connector-38",
+      "memberId": 6,
+      "end": "a",
+      "jointId": "port:3:2",
+      "profile": "lock-yz",
+      "owner": "player-1",
+      "axes": [
+        [
+          -0.4472135954999579,
+          -0.8944271909999159,
+          0
+        ],
+        [
+          0.8944271909999159,
+          -0.4472135954999579,
+          0
+        ],
+        [
+          0,
+          0,
+          0.9999999999999999
+        ]
+      ],
+      "frameVersion": "member-local-1"
+    }
+  ],
+  "solverEnds": [
+    {
+      "member": 3,
+      "segment": "-14",
+      "joint": "7,9,1",
+      "side": "end",
+      "attachment": {
+        "axes": [
+          [
+            0.7071067811865475,
+            0.7071067811865475,
+            0
+          ],
+          [
+            -0.7071067811865475,
+            0.7071067811865475,
+            0
+          ],
+          [
+            0,
+            0,
+            0.9999999999999998
+          ]
+        ],
+        "laws": [
+          "rigid",
+          "rigid",
+          "rigid",
+          "rigid",
+          "free",
+          "free"
+        ]
+      },
+      "projection": [
+        [
+          0.4999999999999999,
+          0.4999999999999999,
+          0
+        ],
+        [
+          0.4999999999999999,
+          0.4999999999999999,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "member": 4,
+      "segment": "4",
+      "joint": "7,9,1",
+      "side": "start",
+      "attachment": {
+        "axes": [
+          [
+            -0.7071067811865475,
+            0.7071067811865475,
+            0
+          ],
+          [
+            -0.7071067811865475,
+            -0.7071067811865475,
+            0
+          ],
+          [
+            0,
+            0,
+            0.9999999999999998
+          ]
+        ],
+        "laws": [
+          "rigid",
+          "rigid",
+          "rigid",
+          "free",
+          "rigid",
+          "free"
+        ]
+      },
+      "projection": [
+        [
+          0.4999999999999999,
+          0.4999999999999999,
+          0
+        ],
+        [
+          0.4999999999999999,
+          0.4999999999999999,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "member": 5,
+      "segment": "5",
+      "joint": "port:3:2",
+      "side": "start",
+      "attachment": {
+        "axes": [
+          [
+            0.6666666666666666,
+            -0.3333333333333333,
+            0.6666666666666666
+          ],
+          [
+            0.4472135954999579,
+            0.8944271909999159,
+            0
+          ],
+          [
+            -0.5962847939999438,
+            0.2981423969999719,
+            0.7453559924999298
+          ]
+        ],
+        "laws": [
+          "rigid",
+          "rigid",
+          "rigid",
+          "rigid",
+          "free",
+          "rigid"
+        ]
+      },
+      "projection": [
+        [
+          0.7999999999999998,
+          -0.3999999999999999,
+          1.1102230246251565e-16
+        ],
+        [
+          -0.3999999999999999,
+          0.19999999999999996,
+          -5.551115123125783e-17
+        ],
+        [
+          1.1102230246251565e-16,
+          -5.551115123125783e-17,
+          0.9999999999999998
+        ]
+      ]
+    },
+    {
+      "member": 6,
+      "segment": "6",
+      "joint": "port:3:2",
+      "side": "start",
+      "attachment": {
+        "axes": [
+          [
+            -0.4472135954999579,
+            -0.8944271909999159,
+            0
+          ],
+          [
+            0.8944271909999159,
+            -0.4472135954999579,
+            0
+          ],
+          [
+            0,
+            0,
+            0.9999999999999999
+          ]
+        ],
+        "laws": [
+          "rigid",
+          "rigid",
+          "rigid",
+          "free",
+          "rigid",
+          "rigid"
+        ]
+      },
+      "projection": [
+        [
+          0.7999999999999999,
+          -0.39999999999999997,
+          0
+        ],
+        [
+          -0.39999999999999997,
+          0.19999999999999998,
+          0
+        ],
+        [
+          0,
+          0,
+          0.9999999999999998
+        ]
+      ]
+    }
+  ],
+  "checkpoint": 3,
+  "draftReload": true,
+  "committedReload": true,
+  "pageErrors": []
+}

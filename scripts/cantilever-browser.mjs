@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import { createServer } from "vite";
 
 const root = path.resolve("apps/web");
@@ -13,7 +13,13 @@ const rules = await server.ssrLoadModule(path.join(root, "src/game/turns.ts"));
 const catalogue = await server.ssrLoadModule(path.join(root, "src/game/cardCatalogue.ts"));
 let deal;
 for (let seed = 0; seed < 1000; seed++) {
-  const turn = rules.createTurnGame(seed, catalogue.CANTILEVER_CATALOGUE), hand = rules.activeTurnHand(turn);
+  let turn = rules.createReleaseGame(seed, catalogue.CANTILEVER_CATALOGUE);
+  for (const source of ["members", "connections", "connections", "loads"]) {
+    const draw = rules.chooseTurnDraw(turn, source);
+    if (!draw.ok) throw Error(draw.reason);
+    turn = draw.state;
+  }
+  const hand = rules.activeTurnHand(turn);
   const frame = hand.find(c => c.kind === "element" && c.type === "heb" && c.maxSteps >= 4);
   const load = hand.find(c => c.kind === "load" && c.magnitude === 5);
   const fixed = hand.find(c => c.kind === "connection" && c.profile === "fixed");
@@ -25,7 +31,7 @@ const browser = await chromium.launch({headless: true, executablePath: process.e
 const evidence = {browser: browser.version(), seed: deal.seed, cases: []};
 await mkdir(output, {recursive: true});
 try {
-  for (const input of ["pointer", "scene", "precise", "keyboard", "touch", "gpu-fallback"]) {
+  for (const input of (process.env.DOF_INPUTS || "pointer,scene,precise,keyboard,touch,gpu-fallback").split(",")) {
     const context = await browser.newContext({viewport: input === "touch" ? {width: 1180, height: 820} : {width: 1440, height: 1000},
       hasTouch: input === "touch", reducedMotion: "reduce"});
     try {
@@ -62,10 +68,20 @@ try {
           for (let i = 0; i < index; i++) await page.keyboard.press("ArrowDown");
           await page.keyboard.press("Tab");
         } else await locator.selectOption(value);
-        assert.equal(await locator.inputValue(), value);
+        await expect(locator).toHaveValue(value);
       }
       await page.goto(server.resolvedUrls.local[0] + "match?seed=" + deal.seed);
       await activate(button("Ready · Reveal my hand"));
+      for (const [index, source] of ["members", "connections", "connections", "loads"].entries()) {
+        await activate(page.locator(`[data-deck="${source}"]`));
+        await page.waitForFunction(expected => {
+          const cards = document.querySelectorAll("[data-card-id]");
+          return cards.length === expected;
+        }, index + 1);
+      }
+      await page.waitForFunction(async () => (await import("/src/game/store.ts")).useGameStore.getState().sessionSave === "idle");
+      await select(page.getByRole("combobox", {name: /^Calculate every/}), "1");
+      await page.waitForFunction(async () => (await import("/src/game/store.ts")).useGameStore.getState().sessionSave === "idle");
       await activate(page.locator(`[data-card-id="${deal.frame.id}"]`));
       if (input === "scene") {
         // Observe the production camera for projection; placement itself uses

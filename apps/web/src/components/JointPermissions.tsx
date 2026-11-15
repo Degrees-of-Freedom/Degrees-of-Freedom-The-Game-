@@ -14,13 +14,14 @@ function Components({ values, name }: { values: JointComponents; name: string })
     </tr>)}</tbody></table>;
 }
 
-export function JointPermissions({ joints, selected, mode, select }: {
+export function JointPermissions({ joints, selected, mode, select, onModeChange }: {
   joints: JointPermission[]; selected?: JointPermission; mode: JointDisplay; select: (id: string) => void;
+  onModeChange?: (mode: JointDisplay) => void;
 }) {
   const [local, setLocal] = useState(false);
   return <section className="joint-permissions" aria-label="Joint permissions">
     <h3>Joint permissions</h3>
-    <label>Joint display<select value={mode} onChange={event => updateSettings({ jointDisplay: event.target.value as JointDisplay })}>
+    <label>Joint display<select value={mode} onChange={event => onModeChange ? onModeChange(event.target.value as JointDisplay) : updateSettings({ jointDisplay: event.target.value as JointDisplay })}>
       <option value="selected">Selected joint</option><option value="all">All joints</option><option value="off">Off</option>
     </select></label>
     {mode !== "off" && <>

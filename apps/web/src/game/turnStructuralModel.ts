@@ -52,6 +52,8 @@ export function toTurnStructuralModel(
     const ends = (['a', 'b'] as const).map((side) => {
       const point = side === 'a' ? member.a : member.b;
       const connection = connections.get(`${member.id}:${side}`);
+      if (connection && connection.profile !== 'fixed' && connection.profile !== 'ball')
+        throw new Error('The older fixed/pinned structural-model adapter cannot represent a partial rotational connection. Use the saved-frame browser solver.');
       if (connection) return { node: connection.jointId, fixity: connection.profile === 'ball' ? ('pinned' as const) : ('fixed' as const) };
       const node = `endpoint:${member.id}:${side}`;
       nodes.set(node, { id: node, position: gridPosition(point) });

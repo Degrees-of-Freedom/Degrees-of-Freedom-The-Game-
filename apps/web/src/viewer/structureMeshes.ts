@@ -10,8 +10,8 @@ import {
   visualLoadDirection,
 } from "./scenePieces";
 import { isGrowthStyle, SCENE_STYLES } from "./sceneStyle";
-import { poseSection, roundHollowGeometry, wideFlangeGeometry, type WideFlange } from "./sectionGeometry";
-import { assemblyGeometry, assemblySectionGeometry } from "./assemblyGeometry";
+import { poseSection, rectangularHollowGeometry, roundHollowGeometry, wideFlangeGeometry, type WideFlange } from "./sectionGeometry";
+import { assemblyGeometry } from "./assemblyGeometry";
 import { springDisplayAxis, springGeometry } from "./springGeometry";
 import { LOAD_PATH_COLORS } from "./viewPalette";
 import { deflectedFrameGeometry, undeformedReference } from "./deflectedGeometry";
@@ -188,7 +188,7 @@ export function buildStructure(
       let profile: THREE.BufferGeometry | undefined;
       if (member.type === "ipe" || member.type === "heb" || member.type === "chs" || member.type === "shs") {
         profile = sections.get(member.type) ?? (member.type === "chs" ? roundHollowGeometry() :
-          member.type === "shs" ? assemblySectionGeometry() : wideFlangeGeometry(member.type));
+          member.type === "shs" ? rectangularHollowGeometry() : wideFlangeGeometry(member.type));
         sections.set(member.type, profile);
       }
       const mesh = new THREE.Mesh(

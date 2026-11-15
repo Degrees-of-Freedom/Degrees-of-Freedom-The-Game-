@@ -32,7 +32,7 @@ it("projects committed local repair evidence without copying private comparison 
   const decision = report.penaltyDecision!, event = decision.event!, issues = report.issues!;
   expect(publicRepairReport({...report, penalty: 0})?.foreman).toBe(false);
   expect(publicRepairReport({...report, penaltyDecision: undefined})?.foreman).toBe(false);
-  for (const mismatch of [{turn: 9}, {playerId:"another-player"}, {afterModelId:"stale"}, {issueIds:[]}]) {
+  for (const mismatch of [{turn: 9}, {playerId:"another-player"}, {id:"stale-event"}, {afterModelId:"stale"}, {issueIds:[]}]) {
     expect(publicRepairReport({...report, penaltyDecision:{...decision,event:{...event,...mismatch}}})?.foreman).toBe(false);
   }
   const change = issues.changes.find(change => event.issueIds.includes(change.id))!;
@@ -41,12 +41,13 @@ it("projects committed local repair evidence without copying private comparison 
     expect(projected?.foreman).toBe(classification === "new" || classification === "worsened");
   }
   expect(publicRepairReport({...report,issues:{...issues,changes:[{...change,after:{...change.after,validity:"unknown"}}]}})?.foreman).toBe(false);
-  expect(record.releaseForeman).toBe(true);
-  for (const [utilization, eligible] of [[1.2499, false], [1.25, true]] as const) {
+  expect(record.charge).toEqual({id:"1/player-1", unstableMemberId:3});
+  for (const utilization of [1.01, 1.2499, 1.25]) {
     const finding = { ...change, category: "member-overload" as const,
       after: { ...change.after, category: "member-overload" as const, utilization } };
-    expect(publicRepairReport({ ...report, issues: { ...issues, changes: [finding] } })?.releaseForeman).toBe(eligible);
-    expect(publicRepairReport({ ...report, issues: { ...issues, changes: [{ ...finding, change: "persistent" }] } })?.releaseForeman).toBe(false);
+    expect(publicRepairReport({ ...report, issues: { ...issues, changes: [finding] } })?.charge)
+      .toEqual({id:"1/player-1", unstableMemberId:undefined});
+    expect(publicRepairReport({ ...report, issues: { ...issues, changes: [{ ...finding, change: "persistent" }] } })?.charge).toBeUndefined();
   }
   expect(publicRepairReport({...report,correction:undefined})).toMatchObject({foreman:true,attempts:[],policy:undefined});
   apply(endTurn(turn));

@@ -3,6 +3,7 @@ import { analyzeVoxel } from '../solver/voxel/analyze';
 import { assessCardCapacity, type CapacityCheck, type CollarLoad } from './capacity';
 import type { EvaluatorModel } from './model';
 import type { AttachmentSite } from '../game/attachmentSites';
+import type { Frame } from '../game/jointFreedom';
 
 function verified(check: CapacityCheck) {
   if (check.status !== 'verified') throw new Error(check.reason);
@@ -74,6 +75,21 @@ describe('fixed interior collar capacity', () => {
     expect(check.utilization).toBeCloseTo(Math.hypot(15 / 700, 8 / 220), 8);
   });
 
+  it('checks an interior source in its saved local frame and respects its effective transfer law', () => {
+    const { model, analysis } = fixture(3, 7, 11, true);
+    const axes: Frame = [[0, 1, 0], [-1, 0, 0], [0, 0, 1]];
+    const attachment = { memberId: 3, end: 'q3' as const, profile: 'fixed' as const, axes };
+    const loads: CollarLoad[] = [{ memberId: 3, end: 'q3', force: [0, 0, -7] }];
+    const fixed = assessCardCapacity(model, analysis, [{ ...attachment, transferProfile: 'fixed' }], loads);
+    expect(verified(fixed.connections['3:q3']).utilization).toBeCloseTo(Math.hypot(15 / 700, 8 / 220), 8);
+    // An incompatible saved transfer law must not be treated as an end-B law
+    // or silently promoted to fixed just because the source is an interior port.
+    const incompatible = assessCardCapacity(model, analysis, [{ ...attachment, transferProfile: 'lock-x' }], loads);
+    expect(incompatible.connections['3:q3']).toMatchObject({
+      status: 'unavailable', reason: expect.stringContaining('released component'),
+    });
+  });
+
   it('withholds the collar if either adjoining segment loses verified response', () => {
     const { model, analysis, site } = fixture(2);
     const first = analysis.ctx!.els.find(e => e.m.id === -12)!;
@@ -102,6 +118,21 @@ describe('fixed interior collar capacity', () => {
     const receivingCheck = verified(receiving.connections['3:q1']);
     expect(receivingCheck.actions.Vz).toBeCloseTo(8, 8);
     expect(receivingCheck.actions.T).toBeCloseTo(0, 8);
+    const branchAxes: Frame = [[0, 1, 0], [-1, 0, 0], [0, 0, 1]];
+    const corrected = assessCardCapacity(model, analysis, [attachment, {
+      ...branch, profile: 'lock-z', transferProfile: 'fixed', axes: branchAxes, jointId: 'port:3:1',
+    }]);
+    // The correction sleeve carries the originally released branch moment.
+    // It still crosses the source collar, while the original card's own check
+    // retains its saved local release rather than charging that moment twice.
+    expect(verified(corrected.connections['4:a']).utilization).toBeCloseTo(4 / 400, 8);
+    expect(verified(corrected.connections['3:q1']).actions.T).toBeCloseTo(8, 8);
+    const incompatible = assessCardCapacity(model, analysis, [attachment, {
+      ...branch, profile: 'lock-z', axes: branchAxes, jointId: 'port:3:1',
+    }]);
+    expect(incompatible.connections['3:q1']).toMatchObject({
+      status: 'unavailable', reason: expect.stringContaining('released component'),
+    });
   });
 
   it('recovers nested collar demands once and refuses a cyclic source attribution', () => {

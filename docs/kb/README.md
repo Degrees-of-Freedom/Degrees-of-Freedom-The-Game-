@@ -33,7 +33,7 @@ status: partial
 
 ## Purpose and status
 
-**Play** opens the versioned, two-player Grow Dusk match. New matches use `grow-dusk-release-2`, adding fixed source collars at a continuous frame's original quarter or midpoint; existing v1 matches keep their rules and card printings. More modes → Shared table exposes the same fresh cantilever preset alongside historical catalogues. Its turn worker uses in-browser Rust/WASM and commits `/match` through IndexedDB. The operating instructions and acceptance status are in the [release runtime](grow-dusk-runtime.md), [cantilever placement](cantilever-placement.md) and [criteria ledger](criteria-ledger.md). The playtest descriptions below document the preceding presets and secondary modes.
+**Play** opens the versioned, two-player Grow Dusk match. New matches combine `rulesRevision: grow-dusk-play-2` with `catalogue: grow-dusk-release-2`: three decks, four chosen draws, unlimited held-card plays, local connector frames and interval checkpoints, plus fixed source collars at a continuous frame's original quarter or midpoint. Earlier saves retain their recorded catalogue, play revision and printings. More modes exposes the cantilever preset alongside historical catalogues. The turn worker uses in-browser Rust/WASM and commits `/match` through IndexedDB. See the [release runtime](grow-dusk-runtime.md), [cantilever placement](cantilever-placement.md) and [criteria ledger](criteria-ledger.md). Earlier evidence below retains its original source and rules.
 
 The secondary workspaces retain their playable presets, editor and earlier environment implementations. New analysis uses the Rust-backed structure evaluator; the legacy voxel kernel remains only for older saved playtest replay. The editor can also request linear or bounded nonlinear structural checks through the OpenSees adapter. The [criteria ledger](criteria-ledger.md) records the current Shared table findings separately from the earlier preset walkthroughs.
 
@@ -58,7 +58,7 @@ The app's `/wiki` companion offers six introductory lessons, a searchable glossa
 | [structure-gan.md](structure-gan.md) | Training the adversarial generator of curved, organic, asymmetric, stable structures, its physics oracle, evidence, limits and the `evolved.sqlite` database. |
 | [solver-criteria.md](solver-criteria.md) | Reading the owner-supplied proposed solver requirements, acceptance gates, implementation order, and open gameplay decisions. |
 | [solver-criteria-gap-analysis.md](solver-criteria-gap-analysis.md) | Comparing current code and tests with the criteria and planning implementation milestones. |
-| [turn-criteria.md](turn-criteria.md) | Defining the two decks, turn phases, six-DOF connection cards, issue assessment and penalty decisions. |
+| [turn-criteria.md](turn-criteria.md) | Defining the current three-deck/four-choice Shared table turns, member-local rotational locks, scheduled assessment and historical turn rules. |
 | [game-completion-criteria.md](game-completion-criteria.md) | Entry point for eight completion specifications, confirmed decisions, proposals and implementation dependencies. |
 | [scoring-match-criteria.md](scoring-match-criteria.md) | Defining fixed rounds, final-only load share minus penalties, outcome validity and ties. |
 | [placement-criteria.md](placement-criteria.md) | Defining grid/diagonal placement, quarter attachments, clashes, assembly plays and external connections. |

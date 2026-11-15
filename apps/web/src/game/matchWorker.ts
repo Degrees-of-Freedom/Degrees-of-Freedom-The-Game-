@@ -1,11 +1,14 @@
 import { prepareReleaseSolver } from "./turnAnalysis";
-import { endTurn, type TurnState } from "./turns";
+import { checkpointDueForTurn, endTurn, type TurnState } from "./turns";
 import { decodePrivateMatch } from "./releaseSave";
 
 export type MatchJob = { kind: "restore"; bytes: string } | { kind: "end"; turn: TurnState };
 self.onmessage = async ({ data }: MessageEvent<MatchJob>) => {
   try {
-    await prepareReleaseSolver();
+    // Intermediate turns validate and persist the pending window without
+    // loading a numerical module. Restore still prepares for full replay.
+    if (data.kind === "restore" || !data.turn.rulesRevision || checkpointDueForTurn(data.turn))
+      await prepareReleaseSolver();
   } catch {
     self.postMessage({ok:false, kind:"unavailable", message:"The browser solver could not load. Retry to reopen the saved match."});
     return;

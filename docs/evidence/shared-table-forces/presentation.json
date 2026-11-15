@@ -1,0 +1,155 @@
+{
+  "build": {
+    "commit": "ac2b7953c6008027b3aa7b92f55c39f13f1c215e",
+    "dirtySource": false,
+    "solverFile": "dof_solver-DW3m5Jgn.wasm",
+    "solverSha256": "3c391970e1863f5752538224a5280927246344b4caa4eb104d5d43281acbce17",
+    "assetsSha256": "fd4bb6b7cf13af50e355f3f2fec3cca6bed45f4f6e726e4be28452c34676d812"
+  },
+  "seed": 0,
+  "cases": [
+    {
+      "scenario": "companion",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 1366,
+      "companion": {
+        "checkpoint": 6,
+        "originatingTurn": 5,
+        "player": 1,
+        "chargedTurns": 3,
+        "phases": [
+          {
+            "phase": "shrink",
+            "motion": "foreman-shrink"
+          },
+          {
+            "phase": "reaction",
+            "motion": "foreman-arrival"
+          }
+        ],
+        "foremanVoices": 1,
+        "unloadedTransferKN": 0,
+        "diagnostic": {
+          "returnedModes": 30,
+          "addedGhostPixels": 75,
+          "playback": "played and paused"
+        }
+      },
+      "input": "mouse",
+      "result": "pass"
+    },
+    {
+      "scenario": "model-failure",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 1366,
+      "companion": {
+        "checkpoint": 6,
+        "originatingTurn": 5,
+        "player": 1,
+        "chargedTurns": 3,
+        "phases": [
+          {
+            "phase": "reaction",
+            "motion": "none"
+          }
+        ],
+        "foremanVoices": 0,
+        "unloadedTransferKN": 0,
+        "diagnostic": {
+          "returnedModes": 30,
+          "addedGhostPixels": 75,
+          "playback": "disabled"
+        }
+      },
+      "input": "mouse",
+      "result": "pass"
+    },
+    {
+      "scenario": "keyboard",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 1366,
+      "input": "keyboard only",
+      "result": "pass"
+    },
+    {
+      "scenario": "tablet-layout",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "cssWidth": 1024,
+      "input": "emulated touch",
+      "result": "pass"
+    },
+    {
+      "scenario": "portrait-recovery",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "cssWidth": 412,
+      "input": "emulated touch",
+      "result": "pass"
+    },
+    {
+      "scenario": "narrow-layout",
+      "viewport": {
+        "width": 683,
+        "height": 384
+      },
+      "cssWidth": 683,
+      "input": "mouse",
+      "result": "pass"
+    },
+    {
+      "scenario": "device-failures",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 1366,
+      "input": "mouse",
+      "result": "pass"
+    },
+    {
+      "scenario": "native-zoom",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 683,
+      "input": "mouse",
+      "result": "pass"
+    },
+    {
+      "scenario": "decoder-failure",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 1366,
+      "input": "mouse",
+      "result": "pass"
+    },
+    {
+      "scenario": "full-hand",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "cssWidth": 1366,
+      "input": "mouse",
+      "result": "pass"
+    }
+  ],
+  "browser": "157.0.8103.51"
+}

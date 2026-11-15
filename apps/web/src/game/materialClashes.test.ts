@@ -3,6 +3,8 @@ import type { Member } from "./model";
 import { findMaterialClash } from "./materialClashes";
 import { SCORED_CATALOGUE } from "./cardCatalogue";
 import { activeTurnHand, createTurnGame, endTurn, parseTurnState, stageElement } from "./turns";
+import { createReleaseGame, chooseTurnDraw } from './turns';
+import { toTurnVoxelInput } from './turnAnalysis';
 
 function piece(id: number, a: string, b: string, type: Member["type"] = "shs"): Member {
   return { id, a, b, type };
@@ -119,5 +121,64 @@ describe("undeformed section material in the scored frame preset", () => {
     Object.assign(stale.draft.members[0], { a: "1,3,1", b: "3,1,1" });
     expect(endTurn(stale)).toMatchObject({ ok: false, reason: expect.stringMatching(crossing) });
     expect(endTurn(clear.state).ok).toBe(true);
+  });
+});
+
+describe('intentional original-port contacts in revised Shared table', () => {
+  const parent = piece(1, '0,2,1', '8,2,1', 'heb');
+  const check = (candidate: Parameters<typeof findMaterialClash>[0], existing: Parameters<typeof findMaterialClash>[0] = parent) =>
+    findMaterialClash(candidate, [existing], undefined, true);
+
+  it('admits perpendicular, diagonal and shallow-angle HEB joints with their real section widths', () => {
+    for (const [port, a, b] of [
+      ['port:1:1', '2,2,1', '2,4,1'],
+      ['port:1:2', '4,2,1', '6,4,1'],
+      ['port:1:3', '6,2,1', '8,3,1'],
+      ['port:1:2', '4,2,1', '8,3,1'],
+      ['port:1:2', '4,2,1', '4,3,2'],
+    ]) {
+      const candidate = {...piece(2, a, b, 'heb'), endTargets: {a: port}};
+      expect(check(candidate), `${a} to ${b}`).toBeNull();
+      expect(findMaterialClash(parent, [candidate], undefined, true)).toBeNull();
+    }
+    const shallow = {...piece(2, '4,2,1', '8,3,1', 'heb'), endTargets: {a: 'port:1:2'}};
+    expect(findMaterialClash(shallow, [parent])).toMatch(/intersect material/);
+  });
+
+  it('accepts a typed endpoint at a real quarter but rejects incorrect selected identities, full overlap and interior crossings', () => {
+    expect(check(piece(2, '4,2,1', '6,4,1', 'heb'))).toBeNull();
+    expect(check({...piece(2, '4,2,1', '6,4,1', 'heb'), endTargets: {a: 'port:1:1'}})).toMatch(/member 1/);
+    expect(check({...piece(2, '4,2,1', '7,2,1', 'heb'), endTargets: {a: 'port:1:2'}})).toMatch(/member 1/);
+    expect(check(piece(2, '4,0,1', '4,4,1', 'heb'))).toMatch(/member 1/);
+    expect(check(piece(2, '1,2,1', '1,4,1', 'heb'))).toMatch(/member 1/);
+    expect(check(piece(2, '4,2,1', '6,4,1', 'heb'), {...parent, owner: 'neutral'})).toMatch(/member 1/);
+  });
+
+  it('stages a deliberate diagonal T contact without spending a connector or inventing connectivity', () => {
+    let turn = createReleaseGame(0);
+    for (let i = 0; i < 4; i++) {
+      const draw = chooseTurnDraw(turn, 'members');
+      if (!draw.ok) throw new Error(draw.reason);
+      turn = draw.state;
+    }
+    const cards = activeTurnHand(turn).filter(card => card.kind === 'element');
+    const first = stageElement(turn, cards[0].id, '2,2,1', '6,2,1');
+    if (!first.ok) throw new Error(first.reason);
+    const second = stageElement(first.state, cards[1].id, 'port:3:2', '6,3,1');
+    expect(second.ok, second.ok ? '' : second.reason).toBe(true);
+    if (!second.ok) throw new Error(second.reason);
+    expect(second.state.draft.members[1].endTargets).toEqual({a: 'port:3:2'});
+    expect(second.state.draft.connections).toEqual([]);
+    const input = toTurnVoxelInput(second.state);
+    expect(input.members.find(member => member.id === 4)?.a).toBe('endpoint:4:a');
+    const typed = stageElement(first.state, cards[1].id, '4,2,1', '6,3,1');
+    if (!typed.ok) throw new Error(typed.reason);
+    expect(typed.state.draft.members[1].endTargets).toEqual({a: 'port:3:2'});
+    expect(toTurnVoxelInput(typed.state).members.find(member => member.id === 4)?.a).toBe('endpoint:4:a');
+    const held = activeTurnHand(first.state).map(card => card.id);
+    const rejected = stageElement(first.state, cards[1].id, '4,0,1', '4,4,1');
+    expect(rejected).toMatchObject({ok: false, reason: expect.stringMatching(/intersect material/)});
+    expect(activeTurnHand(first.state).map(card => card.id)).toEqual(held);
+    expect(first.state.draft.members).toHaveLength(1);
   });
 });

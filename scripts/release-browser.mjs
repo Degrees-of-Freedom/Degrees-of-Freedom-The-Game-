@@ -123,13 +123,29 @@ async function match(seed, passOnly) {
       assert.equal(before.phase,"planning");
       assert.equal(before.turn.turn,turnNo);
       assert.equal(before.turn.seed,seed);
-      assert.deepEqual(before.turn.decks.map(d => d.length), [48-2*turnNo,48-2*turnNo]);
+      if (!before.turn.rulesRevision) assert.deepEqual(before.turn.decks.map(d => d.length), [48-2*turnNo,48-2*turnNo]);
       await activate(ready);
       await tray.waitFor();
+      if (before.turn.rulesRevision) {
+        const choices = ["members", "loads", "connections", "connections"];
+        for (let draw = 0; draw < 4; draw++) {
+          await activate(page.locator('[data-deck="'+choices[draw]+'"]'));
+          if (draw < 3) await page.getByText(`${draw + 1} of 4 drawn · any mix of decks`, {exact:true}).waitFor();
+        }
+        await page.getByRole("region", {name:"Draw four cards"}).waitFor({state:"detached"});
+        const drawn = await saved(page);
+        assert.deepEqual(drawn.turn.decks.map(d => d.length), before.turn.decks.map((d,i) => d.length - [1,2,1][i]));
+        const receipt = drawn.turn.draws.find(draw => draw.turn === turnNo);
+        assert.equal(receipt.pieces.length + receipt.connectors.length + receipt.loads.length,4);
+      }
+      if (!passOnly && seed <= 2 && before.turn.checkpoints?.lastAnalysis?.turn === turnNo - 1) {
+        await page.locator('[aria-label="Analysis legend"]').waitFor();
+        await capture("response-after-" + (turnNo - 1));
+      }
       const player = before.turn.playerIndex;
       // Build from each player's locked column, fit the base and put gravity on
       // the new member's quarter/tip. One adverse fixture also stages a loose piece.
-      const frame = tray.locator('[data-kind="element"]').filter({hasText:/HEB/i}).first();
+      const frame = tray.locator('[data-kind="element"]').filter({hasText:/HEB|Beam \/ column/i}).first();
       const fixed = tray.locator('[data-kind="connection"]').filter({hasText:/Fixed/i}).first();
       const loose = adverse && !built.has("adverse") && turnNo>=5;
       if (!passOnly && turnNo<16 && (loose || !built.has(player)) && await frame.count() && await fixed.count()) {
@@ -191,6 +207,7 @@ async function match(seed, passOnly) {
       assert.ok(final.turn.finalScore.totalGravityKN>0);
       assert.ok(final.turn.finalScore.receipt.components.some(c=>c.verified),"no verified physical component");
     }
+    await page.locator('[aria-label="Analysis legend"]').waitFor();
     await capture("final");
     await page.reload(); await page.getByRole("region",{name:"Final score"}).waitFor();
     assert.deepEqual((await saved(page)).turn.finalScore,final.turn.finalScore);

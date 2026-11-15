@@ -5,7 +5,7 @@
   --edge: #626b70;
   --gold: #ffcc84;
   width: 100%; min-height: 100dvh; height: 100dvh; color: var(--ink);
-  background: #182330; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
+  background: #182330; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto;
   overflow: hidden; font: 500 1rem/1.35 "DM Sans", "Segoe UI", sans-serif;
   color-scheme: dark;
 }
@@ -25,6 +25,46 @@
 .release-progress > span, .release-penalties > span { font-size: .875rem; color: var(--muted); }
 .release-nav { display: flex; margin-inline-start: auto; gap: .5rem; }
 .release-phone-note { display: none; }
+.release-header { background: radial-gradient(ellipse at top left, #53666d55, transparent 65%), #202e3b; }
+.release-header[data-player="1"] .release-title h1 { color: #ffb4a4; }
+.release-header[data-player="2"] .release-title h1 { color: #a8cdff; }
+.release-player-key { display: flex; gap: .65rem; flex-wrap: wrap; font-size: .8rem; }
+.release-player-key span { display: inline-flex; gap: .35rem; align-items: center; }
+.release-player-key i { width: .7rem; height: .7rem; background: #e9806e; border: 1px solid #fff5; border-radius: 50%; }
+.release-player-key [data-player="2"] i { background: #6a9bd8; border-radius: 2px; }
+.release-analysisbar { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem .8rem; padding: .45rem 1rem; background: #243a43; border-bottom: 1px solid #66726e; z-index: 3; }
+.release-analysis-state { display: grid; gap: .1rem; min-width: 15rem; margin-right: auto; font-size: .82rem; }
+.release-analysis-state span { color: #d0dcd5; font-size: .76rem; }
+.release-analysis-state[aria-busy="true"] strong::before { content: ""; display: inline-block; width: .65rem; height: .65rem; margin-right: .5rem; border: 2px solid #edcd8b; border-right-color: transparent; border-radius: 50%; animation: release-working 1s linear infinite; }
+.release-layer-buttons { display: flex; gap: .3rem; flex-wrap: wrap; }
+.release-analysisbar button { font-size: .79rem; min-height: 38px; padding: .35rem .55rem; }
+.release-analysisbar button[aria-pressed="true"] { border-color: #f4d394; background: #47564d; color: #ffedc8; }
+.release-analysisbar label { display: grid; font-size: .7rem; gap: .15rem; color: #d9e1d6; }
+.release-analysisbar select { min-height: 28px; padding: .15rem .3rem; font-size: .8rem; }
+.release-legend, .release-mode-panel { position: absolute; z-index: 2; padding: .7rem .85rem; background: #1c303beF; border: 1px solid #acb6a27a; border-radius: .8rem; font-size: .76rem; box-shadow: 0 5px 20px #10243133; }
+.release-legend { left: .75rem; bottom: 4rem; max-width: 16.5rem; pointer-events: auto; }
+.release-legend p { margin: .35rem 0; }
+.release-legend button { font-size: .75rem; padding: .3rem .5rem; min-height: 36px; }
+.release-contour { display: block; height: .35rem; border-radius: 5px; margin-bottom: .3rem; background: linear-gradient(to right,#1e40af,#24c9ed,#43d68b,#f5e65b,#f19c38,#ef5548); }
+.release-tension { color: #a5d6ff; }
+.release-compression { color: #ffc0a8; }
+.release-mode-panel { right: .75rem; bottom: 4rem; width: min(20rem,calc(100% - 2rem)); }
+.release-mode-panel p { margin: .4rem 0; }
+.release-mode-panel label { display: grid; }
+.release-decks { position: absolute; z-index: 3; left: 50%; bottom: 1rem; transform: translateX(-50%); width: min(33rem,calc(100% - 2rem)); padding: .85rem; border: 1px solid #b7a476; border-radius: 1rem; background: #203741f5; box-shadow: 0 .5rem 3rem #11243666; }
+.release-decks header { display: flex; justify-content: space-between; gap: .75rem; align-items: center; margin-bottom: .65rem; }
+.release-decks header strong { font-family: Georgia, serif; color: #ffdfa9; font-size: 1.15rem; }
+.release-decks header span { font-size: .75rem; color: #d1dfd7; }
+.release-decks > div { display: grid; grid-template-columns: repeat(3,1fr); gap: .65rem; }
+.release-decks button { display: grid; justify-items: center; gap: .4rem; padding: .75rem .4rem; min-height: 6rem; background: linear-gradient(145deg,#46605c,#283d4c); border: 2px solid #bccda061; box-shadow: 2px 3px 0 #0a202f,4px 5px 0 #f4d49b48; }
+.release-decks button i { font: bold 1.6rem Georgia,serif; color: #edd19a; }
+.release-decks button span { font-size: .75rem; color: #d0ddd2; }
+.release-draft-edit { display: grid; gap: .5rem; }
+.release-draft-edit input { width: 100%; }
+.release-connection-axes { display: grid; gap: .1rem; font-size: .75rem; padding: .4rem .6rem; border-left: 2px solid #c8d8ad; }
+.release-connection-axes > span:nth-of-type(1) { color: var(--muted); }
+.release-connection-axes b { display: inline-block; width: 1rem; color: #ffdbaa; }
+@keyframes release-working { to { transform: rotate(360deg); } }
 @media (max-width: 600px) and (orientation: portrait) {
   .release-phone-note { display: block; order: 5; width: 100%; margin: .25rem 0; font-size: .85rem; color: var(--muted); }
 }
@@ -115,7 +155,7 @@
   @keyframes release-victory { from { border-color: #ffdfa1; box-shadow: 0 0 1.4rem #ffdc9040; } }
 }
 @media (max-width: 750px), (max-height: 520px) {
-  .release-board { height: auto; min-height: 100dvh; grid-template-rows: auto minmax(18rem, 1fr) auto; overflow: auto; }
+  .release-board { height: auto; min-height: 100dvh; grid-template-rows: auto auto minmax(22rem, 1fr) auto; overflow: auto; }
   .release-header { flex-wrap: wrap; gap: .3rem .9rem; padding: .4rem .7rem; }
   .release-header .release-title { order: 0; }
   .release-nav { order: 1; }
@@ -126,4 +166,9 @@
   .release-handline { gap: .2rem; }
   .release-turn-actions { flex-direction: column; }
   .release-status { max-width: 65%; margin-left: .75rem; font-size: .85rem; }
+  .release-analysisbar { gap: .35rem; padding: .4rem; }
+  .release-analysis-state { flex-basis: 100%; }
+  .release-legend { max-width: 12rem; font-size: .65rem; bottom: 3.7rem; }
 }
+@media (prefers-reduced-motion: reduce) { .release-analysis-state[aria-busy="true"] strong::before { animation: none; } }
+.release-board[data-still="true"] .release-analysis-state[aria-busy="true"] strong::before { animation: none; }

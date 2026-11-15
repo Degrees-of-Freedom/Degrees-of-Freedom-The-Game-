@@ -1,5 +1,7 @@
 # Fixed interior frame collar evidence
 
+This record predates main 60005bc and its later grow-dusk-play-2 owner rules. The new default combines that play revision with the cantilever catalogue; these historical raw results do not establish three-deck/checkpoint acceptance.
+
 Validated on 2026-11-15 against the final integrated source tree on local main at `6c8b1eab891c41fc9ed26665a085afe25c1367d5`. This retains feature integration `458104c4c0000051467f60a441a0e8234b0d2d6d` and concurrent main `533e1af04ba66d5f80076a184bf4fb05fb915d2f`, preserving the Rust-backed evaluator, solver module, companion, View modes and compact coloured cards. This record identifies local source validation; it does not report a remote push.
 
 Current capacity code/tests live in `evaluator/capacity.ts` and `evaluator/collarCapacity.test.ts`, and the turn-model helper is `toTurnEvaluatorInput`. See [integrated validation](../../kb/development-and-testing.md#cantilever-feature-and-main-integration--2026-11-15) for the combined-source checks.

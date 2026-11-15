@@ -13,11 +13,12 @@ function reading(result: PublicRepairReport["supports"][number]["before"]) {
 
 function RepairEntry({ entry }: { entry: PublicRepairReport }) {
   const accepted = entry.attempts.filter(a => a.status === "verified");
-  const rejected = entry.attempts.length - accepted.length;
+  const fitted = entry.jointAttempts.filter(a => a.status === "verified");
+  const rejected = entry.attempts.length - accepted.length + entry.jointAttempts.length - fitted.length;
   return <article>
     <h3>Turn {entry.turn} · {seat(entry.playerId)}</h3>
     <p><strong>{!entry.policy ? "No repair recorded" : entry.pending.length ? "Repair pending" : "Verified repair"}</strong>
-      {" · "}{accepted.length} installed · {rejected} rejected</p>
+      {" · "}{accepted.length + fitted.length} installed · {rejected} rejected</p>
     {entry.issues.map(issue => <p key={issue.id}>
       Member {issue.memberId}{issue.end && " · " + attachmentLabel(issue.end)} · {issueNames[issue.category]}.
       {" "}{issue.reason}{issue.contacts.length > 0 && " Contact at " + issue.contacts.map(contactLabel).join(", ") + "."}
@@ -30,6 +31,9 @@ function RepairEntry({ entry }: { entry: PublicRepairReport }) {
       Permanent neutral steel prop {a.propId} connects {contactLabel(a.contact)} to ground ({a.ground}).
       Its anchor earns no player attraction.
     </p>)}
+    {fitted.map((fitting, i) => <p key={i}>Joint {fitting.jointId} · system moment fitting locks
+      {" "}{["X", "Y", "Z"].filter((_, axis) => fitting.lockedRotations & (1 << axis)).join(" / ")} rotations.
+      The system fitting transfers moment through the existing members.</p>)}
     {entry.pending.length > 0 && <p>Pending after this turn · {entry.pending.map(id => {
       const issue = entry.issues.find(item => item.id === id);
       return issue ? "member " + issue.memberId + (issue.end ? " · " + attachmentLabel(issue.end) : "") + " " + issueNames[issue.category] : id;
@@ -40,6 +44,9 @@ function RepairEntry({ entry }: { entry: PublicRepairReport }) {
         {a.status === "verified" ? "Installed" : "Rejected"} · {contactLabel(a.contact)} to ground ({a.ground}).
         {" "}{a.reason}
       </li>)}</ol>
+      {!!entry.jointAttempts.length && <ol>{entry.jointAttempts.map((fitting, i) => <li key={i}>
+        {fitting.status === "verified" ? "Fitted" : "Rejected"} · joint {fitting.jointId} · {fitting.reason}
+      </li>)}</ol>}
       {entry.checks.length > 0 && <ul>{entry.checks.map(check => <li key={check.id}>
         Member {check.memberId}{check.end && " · " + attachmentLabel(check.end)} · {check.reason}.
         {" "}Utilization {check.utilization?.toFixed(3)}{check.station !== undefined && " at " + check.station * 100 + "%"}.

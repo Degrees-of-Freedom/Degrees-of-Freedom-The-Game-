@@ -39,7 +39,8 @@ export function buildTurnGuides(
     for (const target of targets) positions.push(...target.point.map(v => v * CELL_SIZE));
     const chosen = state.placementTip && placementCandidates(state).find(candidate => candidate.key === state.placementTip);
     if (chosen) {
-      const tips = [chosen.a, chosen.b].map(key => new THREE.Vector3(...parseNodeKey(targetCoordinate(state.turn!.board.members, key))).multiplyScalar(CELL_SIZE));
+      const members = [...state.turn.board.members, ...state.turn.draft.members];
+      const tips = [chosen.a, chosen.b].map(key => new THREE.Vector3(...parseNodeKey(targetCoordinate(members, key))).multiplyScalar(CELL_SIZE));
       const delta = tips[1].clone().sub(tips[0]);
       const section = card.type === "heb" || card.type === "ipe";
       const mesh = new THREE.Mesh(section ? wideFlangeGeometry(card.type as "heb" | "ipe") : new THREE.CylinderGeometry(0.08, 0.08, delta.length(), 10),

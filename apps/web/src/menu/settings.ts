@@ -21,6 +21,8 @@ export interface Settings {
   reducedMotion: boolean;
   showHelpOnStart: boolean;
   jointDisplay: JointDisplay;
+  releaseJointDisplay: JointDisplay;
+  reactionLabels: "off" | "small" | "normal" | "large";
   solver: SolverChoice;
   openSeesUrl: string;
 }
@@ -67,6 +69,8 @@ export function defaultSettings(
     showCompanion: true,
     showHelpOnStart: false,
     jointDisplay: "selected",
+    releaseJointDisplay: "all",
+    reactionLabels: "normal",
     solver: configured || env.VITE_SOLVER === "opensees" ? "opensees" : "rust",
     openSeesUrl: configured ?? LOCAL_OPENSEES_URL,
   };
@@ -114,6 +118,8 @@ export function parseSettings(raw: string | null): Settings {
     reducedMotion: pick("reducedMotion"),
     showHelpOnStart: pick("showHelpOnStart"),
     jointDisplay: record.jointDisplay === "all" || record.jointDisplay === "off" ? record.jointDisplay : "selected",
+    releaseJointDisplay: record.releaseJointDisplay === "off" || record.releaseJointDisplay === "selected" ? record.releaseJointDisplay : "all",
+    reactionLabels: record.reactionLabels === "off" || record.reactionLabels === "small" || record.reactionLabels === "large" ? record.reactionLabels : "normal",
     solver: solver ?? DEFAULT_SETTINGS.solver,
     openSeesUrl: openSeesUrl ?? DEFAULT_SETTINGS.openSeesUrl,
   };

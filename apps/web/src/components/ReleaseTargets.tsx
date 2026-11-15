@@ -2,11 +2,11 @@ import { useState } from "react";
 import { CANTILEVER_CATALOGUE, connectionChoices } from "../game/cardCatalogue";
 import { attachmentLabel, attachmentQuarter, type AttachmentSite, type InteriorContact } from "../game/attachmentSites";
 import { placementAnchorTargets, placementCandidates, placementFromTip } from "../game/cantileverPlacement";
-import { connectionLabel, type ConnectionProfile } from "../game/jointFreedom";
+import { connectionLabel, memberConnectionFrame, type ConnectionProfile } from "../game/jointFreedom";
 import { CELL_SIZE, nodeKey, parseNodeKey } from "../game/model";
 import { useGameStore } from "../game/store";
 import { findPort, loadTargets, originalPorts, portLabel, systemTarget, targetCoordinate } from "../game/turnPorts";
-import { activeTurnHand, type TurnCard, type TurnState } from "../game/turns";
+import { activeTurnHand, stageConnection, type TurnCard, type TurnState } from "../game/turns";
 import { turnConnectionTargets } from "../viewer/turnPicking";
 
 type Game = ReturnType<typeof useGameStore.getState>;
@@ -20,7 +20,8 @@ const sites: readonly { value: AttachmentSite; label: string }[] = [
 function ElementCoordinates({ turn, stage, support }: { turn: TurnState; stage(a: string, b: string): void; support?: string }) {
   const [a, setA] = useState("");
   const [b, setB] = useState("");
-  const ports = turn.board.members.filter(m => !m.system).flatMap(originalPorts)
+  const members = [...turn.board.members, ...turn.draft.members];
+  const ports = members.filter(m => !m.system).flatMap(originalPorts)
     .filter(port => port.available && !systemTarget(turn, port.id));
   return <details className="release-precision">
     <summary>Precise placement</summary>
@@ -31,12 +32,12 @@ function ElementCoordinates({ turn, stage, support }: { turn: TurnState; stage(a
       {([{ name: "A", value: a, change: setA }, { name: "B", value: b, change: setB }]).map(end =>
         <fieldset key={end.name}>
           <legend>End {end.name}</legend>
-          <select aria-label={`End ${end.name} port`} value={findPort(turn.board.members, end.value) ? end.value : ""}
+          <select aria-label={`End ${end.name} port`} value={findPort(members, end.value) ? end.value : ""}
             onChange={event => end.change(event.target.value)}>
             <option value="">Grid point</option>
             {ports.map(port => <option key={port.id} value={port.id}>{portLabel(port)}</option>)}
           </select>
-          {!findPort(turn.board.members, end.value) && <input aria-label={`End ${end.name} grid x,y,z`}
+          {!findPort(members, end.value) && <input aria-label={`End ${end.name} grid x,y,z`}
             placeholder="x,y,z" value={end.value} required autoComplete="off" onChange={event => end.change(event.target.value)} />}
         </fieldset>)}
       <button type="submit" disabled={!a.trim() || !b.trim()}>Stage element</button>
@@ -52,8 +53,9 @@ export function ElementPlacementControls({ game, card, notify, onRejected }: { g
   const anchor = anchors.find(target => target.id === game.chainStart);
   const candidates = game.chainStart ? placementCandidates(game) : [];
   const candidate = candidates.find(target => target.key === game.placementTip);
-  const pointA = candidate ? parseNodeKey(targetCoordinate(turn.board.members, candidate.a)) : null;
-  const pointB = candidate ? parseNodeKey(targetCoordinate(turn.board.members, candidate.b)) : null;
+  const members = [...turn.board.members, ...turn.draft.members];
+  const pointA = candidate ? parseNodeKey(targetCoordinate(members, candidate.a)) : null;
+  const pointB = candidate ? parseNodeKey(targetCoordinate(members, candidate.b)) : null;
   const lengthM = pointA && pointB ? CELL_SIZE * Math.hypot(...pointB.map((value, axis) => value - pointA[axis])) : 0;
   const fraction = attachmentQuarter(game.attachmentSite) / 4;
   const lengthLabel = (value: number) => Number(value.toPrecision(4)) + " m";
@@ -165,7 +167,7 @@ export function StagedAttachmentActions({ game, notify, onRejected }: { game: Ga
           notify(error ?? "Connection staged.");
           if (error) onRejected?.();
         }}>Attach with {option.card.label}</button>}
-        {!attached && !option && <small>{turn.draft.connections.length >= 2 ? "No connections remaining this turn."
+        {!attached && !option && <small>{!turn.rulesRevision && turn.draft.connections.length >= 2 ? "No connections remaining this turn."
           : "No compatible fixed connector is available. You can leave this element unconnected."}</small>}
       </div>;
     });
@@ -196,11 +198,16 @@ export function ReleaseTargets({ game, card, notify, onRejected }: {
   }
   const profiles = connectionChoices(card);
   const profile = profiles.length === 1 ? profiles[0] : game.selectedConnectionProfile;
-  const targets = turnConnectionTargets(game);
+  // Keep the intended end selected while the player changes its local axes.
+  // An incompatible choice reports the conflict instead of moving the target.
+  const targets = turnConnectionTargets(turn.rulesRevision ? { ...game, selectedConnectionProfile: undefined } : game);
   const key = (target: typeof targets[number]) => JSON.stringify([target.memberId, target.end, target.key]);
   const target = targets.find(t => key(t) === choice) ?? targets[0];
+  const member = target && [...turn.board.members, ...turn.draft.members].find(member => member.id === target.memberId);
+  const axes = member && turn.rulesRevision ? memberConnectionFrame(member) : undefined;
+  const attachment = target && profile ? stageConnection(turn, card.id, target.memberId, target.end, target.key, profile) : undefined;
   return <div className="release-targets">
-    {profiles.length > 1 && <label>Rotational locks
+    {profiles.length > 1 && <label>{turn.rulesRevision ? "Local rotational locks" : "Rotational locks"}
       <select value={profile ?? ""} onChange={event => game.setConnectionProfile(event.target.value as ConnectionProfile || undefined)}>
         <option value="">Choose axes</option>{profiles.map(p => <option key={p} value={p}>{connectionLabel(p)}</option>)}
       </select></label>}
@@ -208,7 +215,13 @@ export function ReleaseTargets({ game, card, notify, onRejected }: {
       <label>Connection target<select value={key(target)} onChange={event => setChoice(event.target.value)}>
         {targets.map(item => <option key={key(item)} value={key(item)}>Member {item.memberId} · {attachmentLabel(item.end)} · {item.key}</option>)}
       </select></label>
-      <button onClick={() => report(game.playConnection(card.id, target.memberId, target.end, target.key, profile), "Connection staged.")}>{target.end === "a" || target.end === "b" ? "Attach end" : "Attach collar"}</button>
+      {axes && <div className="release-connection-axes" aria-label="Member local axes">
+        <strong>Member {member!.id} local axes · X along A → B</strong>
+        <span>Directions in global X, Y, Z</span>
+        {axes.map((axis, i) => <span key={i}><b>{"XYZ"[i]}</b> ({axis.map(value => Number(value.toFixed(3))).join(", ")})</span>)}
+      </div>}
+      <button disabled={!attachment?.ok} onClick={() => report(game.playConnection(card.id, target.memberId, target.end, target.key, profile), "Connection staged.")}>{target.end === "a" || target.end === "b" ? "Attach end" : "Attach collar"}</button>
+      {attachment && !attachment.ok && <span role="status">{attachment.reason}</span>}
     </> : profile && <span>No compatible attachment point. Place a member or choose another card.</span>}
   </div>;
 }

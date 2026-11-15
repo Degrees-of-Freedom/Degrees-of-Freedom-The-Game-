@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { CANTILEVER_CATALOGUE, RELEASE_CATALOGUE, createReleaseDecks } from "./cardCatalogue";
 import { analysisLoadJoint, connectionLocations, loadTargets, turnJoints } from "./turnPorts";
 import { attachmentPoint, type InteriorSite } from "./attachmentSites";
-import { activeTurnHand, cancelTurnDraft, createTurnGame, parseTurnState, stageConnection, stageElement, stageLoad,
+import { activeTurnHand, cancelTurnDraft, createTurnGame, createReleaseGame, chooseTurnDraw, editDraftMember,
+  undoLastPlacement, parseTurnState, stageConnection, stageElement, stageLoad,
   type TurnCard, type TurnState } from "./turns";
 
 const cards = createReleaseDecks().flat();
@@ -21,6 +22,25 @@ function accept(result: ReturnType<typeof stageElement>): TurnState {
 }
 
 describe("explicit fixed interior collars", () => {
+  it("retains a revised draft collar through editing, exact replay and undo without redrawing", () => {
+    let opening = createReleaseGame(0);
+    for (const source of ["members","connections","connections","loads"] as const)
+      opening = accept(chooseTurnDraw(opening,source));
+    const beam = activeTurnHand(opening).find(c => c.kind === "element")!;
+    const connector = activeTurnHand(opening).find(c => c.kind === "connection" && c.profile === "fixed")!;
+    let state = accept(stageElement(opening,beam.id,"4,7,1","8,7,1",{quarter:1,target:"5,7,1"}));
+    state = accept(stageConnection(state,connector.id,3,"q1"));
+    const before = structuredClone(state);
+    expect(editDraftMember(state,3,"5,7,1","9,7,1")).toMatchObject({ok:false,reason:expect.stringMatching(/coincide exactly/)});
+    expect(state).toEqual(before);
+    state = accept(editDraftMember(state,3,"5,6,1","5,10,1"));
+    expect(state.draft.members[0].interiorTargets).toEqual({q1:"5,7,1"});
+    expect(state.draft.connections[0].frameVersion).toBe("member-local-1");
+    expect(parseTurnState(JSON.parse(JSON.stringify(state)))).toEqual(state);
+    state = accept(undoLastPlacement(state));
+    expect(state.draft.members[0].interiorTargets).toEqual({q1:"5,7,1"});
+    expect(accept(undoLastPlacement(state))).toEqual(opening);
+  });
   it("keeps both release catalogues on their implicit Rust engine", () => {
     expect(createTurnGame(41, RELEASE_CATALOGUE)).not.toHaveProperty("engine");
     expect(createTurnGame(41, CANTILEVER_CATALOGUE)).not.toHaveProperty("engine");

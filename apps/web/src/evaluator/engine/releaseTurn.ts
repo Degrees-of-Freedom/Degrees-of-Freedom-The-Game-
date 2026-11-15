@@ -99,6 +99,7 @@ function scopeResponse(scope: AnalysisComponent, result: DetailedAnalysisResult,
     comparison = {topology, ...tangent};
   }
   return { status, nodes: [...scope.nodeIds], memberIds, reason,
+    diagnosticModes: scope.modes,
     ...(scope.flags.excessiveDeformation && {excessiveDeformation:true}),
     ...(status === 'mechanism' && witnessed.length > 0 && {instabilityWitness: {nodes, memberIds: witnessed, reason, comparison}}),
     verification: valid ? {formulation: RELEASE_SOLVER, status: 'verified-nonlinear', nonlinear: {residual: residual!, force: force!, moment: moment!}}
@@ -114,6 +115,8 @@ function project(input: EvaluatorModel, ctx: Context, result: DetailedAnalysisRe
   const combo: Combo = { combo: {name, short: selfWeight ? 'Gravity + self-weight' : 'Gravity', type: 'SLS', dir: [0, 0, -1]},
     components, F: new Float64Array(6*ctx.NA), vis: [], partialDisplacements: new Map(), ef: new Map(), reac: {} };
   const analysis: StructureEvaluation = { ctx, combos: [combo], members: {}, nodes: {}, found: {}, objectives: [],
+    diagnosticGeometry:{positions:Object.fromEntries(model.nodes.map(node => [node.id,node.position])),
+      segments:model.members.map(member => ({memberId:Number(member.id),a:member.startNodeId,b:member.endNodeId}))},
     ...(result.analysis.modelVersion && {reference:{modelVersion:result.analysis.modelVersion,
       solverVersion:result.analysis.solverVersion, fidelity:'nonlinear' as const}}),
     appliedGravityKN:Object.values(input.attrs).reduce((sum, a) => sum + (a.load ?? 0), 0),

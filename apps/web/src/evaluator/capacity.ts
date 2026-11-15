@@ -3,6 +3,8 @@ import type { ComponentResponse, StructureEvaluation } from './results';
 import { ITEMS, type BeamSection, type BeamType } from './sections';
 import { verifiedResponse } from './evidence';
 import { attachmentQuarter, isInteriorSite, type AttachmentSite } from '../game/attachmentSites';
+import { connectionDefinition, type Frame } from '../game/jointFreedom';
+import { vecToGlobal } from './vector';
 
 /** Printed playtest limit states. Values are kN and kN·m. Section axial,
  * bending and shear strengths come from the same section used for analysis.
@@ -18,7 +20,8 @@ export const CARD_STRENGTH = {
     'lock-xy': {force:400, moment:80}, 'lock-yz': {force:400, moment:80}, 'lock-xz': {force:400, moment:80} },
 } as const;
 
-type AttachedEnd = { memberId: number; end: AttachmentSite; profile: keyof typeof CARD_STRENGTH.connections; jointId?: string };
+type AttachedEnd = { memberId: number; end: AttachmentSite; profile: keyof typeof CARD_STRENGTH.connections; jointId?: string;
+  axes?: Frame; transferProfile?: keyof typeof CARD_STRENGTH.connections };
 /** Applied on the source member at its original collar port, before analytical
  * node aliasing. Receiving-joint loads do not belong here. Global kN and kN·m. */
 export interface CollarLoad {
@@ -71,17 +74,35 @@ function memberCheck(type: BeamType, s: BeamSection, actions: LocalActions, stat
   return { status: 'verified', utilization, governing, station, actions };
 }
 
-function connectorCheck(attachment: AttachedEnd, actions: LocalActions, station: number): CapacityCheck {
+function connectorCheck(attachment: AttachedEnd, actions: LocalActions, station: number, memberAxes?: number[][], length = 1): CapacityCheck {
   const { N, Vy, Vz, T, My, Mz } = actions;
   const force = Math.hypot(N, Vy, Vz);
   const rating = CARD_STRENGTH.connections[attachment.profile];
   if (!rating) {
     return unavailable('This connector has no printed strength law in card-strength-1.');
   }
+  let moment = Math.hypot(T, My, Mz);
+  if (memberAxes && (attachment.axes || attachment.transferProfile)) {
+    const local = new Float64Array(12);
+    local.set([N, Vy, Vz, T, My, Mz]);
+    const global = vecToGlobal(local, memberAxes);
+    const transfer = connectionDefinition(attachment.transferProfile ?? attachment.profile, attachment.axes);
+    const projected = [0, 1].flatMap(group => transfer.axes.map(axis =>
+      axis.reduce((value, component, i) => value + component * global[3 * group + i], 0)));
+    const scale = Math.max(1, force, moment / length);
+    const incompatible = transfer.laws.some((law, i) => law.kind === 'free' &&
+      Math.abs(projected[i]) > 1e-5 * scale * (i < 3 ? 1 : length));
+    if (incompatible) return unavailable('Calculated action crosses a released component in the saved physical connection frame.');
+    const original = connectionDefinition(attachment.profile, attachment.axes);
+    // A system moment sleeve bypasses the original released directions.
+    // Those actions are checked against the separately rated fixed fitting.
+    moment = Math.hypot(...original.axes.map((axis, i) => original.laws[i + 3].kind === 'free' ? 0 :
+      axis.reduce((value, component, q) => value + component * global[3 + q], 0)));
+  }
   // A07 has already checked that released local moments vanish. There is
   // no ball moment capacity or interior continuity connector to manufacture.
   const utilization = 'moment' in rating ?
-    Math.hypot(force/rating.force, Math.hypot(T, My, Mz)/rating.moment) : force/rating.force;
+    Math.hypot(force/rating.force, moment/rating.moment) : force/rating.force;
   return { status: 'verified', utilization, governing: attachment.profile === 'ball'
     ? 'Ball connector resultant force' : attachment.profile === 'fixed' ? 'Fixed connector force and moment' :
       'Printed connector force and moment', station, actions };
@@ -103,7 +124,7 @@ export function assessCardCapacity(
   const elements = new Map(analysis.ctx?.els.map(e => [e.m.id, e]));
   const invalid = new Map<number, string>();
   const uncertainScopes = new Map<ComponentResponse, string>();
-  const collars = new Map<string, { global: number[]; frame: number[][]; sides: number }>();
+  const collars = new Map<string, { global: number[]; frame: number[][]; sides: number; length: number }>();
   const endpointActions = new Map<string, number[]>();
   for (const [id] of attached) report.connections[id] = unavailable('No verified card-gravity response for this attachment.');
   for (const m of model.members) {
@@ -162,7 +183,7 @@ export function assessCardCapacity(
       if (station === 0 || station === 1) {
         const key = `${parent}:${end}`, attachment = attached.get(key);
         if (attachment) {
-          report.connections[key] = connectorCheck(attachment, actions, station);
+          report.connections[key] = connectorCheck(attachment, actions, station, e.R, e.L);
           const global = endpointActions.get(key) ?? Array<number>(6).fill(0);
           const offset = end === 'a' ? 0 : 6;
           for (let axis = 0; axis < 3; axis++) for (let local = 0; local < 3; local++) {
@@ -175,7 +196,7 @@ export function assessCardCapacity(
         const quarter = station * 4;
         const key = `${parent}:q${quarter}`;
         if (attached.has(key)) {
-          const collar = collars.get(key) ?? { global: Array<number>(6).fill(0), frame: e.R, sides: 0 };
+          const collar = collars.get(key) ?? { global: Array<number>(6).fill(0), frame: e.R, sides: 0, length };
           const offset = end === 'a' ? 0 : 6;
           // These are nodal actions on the parent, not signed section cuts.
           // Sum the two sides before taking magnitudes, so opposite bending
@@ -211,6 +232,8 @@ export function assessCardCapacity(
     const invalidReason = invalid.get(attachment.memberId);
     if (invalidReason) return { reason: invalidReason };
     if (!isInteriorSite(attachment.end)) {
+      const check = report.connections[key];
+      if (check.status === 'unavailable') return { reason: check.reason };
       const global = endpointActions.get(key);
       return global ? { global } : { reason: 'The incoming attachment has no verified nodal actions.' };
     }
@@ -251,7 +274,8 @@ export function assessCardCapacity(
     const local = [0, 3].flatMap(offset => collar.frame.map(row =>
       row.reduce((sum, value, axis) => sum + value * demand.global[offset + axis], 0)));
     const [N, Vy, Vz, T, My, Mz] = local;
-    const check = connectorCheck(attachment, { N, Vy, Vz, T, My, Mz }, attachmentQuarter(attachment.end) / 4);
+    const check = connectorCheck(attachment, { N, Vy, Vz, T, My, Mz }, attachmentQuarter(attachment.end) / 4,
+      collar.frame, collar.length);
     report.connections[key] = check.status === 'verified' ? { ...check, governing: 'Fixed collar force and moment' } : check;
   }
   for (const [id, reason] of invalid) {

@@ -11,6 +11,7 @@ import { createTurnSolver } from '../evaluator/engine/releaseTurn';
 import type { WasmSource } from '../solver/wasm/wasmSolver';
 import { isReleaseCatalogue } from './cardCatalogue';
 import { attachmentId, isInteriorSite } from './attachmentSites';
+import { effectiveJointConnections } from './jointCorrections';
 
 let turnSolver = createTurnSolver();
 /** Instantiate the Rust turn solver once per thread before replaying or
@@ -29,7 +30,7 @@ const turnLevel: EvaluatorLevel = { type: 'sandbox', q0: 0, budget: Infinity, in
 /** Expand independent member ends before analysis. Coincident geometry alone
  * confers no constraint, and an unattached end retains free translations. */
 export function toTurnEvaluatorInput(turn: TurnState): EvaluatorModel {
-  const connections = new Map([...turn.board.connections, ...turn.draft.connections]
+  const connections = new Map(effectiveJointConnections({...turn.board, connections: [...turn.board.connections, ...turn.draft.connections]})
     .map((connection) => [`${connection.memberId}:${connection.end}`, connection]));
   const attrs: EvaluatorModel['attrs'] = {};
   const positions: NonNullable<EvaluatorModel['positions']> = {};
@@ -60,7 +61,7 @@ export function toTurnEvaluatorInput(turn: TurnState): EvaluatorModel {
       if (!axial && profile !== 'ball') inactiveRotations.delete(key);
       if (axial && !connection) inactiveRotations.add(key);
       const simple = profile === 'ball' ? 'ball' as const : 'fixed' as const;
-      const law = profile === 'fixed' || profile === 'ball' ? undefined : connectionDefinition(profile);
+      const law = profile === 'fixed' || profile === 'ball' ? undefined : connectionDefinition(profile, connection?.axes);
       return { key, profile: simple, law };
     }
     const start = end('a', a), finish = end('b', b);
@@ -112,6 +113,9 @@ export function toTurnEvaluatorInput(turn: TurnState): EvaluatorModel {
   return { members, attrs, positions, inactiveRotations, nextId: turn.nextId };
 }
 
+/** Compatibility name for existing revised-release adapters and fixtures. */
+export const toTurnVoxelInput = toTurnEvaluatorInput;
+
 /** Whether a match is assessed by the Rust turn solver (see `TurnState.engine`). */
 export function usesRustTurnSolver(turn: Pick<TurnState, 'catalogue' | 'engine'>) {
   return isReleaseCatalogue(turn.catalogue) || turn.engine === RUST_TURN_ENGINE;
@@ -126,7 +130,9 @@ export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card
   const response = release ? turnSolver.analyze(input, turn.catalogue)
     : usesRustTurnSolver(turn) ? turnSolver.analyze(input, `${turn.catalogue}/${turn.engine}`, { selfWeight: loading === 'with-self-weight' })
       : analyzeVoxel(input, { ...turnLevel, appliedSelfWeight: loading === 'with-self-weight' });
-  const fittings = [...turn.board.connections, ...turn.draft.connections];
+  const originalConnections = [...turn.board.connections, ...turn.draft.connections];
+  const effectiveConnections = effectiveJointConnections({...turn.board, connections: originalConnections});
+  const fittings = originalConnections;
   const bySource = new Map(fittings.map(c => [attachmentId(c.memberId, c.end), c]));
   const collarLoads = [...turn.board.loads, ...turn.draft.loads].flatMap(load => {
     let target = load.jointId;
@@ -146,8 +152,20 @@ export function analyzeTurn(turn: TurnState, loading: 'with-self-weight' | 'card
     return [];
   });
   const capacity = release || loading === 'card-gravity'
-    ? assessCardCapacity(input, response, fittings, collarLoads)
+    ? assessCardCapacity(input, response, originalConnections.map((connection, i) =>
+      effectiveConnections[i].profile === connection.profile ? connection :
+        {...connection, transferProfile: effectiveConnections[i].profile}), collarLoads)
     : undefined;
+  if (capacity && turn.board.jointCorrections?.length) {
+    // Original fittings retain their printed force limits. The added moment
+    // sleeve must independently satisfy the existing rated fixed-fitting law.
+    const effective = assessCardCapacity(input, response, effectiveConnections, collarLoads);
+    for (const [id, check] of Object.entries(effective.connections)) {
+      const original = capacity.connections[id];
+      if (check.status === 'unavailable' || original?.status !== 'verified' ||
+          check.utilization > original.utilization) capacity.connections[id] = check;
+    }
+  }
   const physicalParents = new Map(input.members.filter(m => m.parentSpan).map(m => [m.id, m.parentSpan!.memberId]));
   return { ...response, capacity, physicalParents };
 }

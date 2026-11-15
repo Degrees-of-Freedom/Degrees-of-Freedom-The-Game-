@@ -13,12 +13,14 @@ import {
 import { getSettings } from "../menu/settings";
 import { buildGuides, buildTerrain, disposeGroup } from "./sceneGeometry";
 import { addResultArrows, displayPoint, viewBasePoint } from "./sceneResults";
+import { addSceneLabel } from "./sceneLabels";
 import { buildDisplacementShadow, labelPeakDisplacement } from "./displacementShadow";
 import { projectIslet } from "./companionIslet";
 import { createCompanionFigure } from "./companionFigure";
 import { boardPose } from "../companion/boardPose";
 import { createFlowParticles } from "./flowParticles";
 import { buildReleaseFlow, markInstability } from "./releaseFlow";
+import { drawInstabilityMode } from "./instabilityModes";
 import { drawBoardDiagram } from "./boardDiagrams";
 import { buildStructure } from "./structureMeshes";
 import { bindSceneInteraction } from "./sceneInteraction";
@@ -50,6 +52,9 @@ export function Scene({
   still,
   trueScale,
   showInstability,
+  instabilityMode,
+  playInstability,
+  reactionLabels,
   jointLayer,
   field, reference,
   result,
@@ -71,6 +76,9 @@ export function Scene({
     still,
     trueScale,
     showInstability,
+    instabilityMode,
+    playInstability,
+    reactionLabels,
     jointLayer,
     field, reference,
     result,
@@ -92,6 +100,9 @@ export function Scene({
     still,
     trueScale,
     showInstability,
+    instabilityMode,
+    playInstability,
+    reactionLabels,
     jointLayer,
     field, reference,
     result,
@@ -115,7 +126,8 @@ export function Scene({
   }, [jointLayer, result, combo, deformed, scale, field, labels]);
   useEffect(() => {
     refresh.current();
-  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath, trueScale, showInstability, diagrams, shadow, labels]);
+  }, [result, combo, deformed, scale, field, reference, utilization, loads, loadPath, trueScale, showInstability,
+    instabilityMode, playInstability, reactionLabels, diagrams, shadow, labels, still]);
   const workK = useGameStore((state) => state.workK);
   const style = useGameStore((state) => state.style);
   const host = useRef<HTMLDivElement>(null);
@@ -125,6 +137,7 @@ export function Scene({
     fit: () => {},
     focus: () => {},
     orbit: (_step: number) => {},
+    pitch: (_step: number) => {},
     tilt: () => {},
   });
   // OrbitControls removes key listeners from the canvas's root. Dispose it
@@ -208,8 +221,11 @@ export function Scene({
     preview.visible = false;
     const point = (key: string) => displayPoint(key, view.current);
     const glyphs = createJointGlyphs(scene);
-    refreshPermissions.current = () => glyphs.set(view.current.jointLayer, joint =>
-      point(view.current.result?.ctx?.idx.has(joint.id) ? joint.id : joint.point));
+    refreshPermissions.current = () => {
+      const layer = view.current.jointLayer;
+      glyphs.set(layer ? {...layer,labels:layer.labels !== false && view.current.labels !== false} : undefined,
+        joint => point(view.current.result?.ctx?.idx.has(joint.id) ? joint.id : joint.point));
+    };
     refreshPermissions.current();
     const particles = createFlowParticles(scene, point);
     let currentEnvironment = "";
@@ -257,19 +273,20 @@ export function Scene({
       // The companion control marks itself while the foreman is on stage and
       // while its cloud is open; its animator publishes the pose to stand in.
       const control = workspace.querySelector<HTMLElement>(".companion-board");
-      const foreman = control?.hasAttribute("data-foreman") ?? false;
+      const character = control?.dataset.character;
+      const at = projectIslet(terrain, camera, canvas.clientWidth, canvas.clientHeight);
+      const name = at?.visible && (character === "timburr" || character === "conkeldurr") ? character : null;
       const figure = control?.querySelector<HTMLElement>(".companion-figure");
-      const standing = companionFigure.update(terrain, camera, foreman ? "conkeldurr" : "timburr", {
+      const standing = companionFigure.update(terrain, camera, name, {
         pose: boardPose().pose,
         attention: figure?.matches(":hover") ? 1 : figure?.getAttribute("aria-expanded") === "true" ? 0.45 : 0,
         still: !!(prefersStill || getSettings().reducedMotion || view.current.still),
         time,
       });
-      if (standing !== ("isletFigure" in workspace.dataset)) {
-        if (standing) workspace.dataset.isletFigure = "model";
+      if ((standing ? name : undefined) !== workspace.dataset.isletFigure) {
+        if (standing && name) workspace.dataset.isletFigure = name;
         else delete workspace.dataset.isletFigure;
       }
-      const at = projectIslet(terrain, camera, canvas.clientWidth, canvas.clientHeight);
       const beside = !!at && at.y < canvas.clientHeight * 0.45;
       const key = at ? [Math.round(at.x), Math.round(at.y), Math.round(at.size), Math.round(at.model), at.x > canvas.clientWidth - 330, beside].join(",") : "";
       if (key === isletKey) return;
@@ -408,11 +425,22 @@ export function Scene({
       previousTurn = turnIndex;
       interaction.clearPreview();
       disposeGroup(structure);
+      delete structure.userData.animateInstability;
       disposeGroup(guides);
       particles.reset();
       const releaseFlow = !!view.current.cameraMemory && view.current.loadPath;
       buildStructure(structure, state, releaseFlow ? { ...view.current, loadPath: false } : view.current, point, particles.add);
-      // Labels default to shown; the release board's view panel can hide them all at once.
+      // Ownership remains visible independently of optional result-value labels.
+      if (view.current.cameraMemory && state.turn) {
+        for (const joint of state.turn.board.joints) {
+          const owner = state.turn.players.findIndex(player => player.id === joint.foundationOwner);
+          if (owner < 0) continue;
+          addSceneLabel(structure, point(joint.id).add(new THREE.Vector3(0, 0, -0.25)),
+            `Player ${owner + 1} · ${owner === 0 ? "Coral" : "Blue"}`, owner === 0 ? "player1" : "player2", .8);
+        }
+      }
+      // Optional view-mode labels default to shown; reaction size/off remains
+      // an independent release preference inside addResultArrows.
       const labels = view.current.labels !== false;
       if (releaseFlow && view.current.result) buildReleaseFlow(structure, view.current.result, point, particles.add, labels);
       for (const diagram of view.current.diagrams ?? []) {
@@ -423,7 +451,11 @@ export function Scene({
         structure.add(buildDisplacementShadow(field, view.current.scale, key => viewBasePoint(key, view.current), view.current.trueScale));
       }
       if (labels && field && (view.current.shadow || view.current.deformed)) labelPeakDisplacement(structure, field, view.current.scale);
-      if (view.current.showInstability && view.current.result) markInstability(structure, view.current.result, point, labels);
+      if (view.current.showInstability && view.current.result) {
+        markInstability(structure, view.current.result, point, labels);
+        drawInstabilityMode(structure, view.current.result, view.current.instabilityMode ?? 0,
+          !!view.current.playInstability && !view.current.still && !getSettings().reducedMotion);
+      }
       addResultArrows(structure, view.current, point, state.style !== 'engineering' && labels);
       buildGuides(
         guides,
@@ -532,6 +564,18 @@ export function Scene({
         controls.update();
         rebuild();
       },
+      pitch(step) {
+        const offset = camera.position.clone().sub(controls.target);
+        const horizontal = Math.hypot(offset.x, offset.y);
+        const radius = offset.length();
+        if (!horizontal || !radius) return;
+        const angle = Math.max(0.1, Math.min(1.4, Math.atan2(offset.z, horizontal) + step * Math.PI / 12));
+        const ratio = radius * Math.cos(angle) / horizontal;
+        offset.set(offset.x * ratio, offset.y * ratio, radius * Math.sin(angle));
+        camera.position.copy(controls.target).add(offset);
+        controls.update();
+        rebuild();
+      },
     };
     const observer = new ResizeObserver(resize);
     observer.observe(element);
@@ -556,6 +600,7 @@ export function Scene({
       }
       controls.update();
       particles.tick(time, prefersStill || getSettings().reducedMotion || view.current.still);
+      structure.userData.animateInstability?.(time);
       const state = useGameStore.getState();
       const line = preview.geometry.getAttribute("position");
       stickGhost.visible =
@@ -867,6 +912,7 @@ export function Scene({
     <div className="scene">
       <div
         ref={host}
+        tabIndex={0}
         style={{
           position: "absolute",
           inset: 0,
@@ -874,7 +920,7 @@ export function Scene({
           height: "100%",
           pointerEvents: "auto",
         }}
-        aria-label="3D workspace. Drag to orbit, scroll to zoom, and click to build."
+        aria-label="3D workspace. Drag or use arrow keys to orbit, Q and E to rotate, F to fit, scroll to zoom, and click to build."
       />
       {isGrowthStyle(style) && (
         <>

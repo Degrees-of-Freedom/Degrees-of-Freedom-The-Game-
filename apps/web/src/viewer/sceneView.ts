@@ -19,6 +19,9 @@ export interface SceneView {
   still?: boolean;
   trueScale?: boolean;
   showInstability?: boolean;
+  instabilityMode?: number;
+  playInstability?: boolean;
+  reactionLabels?: "off" | "small" | "normal" | "large";
   diagrams?: import("./boardDiagrams").BoardDiagram[];
   jointLayer?: JointLayer;
   field?: DeformationField;

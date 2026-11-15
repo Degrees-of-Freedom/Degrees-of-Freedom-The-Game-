@@ -1,12 +1,13 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { FigureName } from "./figure";
 import { createAnimator, type Animator } from "./animator";
-import { AMBIENT_IDLE, REST as REST_POSE, RELEASE_IDLE, motionForCue, portraitTransform, type CompanionCue,
+import { AMBIENT_IDLE, CLIPS, REST as REST_POSE, RELEASE_IDLE, motionForCue, portraitTransform, type CompanionCue,
   type CompanionCueEvent, type MotionName, type Pose } from "./motion";
 import { publishBoardPose } from "./boardPose";
 import type { PublicRepairReport } from "../game/publicRepairReport";
 import { RepairExplanation } from "./RepairExplanation";
 import { updateSettings, useSettings } from "../menu/settings";
+import { checkpointNotice, mistakeCount, takeForemanCue } from "./reactions";
 import "./companion.css";
 
 type Area = "home" | "menu" | "board" | "drawer";
@@ -60,8 +61,13 @@ function Figure({ name, retry, onFailure, cue, entrance, idle, still, onPose }: 
   useEffect(() => { animator.current!.idle(idle); }, [idle]);
   useEffect(() => { if (entrance) animator.current!.play(entrance); }, [entrance]);
   // A remount (Timburr ⇄ Conkeldurr, privacy cover) must not replay a stale cue.
-  const mountedCue = useRef(cue?.id);
-  useEffect(() => { if (cue && cue.id !== mountedCue.current) animator.current!.play(cue.motion); }, [cue]);
+  const played = useRef(cue?.id);
+  useEffect(() => {
+    if (cue && cue.id !== played.current) {
+      played.current = cue.id;
+      animator.current!.play(cue.motion);
+    }
+  }, [cue]);
   // Hand any in-progress pose over when the 3D view replaces the portrait.
   useEffect(() => {
     if (view === "model" && portrait.current) portrait.current.style.transform = "";
@@ -69,6 +75,9 @@ function Figure({ name, retry, onFailure, cue, entrance, idle, still, onPose }: 
   }, [view]);
   useEffect(() => {
     const element = host.current!;
+    // The foreman cue can change the character while the same sampler is
+    // running. Keep posing the matching portrait as its GLB becomes ready.
+    setView("portrait");
     let active = true, visible = false, generation = 0;
     let stage: Stage | undefined;
     const drop = () => {
@@ -157,6 +166,7 @@ export interface CompanionProps {
   area: Area;
   repairs?: PublicRepairReport[];
   announceRepair?: boolean;
+  announceFromTurn?: number;
   onPresented?: () => void;
   onForemanAccent?: () => void | (() => void);
   release?: boolean;
@@ -167,68 +177,95 @@ export interface CompanionProps {
 }
 
 // Cosmetic cooldowns survive privacy unmounts. No cards, seed or topology are recorded.
-let lastForeman = -Infinity;
 let lastActivation = -Infinity;
 // The welcome wave plays once per page load, not on every route or reopen.
 let greeted = false;
-export function Companion({ area, repairs, announceRepair = false, onPresented, onForemanAccent,
+export function Companion({ area, repairs, announceRepair = false, announceFromTurn, onPresented, onForemanAccent,
   release = false, cue, final = false, skip = false }: CompanionProps) {
   const id = useId();
   const settings = useSettings();
   const button = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const [foreman, setForeman] = useState<"preview" | "reaction" | null>(null);
+  const [foreman, setForeman] = useState<"preview" | "shrink" | "reaction" | null>(null);
   const [failed, setFailed] = useState(false), [retry, setRetry] = useState(0);
   const [selectedTurn, setSelectedTurn] = useState<number | null>(null);
-  const presentedTurn = useRef<number | null>(null);
-  const stopAccent = useRef<(() => void) | null>(null);
+  const presented = useRef<string | null>(null);
+  const accentPending = useRef(false);
   const [motion, setMotion] = useState<{ motion: MotionName; id: number }>();
-  const react = (next: CompanionCue) => setMotion(previous => ({ motion: motionForCue(next), id: (previous?.id ?? 0) + 1 }));
-  useEffect(() => { if (cue) react(cue); }, [cue]);
-  useEffect(() => { if (final) react({ kind: "victory" }); }, [final]);
+  const react = useCallback((next: CompanionCue) =>
+    setMotion(previous => ({ motion: motionForCue(next), id: (previous?.id ?? 0) + 1 })), []);
+  // A reopened drawer can retain the preceding board cue. Only consume
+  // events emitted while this companion is on screen.
+  const seenCue = useRef(cue?.id);
+  useEffect(() => {
+    if (cue && cue.id !== seenCue.current) { seenCue.current = cue.id; react(cue); }
+  }, [cue, react]);
+  useEffect(() => { if (final) react({ kind: "victory" }); }, [final, react]);
   useEffect(() => {
     if (greeted || (area !== "home" && area !== "menu")) return;
     greeted = true;
     react({ kind: "greet" });
-  }, [area]);
+  }, [area, react]);
   const latest = repairs?.at(-1);
   const repair = repairs?.find(entry => entry.turn === selectedTurn) ?? repairs?.at(-1);
+  const currentNotice = repairs && release && announceFromTurn !== undefined ? checkpointNotice(repairs, announceFromTurn) : latest;
+  const count = repair ? mistakeCount(repairs ?? [], repair) : 0;
+  const still = settings.reducedMotion || skip;
   useEffect(() => {
-    if (announceRepair && latest && presentedTurn.current !== latest.turn) {
-      presentedTurn.current = latest.turn;
-      setSelectedTurn(null);
+    if (announceRepair && currentNotice) {
+      const notice = currentNotice.charge?.id ?? `repair/${currentNotice.turn}/${currentNotice.playerId}`;
+      if (presented.current === notice) return;
+      presented.current = notice;
+      setSelectedTurn(currentNotice.turn);
       const eligible = settings.showCompanion && !document.hidden && !final && !skip &&
-        (release ? latest.releaseForeman && performance.now() - lastForeman >= 45_000 : latest.foreman);
-      if (release && eligible) lastForeman = performance.now();
-      setForeman(eligible ? "reaction" : null);
-      // Conkeldurr's entrance supersedes; otherwise relief or concern.
-      if (!eligible && !final) react({ kind: latest.attempts.some(a => a.status === "verified") && !latest.pending.length
-        ? "repair" : "issue" });
-      if (eligible && settings.sound) stopAccent.current = onForemanAccent?.() ?? null;
-      setOpen(!final && settings.showCompanion);
+        (release ? takeForemanCue(mistakeCount(repairs ?? [], currentNotice)) : currentNotice.foreman);
+      accentPending.current = eligible && settings.sound;
+      setForeman(eligible ? release && !still ? "shrink" : "reaction" : null);
+      setOpen(!final && !skip && settings.showCompanion);
+      if (!eligible && !final && !skip) {
+        const repaired = [...currentNotice.attempts, ...currentNotice.jointAttempts].some(a => a.status === "verified");
+        if (repaired && !currentNotice.pending.length) react({ kind: "repair" });
+        else if (currentNotice.charge) react({ kind: "issue" });
+      }
       onPresented?.();
     }
-  }, [announceRepair, latest, onPresented, onForemanAccent, settings.sound, settings.showCompanion, final, skip, release]);
+  }, [announceRepair, currentNotice, repairs, onPresented, settings.sound, settings.showCompanion, final, skip, still, release, react]);
   useEffect(() => {
-    if (foreman !== "reaction") return;
-    const settle = () => { setForeman(null); setFailed(false); };
-    const timer = window.setTimeout(settle, release ? 3800 : 4000);
-    const hidden = () => { if (document.hidden) settle(); };
+    if (foreman !== "shrink") return;
+    if (still) { setForeman("reaction"); return; }
+    // Swap at the first authored crouch. One upstream clip drives both
+    // characters through the crouch, rise and turn, on mesh or portrait.
+    const foremanClip = CLIPS.foreman;
+    const timer = window.setTimeout(() => setForeman("reaction"), foremanClip.duration * foremanClip.tracks.squash[1][0]);
+    return () => window.clearTimeout(timer);
+  }, [foreman, still]);
+  useEffect(() => {
+    if (foreman !== "reaction" && foreman !== "shrink") return;
+    const settle = () => {
+      if (document.activeElement?.hasAttribute("data-skip-foreman")) button.current?.focus({ preventScroll: true });
+      setForeman(null); setFailed(false);
+    };
+    const timer = foreman === "reaction" ? window.setTimeout(settle, release ? 3560 : 4000) : undefined;
+    const hidden = () => { if (document.hidden) { settle(); setOpen(false); } };
     document.addEventListener("visibilitychange", hidden);
     return () => {
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", hidden);
-      stopAccent.current?.();
-      stopAccent.current = null;
     };
   }, [foreman, release]);
+  const automatic = foreman === "shrink" || foreman === "reaction";
+  useEffect(() => {
+    if (!automatic || !settings.sound || !accentPending.current || document.hidden) return;
+    accentPending.current = false;
+    const stop = onForemanAccent?.();
+    return () => stop?.();
+  }, [automatic, settings.sound, onForemanAccent]);
   useEffect(() => { if (final || skip || !settings.showCompanion) { setForeman(null); setOpen(false); } },
     [final, skip, settings.showCompanion]);
-  useEffect(() => {
-    if (!settings.sound) stopAccent.current?.();
-    return () => { stopAccent.current?.(); };
-  }, [settings.sound]);
-  const name = foreman ? "Conkeldurr" : "Timburr";
+  const evolved = foreman === "preview" || foreman === "reaction";
+  const name = evolved ? "Conkeldurr" : "Timburr";
+  const instability = release && !final && repair?.charge?.unstableMemberId !== undefined;
+  const fitting = repair?.jointAttempts.find(a => a.status === "verified");
   function close() {
     setOpen(false);
     if (foreman) { setForeman(null); setFailed(false); }
@@ -238,7 +275,8 @@ export function Companion({ area, repairs, announceRepair = false, onPresented, 
     <button className="companion-restore" onClick={() => updateSettings({ showCompanion: true })}>Show companion</button>
   </aside>;
   return <aside className={"companion companion-" + area} aria-label="Site companion"
-    data-foreman={foreman ?? undefined} data-motion={settings.reducedMotion ? "reduced" : "system"}
+    data-character={evolved ? "conkeldurr" : "timburr"}
+    data-foreman={foreman ?? undefined} data-motion={still ? "reduced" : "system"} data-release={release || undefined}
     data-still={skip || undefined}
     onKeyDown={e => {
       if (open && e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); }
@@ -252,15 +290,19 @@ export function Companion({ area, repairs, announceRepair = false, onPresented, 
           lastActivation = performance.now(); setOpen(true); react({ kind: "activate" });
         }
       }}>
-      <Figure key={name} name={foreman ? "conkeldurr" : "timburr"} retry={retry} onFailure={setFailed}
+      <Figure key={automatic ? "foreman-reaction" : name} name={evolved ? "conkeldurr" : "timburr"} retry={retry} onFailure={setFailed}
         cue={motion} entrance={foreman ? "foreman" : undefined}
         idle={foreman || final ? null : release ? RELEASE_IDLE : AMBIENT_IDLE}
-        still={settings.reducedMotion || skip} onPose={area === "board" ? publishBoardPose : undefined} />
+        still={still} onPose={area === "board" ? publishBoardPose : undefined} />
       <span>{name}</span>
     </button>
-    {open && <div id={id} className={"companion-note" + (repair && foreman !== "preview" ? " companion-repair" : "")}>
+    {open && <div id={id} data-instability={instability || undefined} className={"companion-note" + (repair && foreman !== "preview" ? " companion-repair" : "")}>
+      {instability && <p className="companion-warning" role="status"><b aria-hidden="true">!</b>
+        <strong>Whoa, a wobble!<small>Instability · member {repair?.charge?.unstableMemberId} · turn {repair?.turn}</small></strong></p>}
+      {release && evolved && repair && <p><strong>Foreman check</strong>Player {repair.playerId.replace("player-", "")} has {count} verified deductions.</p>}
       {foreman === "reaction" && <span className="companion-announcement" role="status">Conkeldurr has a foreman report for turn {repair?.turn}.</span>}
-      {release ? <p>{final ? "The final scores are in." : repair ? repair.attempts.some(a => a.status === "verified")
+      {release ? <p>{final ? "The final scores are in." : fitting ? `A joint fitting was installed at ${fitting.jointId}. ${repair?.pending.length ? "Inspect the remaining issue." : "Inspect the updated joint."}`
+        : repair ? repair.attempts.some(a => a.status === "verified")
         ? `A neutral prop was installed on turn ${repair.turn}.${repair.pending.length ? " Inspect the remaining issue." : " Inspect its support reaction."}`
         : `Inspect the unresolved region from turn ${repair.turn}.`
         : "Select a member or joint to inspect it."}</p> : repair && foreman !== "preview" ? <>
@@ -273,8 +315,11 @@ export function Companion({ area, repairs, announceRepair = false, onPresented, 
       </> : <p>{foreman ? "Conkeldurr · Foreman preview" : area === "board" || area === "drawer"
         ? "Got a tricky joint? Inspect it to see which ends are connected."
         : "Ready to build? Pick a game mode and I’ll meet you on the board."}</p>}
-      {(!release || foreman === "reaction") && <button type="button" onClick={() => { setFailed(false); setForeman(foreman ? null : "preview"); }}>
-        {foreman === "reaction" ? "Skip transformation" : foreman ? "Back to Timburr" : "Preview Conkeldurr"}
+      {(!release || foreman) && <button type="button" data-skip-foreman={foreman ? true : undefined} onClick={() => {
+        setFailed(false); setForeman(foreman ? null : "preview");
+        if (foreman) button.current?.focus({ preventScroll: true });
+      }}>
+        {foreman === "reaction" || foreman === "shrink" ? "Skip transformation" : foreman ? "Back to Timburr" : "Preview Conkeldurr"}
       </button>}
       {failed && <button type="button" onClick={() => { setFailed(false); setRetry(value => value + 1); }}>
         Retry 3D model
