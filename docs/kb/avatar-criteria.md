@@ -187,3 +187,15 @@ The owner confirmed game-owned automatic correction for both instability and ove
 ## 13. Permanent local neutral scaffolding explanation
 
 The owner confirmed permanent neutral system repairs with no player attraction award. Timburr identifies the local affected element/connection, shows the actual added prop/anchor, explains that it remains for the match and that its carried load earns nobody points, and preserves the historical penalty explanation. Do not promise that other foundation reactions are unchanged: a local physical repair can redistribute forces globally. The normal inspector must show neutral ownership, local contacts, verified reactions and remaining unavailable scope even when Timburr is hidden.
+
+## Delegated first-release decisions — 2026-11-14
+
+The owner delegated the remaining product decisions to Codex, prioritizing simplicity, quality and a complete functional game. These are selected release requirements, not implementation or test evidence. They supersede earlier proposals on the same subjects; other confirmed requirements and numerical acceptance gates remain in force.
+
+Use the preserved attributed Timburr and Conkeldurr assets for the release, with model-derived matching portrait fallback and retained credits. Approve their established recognizable appearance as the starting art direction; rig/pose work must be visually validated and cannot be claimed from static GLBs. Do not replace the characters or add a progression tree.
+
+Timburr is a small edge companion with one dismissible bubble, outside board/control safe zones. Routine actions get a glance/nod rather than narration; the board supplies essential feedback. Show one short useful explanation for a new result, correction or invalid target. Idle motion is limited to subtle breathing/weight shift, with no unsolicited repeated tips. Direct activation is rate-limited to one response per five seconds. Suppress the companion on privacy/recovery covers and wherever it would reveal private information.
+
+Automatic Conkeldurr eligibility is one verified newly penalized committed event with witnessed instability or utilization at least 1.25. Use at most one transformation per originating turn, a 45-second cooldown, an 800 ms introduction and at most three seconds of quiet foreman pose. Explain the actual repair or suggest inspecting the unresolved region. Do not transform for invalid input, preview, persistent issues, timeout or unknown evidence. Repair and scoring remain independent of reaction completion. Final victory supersedes other reactions.
+
+Keep Show companion, motion and audio settings in the main settings disclosure, with a small restore control when hidden. Reduced motion uses a still pose/brief fade. Missing 3D/audio never blocks play or substitutes the wrong character. Deduplicate by committed event IDs on reload. Celebrate a verified repair without claiming the entire structure is safe.

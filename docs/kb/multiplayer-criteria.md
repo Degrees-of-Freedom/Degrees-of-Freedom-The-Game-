@@ -56,3 +56,11 @@ For any future online edition, the server must own hidden decks/RNG, permission 
 | End of fixed-round match | No extra player hand revealed or extra turn begun. |
 
 Open: player-count presets, public hand/discard counts, practice privacy override, concession/abandonment and shared-device pause policy. Online/session identity requirements must be separately reviewed before extending the release scope.
+
+## Delegated first-release decisions — 2026-11-14
+
+The owner delegated the remaining product decisions to Codex, prioritizing simplicity, quality and a complete functional game. These are selected release requirements, not implementation or test evidence. They supersede earlier proposals on the same subjects; other confirmed requirements and numerical acceptance gates remain in force.
+
+The release is same-device two-player hot-seat with private hands. No online session, login, server account or anti-cheat claim is required. Hide all hand identities, counts, deck order, seed and private discard/draft details from the outgoing player's/public view. Deliberate Ready reveals only the active player's view. Pause, backgrounding, reload and restore return behind the privacy cover without redrawing.
+
+Use no turn timer, forfeit, concession scoring or spectator mode. Quit saves/suspends; it does not fabricate a pass or winner. Restart requires confirmation and successful replacement-save acknowledgement before abandoning the old match. One match authority and transactional revision checks prevent stale tabs and duplicate submissions. Private exports are explicitly labelled; public summaries contain no hidden deck/hand information.

@@ -196,3 +196,13 @@ The following tests are required when implementing this design; they are not cur
 Documentation review checked the named member families against `voxelInput.ts`/`voxelSections.ts` and the solver requirements; the local card lifecycle is implemented, with numerical verification pending.
 
 Confirmed rules can guide contract design now. Unanswered policies must remain explicit; recommendations are not agreed or implemented behavior.
+
+## Delegated first-release decisions — 2026-11-14
+
+The owner delegated the remaining product decisions to Codex, prioritizing simplicity, quality and a complete functional game. These are selected release requirements, not implementation or test evidence. They supersede earlier proposals on the same subjects; other confirmed requirements and numerical acceptance gates remain in force.
+
+Use two players and eight rounds (16 turns). No separate opening hand: the first turn starts with its normal draw. Draw exactly two cards from each deck once per turn. Unplayed cards remain in hand; no hand cap, voluntary discard, redraw, trading or exchange in this release. Retain the confirmed optional 1-element/1-load/2-connection limits and passing. Show cards grouped by type with stable ordering and scrollable overflow.
+
+Use the finite deck manifest appended to the card criteria. It supplies every regular draw, so ordinary matches need no exhaustion rule. If corrupted/invalid configuration cannot supply a required draw, reject it before setup or offer explicit recovery; never invent cards, recycle deployed cards or leave a match stuck midway through drawing.
+
+The default authoritative assessment runs after every completed turn, including a pass, before handoff. It may run in a worker while safe camera/inspection controls remain available. Experimental multi-turn checkpoint scheduling remains a separately labelled development option, not the normal release rule. Freeze the player transaction, assess its issues, record at most one historical deduction, attempt bounded authorized correction, then commit the recorded outcome atomically.

@@ -105,3 +105,9 @@ In the scored frame preset, the game retains the player move and any originating
 - Update affected pages in the same change as durable behavior or decisions. Keep `last_validated` and `status` accurate.
 - Use `current`, `partial`, `needs-review`, or `deprecated` for status. Record unanswered questions rather than guessing.
 - Treat design intent as intent, not shipped functionality. Existing non-KB documents are context unless explicitly cited and validated.
+
+## Frozen first-release product decisions
+
+The owner delegated the remaining simplicity/quality decisions to Codex. Read the **Delegated first-release decisions — 2026-11-14** appendices in [completion](game-completion-criteria.md), [turns](turn-criteria.md), [cards](card-definition-criteria.md), [scoring](scoring-match-criteria.md), [placement](placement-criteria.md), [repair](failure-repair-criteria.md), [controls](controls-camera-criteria.md), [multiplayer](multiplayer-criteria.md), [saves](saved-match-criteria.md), [avatar](avatar-criteria.md), [animation](animation-criteria.md) and [release acceptance](release-acceptance-criteria.md).
+
+They freeze `grow-dusk-release-1`: two players/eight rounds, finite authored decks, no opening hand or hand cap, end-turn assessment, above-ground player-built load targets, compact Timburr feedback, concrete presentation defaults, local recovery and a named platform/test matrix. They resolve earlier open product proposals without claiming implementation or weakening numerical criteria. In particular, load placement directly on setup supports is excluded in the new preset, and experimental multi-turn checkpoints are not its default. Preserve historical evidence and saves under their original ruleset versions.

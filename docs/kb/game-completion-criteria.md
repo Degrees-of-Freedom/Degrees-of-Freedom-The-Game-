@@ -84,3 +84,11 @@ This ordering is a recommendation, not a claim of completed work. The local Shar
 ## 5. Criteria-document acceptance
 
 All eight areas must contain traceable confirmed decisions, proposed workflows, error/unknown handling, acceptance scenarios and open parameters. Cross-links and older criteria must reflect superseding choices, especially final-only scoring, quarter attachments for every family, assembly cards and retained repaired structures. No runtime change or unsupported numerical claim belongs in this documentation task. Future implementation evidence must be recorded separately from these design requirements.
+
+## Delegated first-release decisions — 2026-11-14
+
+The owner delegated the remaining product decisions to Codex, prioritizing simplicity, quality and a complete functional game. These are selected release requirements, not implementation or test evidence. They supersede earlier proposals on the same subjects; other confirmed requirements and numerical acceptance gates remain in force.
+
+Freeze a versioned `grow-dusk-release-1` ruleset: two local players, eight complete rounds, one Grow Dusk presentation and one normal Play entry point. Keep Creative and existing working modes under an optional More modes disclosure; do not delete them. No accounts, online multiplayer, matchmaking, chat, progression system or tutorial campaign are required for this release. A short first-turn hint is sufficient.
+
+A complete release includes setup, privacy handoff, drawing, staging, cancellation, commit, verified issue/repair assessment, saving/recovery, all 16 turns, final scoring, ties and confirmed restart. The decisions appended to the turn, card, scoring, placement, repair, controls, multiplayer, save, avatar, animation and release criteria close the product-policy gaps. The existing criteria ledger remains implementation evidence, not proof that these new decisions are implemented. Required catalogue families and physics elsewhere in the criteria remain required; a curated default deck does not waive their validation or justify claiming full compliance for a reduced prototype.

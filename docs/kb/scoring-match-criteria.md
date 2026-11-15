@@ -78,3 +78,11 @@ The signed-uplift acceptance fixture uses two equal-section, perpendicular canti
 | Near tie / reordered players / display rounding | Versioned tolerance and same physical/policy outcome. |
 
 Open: round/player presets, uplift/self-weight policy, physical repair catalogue/local bounds and budget, zero-load result, tie tolerance, concession/abandonment and any future deferred penalties. These must be resolved in a release ruleset, not hard-coded from recommendations. See [release acceptance](release-acceptance-criteria.md).
+
+## Delegated first-release decisions — 2026-11-14
+
+The owner delegated the remaining product decisions to Codex, prioritizing simplicity, quality and a complete functional game. These are selected release requirements, not implementation or test evidence. They supersede earlier proposals on the same subjects; other confirmed requirements and numerical acceptance gates remain in force.
+
+Use the already confirmed final-only signed gravity-share formula minus accumulated 1-point penalty events. No per-turn attraction banking, no positive-only clamping and no score floor. Self-weight is off. Zero applied gravity awards zero attraction; penalties still apply. Declare joint winners when adjusted scores differ by at most 0.01 point using unrounded values. Finalize exactly once after turn 16 and any bounded final correction/assessment.
+
+Preserve verified neutral support share and unverified/unawarded scope separately against the total applied card gravity. Unknown physical reactions remain unavailable. Show a compact final comparison: awarded share, historical deductions and adjusted total, with partial-evidence labelling when applicable. Detailed reactions and repair history remain inspectable. During play show round/player and penalty totals; provisional foundation shares belong in inspection, labelled estimates. Do not announce an official leader or lead change before final scoring.
