@@ -215,6 +215,9 @@ async function structuralReview(browser, base, output) {
     await button('End turn').click(); await ready.click();
     await expect.poll(async () => (await head()).turn.turn).toBe(2);
     assert.equal((await head()).turn.reports[0].status, 'pending');
+    await button('Inspect').click();
+    await expect(page.getByText('Current changes are assessed at the next scheduled checkpoint.', {exact: false})).toBeVisible();
+    await page.getByRole('button', {name: 'Close inspection', exact: true}).click();
     assert.deepEqual(wasmResponses, [], 'pending first turn must not request numerical WASM');
     await draw(['connections', 'connections', 'connections', 'connections']);
     await button('Pass').click(); await ready.click();
