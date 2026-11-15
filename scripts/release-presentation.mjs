@@ -171,7 +171,7 @@ try {
         await boardOverlay.waitFor();
         await choose(boardOverlay, 3);
         await page.getByText(/^Frame displacement/).waitFor();
-        await page.getByText(/^Signed gravity transfer/).waitFor();
+        await page.getByText(/^Illustrative combined gravity transfer along each verified segment/).waitFor();
         await activate(page.getByText("Foundation forces and moments", { exact: true }));
         const reactions = page.getByRole("table", {name: "Signed global support reaction"});
         assert.equal(await reactions.count(), 2);
@@ -236,8 +236,10 @@ try {
             await drawFour();
             if (turn < 6) {
               await activate(page.locator('[data-kind="element"]').first());
-              if (scenario === "companion" && turn === 5)
+              if (scenario === "companion" && turn === 5) {
                 await page.locator('.companion-board .figure-stage[data-clip="measure"]').waitFor();
+                await page.screenshot({path:resolve(output, "timburr-measuring.png")});
+              }
               await activate(page.getByText("Precise placement", { exact: true }));
               await page.getByLabel("End A grid x,y,z").fill(`${turn*2},6,4`);
               await page.getByLabel("End B grid x,y,z").fill(`${turn*2},7,4`);
