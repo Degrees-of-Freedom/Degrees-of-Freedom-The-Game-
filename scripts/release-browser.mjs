@@ -115,6 +115,7 @@ async function match(seed, passOnly) {
   try {
     await page.goto(base+"?seed="+seed);
     await activate(page.getByRole("link",{name:"Play",exact:true}));
+    await page.waitForURL(url => url.pathname === "/match");
     for (let turnNo=1; turnNo<=16; turnNo++) {
       await ready.waitFor();
       assert.equal(await tray.count(),0,"handoff must unmount the private hand");
@@ -204,7 +205,7 @@ async function match(seed, passOnly) {
     return record;
   } catch(error) {
     await page.screenshot({path:resolve(output,"failure-"+seed+".png")}).catch(()=>{});
-    console.error("Seed",seed, "UI:",(await page.locator("body").innerText()).slice(0,1600),"errors:",errors);
+    console.error("Seed",seed,"route:",page.url(),"UI:",(await page.locator("body").innerText()).slice(0,1600),"errors:",errors);
     throw error;
   } finally { await context.close(); }
 }

@@ -29,7 +29,11 @@ export function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/about" element={<About />} />
         <Route path="/play" element={<Workspace />} />
-        <Route path="/match" element={<ReleaseMatch />} />
+        <Route path="/match" element={
+          <Suspense fallback={<main className="dof-menu dm-pause dm-handoff"><p role="status">Opening Shared table…</p></main>}>
+            <ReleaseMatch />
+          </Suspense>
+        } />
         <Route
           path="*"
           element={
