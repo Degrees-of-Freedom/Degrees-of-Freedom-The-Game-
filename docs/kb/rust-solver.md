@@ -43,7 +43,7 @@ The scored Grow Dusk release uses the nonlinear Rust 0.2.0 module for End Turn, 
 | Compiled module | `apps/web/src/solver/wasm/dof_solver.wasm` | Checked-in 729 kB module. Rebuild with `npm run build:solver`. |
 | Game integration | `apps/web/src/solver/index.ts`, `apps/web/src/game/analysisModel.ts`, `apps/web/src/game/useStabilityCheck.ts` | Default solver for the workspace check, which sends the detailed model. See [Game integration](#game-integration). |
 
-The workspace now sends the detailed model: `game/analysisModel.ts` translates the game to it, and `game/useStabilityCheck.ts` uses the detailed contract whenever the selected solver implements it. The original-contract translation in `game/structuralModel.ts` remains for the OpenSees service.
+The workspace uses `game/analysisModel.ts` for Rust's detailed contract. The optional OpenSees v2 service uses `game/structuralModel.ts` for catalogue properties, end laws, support masks and linear or corotational analysis. The Shared table release worker uses its own immutable SI turn model.
 
 ## Game integration
 
@@ -71,7 +71,7 @@ With the Rust solver, Run analysis in the workspace runs a geometrically nonline
 
 What the translation leaves out: loads are unfactored, there is no wind, and there are no load combinations. The solver can now analyse several load cases in one call and reports deflection along members, but the workspace uses neither yet. The voxel analysis uses four ultimate and serviceability combinations with wind and notional loads, and this check does not reproduce them, so its numbers are not comparable one to one with the voxel analysis. Utilisation is section strength only: there is no buckling reduction factor (buckling shows as instability in the nonlinear analysis instead), no deflection limit, and no joint or foundation capacity, all of which the voxel analysis checks. Shear is checked as the resultant against the smaller shear area, which is conservative. The translation returns notes saying what is left out.
 
-The panel ("Structural check", `components/StabilityCheckPanel.tsx`, with the reduction in `game/structuralSummary.ts`) shows the overall verdict, which is the worst component status (stable, marginal, unstable or unresolved) and is not shown as a pass when a member or connection is overstressed, reasons in plain language from the solver's reason codes, the number of separate parts, free DOFs, mechanisms, redundancy, the largest movement, the highest utilisation with its member id and limit state, the number of slack cables, and the vertical reaction at each foundation in kN, marked "up" or "uplift". Values the solver did not verify show as "unavailable", never as zero. With the OpenSees service selected (`VITE_OPENSEES_URL` or `VITE_SOLVER=opensees`), the original contract and the "Degrees of freedom" panel are used unchanged.
+The workspace's Structural check panel shows the worst component status and any strength exceedance, with the reason codes, separate parts, free DOFs, mechanisms, redundancy, largest movement, governing utilisation, slack cables and signed foundation reactions. Unverified values show as unavailable. With OpenSees selected, the panel lists the verified components' support reactions and explains any unavailable components.
 
 On the three reference examples (Tower I, Bridge I, Pickup I) the check reports one stable, verified part with highest utilisation of 3 %, 16 % and 8 %, in roughly 10 to 90 ms each in Node on the development machine. These structures have no moment connections, so every beam end is released; the solver differentiates such elements in fewer variables since this integration, which cut the Bridge I time from about 320 ms.
 
@@ -160,6 +160,8 @@ Two things support the linear results beyond the closed-form cases. A unit test 
 
 The independent nonlinear suite runs the shipped binary and OpenSeesPy on the same geometries, material constants, boundary conditions and loading paths. The sway fixture gives 0.0054120214 m and 0.0054067377 m respectively (0.098% difference). The perfect-column critical multiplier is 1.00004883 times the analytical Euler load in WASM. OpenSees brackets loss of positive tangent stiffness at 1.00078125 to 1.00156250 on the same straight column. The symmetric sagging cable gives 379632.4530 N and 379632.4526 N in tension. Run `uv run --project services/opensees pytest -qs services/opensees/tests/test_release_wasm_reference.py`.
 
+The independent service's v2 driver identifies the above-critical column as unstable, locates the mode at the tip, reports the limiting load factor and withholds reactions. The matched release test asserts all four properties as well as the 2% critical-load gate. On 15 November 2026 the full integrated `npm run test:opensees` gate passed 719 of 726 collected tests. Six optional-service skew-axis cases were skipped because the specified releases cannot be represented on those members. One skipped case was the opt-in single-seed diagnosis. The run includes the service's separate 10,000-state historical matrix and 300 newer generated states. The 20-fixture `compare:solvers` script records editor verdict disagreements and compute/wall time. Its results describe the voxel and optional linear/nonlinear HTTP paths. Shared table's authoritative numerical checks use the release WASM.
+
 ## Timings
 
 `npm run bench:solver` times the checked-in WebAssembly including JSON encoding and decoding. The following run used Node 24.15.0 on an Intel Core Ultra 9 185H with 22 logical cores. Each row uses 20 samples.
@@ -212,4 +214,4 @@ These are implementation choices, not owner decisions. Each is a default that th
 - No prescribed displacements, and no partial-length or varying member loads. Plasticity and dynamic collapse are deferred by the criteria (section 8).
 - Load cases share one request, not one factorisation: each case costs a full analysis.
 - The workspace check uses gravity loads only, with no wind and no load combinations, so it is not the voxel analysis's load cases.
-- The original-contract path, used only when the OpenSees service is selected, is linear and uses one steel section.
+- The OpenSees v2 service has its own representability and work limits, documented in its [README](../../services/opensees/README.md). Its optional editor results use the catalogue model supplied to the HTTP endpoint.
