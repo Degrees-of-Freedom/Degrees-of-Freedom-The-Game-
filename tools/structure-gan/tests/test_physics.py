@@ -44,3 +44,20 @@ def test_load_case_validates():
         LoadCase(vertical_n=0)
     with pytest.raises(ValueError):
         LoadCase(lateral_fraction=1.5)
+
+
+def test_both_wind_directions_take_the_worse_case(column):
+    one = analyse(column, LoadCase(lateral_fraction=0.3))
+    both = analyse(column, LoadCase(lateral_fraction=0.3, both_wind_directions=True))
+    assert both.utilization is not None and one.utilization is not None
+    assert both.utilization >= one.utilization - 1e-12 and both.stable
+    # A column is symmetric in wind sign, so the worst case equals the single case.
+    assert both.utilization == pytest.approx(one.utilization, rel=1e-6)
+
+
+def test_reversed_wind_flips_lateral_forces(column):
+    forward = build_model(column, LoadCase(), wind=1.0)["loads"]
+    reverse = build_model(column, LoadCase(), wind=-1.0)["loads"]
+    pushed = [(f, r) for f, r in zip(forward, reverse) if f["force"][0] != 0]
+    assert pushed and all(f["force"][0] == pytest.approx(-r["force"][0]) for f, r in pushed)
+    assert all(f["force"][2] == r["force"][2] for f, r in zip(forward, reverse))

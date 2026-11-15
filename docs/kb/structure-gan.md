@@ -6,6 +6,7 @@ validated_against:
   - tools/structure-gan/pyproject.toml
   - tools/structure-gan/src/dof_structure_gan
   - tools/structure-gan/tests
+  - apps/web/src/game/calibration.test.ts
   - apps/web/src/game/evolvedStructures.test.ts
   - apps/web/public/structures/evolved.sqlite
   - apps/web/src/solver/voxelSections.ts
@@ -46,11 +47,15 @@ All numbers below are from one run (`--steps 700 --workers 3`, seed 0, CPU, abou
 ## Limits and open decisions
 
 - Organic, asymmetry and complexity scores saturate near 1 for almost every stored structure, so they add little selection pressure; curvature and dynamism do the discriminating. Generated structures sit near the 120-member cap, i.e. complexity partly means "as big as allowed". Retune the metrics before treating the scores as a ranking of beauty.
-- One load case and a linear elastic analysis. No buckling, connection design, dynamic or nonlinear check beyond the game's own voxel analysis. The oracle's utilisation is a screening value, deliberately well below the game's limit.
+- One load case by default (`--both-wind-directions` adds the reversed lateral push) and a linear elastic analysis. No buckling, connection design, dynamic or nonlinear check beyond the game's own voxel analysis. The oracle's utilisation is a screening value, deliberately well below the game's limit.
 - Playability is not assessed: card inventory, placement rules, the 3-cell member length limit for `shs` (the longest primitive offset is exactly 3 cells), clashes with the game's own physical rules beyond the 0.35-cell clearance, and balance are all unchecked.
-- No preview images were rendered (the existing preview script needs Windows GDI+). The game UI does not list the evolved database; like `structures.sqlite` it is a downloadable file. Whether to surface it is an open product decision.
-- The training run is not resumable: networks and archive restart each run (only the database accumulates). Parallel workers use one OpenSees instance per process.
+- Stored rows carry isometric SVG previews (`preview.py`; exact lattice geometry, not deflected shapes) rather than the PNG previews of the main library, whose script needs Windows GDI+. The game UI does not list the evolved database; like `structures.sqlite` it is a downloadable file. Whether to surface it is an open product decision.
+- Runs can be checkpointed and resumed (`--checkpoint`, `--resume`); without a checkpoint the networks and archive restart each run and only the database accumulates. Parallel workers use one OpenSees instance per process.
 - CI (`.github/workflows/structure-gan.yml`) was written but not run. The default PyPI torch wheel bundles CUDA libraries; a CPU-only index would shorten CI.
+
+## Recalibration
+
+`calibration.py`, `calibration.test.ts` and two CLI commands make the oracle-versus-game comparison repeatable (steps in the tool README). They are tested on synthetic data (`tests/test_calibration.py`); the numbers in the Evidence section came from an earlier ad-hoc harness with the same method and have not been regenerated with this tooling yet.
 
 ## Commands
 

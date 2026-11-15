@@ -11,10 +11,12 @@ please the surrogate. Quality therefore ratchets up as the archive improves.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from collections import deque
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -49,6 +51,7 @@ class TrainConfig:
     seed: int = 0
     workers: int = 1
     log_every: int = 10
+    checkpoint_every: int = 100
     run_id: str = field(default_factory=lambda: time.strftime("run-%Y%m%d-%H%M%S"))
     load_case: LoadCase = LoadCase()
     criteria: Criteria = Criteria()
@@ -109,6 +112,7 @@ class Trainer:
         self.evaluator = Evaluator(config.load_case, config.criteria, config.workers)
         self.stats = Stats()
         self._baseline_stored = len(store)
+        self.step = 0
 
     # -- bootstrap -------------------------------------------------------------------------
     def bootstrap(self) -> None:
@@ -207,20 +211,75 @@ class Trainer:
         out.update(recon=recon.item(), kl=kl.item(), adversarial=adversarial.item())
         return out
 
+    # -- checkpoints -----------------------------------------------------------------------
+    def save(self, directory: Path | str) -> None:
+        """Persist networks, optimisers, step and archive structures.
+
+        Archive *evaluations* are not stored: on load the structures are
+        re-judged by the current oracle and metrics, so a changed load case or
+        metric cannot leave stale scores in the archive.
+        """
+        folder = Path(directory)
+        folder.mkdir(parents=True, exist_ok=True)
+        torch.save(
+            {
+                "encoder": self.encoder.state_dict(), "generator": self.generator.state_dict(),
+                "discriminator": self.discriminator.state_dict(), "surrogate": self.surrogate.state_dict(),
+                "opt_g": self.opt_g.state_dict(), "opt_d": self.opt_d.state_dict(), "opt_s": self.opt_s.state_dict(),
+                "step": self.step,
+            },
+            folder / "networks.pt",
+        )
+        (folder / "archive.json").write_text(
+            json.dumps([e.structure.to_json() for e in self.archive.elites], separators=(",", ":"))
+        )
+
+    def load(self, directory: Path | str) -> bool:
+        """Restore a checkpoint; returns ``False`` (and changes nothing) if none exists."""
+        folder = Path(directory)
+        weights, archive = folder / "networks.pt", folder / "archive.json"
+        if not weights.exists() or not archive.exists():
+            return False
+        state = torch.load(weights, map_location=self.device, weights_only=True)
+        self.encoder.load_state_dict(state["encoder"])
+        self.generator.load_state_dict(state["generator"])
+        self.discriminator.load_state_dict(state["discriminator"])
+        self.surrogate.load_state_dict(state["surrogate"])
+        self.opt_g.load_state_dict(state["opt_g"])
+        self.opt_d.load_state_dict(state["opt_d"])
+        self.opt_s.load_state_dict(state["opt_s"])
+        self.step = int(state["step"])
+        structures = [Structure.from_json(item) for item in json.loads(archive.read_text())]
+        for evaluation in self.evaluator(structures):
+            self.archive.offer(evaluation)
+        if len(self.archive) < 2:
+            raise RuntimeError("Checkpoint archive no longer passes the current oracle; start a fresh run.")
+        log.info("resumed at step %d with %d archive cells", self.step, len(self.archive))
+        return True
+
     # -- loop ------------------------------------------------------------------------------
-    def train(self) -> None:
+    def train(self, checkpoint: Path | str | None = None, resume: bool = False) -> None:
+        """Run ``config.steps`` further steps; with ``checkpoint`` set, save periodically and at the end."""
         start = time.time()
-        self.bootstrap()
-        for step in range(1, self.config.steps + 1):
+        if not (resume and checkpoint is not None and self.load(checkpoint)):
+            self.bootstrap()
+        first = self.step + 1
+        for step in range(first, first + self.config.steps):
+            self.step = step
             self.explore(step)
             losses = self.learn()
-            if step % self.config.log_every == 0 or step == self.config.steps:
+            if step % self.config.log_every == 0 or step == first + self.config.steps - 1:
                 s = self.stats
                 log.info(
-                    "step %d/%d  decoded %d%% passing %d excellent %d  stored(+%d)  archive %d (%.0f%%) best %.3f  "
-                    "recon %.1f D %.2f  [%.0fs]",
-                    step, self.config.steps, 100 * s.decoded // max(s.explored, 1), s.passing, s.excellent,
-                    s.stored, len(self.archive), 100 * self.archive.coverage(), self.archive.best_fitness(),
-                    losses.get("recon", 0.0), losses.get("discriminator", 0.0), time.time() - start,
+                    "step %d (+%d/%d)  decoded %d%% passing %d excellent %d  stored(+%d)  archive %d (%.0f%%) "
+                    "best %.3f  recon %.1f D %.2f  [%.0fs]",
+                    step, step - first + 1, self.config.steps, 100 * s.decoded // max(s.explored, 1), s.passing,
+                    s.excellent, s.stored, len(self.archive), 100 * self.archive.coverage(),
+                    self.archive.best_fitness(), losses.get("recon", 0.0), losses.get("discriminator", 0.0),
+                    time.time() - start,
                 )
+            if checkpoint is not None and step % self.config.checkpoint_every == 0:
+                self.save(checkpoint)
+        if checkpoint is not None:
+            self.save(checkpoint)
         self.evaluator.close()

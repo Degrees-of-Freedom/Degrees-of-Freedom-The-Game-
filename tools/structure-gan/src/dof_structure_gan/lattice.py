@@ -133,5 +133,28 @@ class Structure:
 
         return hashlib.sha256(best.encode()).hexdigest()
 
+    def to_json(self) -> dict:
+        """Plain-JSON form (sorted, so equal structures serialise identically)."""
+        return {
+            "edges": [[list(a), list(b)] for a, b in sorted(self.edges)],
+            "supports": [list(n) for n in sorted(self.supports)],
+            "loads": [list(n) for n in sorted(self.loads)],
+        }
+
+    @classmethod
+    def from_json(cls, data: dict) -> Structure:
+        """Inverse of :meth:`to_json`; validation happens in ``__post_init__``."""
+
+        def node(value: list[int]) -> Node:
+            if len(value) != 3:
+                raise ValueError(f"Bad node {value!r}.")
+            return (int(value[0]), int(value[1]), int(value[2]))
+
+        return cls(
+            frozenset((node(a), node(b)) for a, b in data["edges"]),
+            frozenset(node(n) for n in data["supports"]),
+            frozenset(node(n) for n in data["loads"]),
+        )
+
     def positions_metres(self) -> dict[Node, tuple[float, float, float]]:
         return {n: (n[0] * CELL_METRES, n[1] * CELL_METRES, n[2] * CELL_METRES) for n in self.nodes}

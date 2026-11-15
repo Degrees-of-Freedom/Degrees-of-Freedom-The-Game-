@@ -55,6 +55,8 @@ class LoadCase:
     lateral_fraction: float = 0.03
     max_utilization: float = 0.45
     max_displacement_ratio: float = 1 / 60
+    both_wind_directions: bool = False
+    """Also analyse the reversed notional push and keep the worse of the two."""
 
     def __post_init__(self) -> None:
         if self.vertical_n <= 0 or not 0 <= self.lateral_fraction < 1:
@@ -80,7 +82,7 @@ class PhysicsResult:
         return self.stable and self.within_limits
 
 
-def _applied_forces(structure: Structure, case: LoadCase) -> tuple[dict, float]:
+def _applied_forces(structure: Structure, case: LoadCase, wind: float = 1.0) -> tuple[dict, float]:
     """Factored nodal forces (N) by lattice node, and their total vertical magnitude."""
     from .lattice import CELL_METRES
 
@@ -89,7 +91,7 @@ def _applied_forces(structure: Structure, case: LoadCase) -> tuple[dict, float]:
         length = CELL_METRES * math.dist(a, b)
         for end in (a, b):
             forces[end][2] -= DEAD_FACTOR * SELF_WEIGHT_N_PER_M * length / 2
-    lateral = LIVE_FACTOR * case.vertical_n * case.lateral_fraction / math.sqrt(2)
+    lateral = wind * LIVE_FACTOR * case.vertical_n * case.lateral_fraction / math.sqrt(2)
     for node in structure.loads:
         forces[node][0] += lateral
         forces[node][1] += lateral
@@ -97,11 +99,11 @@ def _applied_forces(structure: Structure, case: LoadCase) -> tuple[dict, float]:
     return forces, -sum(f[2] for f in forces.values())
 
 
-def build_model(structure: Structure, case: LoadCase) -> dict:
+def build_model(structure: Structure, case: LoadCase, wind: float = 1.0) -> dict:
     """Translate a structure to the OpenSees service contract (metres, newtons)."""
     positions = structure.positions_metres()
     ids = {node: f"n{index}" for index, node in enumerate(sorted(positions))}
-    forces, _ = _applied_forces(structure, case)
+    forces, _ = _applied_forces(structure, case, wind)
     return {
         "units": "SI",
         "nodes": [{"id": ids[n], "position": list(p)} for n, p in sorted(positions.items())],
@@ -118,8 +120,24 @@ def build_model(structure: Structure, case: LoadCase) -> dict:
 
 
 def analyse(structure: Structure, case: LoadCase = LoadCase()) -> PhysicsResult:
-    """Solve the structure and screen strength and stiffness."""
-    result = analyze(StructuralModel.model_validate(build_model(structure, case)), SHS)
+    """Solve the structure and screen strength and stiffness (worst of the wind directions)."""
+    results = [_analyse_once(structure, case, 1.0)]
+    if case.both_wind_directions and results[0].stable:
+        results.append(_analyse_once(structure, case, -1.0))
+    failed = next((r for r in results if not r.stable or r.utilization is None), None)
+    if failed is not None:
+        return failed
+    worst_u = max(r.utilization for r in results if r.utilization is not None)
+    worst_ratio = max(r.displacement_ratio for r in results if r.displacement_ratio is not None)
+    worst_d = max(r.max_displacement_m for r in results if r.max_displacement_m is not None)
+    return PhysicsResult(
+        True, results[0].status, None, worst_u, worst_d, worst_ratio, max(r.residual or 0.0 for r in results),
+        within_limits=worst_u <= case.max_utilization and worst_ratio <= case.max_displacement_ratio,
+    )
+
+
+def _analyse_once(structure: Structure, case: LoadCase, wind: float) -> PhysicsResult:
+    result = analyze(StructuralModel.model_validate(build_model(structure, case, wind)), SHS)
     status = str(result.get("status"))
     stability = result.get("stability", {})
     if status != "success" or not stability.get("stable", False):
@@ -136,7 +154,7 @@ def analyse(structure: Structure, case: LoadCase = LoadCase()) -> PhysicsResult:
         + max(abs(f["momentStart"]), abs(f["momentEnd"])) / MOMENT_CAPACITY_NM
         for f in result["memberForces"].values()
     )
-    applied = _applied_forces(structure, case)[1]
+    applied = _applied_forces(structure, case, wind)[1]
     reacted = sum(r[2] for r in result["reactions"].values())
     residual = abs(reacted - applied) / applied
     if residual > 1e-6 or not all(math.isfinite(v) for v in (utilization, displacement)):

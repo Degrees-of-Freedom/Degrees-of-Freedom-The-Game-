@@ -41,9 +41,28 @@ uv run dof-structure-gan train --steps 1200 --workers 3   # appends to apps/web/
 uv run dof-structure-gan top --limit 10
 ```
 
-`train` is resumable only in the sense that the database accumulates: networks restart each run and the
-archive is re-seeded. Duplicate structures (under footprint symmetry and translation) are never stored twice.
-Workers should not exceed the CPU count; the oracle runs one OpenSees instance per process.
+Add `--checkpoint DIR` to save networks, optimisers and the archive every 100 steps and at the end, and
+`--resume` to continue from it (the archive structures are re-judged by the current oracle and metrics, so
+a changed load case cannot leave stale scores). Without a checkpoint the networks restart each run and only
+the database accumulates. `--both-wind-directions` also analyses the reversed lateral push and keeps the worse
+case (about twice the oracle cost). Duplicate structures (under footprint symmetry and translation) are never
+stored twice. Workers should not exceed the CPU count; the oracle runs one OpenSees instance per process.
+Each stored row carries an isometric `preview_svg`.
+
+## Recalibrating the oracle
+
+`max_utilization` is only meaningful against the game's own design check, so re-derive it whenever the
+oracle, section or load case changes:
+
+```bash
+uv run dof-structure-gan calibrate-export --out /tmp/seeds.json --count 600
+(cd ../.. && DOF_CALIBRATION_IN=/tmp/seeds.json DOF_CALIBRATION_OUT=/tmp/game.json \
+  npx vitest run apps/web/src/game/calibration.test.ts)
+uv run dof-structure-gan calibrate-report --export /tmp/seeds.json --game /tmp/game.json
+```
+
+The report gives mechanism agreement, the utilisation correlation and the largest limit at which at least
+98% of structures also satisfy the game's check.
 
 Verify stored structures against the game's own loader and solver from the repository root:
 

@@ -56,3 +56,20 @@ def test_transforms_stay_valid(arc):
         moved = arc.transformed(op)
         assert len(moved.edges) == len(arc.edges)
         assert np.isclose(moved.to_tensor()[:N_EDGE_CHANNELS].sum(), len(arc.edges))
+
+
+def test_json_round_trip_and_validation(arc):
+    from dof_structure_gan.lattice import Structure
+
+    assert Structure.from_json(arc.to_json()) == arc
+    bad = arc.to_json()
+    bad["loads"] = [[1, 2]]
+    with pytest.raises(ValueError):
+        Structure.from_json(bad)
+
+
+def test_every_member_offset_fits_the_games_shs_length_limit():
+    """The game's `shs` card allows members of at most 3 cells (`maxCells`)."""
+    import math
+
+    assert max(math.hypot(*o) for o in OFFSETS) <= 3.0 + 1e-9

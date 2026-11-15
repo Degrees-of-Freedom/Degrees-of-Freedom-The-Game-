@@ -51,3 +51,22 @@ def test_training_smoke_is_deterministic_and_stores_only_excellent(tmp_path):
     first, count = run("a.sqlite")
     second, _ = run("b.sqlite")
     assert first == second and count == len(first)
+
+
+def test_checkpoint_round_trip_resumes_with_the_same_archive(tmp_path):
+    config = TrainConfig(steps=2, batch=4, explore_per_step=4, seed_candidates=60, seed=7, log_every=100)
+    checkpoint = tmp_path / "ckpt"
+    with StructureStore(tmp_path / "a.sqlite") as store:
+        first = Trainer(config, store)
+        first.train(checkpoint)
+        keys = sorted(e.structure.canonical_key() for e in first.archive.elites)
+        assert first.step == 2
+    with StructureStore(tmp_path / "b.sqlite") as store:
+        second = Trainer(config, store)
+        assert not second.load(tmp_path / "missing")
+        assert second.load(checkpoint)
+        assert second.step == 2
+        assert sorted(e.structure.canonical_key() for e in second.archive.elites) == keys
+        assert torch.equal(second.generator.state_dict()["project.weight"], first.generator.state_dict()["project.weight"])
+        second.train(checkpoint, resume=True)
+        assert second.step == 4
