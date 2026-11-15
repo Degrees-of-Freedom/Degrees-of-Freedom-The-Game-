@@ -3,7 +3,7 @@ import type { SolverAdapter } from "@dof/solver-contract";
 import { analyzeCompletedTurn } from "./turnAnalysis";
 import { assessTurnWithSolver } from "./turnSolve";
 import { getSettings } from "../menu/settings";
-import { solverFor } from "../solver/choice";
+import { solverForSettings } from "../solver";
 import { exampleModel } from "./examples";
 import {
   nodeKey,
@@ -315,7 +315,7 @@ export const useGameStore = create<GameState>((set, get) => {
       set({ turnAnalysing: true });
       let assessment;
       try {
-        const solver = s.turnSolver ?? solverFor(getSettings().solver);
+        const solver = s.turnSolver ?? solverForSettings(getSettings());
         assessment = await assessTurnWithSolver(ended, solver, prepared.status);
       } finally {
         set({ turnAnalysing: false });

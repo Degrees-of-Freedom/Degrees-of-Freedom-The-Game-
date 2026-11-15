@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from "react";
-import { DEFAULT_SOLVER_CHOICE, isSolverChoice, type SolverChoice } from "../solver/choice";
 
 /**
  * Menu preferences, kept in `localStorage["dof.settings"]`.
@@ -10,28 +9,63 @@ import { DEFAULT_SOLVER_CHOICE, isSolverChoice, type SolverChoice } from "../sol
  * - `sound` is stored only: the editor sound (`game/useEditorSound`) keeps its
  *   own in-component state and exposes no external mute hook, so nothing reads
  *   this value yet.
- * - `solver` is the structural solver the game uses, for Run simulation and
- *   to decide each completed turn: the Rust solver in the page, or the
- *   OpenSees service (see `solver/choice`). One is used at a time.
+ * - `solver` picks the backend of the workspace's structural check: the Rust
+ *   solver running in the browser, or an OpenSees service at `openSeesUrl`.
+ *   `solver/index.ts` turns the pair into an adapter.
  */
 export interface Settings {
   sound: boolean;
   reducedMotion: boolean;
   showHelpOnStart: boolean;
   solver: SolverChoice;
+  openSeesUrl: string;
 }
 
-/** The settings that are on/off switches. */
-export type ToggleSetting = "sound" | "reducedMotion" | "showHelpOnStart";
+/** Structural solver backends the player can choose between. */
+export type SolverChoice = "rust" | "opensees";
+export const SOLVER_CHOICES: readonly SolverChoice[] = ["rust", "opensees"];
+
+/** Port used by `npm run dev:opensees`. */
+export const LOCAL_OPENSEES_URL = "http://localhost:8000";
 
 export const SETTINGS_KEY = "dof.settings";
 
-export const DEFAULT_SETTINGS: Readonly<Settings> = {
-  sound: false,
-  reducedMotion: false,
-  showHelpOnStart: false,
-  solver: DEFAULT_SOLVER_CHOICE,
-};
+/** An absolute http(s) address without a trailing slash, or null. */
+export function normalizeServiceUrl(value: string): string | null {
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.href.replace(/\/+$/, "");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Defaults, with the solver ones taken from build-time configuration:
+ * `VITE_OPENSEES_URL` sets the service address and makes OpenSees the default,
+ * and `VITE_SOLVER=opensees` makes the local service the default. Without
+ * either, the in-browser Rust solver is the default. A choice the player saves
+ * in Settings overrides these.
+ */
+export function defaultSettings(
+  env: { VITE_OPENSEES_URL?: string; VITE_SOLVER?: string } = {},
+): Settings {
+  const configured = env.VITE_OPENSEES_URL
+    ? normalizeServiceUrl(env.VITE_OPENSEES_URL)
+    : null;
+  return {
+    sound: false,
+    reducedMotion: false,
+    showHelpOnStart: false,
+    solver: configured || env.VITE_SOLVER === "opensees" ? "opensees" : "rust",
+    openSeesUrl: configured ?? LOCAL_OPENSEES_URL,
+  };
+}
+
+export const DEFAULT_SETTINGS: Readonly<Settings> = defaultSettings(
+  import.meta.env ?? {},
+);
 
 export interface SettingsStorage {
   getItem(key: string): string | null;
@@ -48,15 +82,21 @@ export function parseSettings(raw: string | null): Settings {
   }
   const record =
     value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-  const pick = (key: ToggleSetting) =>
+  const pick = (key: "sound" | "reducedMotion" | "showHelpOnStart") =>
     typeof record[key] === "boolean"
       ? (record[key] as boolean)
       : DEFAULT_SETTINGS[key];
+  const solver = SOLVER_CHOICES.find((choice) => choice === record.solver);
+  const openSeesUrl =
+    typeof record.openSeesUrl === "string"
+      ? normalizeServiceUrl(record.openSeesUrl)
+      : null;
   return {
     sound: pick("sound"),
     reducedMotion: pick("reducedMotion"),
     showHelpOnStart: pick("showHelpOnStart"),
-    solver: isSolverChoice(record.solver) ? record.solver : DEFAULT_SETTINGS.solver,
+    solver: solver ?? DEFAULT_SETTINGS.solver,
+    openSeesUrl: openSeesUrl ?? DEFAULT_SETTINGS.openSeesUrl,
   };
 }
 

@@ -5,7 +5,6 @@ import { useGameStore } from "../game/store";
 import { analyzeGame } from "../game/analysis";
 import { analyzeTurn } from "../game/turnAnalysis";
 import { useStabilityCheck } from "../game/useStabilityCheck";
-import { SOLVER_CHOICES, isSolverChoice, solverFor } from "../solver/choice";
 import type { VoxelAnalysis } from "../solver/voxel";
 import { StabilityCheckPanel } from "../components/StabilityCheckPanel";
 import { modeProgress } from "../game/modes";
@@ -30,7 +29,8 @@ import {
 import { EngineeringOptions } from "../components/environment/EngineeringOptions";
 import { SceneBoundary } from "../components/environment/SceneBoundary";
 import { PauseMenu } from "../components/PauseMenu";
-import { getSettings, updateSettings, useSettings } from "../menu/settings";
+import { getSettings, useSettings } from "../menu/settings";
+import { solverForSettings } from "../solver";
 import { StructureLibrary } from "../components/StructureLibrary";
 import { StoredAnalysisPanel } from "../components/StoredAnalysisPanel";
 import { GrowthHelp, growthHint } from "../components/environment/GrowthHelp";
@@ -41,9 +41,12 @@ type Drawer = "analysis" | "model" | "build" | "turn" | "library" | null;
 export function Workspace() {
   const game = useGameStore();
   // The structural solver is a setting: the game uses one solver at a time,
-  // here and to decide each completed shared-table turn.
-  const solverChoice = useSettings().solver;
-  const stability = useStabilityCheck(game.model, LEVELS[game.levelId], solverFor(solverChoice));
+  // for this check and to decide each completed shared-table turn.
+  const stability = useStabilityCheck(
+    game.model,
+    LEVELS[game.levelId],
+    solverForSettings(useSettings()),
+  );
   // Multiplayer uses independent member-end connections, not the node model.
   const contractCompatible = game.mode !== "multiplayer";
   const [analysis, setAnalysis] = useState<{
@@ -190,21 +193,6 @@ export function Workspace() {
   );
   const analysisActions = (
     <>
-      <select
-        className="solver-select"
-        aria-label="Structural solver"
-        title={SOLVER_CHOICES.find((choice) => choice.id === solverChoice)?.description}
-        value={solverChoice}
-        onChange={(event) => {
-          if (isSolverChoice(event.target.value)) updateSettings({ solver: event.target.value });
-        }}
-      >
-        {SOLVER_CHOICES.map((choice) => (
-          <option key={choice.id} value={choice.id}>
-            {choice.label}
-          </option>
-        ))}
-      </select>
       <button className={`btn${result ? " on" : ""}`} onClick={run}>
         Run simulation
       </button>

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { exampleModel } from './examples';
 import type { GameModel, LevelId } from './model';
 import { toStructuralModel } from './structuralModel';
-import { resolveSolver } from '../solver';
+import { solverFor, solverForSettings, wasmSolver } from '../solver';
 import { createOpenSeesSolver } from '../solver/opensees';
 import { unavailableSolver } from '../solver/unavailable';
 
@@ -127,10 +127,13 @@ describe('game model to solver contract', () => {
 });
 
 describe('solver selection', () => {
-  it('uses the in-browser solver unless an OpenSees service is asked for', () => {
-    expect(resolveSolver({ VITE_OPENSEES_URL: 'http://solver.test' }).id).toBe('opensees');
-    expect(resolveSolver({ VITE_SOLVER: 'opensees' }).id).toBe('opensees');
-    expect(resolveSolver({}).id).toBe('dof-wasm');
-    expect(resolveSolver({}, false)).toBe(unavailableSolver);
+  it('uses the in-browser Rust solver or the OpenSees service at the chosen address', () => {
+    expect(solverFor('rust', 'http://solver.test')).toBe(wasmSolver);
+    expect(solverFor('rust', 'http://solver.test', false)).toBe(unavailableSolver);
+    const opensees = solverFor('opensees', 'http://solver.test');
+    expect(opensees.id).toBe('opensees');
+    // The same address gives the same adapter, so a check is not reset on every render.
+    expect(solverForSettings({ solver: 'opensees', openSeesUrl: 'http://solver.test' })).toBe(opensees);
+    expect(solverFor('opensees', 'http://other.test')).not.toBe(opensees);
   });
 });

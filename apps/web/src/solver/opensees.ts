@@ -87,6 +87,39 @@ function isAnalysisResult(value: unknown): value is AnalysisResult {
   }
 }
 
+/** Outcome of asking an OpenSees service whether it is running. */
+export type OpenSeesHealth =
+  | { status: 'ok'; openSeesVersion: string | null }
+  | { status: 'unreachable'; message: string };
+
+/**
+ * Ask the service at `baseUrl` for `GET /health`. Never rejects: a network
+ * failure, a timeout or an unexpected body is reported as unreachable.
+ */
+export async function checkOpenSees(
+  baseUrl: string,
+  fetchImpl: typeof fetch = fetch,
+  timeoutMs = 3000,
+): Promise<OpenSeesHealth> {
+  const endpoint = `${baseUrl.replace(/\/+$/, '')}/health`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchImpl(endpoint, { signal: controller.signal });
+    const body: unknown = await response.json().catch(() => undefined);
+    if (response.ok && isRecord(body) && body.status === 'ok')
+      return { status: 'ok', openSeesVersion: typeof body.opensees === 'string' ? body.opensees : null };
+    return { status: 'unreachable', message: `${endpoint} answered, but not as an OpenSees service (HTTP ${response.status}).` };
+  } catch {
+    return {
+      status: 'unreachable',
+      message: controller.signal.aborted ? `${endpoint} did not answer within ${timeoutMs / 1000} s.` : `Could not reach ${endpoint}.`,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Client for the OpenSees service in `services/opensees`.
  *
