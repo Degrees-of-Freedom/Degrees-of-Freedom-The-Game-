@@ -87,6 +87,8 @@ describe('target salience and depth selection', () => {
     expect(near.opacity).toBeGreaterThan(middle.opacity);
     expect(middle.opacity).toBeGreaterThan(far.opacity);
     expect(far.opacity).toBeGreaterThan(0);
+    expect(targetSalience(40).opacity).toBeLessThan(0.1);
+    expect(targetSalience(40).radius).toBeLessThan(2);
     expect(targetSalience(10000, true)).toEqual({ opacity: 1, radius: 5 });
     expect(targetSalience(NaN)).toEqual(far);
     expect(Math.abs(targetSalience(80).opacity - targetSalience(80.01).opacity)).toBeLessThan(0.001);

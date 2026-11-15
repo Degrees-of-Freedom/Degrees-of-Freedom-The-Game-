@@ -67,10 +67,12 @@ export interface TargetSalience { opacity: number; radius: number }
 export function targetSalience(distancePx: number, selected = false, into?: TargetSalience): TargetSalience {
   const output = into ?? { opacity: 0, radius: 0 };
   if (selected) { output.opacity = 1; output.radius = 5; return output; }
-  const distance = Number.isFinite(distancePx) ? Math.max(0, distancePx) : Infinity;
-  const normalized = Math.min(1, Math.max(0, (distance - 12) / 148));
-  const fade = normalized * normalized * (3 - 2 * normalized);
-  output.opacity = 1 - fade * 0.94; output.radius = 4.5 - fade * 2.75;
+  const distance = Number.isFinite(distancePx) ? Math.min(160, Math.max(0, distancePx)) : 160;
+  // A narrow smooth focus avoids thousands of depth-aligned legal points forming
+  // an opaque cloud on the 15-cell board. Every point keeps its fixed hit region.
+  const focus = 1 / (1 + (Math.max(0, distance - 6) / 18) ** 4);
+  output.opacity = 0.015 + focus * 0.985;
+  output.radius = 0.8 + focus * 3.7;
   return output;
 }
 
