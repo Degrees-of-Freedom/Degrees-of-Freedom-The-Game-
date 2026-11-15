@@ -13,7 +13,7 @@ import { toStructuralModel } from './structuralModel';
  * function that runs any of them and returns a uniform record.
  *
  * It lives in the game layer because it must translate game state
- * (`toStructuralModel`) and call the voxel analysis; the solver layer knows
+ * (`toStructuralModel`) and call the structure evaluator; the solver layer knows
  * only the contract. Components read descriptors and runs and own no solver
  * logic. A further solver is added by appending a descriptor to the list
  * returned by `createSolvers`; the UI iterates that list.
@@ -34,8 +34,8 @@ export interface RunContext {
   level: Level;
   /** False when the game state cannot be expressed in the shared contract. */
   contractCompatible: boolean;
-  /** Runs the in-browser analysis on the current state (the turn board in multiplayer). */
-  analyzeVoxel: () => StructureEvaluation;
+  /** Runs the structure evaluation on the current state (the turn board in multiplayer). */
+  evaluate: () => StructureEvaluation | Promise<StructureEvaluation>;
 }
 
 export type Clock = () => number;
@@ -77,6 +77,8 @@ export function voxelVerdict(result: StructureEvaluation): Pick<SolverOutcome, '
   if (result.mechanism) return { verdict: 'unstable', message: 'The structure is a mechanism.' };
   if (result.floating.length > 0)
     return { verdict: 'unstable', message: `${result.floating.length} nodes are not connected to a foundation.` };
+  if (result.unresolved)
+    return { verdict: 'unresolved', message: result.unresolvedReason ?? 'Some components could not be resolved.' };
   const failed = result.combos.filter((combo) => combo.fail).length;
   if (failed > 0)
     return { verdict: 'unresolved', message: `${failed} of ${result.combos.length} load combinations did not solve.` };
@@ -86,13 +88,13 @@ export function voxelVerdict(result: StructureEvaluation): Pick<SolverOutcome, '
 export function voxelSolver(): SolverDescriptor {
   return {
     id: 'voxel',
-    label: 'Voxel (browser)',
+    label: 'Structure evaluator (browser)',
     needs: 'Runs in this browser tab.',
     remote: false,
     unavailableReason: () => null,
     async execute(context, _signal, now) {
       const start = now();
-      const result = context.analyzeVoxel();
+      const result = await context.evaluate();
       const computeMs = now() - start;
       return { ...voxelVerdict(result), computeMs, native: { kind: 'voxel', result } };
     },

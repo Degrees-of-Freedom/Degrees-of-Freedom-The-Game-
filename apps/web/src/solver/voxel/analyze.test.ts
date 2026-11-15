@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../../game/levels';
 import { type GameModel } from '../../game/model';
 import { analyzeVoxel } from './analyze';
-import { autoDesign } from '../../evaluator/sizing';
 import { exampleModel } from '../../game/examples';
 import type { EvaluatorModel } from '../../evaluator/model';
 
@@ -71,26 +70,6 @@ describe('reference structures and auto-design', () => {
       expect(result.success).toBe(true);
     },
   );
-  it('resizes without mutating the input and honours supply', () => {
-    const input = exampleModel('tower1')!;
-    const before = structuredClone(input);
-    const result = autoDesign(input, LEVELS.tower1, analyzeVoxel);
-    expect(input).toEqual(before);
-    expect(result.changed).toBe(true);
-    expect(result.analysis.error).toBeUndefined();
-    for (const type of ['shs', 'glulam', 'ipe', 'heb'] as const) {
-      expect(
-        result.model.members.filter((member) => member.type === type).length,
-      ).toBeLessThanOrEqual(LEVELS.tower1.inv![type] ?? 0);
-    }
-  });
-  it('leaves an invalid model unchanged', () => {
-    const input: GameModel = { members: [], attrs: {}, nextId: 1 };
-    const result = autoDesign(input, LEVELS.sandbox, analyzeVoxel);
-    expect(result.changed).toBe(false);
-    expect(result.model).toEqual(input);
-    expect(result.analysis.error).toBe('Nothing built yet.');
-  });
 });
 
 describe('prototype equilibrium', () => {

@@ -69,6 +69,13 @@ export type ElementForce = {
   motionSamples?: { fraction: number; motion: readonly number[] }[];
   /** Signed vertical transfer toward the segment end, under joint gravity. */
   verticalTransferKN?: number;
+  /** Section-force envelope over the member's stations from an engine that
+   * reports cut forces (kN, kN m): it already includes member loads and
+   * second-order effects, so design demand uses it without corrections.
+   * `Nt` is the largest tension and `Nc` the largest compression, both >= 0. */
+  envelope?: { Nt: number; Nc: number; Vy: number; Vz: number; My: number; Mz: number };
+  /** Largest deflection of a beam from the chord through its deformed ends, m. */
+  sag?: number;
 };
 export type LoadCombo = {
   name: string;
@@ -145,5 +152,19 @@ export interface StructureEvaluation {
   stars?: number;
   maxU?: number;
   alphaMin?: number;
+  /** Load factor below 1 at which a design combination buckles: a
+   * load-induced instability with no verified response at full load. */
+  bucklingFactor?: number;
+  /** Why `unresolved` is set, when the engine can say more than "unresolved". */
+  unresolvedReason?: string;
+  /** Forces come from a geometrically nonlinear analysis (P-Δ included). */
+  secondOrder?: boolean;
   time?: number;
+}
+
+/** Which engine produced an evaluation, in words for the results panel. */
+export function evaluationSource(result: StructureEvaluation | null | undefined): string {
+  if (result?.secondOrder) return 'Structure evaluator · Rust solver';
+  if (result?.reference?.fidelity === 'nonlinear') return 'Rust solver (scored release)';
+  return 'Approximate voxel solver';
 }

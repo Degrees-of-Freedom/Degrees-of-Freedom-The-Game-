@@ -1,5 +1,5 @@
 import type { EvaluatorLevel, EvaluatorModel } from './model';
-import type { Context, LoadCombo } from './results';
+import type { Context, Element, LoadCombo } from './results';
 import { dot } from './vector';
 import { S } from './sections';
 import { parse } from './coordinates';
@@ -107,4 +107,109 @@ export function buildLoads(
       F[a * 6 + 1] += (d[1] * fz) / 200;
     }
   return { F, vis };
+}
+
+/**
+ * One design combination in the form the Rust solver takes: unlumped. The
+ * physical actions are those of `buildLoads`, but self-weight and wind on
+ * members stay distributed along the member, so the engine's cut forces
+ * include them and no midspan correction is needed afterwards.
+ *
+ * - Self-weight: the card weight per metre times the permanent factor, as a
+ *   gravity multiplier (zero when the level excludes it).
+ * - Variable loads (tower payload, bridge traffic, placed loads): nodal,
+ *   times the variable factor.
+ * - Wind: a uniform load per metre on each member, from the pressure at its
+ *   mid-height, its exposed width and its projection normal to the wind;
+ *   a tower also takes a nodal wind on its top nodes.
+ * - Notional sway (ultimate combinations): 1/200 of the vertical load,
+ *   horizontally along the wind. Applied per metre for self-weight and per
+ *   node for the vertical part of the variable loads. The voxel kernel took
+ *   1/200 of the summed nodal vertical load instead; the two agree when no
+ *   variable load points upwards.
+ *
+ * Forces are kN and kN/m. `F` and `vis` are the nodal-equivalent loads for
+ * display and load-path bookkeeping only; member loads are lumped half to
+ * each end there.
+ */
+export interface DesignLoadCase {
+  combo: LoadCombo;
+  selfWeightFactor: number;
+  nodal: Map<number, [number, number, number]>;
+  members: Map<Element, [number, number, number]>;
+  F: Float64Array;
+  vis: { a: number; v: number[]; kind: string }[];
+}
+
+export function designLoadCase(
+  model: EvaluatorModel,
+  LV: EvaluatorLevel,
+  ctx: Context,
+  combo: LoadCombo,
+): DesignLoadCase {
+  const g = GAMMA[combo.type],
+    d = combo.dir;
+  const selfWeightFactor = LV.loadCase !== 'applied' || LV.appliedSelfWeight !== false ? g.G : 0;
+  const nodal = new Map<number, [number, number, number]>();
+  const members = new Map<Element, [number, number, number]>();
+  const F = new Float64Array(ctx.NA * 6);
+  const vis: DesignLoadCase['vis'] = [];
+  const addNodal = (a: number, v: number[]) => {
+    const at = nodal.get(a) ?? [0, 0, 0];
+    for (let c = 0; c < 3; c++) {
+      at[c] += v[c];
+      F[a * 6 + c] += v[c];
+    }
+    nodal.set(a, at);
+  };
+  const addMember = (e: Element, perMetre: number[]) => {
+    const at = members.get(e) ?? [0, 0, 0];
+    for (let c = 0; c < 3; c++) {
+      at[c] += perMetre[c];
+      F[e.a * 6 + c] += (perMetre[c] * e.L) / 2;
+      F[e.b * 6 + c] += (perMetre[c] * e.L) / 2;
+    }
+    members.set(e, at);
+  };
+  for (const e of ctx.els) {
+    const w = e.it.w * selfWeightFactor;
+    if (!w) continue;
+    // Self-weight goes to the engine as gravity; F only records it.
+    F[e.a * 6 + 2] -= (w * e.L) / 2;
+    F[e.b * 6 + 2] -= (w * e.L) / 2;
+    if (g.notional) addMember(e, [(d[0] * w) / 200, (d[1] * w) / 200, 0]);
+  }
+  const variable = variableLoads(model, LV, ctx);
+  for (const { a, f, direction } of variable) {
+    const vector = direction.map((component) => component * f * g.Q);
+    addNodal(a, vector);
+    vis.push({ a, v: vector, kind: 'Q' });
+    if (g.notional && vector[2]) {
+      const sway = Math.abs(vector[2]) / 200;
+      addNodal(a, [d[0] * sway, d[1] * sway, 0]);
+    }
+  }
+  const windAt = new Float64Array(ctx.NA);
+  // The applied-load case has no wind direction.
+  const windy = d.some((c) => c !== 0);
+  for (const e of windy ? ctx.els : []) {
+    const zm = (ctx.pos[ctx.act[e.a]][2] + ctx.pos[ctx.act[e.b]][2]) / 2;
+    const proj = Math.sqrt(Math.max(0, 1 - dot(e.ex, d) ** 2));
+    const perMetre = windQ(LV, zm) * 1.6 * Math.max(...e.it.dim) * proj * g.W;
+    if (!perMetre) continue;
+    addMember(e, d.map((c) => c * perMetre));
+    windAt[e.a] += (perMetre * e.L) / 2;
+    windAt[e.b] += (perMetre * e.L) / 2;
+  }
+  if (windy && LV.type === 'tower') {
+    variable.forEach(({ a }) => {
+      const W = (windQ(LV, ctx.pos[ctx.act[a]][2]) * 6 * g.W) / variable.length;
+      if (!W) return;
+      addNodal(a, d.map((c) => c * W));
+      windAt[a] += W;
+    });
+  }
+  for (let a = 0; a < ctx.NA; a++)
+    if (windAt[a]) vis.push({ a, v: d.map((c) => c * windAt[a]), kind: 'W' });
+  return { combo, selfWeightFactor, nodal, members, F, vis };
 }

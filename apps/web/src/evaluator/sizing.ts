@@ -3,18 +3,26 @@ import type { StructureEvaluation } from './results';
 import { ITEMS, type BeamType } from './sections';
 import { checkMember, govern } from './designChecks';
 /** Analyse a model under a level: the engine the sizing loop calls. */
-export type Evaluate = (model: EvaluatorModel, level: EvaluatorLevel) => StructureEvaluation;
+export type Evaluate = (model: EvaluatorModel, level: EvaluatorLevel) => Promise<StructureEvaluation>;
+
+/** Utilisation a resized member must stay within under its current demand. */
+const TARGET = 0.95;
+/** Re-evaluations allowed after the first sizing round. */
+const ROUNDS = 6;
 
 /** Resize beam sections from available supply and reanalyse with `evaluate`,
- * without mutating the input. Up to four rounds; each round visits members
- * from the most to the least utilised and picks the cheapest available
- * section whose design checks, under the member's current demand, stay at
- * or below 95 %, else the least utilised one. */
-export function autoDesign(
+ * without mutating the input. Each round visits members from the most to the
+ * least utilised and picks the cheapest available section whose design
+ * checks, under the member's current demand, stay within `TARGET`, else the
+ * least utilised one. Demand depends on stiffness (a second-order engine
+ * redistributes forces when sections change), so after the first round only
+ * members above `TARGET` are resized; the others keep their section while
+ * supply lasts. This makes the loop settle instead of oscillating. */
+export async function autoDesign(
   input: EvaluatorModel,
   LV: EvaluatorLevel,
   evaluate: Evaluate,
-): { model: EvaluatorModel; analysis: StructureEvaluation; changed: boolean } {
+): Promise<{ model: EvaluatorModel; analysis: StructureEvaluation; changed: boolean }> {
   // Work on a copy so callers can commit the complete operation as one undo step.
   const model = {
     ...input,
@@ -23,13 +31,13 @@ export function autoDesign(
       Object.entries(input.attrs).map(([k, a]) => [k, { ...a }]),
     ),
   };
-  let analysis = evaluate(model, LV),
+  let analysis = await evaluate(model, LV),
     changedAny = false;
   if (!analysis.error && !analysis.mechanism && !analysis.unresolved) {
     const order: BeamType[] = (
       ['shs', 'glulam', 'ipe', 'heb'] as BeamType[]
     ).sort((a, b) => ITEMS[a].cost - ITEMS[b].cost);
-    for (let round = 0; round < 4; round++) {
+    for (let round = 0; round < ROUNDS; round++) {
       if (analysis.error || analysis.mechanism || analysis.unresolved) break;
       const pool = Object.fromEntries(
         order.map((t) => [t, LV.inv ? LV.inv[t] || 0 : Infinity]),
@@ -45,6 +53,10 @@ export function autoDesign(
       let changed = false;
       for (const m of analysed) {
         const r = analysis.members[m.id];
+        if (round > 0 && r.util <= TARGET && pool[m.type] > 0) {
+          pool[m.type]--;
+          continue;
+        }
         let best: BeamType | null = null,
           bestU = Infinity,
           fallback: BeamType | null = null;
@@ -53,7 +65,7 @@ export function autoDesign(
           const u = govern(
             checkMember(ITEMS[t], r.demand, r.e.L, r.e.rigidA, r.e.rigidB),
           ).util;
-          if (u <= 0.95) {
+          if (u <= TARGET) {
             best = t;
             break;
           }
@@ -71,7 +83,7 @@ export function autoDesign(
       }
       if (!changed) break;
       changedAny = true;
-      analysis = evaluate(model, LV);
+      analysis = await evaluate(model, LV);
     }
   }
   return { model, analysis, changed: changedAny };

@@ -1,5 +1,5 @@
 import type { AnalysisComponent, AnalysisModel, AnalysisSection, ConnectionLaws, DetailedAnalysisResult, MemberConnection, Vector3 } from '@dof/solver-contract';
-import { sectionFor } from '../../game/analysisModel';
+import { sectionFor } from './siSections';
 import type { FrameConnection } from '../connections';
 import { localAxes, vecToLocal } from '../vector';
 import { prepareGeometry } from '../geometry';

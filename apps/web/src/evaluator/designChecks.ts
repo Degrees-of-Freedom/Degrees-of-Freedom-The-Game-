@@ -11,18 +11,32 @@ import type {
 import type { Section } from './sections';
 import { CARD_STRENGTH } from './capacity';
 const FOUND_CAP = { Nc: 1500, Nt: 250, H: 350, M: 300 }; // kN, kNm
+/** Ultimate demand on one member under one combination. With an engine
+ * envelope the cut forces are used as they are. Otherwise (the legacy linear
+ * kernel, which lumps self-weight at the member ends) the end forces are
+ * corrected for the member's own weight and amplified by `amp` for P-Δ. */
 function memberDemandULS(e: Element, r: ElementForce, amp: number) {
+  const endF = [Math.hypot(r.f[0], r.f[1], r.f[2]), Math.hypot(r.f[6], r.f[7], r.f[8])],
+    endM = [Math.hypot(r.f[4], r.f[5]), Math.hypot(r.f[10], r.f[11])];
+  if (r.envelope) {
+    const { Nt, Nc, Vy, Vz, My, Mz } = r.envelope;
+    const tension = r.cableTension;
+    return e.it.kind === 'beam'
+      ? { Nt, Nc, Vy, Vz, My, Mz, endF, endM }
+      : { Nt: tension ?? Nt, Nc: tension === undefined ? Nc : 0, Vy: 0, Vz: 0, My: 0, Mz: 0, endF, endM };
+  }
   const { f, ul } = r,
     L = e.L,
     N = r.cableTension ?? f[6];
   const out = {
-    N,
+    Nt: Math.max(N, 0),
+    Nc: Math.max(-N, 0),
     Vy: 0,
     Vz: 0,
     My: 0,
     Mz: 0,
-    endF: [Math.hypot(f[0], f[1], f[2]), Math.hypot(f[6], f[7], f[8])],
-    endM: [Math.hypot(f[4], f[5]), Math.hypot(f[10], f[11])],
+    endF,
+    endM,
   };
   if (e.it.kind !== 'beam') return out;
   const gl = [0, 0, -e.it.w * GAMMA.ULS.G],
@@ -52,8 +66,16 @@ function memberDemandULS(e: Element, r: ElementForce, amp: number) {
     );
   return out;
 }
+/** Serviceability deflection of a beam as deflection × EI about each axis,
+ * so that auto-design can rescale it for another section. An engine's chord
+ * sag is used for both axes; the legacy kernel estimates each axis from end
+ * rotations and the member's own weight. */
 function memberDeflSLS(e: Element, r: ElementForce) {
   if (e.it.kind !== 'beam') return { dEIy: 0, dEIz: 0 };
+  if (r.sag !== undefined) {
+    const EIz = e.it.E * e.it.Iz, EIy = e.it.E * e.it.Iy;
+    return { dEIy: r.sag * EIz, dEIz: r.sag * EIy, dy: r.sag, dz: r.sag };
+  }
   const ul = r.ul,
     L = e.L,
     gl = [0, 0, -e.it.w],
@@ -163,8 +185,8 @@ export function checkDesign(
       if (c.combo.type === 'ULS') {
         if (r.slack) slack = true;
         const x = memberDemandULS(e, r, amp);
-        d.Nt = Math.max(d.Nt, x.N);
-        d.Nc = Math.max(d.Nc, -x.N);
+        d.Nt = Math.max(d.Nt, x.Nt);
+        d.Nc = Math.max(d.Nc, x.Nc);
         for (const k of ['Vy', 'Vz', 'My', 'Mz'] as const)
           d[k] = Math.max(d[k], x[k]);
         for (const s of [0, 1]) {

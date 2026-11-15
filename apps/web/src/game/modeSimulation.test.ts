@@ -20,12 +20,12 @@ afterAll(() => vi.unstubAllGlobals());
 describe("simulation across game modes", () => {
   it.each(["creative", "challenge", "forensics", "load-space", "multiplayer"] as const)(
     "runs the %s mode through numerical analysis",
-    (mode: GameMode) => {
+    async (mode: GameMode) => {
       const { levelId, model } = modeSetup(mode);
       // The challenge and pickup start without a load-bearing structure.
       const structure = mode === "challenge" || mode === "load-space" ? exampleModel(levelId) : model;
       if (!structure) throw new Error("Expected a solvable reference fixture");
-      const result = mode === "multiplayer" ? analyzeTurn(createTurnGame()) : analyzeGame(structure, LEVELS[levelId]);
+      const result = mode === "multiplayer" ? analyzeTurn(createTurnGame()) : await analyzeGame(structure, LEVELS[levelId]);
       expect(result.error).toBeUndefined();
       expect(result.combos.length).toBeGreaterThan(0);
       expect(result.combos.some((combo) => combo.u && combo.reac)).toBe(true);
@@ -33,10 +33,10 @@ describe("simulation across game modes", () => {
     },
   );
 
-  it.each(["tower", "portal"] as const)("balances Grow Dusk %s lateral and gravity loads", (kind) => {
+  it.each(["tower", "portal"] as const)("balances Grow Dusk %s lateral and gravity loads", async (kind) => {
     const model = environmentExample(kind);
     if (kind === "portal") {
-      const pinned = analyzeGame(model, LEVELS.environment);
+      const pinned = await analyzeGame(model, LEVELS.environment);
       expect(pinned.error).toBeUndefined();
       expect(pinned.mechanism).toBe(true);
       expect(pinned.combos[0].fail).toBe(true);
@@ -44,7 +44,7 @@ describe("simulation across game modes", () => {
       // Lock one base to exercise load balance on the repaired portal.
       model.attrs["3,4,0"].restraint = [true, true, true, true, true, true];
     }
-    const result = analyzeGame(model, LEVELS.environment);
+    const result = await analyzeGame(model, LEVELS.environment);
     expect(result.error).toBeUndefined();
     expect(result.mechanism).toBe(false);
     expect(result.floating).toEqual([]);

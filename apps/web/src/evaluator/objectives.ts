@@ -1,5 +1,5 @@
 import type { EvaluatorLevel, EvaluatorModel } from './model';
-import type { Context, StructureEvaluation } from './results';
+import { displacementAt, type Context, type StructureEvaluation } from './results';
 import { ITEMS, S } from './sections';
 import { key, parse } from './coordinates';
 function deckContinuous(model: EvaluatorModel, LV: EvaluatorLevel) {
@@ -89,7 +89,7 @@ export function evaluateObjectives(
     'Stable — no mechanism',
     out.mechanism
       ? 'Structure moves freely: add bracing (triangles) or moment connections'
-      : out.unresolved ? 'The solver could not resolve every supported component.' : '',
+      : out.unresolved ? out.unresolvedReason ?? 'The solver could not resolve every supported component.' : '',
   );
   if (!out.mechanism && !out.unresolved && out.designChecksAvailable) {
     const aTxt =
@@ -99,7 +99,7 @@ export function evaluateObjectives(
     add(
       aMin >= 1,
       'Global buckling safe (α<sub>cr</sub> ≥ 1)',
-      aTxt + (amp > 1 ? ` · moments amplified ×${amp.toFixed(2)} (P-Δ)` : ''),
+      aTxt + (amp > 1 ? ` · moments amplified ×${amp.toFixed(2)} (P-Δ)` : out.secondOrder ? ' · second-order analysis' : ''),
       aMin >= 1 && aMin < 10,
     );
     add(
@@ -133,8 +133,10 @@ export function evaluateObjectives(
       for (let a = 0; a < NA; a++) if (pos[act[a]][2] === topZ) tops.push(a);
       for (const c of out.combos) {
         if (c.fail || c.combo.type !== 'SLS') continue;
-        for (const a of tops)
-          drift = Math.max(drift, Math.hypot(c.u![a * 6], c.u![a * 6 + 1]));
+        for (const a of tops) {
+          const u = displacementAt(c, a);
+          if (u) drift = Math.max(drift, Math.hypot(u[0], u[1]));
+        }
       }
       const lim = Math.max(topZ, 1) / 200;
       add(
@@ -159,7 +161,8 @@ export function evaluateObjectives(
         if (k !== LV.cliffH! || i <= LV.cliffL! || i >= LV.cliffR!) continue;
         for (const c of out.combos) {
           if (c.fail || c.combo.type !== 'SLS') continue;
-          dz = Math.max(dz, Math.abs(c.u![a * 6 + 2]));
+          const u = displacementAt(c, a);
+          if (u) dz = Math.max(dz, Math.abs(u[2]));
         }
       }
       const lim = ((LV.cliffR! - LV.cliffL!) * S) / 400;
@@ -181,7 +184,9 @@ export function evaluateObjectives(
         lim = (Math.max(1, kk - (LV.groundHeights?.[k] ?? 0)) * S) / 250;
       for (const c of out.combos) {
         if (c.fail || c.combo.type !== 'SLS') continue;
-        const d = Math.hypot(c.u![a * 6], c.u![a * 6 + 1], c.u![a * 6 + 2]);
+        const u = displacementAt(c, a);
+        if (!u) continue;
+        const d = Math.hypot(u[0], u[1], u[2]);
         if (d / lim > worst) {
           worst = d / lim;
           txt = `${(d * 1000).toFixed(0)} mm at the ${model.attrs[k].load} kN weight (limit ${(lim * 1000).toFixed(0)} mm)`;

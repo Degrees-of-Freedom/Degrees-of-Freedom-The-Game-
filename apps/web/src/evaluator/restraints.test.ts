@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeGame } from '../../game/analysis';
-import { LEVELS } from '../../game/levels';
-import type { GameModel, LoadDirection } from '../../game/model';
-import { ITEMS } from '../../evaluator/sections';
+import { analyzeGame } from '../game/analysis';
+import { LEVELS } from '../game/levels';
+import type { GameModel, LoadDirection } from '../game/model';
+import { ITEMS } from './sections';
 
 const level = { ...LEVELS.environment, q0: 0 };
 function cantilever(direction: LoadDirection): GameModel {
@@ -10,15 +10,21 @@ function cantilever(direction: LoadDirection): GameModel {
     attrs: { '1,1,0': { found: true, joint: true }, '1,1,2': { joint: true, load: 10, loadDirection: direction } } };
 }
 
-describe('experimental support and load assembly', () => {
-  it.each([['+X', 0, 1], ['-Y', 1, -1]] as const)('solves a cantilever with %s tip load and balances its reaction', (direction, axis, sign) => {
-    const result = analyzeGame(cantilever(direction), level);
+describe('structure evaluator supports and load assembly (Rust engine)', () => {
+  it.each([['+X', 0, 1], ['-Y', 1, -1]] as const)('solves a cantilever with %s tip load and balances its reaction', async (direction, axis, sign) => {
+    const result = await analyzeGame(cantilever(direction), level);
     expect(result.error).toBeUndefined();
     expect(result.mechanism).toBe(false);
     const combo = result.combos[0], ctx = result.ctx!;
     const tip = ctx.aid[ctx.idx.get('1,1,2')!], base = ctx.aid[ctx.idx.get('1,1,0')!];
-    const theoretical = 10 * 4 ** 3 / (3 * ITEMS.shs.E * ITEMS.shs.Iy);
-    expect(combo.u![tip * 6 + axis]).toBeCloseTo(sign * theoretical, 5);
+    // Linear bending plus shear deformation (the Rust beam includes the card's
+    // shear area). The analysis is geometrically nonlinear: a cantilever under
+    // a large tip load deflects slightly less than linear theory, by a fraction
+    // of order (δ/L)², here about 0.6 %.
+    const theoretical = 10 * 4 ** 3 / (3 * ITEMS.shs.E * ITEMS.shs.Iy) + 10 * 4 / (ITEMS.shs.G * ITEMS.shs.Avy);
+    const ratio = combo.u![tip * 6 + axis] / (sign * theoretical);
+    expect(ratio).toBeLessThan(1);
+    expect(ratio).toBeGreaterThan(1 - (theoretical / 4) ** 2);
     expect(combo.reac![base][axis]).toBeCloseTo(-sign * 10, 6);
     expect(result.designChecksAvailable).toBe(false);
     expect(result.maxU).toBeUndefined();
@@ -26,31 +32,31 @@ describe('experimental support and load assembly', () => {
     expect(result.objectives.some((o) => /buckling|capacity|design checks|Connections OK|Foundations OK/i.test(o.label))).toBe(false);
     expect(result.success).toBe(false);
   });
-  it('applies a pinned support mask and reports reactions only on locked axes', () => {
+  it('applies a pinned support mask and reports reactions only on locked axes', async () => {
     const model = cantilever('-Z');
     model.attrs['1,1,2'].found = true;
     model.attrs['1,1,2'].restraint = [true, true, true, false, false, false];
-    const result = analyzeGame(model, level);
+    const result = await analyzeGame(model, level);
     expect(result.mechanism).toBe(false);
     const ctx = result.ctx!, tip = ctx.aid[ctx.idx.get('1,1,2')!], combo = result.combos[0];
     expect(combo.reac![tip][2]).toBeGreaterThan(0);
     expect([...combo.reac![tip].slice(3)]).toEqual([0, 0, 0]);
   });
-  it('uses only the roller vertical restraint and preserves horizontal movement', () => {
+  it('uses only the roller vertical restraint and preserves horizontal movement', async () => {
     const model = cantilever('+X');
     model.attrs['1,1,2'].found = true;
     model.attrs['1,1,2'].restraint = [false, false, true, false, false, false];
-    const result = analyzeGame(model, level), ctx = result.ctx!;
+    const result = await analyzeGame(model, level), ctx = result.ctx!;
     const tip = ctx.aid[ctx.idx.get('1,1,2')!], combo = result.combos[0];
     expect(result.mechanism).toBe(false);
     expect(combo.u![tip * 6]).toBeGreaterThan(0);
     expect(combo.u![tip * 6 + 2]).toBe(0);
     expect(combo.reac![tip][0]).toBe(0);
   });
-  it('reports a free ungrounded structure instead of a fabricated stable result', () => {
+  it('reports a free ungrounded structure instead of a fabricated stable result', async () => {
     const model = cantilever('+X');
     delete model.attrs['1,1,0'].found;
-    const result = analyzeGame(model, level);
+    const result = await analyzeGame(model, level);
     expect(result.error).toMatch(/No foundation/);
   });
 });
